@@ -318,8 +318,11 @@ async function renderProjects() {
         const target = profile.targetNetWorth || 100000;
         pp = pct(nw, target);
         const catCount = Object.keys(wealth.targets || {}).length;
+        pts   = tasksInProjectTree(proj.id, allProjects, tasks);
+        pdone = pts.filter(t => t.status === 'Completed').length;
         tagsHTML = `<span class="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-semibold">${catCount} categories</span>
-          <span class="bg-amber-50 text-amber-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${fmt(nw, cur)} saved</span>`;
+          <span class="bg-amber-50 text-amber-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${fmt(nw, cur)} saved</span>
+          ${pts.length ? `<span class="bg-green-50 text-green-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pdone}/${pts.length} tasks</span>` : ''}`;
         costLine = `<span>Target ${fmt(target, cur)}</span>`;
       } else {
         pts   = tasksInProjectTree(proj.id, allProjects, tasks);
@@ -359,7 +362,7 @@ async function renderProjects() {
           </div>
           <button onclick="showPage('project-detail','${proj.id}')"
             class="w-full py-2 rounded-lg text-white text-xs font-semibold transition-all hover:opacity-90"
-            style="background:${proj.color}">${isWealth ? 'Open Wealth Tracker →' : 'Open Project →'}</button>
+            style="background:${proj.color}">Open Project →</button>
         </div>`;
     }).join('');
 
@@ -375,15 +378,18 @@ async function renderProjectDetail(projectId) {
       API.getTasks(),
     ]);
 
-    // Wealth-type projects are tracked via the dedicated Wealth Tracker page
-    // (its own £ inputs, monthly log, chart) rather than a task table.
-    if (proj.type === 'wealth') { showPage('wealth'); return; }
-
     document.getElementById('detail-icon').textContent      = proj.icon;
     document.getElementById('detail-title').textContent     = proj.title;
     document.getElementById('detail-desc').textContent      = proj.description || '';
     document.getElementById('detail-color').style.background = proj.color;
     document.getElementById('topbar-title').textContent     = proj.title;
+
+    // Wealth-type projects get real tasks too, just like Career projects —
+    // the banner just points to the dedicated Wealth Tracker for the £
+    // categories/monthly log/chart that don't fit the task model.
+    const wealthBanner = document.getElementById('detail-wealth-banner');
+    wealthBanner.classList.toggle('hidden', proj.type !== 'wealth');
+    wealthBanner.classList.toggle('flex', proj.type === 'wealth');
 
     // Sub-folders can't themselves have sub-folders (one level of nesting only)
     document.getElementById('btn-new-subfolder').classList.toggle('hidden', !!proj.parentId);
