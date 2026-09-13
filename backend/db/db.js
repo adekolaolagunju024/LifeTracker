@@ -194,36 +194,6 @@ function deleteMonthlyLogEntry(userId, id) {
   db.prepare('DELETE FROM wealth_log WHERE id = ? AND userId = ?').run(id, userId);
 }
 
-// ── ACTIONS ──────────────────────────────────────────────────────
-function listActions(userId) {
-  return db.prepare('SELECT * FROM actions WHERE userId = ? ORDER BY createdAt ASC').all(userId).map(a => ({ ...a, done: !!a.done }));
-}
-
-function getActionById(userId, id) {
-  const row = db.prepare('SELECT * FROM actions WHERE id = ? AND userId = ?').get(id, userId);
-  return row ? { ...row, done: !!row.done } : null;
-}
-
-function createAction(userId, action) {
-  db.prepare(`
-    INSERT INTO actions (id, userId, text, area, by, priority, done, createdAt) VALUES (?,?,?,?,?,?,?,?)
-  `).run(action.id, userId, action.text, action.area || '', action.by || '', action.priority || 'Medium', action.done ? 1 : 0, action.createdAt);
-  return getActionById(userId, action.id);
-}
-
-function updateActionById(userId, id, patch) {
-  const current = getActionById(userId, id);
-  if (!current) return null;
-  const next = { ...current, ...patch };
-  db.prepare(`UPDATE actions SET text=?, area=?, by=?, priority=?, done=? WHERE id = ? AND userId = ?`)
-    .run(next.text, next.area, next.by, next.priority, next.done ? 1 : 0, id, userId);
-  return getActionById(userId, id);
-}
-
-function deleteActionById(userId, id) {
-  db.prepare('DELETE FROM actions WHERE id = ? AND userId = ?').run(id, userId);
-}
-
 // ── INTEGRATIONS (Google Drive) ─────────────────────────────────
 function getGoogleDrive(userId) {
   const row = db.prepare('SELECT * FROM integrations WHERE userId = ?').get(userId);
@@ -253,7 +223,6 @@ function getFullSnapshot(userId) {
     projects: listProjects(userId),
     tasks: listTasks(userId),
     wealth: getWealth(userId),
-    actions: listActions(userId),
   };
 }
 
@@ -263,7 +232,6 @@ module.exports = {
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById,
   getWealth, updateWealthEntries, addWealthTarget, updateWealthTarget, deleteWealthTarget, addMonthlyLogEntry, deleteMonthlyLogEntry,
-  listActions, getActionById, createAction, updateActionById, deleteActionById,
   getGoogleDrive, setGoogleDrive,
   getFullSnapshot,
 };

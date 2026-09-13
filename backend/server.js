@@ -46,7 +46,6 @@ app.use('/api/profile',  require('./routes/profile'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/tasks',    require('./routes/tasks'));
 app.use('/api/wealth',   require('./routes/wealth'));
-app.use('/api/actions',  require('./routes/actions'));
 app.use('/api/drive',    require('./routes/drive'));
 
 // ── CATCH ALL — serve frontend ──

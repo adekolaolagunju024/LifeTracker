@@ -68,11 +68,6 @@ const API = {
   deleteMonthlyEntry: (id)     => request('DELETE', `/wealth/log/${id}`),
 
   // ── ACTIONS ──
-  getActions:   ()       => request('GET',    '/actions'),
-  addAction:    (data)   => request('POST',   '/actions', data),
-  updateAction: (id, d)  => request('PUT',    `/actions/${id}`, d),
-  toggleAction: (id, cur)=> request('PUT',    `/actions/${id}`, { done: !cur }),
-  deleteAction: (id)     => request('DELETE', `/actions/${id}`),
 
   // ── GOOGLE DRIVE ──
   getDriveStatus:     ()  => request('GET',  '/drive/status'),

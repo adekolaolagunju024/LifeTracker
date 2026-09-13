@@ -29,8 +29,10 @@ const money = (n, cur = '£') => cur + Math.round(n || 0).toLocaleString();
 const pct = (a, b) => b > 0 ? Math.min(Math.round((a / b) * 100), 100) : 0;
 
 function reportHtml(snapshot) {
-  const { profile, projects, tasks, wealth, actions } = snapshot;
+  const { profile, projects, tasks, wealth } = snapshot;
   const done  = tasks.filter(t => t.status === 'Completed').length;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const overdueCount = tasks.filter(t => t.status !== 'Completed' && t.endDate && new Date(t.endDate) < today).length;
   const nw    = Object.values(wealth.entries || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
   const cur   = profile.currency || '£';
   const nwPct = pct(nw, profile.targetNetWorth);
@@ -114,7 +116,7 @@ function reportHtml(snapshot) {
     ${logRows}
   </table>
 
-  <p class="footer">${actions.length} action item${actions.length === 1 ? '' : 's'} tracked · LifeTracker</p>
+  <p class="footer">${overdueCount} task${overdueCount === 1 ? '' : 's'} overdue · LifeTracker</p>
 </body></html>`;
 }
 

@@ -1198,48 +1198,83 @@ function renderNWChart(log, cur = '£') {
   });
 }
 
-// ── ACTIONS ─────────────────────────────────────────────────────
+// ── ACTIONS — a live feed, not a maintained list ──────────────────
+// Nothing here is stored separately: it's computed fresh from real tasks
+// across every project (Career and Wealth alike) every time the page opens,
+// so there's nothing to keep in sync by hand.
+const PRI_BADGE = {
+  High:   'bg-orange-100 text-orange-700',
+  Medium: 'bg-yellow-100 text-yellow-700',
+  Low:    'bg-green-100 text-green-700',
+};
+
 async function renderActions() {
   try {
-    const actions = await API.getActions();
-    const done    = actions.filter(a => a.done).length;
+    const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
+    const projectById = Object.fromEntries(projects.map(p => [p.id, p]));
 
-    document.getElementById('act-total').textContent = actions.length;
-    document.getElementById('act-done').textContent  = done;
-    document.getElementById('act-rem').textContent   = actions.length - done;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const weekAhead = new Date(today); weekAhead.setDate(weekAhead.getDate() + 7);
 
-    const PRI = {
-      'Do Now': 'bg-red-100 text-red-700',
-      'High':   'bg-orange-100 text-orange-700',
-      'Medium': 'bg-yellow-100 text-yellow-700',
-      'Low':    'bg-green-100 text-green-700',
+    const overdue = [], dueThisWeek = [], highPriority = [];
+    tasks.forEach(t => {
+      if (t.status === 'Completed') return;
+      const due = t.endDate ? new Date(t.endDate) : null;
+      if (due && due < today)      { overdue.push(t);      return; }
+      if (due && due <= weekAhead) { dueThisWeek.push(t);  return; }
+      if (t.status === 'In Progress' && t.priority === 'High') { highPriority.push(t); return; }
+    });
+    overdue.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
+    dueThisWeek.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
+    highPriority.sort((a, b) => a.title.localeCompare(b.title));
+
+    document.getElementById('act-overdue').textContent = overdue.length;
+    document.getElementById('act-week').textContent    = dueThisWeek.length;
+    document.getElementById('act-high').textContent     = highPriority.length;
+
+    const row = (t, reason) => {
+      const proj = projectById[t.projectId];
+      return `
+        <div class="flex items-start gap-3 px-5 py-4 border-b border-gray-100 hover:bg-gray-50 transition-all">
+          <div class="w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer hover:border-teal hover:bg-teal/10"
+            onclick="markActionDone('${t.id}')" title="Mark as completed"></div>
+          <div class="flex-1 min-w-0">
+            <h5 class="text-sm font-semibold text-navy cursor-pointer hover:text-teal truncate" onclick="editTask('${t.id}')">${esc(t.title)}</h5>
+            <p class="text-xs text-gray-400 mt-0.5 truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${reason ? ' · ' + reason : ''}</p>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${PRI_BADGE[t.priority] || 'bg-gray-100 text-gray-500'}">${esc(t.priority)}</span>
+        </div>`;
     };
 
-    document.getElementById('action-list').innerHTML = actions.map(a => `
-      <div class="flex items-start gap-3 px-5 py-4 border-b border-gray-100 hover:bg-gray-50 transition-all action-item ${a.done ? 'done' : ''}">
-        <div class="action-check w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer ${a.done ? 'checked' : ''}"
-          onclick="toggleAction('${a.id}', ${a.done})"></div>
-        <div class="flex-1">
-          <h5 class="text-sm font-semibold text-navy">${esc(a.text)}</h5>
-          <p class="text-xs text-gray-400 mt-0.5">${esc(a.area || '')} · By ${esc(a.by || '')}</p>
+    const section = (title, icon, items, reasonFn, emptyMsg) => `
+      <div class="mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-1 h-4 bg-teal rounded-full"></div>
+          <h3 class="text-sm font-bold text-navy-2">${icon} ${title}</h3>
         </div>
-        <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${PRI[a.priority] || 'bg-gray-100 text-gray-500'}">${esc(a.priority)}</span>
-        <button onclick="deleteAction('${a.id}')"
-          class="text-gray-300 hover:text-red-500 text-sm p-1 rounded hover:bg-red-50 opacity-60 hover:opacity-100">🗑️</button>
-      </div>`).join('');
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          ${items.length ? items.map(t => row(t, reasonFn(t))).join('') : `<p class="px-5 py-8 text-center text-gray-400 text-sm">${emptyMsg}</p>`}
+        </div>
+      </div>`;
+
+    document.getElementById('action-list').innerHTML =
+      section('Overdue', '🔴', overdue, t => {
+        const days = Math.round((today - new Date(t.endDate)) / 86400000);
+        return `${days} day${days === 1 ? '' : 's'} overdue`;
+      }, 'Nothing overdue 🎉') +
+      section('Due This Week', '🟡', dueThisWeek, t => {
+        const days = Math.round((new Date(t.endDate) - today) / 86400000);
+        return days === 0 ? 'Due today' : `Due in ${days} day${days === 1 ? '' : 's'}`;
+      }, 'Nothing due this week') +
+      section('High Priority — In Progress', '⭐', highPriority, () => '', 'No other high-priority tasks in progress');
 
   } catch (e) { console.error('Actions error:', e); }
 }
 
-async function toggleAction(id, current) {
-  await API.toggleAction(id, current);
+async function markActionDone(taskId) {
+  await API.updateTask(taskId, { status: 'Completed' });
   renderActions();
-}
-
-async function deleteAction(id) {
-  await API.deleteAction(id);
-  renderActions();
-  showToast('🗑️ Action deleted');
+  showToast('✅ Marked as done');
 }
 
 // ── SETTINGS ────────────────────────────────────────────────────
@@ -1781,30 +1816,6 @@ async function deleteTaskConfirm(id, projectId) {
 }
 
 // ACTION MODAL
-function openAddAction() {
-  document.getElementById('act-text').value     = '';
-  document.getElementById('act-area').value     = '';
-  document.getElementById('act-by').value       = '';
-  document.getElementById('act-priority').value = 'High';
-  openModal('modal-action');
-}
-
-async function saveAction() {
-  const data = {
-    text:     document.getElementById('act-text').value.trim(),
-    area:     document.getElementById('act-area').value.trim(),
-    by:       document.getElementById('act-by').value.trim(),
-    priority: document.getElementById('act-priority').value,
-  };
-  if (!data.text) { showToast('Action text is required', 'error'); return; }
-  try {
-    await API.addAction(data);
-    closeModal('modal-action');
-    renderActions();
-    showToast('✅ Action added');
-  } catch (e) { showToast('❌ Failed to add action', 'error'); }
-}
-
 // LOG MODAL
 async function openAddLog() {
   const now = new Date();
@@ -1891,11 +1902,11 @@ function deleteWealthCatConfirm(key, label) {
 // ── EXPORT / IMPORT ─────────────────────────────────────────────
 async function exportData() {
   try {
-    const [profile, projects, tasks, wealth, actions] = await Promise.all([
-      API.getProfile(), API.getProjects(), API.getTasks(), API.getWealth(), API.getActions(),
+    const [profile, projects, tasks, wealth] = await Promise.all([
+      API.getProfile(), API.getProjects(), API.getTasks(), API.getWealth(),
     ]);
     const blob = new Blob(
-      [JSON.stringify({ profile, projects, tasks, wealth, actions }, null, 2)],
+      [JSON.stringify({ profile, projects, tasks, wealth }, null, 2)],
       { type: 'application/json' }
     );
     const a = document.createElement('a');

@@ -54,17 +54,6 @@ async function buildWorkbook(snapshot) {
   snapshot.wealth.monthlyLog.forEach(e => wealthSheet.addRow(e));
   styleHeaderRow(wealthSheet.getRow(1));
 
-  const actionsSheet = wb.addWorksheet('Actions');
-  actionsSheet.columns = [
-    { header: 'Text', key: 'text', width: 40 },
-    { header: 'Area', key: 'area', width: 20 },
-    { header: 'By', key: 'by', width: 14 },
-    { header: 'Priority', key: 'priority', width: 10 },
-    { header: 'Done', key: 'done', width: 8 },
-  ];
-  snapshot.actions.forEach(a => actionsSheet.addRow({ ...a, done: a.done ? 'Yes' : 'No' }));
-  styleHeaderRow(actionsSheet.getRow(1));
-
   return wb.xlsx.writeBuffer();
 }
 

@@ -81,17 +81,6 @@ db.exec(`
     notes TEXT DEFAULT ''
   );
 
-  CREATE TABLE IF NOT EXISTS actions (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    text TEXT NOT NULL,
-    area TEXT DEFAULT '',
-    by TEXT DEFAULT '',
-    priority TEXT DEFAULT 'Medium',
-    done INTEGER DEFAULT 0,
-    createdAt TEXT NOT NULL
-  );
-
   CREATE TABLE IF NOT EXISTS integrations (
     userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     googleDriveConnected INTEGER NOT NULL DEFAULT 0,
@@ -111,5 +100,10 @@ function addColumnIfMissing(table, columnDef) {
 addColumnIfMissing('projects', "startDate TEXT DEFAULT ''");
 addColumnIfMissing('projects', "parentId TEXT REFERENCES projects(id) ON DELETE CASCADE");
 addColumnIfMissing('projects', "type TEXT DEFAULT 'career'");
+
+// The manually-maintained "actions" checklist was replaced by a live feed
+// computed from tasks (overdue / due this week / high priority) — drop the
+// now-unused table for databases created before this change.
+db.exec('DROP TABLE IF EXISTS actions');
 
 module.exports = db;
