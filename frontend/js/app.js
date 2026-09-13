@@ -577,6 +577,11 @@ function setGanttViewMode(mode) {
   renderGantt();
 }
 
+function setGanttProjectFilter(projectId) {
+  APP.ganttProjectFilter = projectId;
+  renderGantt();
+}
+
 function formatDuration(startDate, endDate) {
   if (!startDate || !endDate) return '—';
   const days = Math.round((new Date(endDate) - new Date(startDate)) / 86400000) + 1;
@@ -638,6 +643,7 @@ function buildWealthGanttRows(project, wealth, profile) {
     const progressPct = pct(val, wt.target);
     return {
       id: 'wealth:' + key,
+      projectId: project.id,
       __wealth: true,
       wealthKey: key,
       title: wt.label,
@@ -658,8 +664,29 @@ async function renderGantt() {
     ]);
     const projectById = Object.fromEntries(projects.map(p => [p.id, p]));
     if (!APP.ganttViewMode) APP.ganttViewMode = 'month';
+    if (APP.ganttProjectFilter === undefined) APP.ganttProjectFilter = '';
 
     document.querySelectorAll('.gantt-view-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === APP.ganttViewMode));
+
+    // Project filter dropdown — top-level projects grouped with their
+    // sub-folders, same hierarchy shown when assigning a task to a project.
+    const filterTopLevel = projects.filter(p => !p.parentId);
+    const filterChildrenOf = pid => projects.filter(p => p.parentId === pid);
+    const filterSel = document.getElementById('gantt-project-filter');
+    filterSel.innerHTML = '<option value="">All Projects</option>' + filterTopLevel.map(top => {
+      const kids = filterChildrenOf(top.id);
+      const topOption = `<option value="${top.id}">${top.icon} ${esc(top.title)}</option>`;
+      if (!kids.length) return topOption;
+      const kidOptions = kids.map(k => `<option value="${k.id}">${k.icon} ${esc(k.title)}</option>`).join('');
+      return `<optgroup label="${esc(top.title)}">${topOption}${kidOptions}</optgroup>`;
+    }).join('');
+    filterSel.value = APP.ganttProjectFilter;
+
+    // Which groups the filter allows through — selecting a top-level project
+    // includes its sub-folders too, so you still see every task in that tree.
+    const allowedGroupIds = APP.ganttProjectFilter
+      ? new Set([APP.ganttProjectFilter, ...filterChildrenOf(APP.ganttProjectFilter).map(p => p.id)])
+      : null;
 
     // Wealth-type projects contribute synthetic rows (one per wealth
     // category) instead of real tasks — built once here and folded into the
@@ -671,8 +698,12 @@ async function renderGantt() {
 
     // Date range: span the actual task dates (with a month of padding either
     // side) so nothing gets cut off, falling back to a default window when
-    // no task has any date yet.
-    const dated = tasks.concat(allWealthRows)
+    // no task has any date yet. Narrows to just the filtered project's tasks
+    // when a filter is active, so the chart zooms to what's actually shown.
+    const dateSourceTasks = allowedGroupIds
+      ? tasks.filter(t => allowedGroupIds.has(t.projectId)).concat(allWealthRows.filter(r => allowedGroupIds.has(r.projectId)))
+      : tasks.concat(allWealthRows);
+    const dated = dateSourceTasks
       .flatMap(t => [t.startDate, t.endDate])
       .filter(Boolean)
       .map(d => new Date(d))
@@ -726,7 +757,7 @@ async function renderGantt() {
     // Project start marker — a dashed green line (repeated per row, same
     // technique as the today line) for every project that has one set,
     // plus a badge above the table so it's visible without scrolling down.
-    const projectsWithStart = projects.filter(p => p.startDate);
+    const projectsWithStart = projects.filter(p => p.startDate && (!allowedGroupIds || allowedGroupIds.has(p.id)));
     const projectStartLines = projectsWithStart
       .map(p => new Date(p.startDate))
       .filter(d => d >= start && d <= end)
@@ -750,10 +781,12 @@ async function renderGantt() {
     wealthProjects.forEach(p => {
       byProject[p.id] = (byProject[p.id] || []).concat(wealthRowsByProject[p.id]);
     });
-    const groupProjectIds = Object.keys(byProject).sort((a, b) => {
-      const pa = projectById[a], pb = projectById[b];
-      return (pa?.title || '').localeCompare(pb?.title || '');
-    });
+    const groupProjectIds = Object.keys(byProject)
+      .filter(id => !allowedGroupIds || allowedGroupIds.has(id))
+      .sort((a, b) => {
+        const pa = projectById[a], pb = projectById[b];
+        return (pa?.title || '').localeCompare(pb?.title || '');
+      });
 
     let rowsHTML = '';
     groupProjectIds.forEach(groupId => {
@@ -875,7 +908,7 @@ async function renderGantt() {
     });
 
     document.getElementById('gantt-rows').innerHTML = rowsHTML
-      || `<div class="p-10 text-center text-gray-400 text-sm">No tasks yet.</div>`;
+      || `<div class="p-10 text-center text-gray-400 text-sm">${APP.ganttProjectFilter ? 'No tasks in this project yet.' : 'No tasks yet.'}</div>`;
     document.getElementById('gantt-rows').dataset.totalDays = totalDays;
 
     const groupLegend = groupProjectIds

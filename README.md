@@ -9,9 +9,9 @@ A personal life, career, and wealth tracker. Multi-user, self-hosted, no externa
 - **Projects & sub-folders** — one level of nested sub-projects (e.g. "UK Career Goals" → "Cloud Engineering Goals"), each individually editable
 - **Project types** — a top-level project is either **Career** (task-based) or **Wealth** (tracked via the Wealth Tracker); more types can be added later
 - **Tasks** — status, priority, start/due dates, notes; "Add to Google Calendar" per task
-- **Gantt chart** — drag-to-move / drag-to-resize bars, collapsible groups by project, Week/Month/Year zoom, frozen Task/Status/Start/Due/Duration columns with a horizontally scrolling timeline. Wealth-type projects show one bar per wealth category (spanning the project's start date to the Net Worth target date), filled to its own % of target reached
+- **Gantt chart** — drag-to-move / drag-to-resize bars, collapsible groups by project, Week/Month/Year zoom, a project filter dropdown to zoom into a single project's tasks, and frozen Task/Status/Start/Due/Duration columns with a horizontally scrolling timeline. Wealth-type projects show one bar per wealth category (spanning the project's start date to the Net Worth target date), filled to its own % of target reached
 - **Dashboard** — dynamic per project type: the Career Progress and Net Worth hero cards (and the Net Worth KPI) only appear once you actually have a project of that type, and reflow to fill the row when only one is present
-- **Wealth tracker** — categories with editable targets (add/edit/delete), current values, a net worth chart, and a monthly income/savings log
+- **Wealth tracker** — categories with editable targets (add/edit/delete), current values, a net worth chart, and a monthly income/savings log; reached via a Wealth-type project rather than a dedicated nav item
 - **Google Drive backup** (optional) — connect a Google account to export data as JSON, Excel, Google Sheets, PDF, or image
 - **Dark mode**
 - **Mobile responsive layout**
