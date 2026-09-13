@@ -635,39 +635,9 @@ function buildTimelineColumns(mode, start, end, totalDays) {
   return { widths: cols.map(c => (c.days / totalDays) * 100), labels: cols.map(c => c.label) };
 }
 
-// A Wealth-type project has no real tasks — its Gantt "tasks" are its wealth
-// categories instead, spanning the project's start date to the profile's Net
-// Worth target date, each filled to show its own % of target reached.
-function buildWealthGanttRows(project, wealth, profile) {
-  const startDate = project.startDate || '';
-  const endDate   = profile.targetDate || '';
-  if (!startDate || !endDate) return [];
-  const targets = wealth.targets || {};
-  const entries = wealth.entries || {};
-  return Object.entries(targets).map(([key, wt]) => {
-    const val = parseFloat(entries[key]) || 0;
-    const progressPct = pct(val, wt.target);
-    return {
-      id: 'wealth:' + key,
-      projectId: project.id,
-      __wealth: true,
-      wealthKey: key,
-      title: wt.label,
-      startDate, endDate,
-      progressPct,
-      currentVal: val,
-      targetVal: wt.target,
-      status: progressPct >= 100 ? 'Completed' : (val > 0 ? 'In Progress' : 'Not Started'),
-      priority: 'Medium',
-    };
-  });
-}
-
 async function renderGantt() {
   try {
-    const [tasks, projects, wealth, profile] = await Promise.all([
-      API.getTasks(), API.getProjects(), API.getWealth(), API.getProfile(),
-    ]);
+    const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
     const projectById = Object.fromEntries(projects.map(p => [p.id, p]));
     if (!APP.ganttViewMode) APP.ganttViewMode = 'month';
     if (APP.ganttProjectFilter === undefined) APP.ganttProjectFilter = '';
@@ -694,21 +664,13 @@ async function renderGantt() {
       ? new Set([APP.ganttProjectFilter, ...filterChildrenOf(APP.ganttProjectFilter).map(p => p.id)])
       : null;
 
-    // Wealth-type projects contribute synthetic rows (one per wealth
-    // category) instead of real tasks — built once here and folded into the
-    // grouping below so they group/render/measure exactly like real tasks.
-    const wealthProjects = projects.filter(p => p.type === 'wealth');
-    const wealthRowsByProject = {};
-    wealthProjects.forEach(p => { wealthRowsByProject[p.id] = buildWealthGanttRows(p, wealth, profile); });
-    const allWealthRows = Object.values(wealthRowsByProject).flat();
-
     // Date range: span the actual task dates (with a month of padding either
     // side) so nothing gets cut off, falling back to a default window when
     // no task has any date yet. Narrows to just the filtered project's tasks
     // when a filter is active, so the chart zooms to what's actually shown.
     const dateSourceTasks = allowedGroupIds
-      ? tasks.filter(t => allowedGroupIds.has(t.projectId)).concat(allWealthRows.filter(r => allowedGroupIds.has(r.projectId)))
-      : tasks.concat(allWealthRows);
+      ? tasks.filter(t => allowedGroupIds.has(t.projectId))
+      : tasks;
     const dated = dateSourceTasks
       .flatMap(t => [t.startDate, t.endDate])
       .filter(Boolean)
@@ -782,11 +744,6 @@ async function renderGantt() {
     // project now, clicking its name opens that project's own edit modal.
     const byProject = {};
     tasks.forEach(t => { (byProject[t.projectId] = byProject[t.projectId] || []).push(t); });
-    // Wealth projects appear as their own group even with zero real tasks,
-    // using their synthetic per-category rows instead.
-    wealthProjects.forEach(p => {
-      byProject[p.id] = (byProject[p.id] || []).concat(wealthRowsByProject[p.id]);
-    });
     // Sort so a project's sub-folders stay grouped immediately beneath it —
     // by family (the top-level project's title), then rank (the top-level
     // group itself before its children), then the group's own title.
@@ -810,10 +767,9 @@ async function renderGantt() {
     groupProjectIds.forEach(groupId => {
       const pts = byProject[groupId];
       const groupProject = projectById[groupId];
-      const isWealthGroup = groupProject?.type === 'wealth';
       const color = groupProject?.color || '#6B7280';
       const groupTitle = groupProject?.title || 'Unknown project';
-      const done  = isWealthGroup ? pts.filter(t => t.progressPct >= 100).length : pts.filter(t => t.status === 'Completed').length;
+      const done  = pts.filter(t => t.status === 'Completed').length;
 
       const catDates = pts.flatMap(t => [t.startDate, t.endDate]).filter(Boolean).map(d => new Date(d)).filter(d => !isNaN(d));
       let summaryBar = '', catStart = '', catEnd = '';
@@ -826,9 +782,9 @@ async function renderGantt() {
         const gMax = posPct(maxDate);
         const dark = shadeColor(color, -40);
         summaryBar = `
-          <div class="gantt-summary-bar" style="left:${gMin}%;width:${Math.max(0.6, gMax - gMin)}%;background:${dark}${isWealthGroup ? ';cursor:default' : ''}"
-            title="${esc(groupTitle)}: ${catStart} → ${catEnd}${isWealthGroup ? '' : ' (drag to shift every task in this folder)'}"
-            ${isWealthGroup ? '' : `onmousedown="ganttSummaryMouseDown(event,'${groupId}')"`}></div>
+          <div class="gantt-summary-bar" style="left:${gMin}%;width:${Math.max(0.6, gMax - gMin)}%;background:${dark}"
+            title="${esc(groupTitle)}: ${catStart} → ${catEnd} (drag to shift every task in this folder)"
+            onmousedown="ganttSummaryMouseDown(event,'${groupId}')"></div>
           <div class="gantt-summary-cap" style="left:${gMin}%;border-top:7px solid ${dark}"></div>
           <div class="gantt-summary-cap" style="left:${gMax}%;border-top:7px solid ${dark}"></div>`;
       }
@@ -852,32 +808,6 @@ async function renderGantt() {
       if (isCollapsed) return;
 
       pts.forEach((t, i) => {
-        if (t.__wealth) {
-          const ts = new Date(t.startDate), te = new Date(t.endDate);
-          const barLeft  = Math.max(0, ((ts - start) / 86400000 / totalDays) * 100);
-          const barWidth = Math.max(0.8, Math.min(100 - barLeft, ((te - ts) / 86400000 / totalDays) * 100 + 0.5));
-          const fillColor = t.progressPct >= 100 ? '#1A7A4A' : t.progressPct > 50 ? color : '#C49A00';
-          const wealthBar = `
-            <div class="gantt-bar" style="left:${barLeft}%;width:${barWidth}%;background:#E5E7EB;border:1px solid #D1D5DB;cursor:pointer"
-              title="${esc(t.title)}: ${t.progressPct}% of target reached (click to open Wealth Tracker)"
-              onclick="showPage('wealth')">
-              <span style="position:absolute;inset:0;width:${Math.min(100, t.progressPct)}%;background:${fillColor};border-radius:2px"></span>
-              <span class="gantt-bar-label" style="position:relative;color:#1F2937">${esc(t.title)} · ${t.progressPct}%</span>
-            </div>`;
-          rowsHTML += `
-            <div class="grid border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px">
-              <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center overflow-hidden cursor-pointer" onclick="editWealthCat('${t.wealthKey}')" title="Edit wealth category">
-                <span class="text-xs text-gray-600 hover:text-teal truncate" title="${esc(t.title)}">${esc(t.title)}</span>
-              </div>
-              <div class="gantt-sticky gantt-sticky-2 px-3 py-2 border-r border-gray-200 flex items-center overflow-hidden text-[10px] font-semibold" style="color:${fillColor}">${t.progressPct}%</div>
-              <div class="gantt-sticky gantt-sticky-3 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDateShort(t.startDate)}</div>
-              <div class="gantt-sticky gantt-sticky-4 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDateShort(t.endDate)}</div>
-              <div class="gantt-sticky gantt-sticky-5 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDuration(t.startDate, t.endDate)}</div>
-              <div class="gantt-bar-area">${gridlines}${todayLine}${projectStartLines}${wealthBar}</div>
-            </div>`;
-          return;
-        }
-
         const ts = t.startDate ? new Date(t.startDate) : null;
         const te = t.endDate   ? new Date(t.endDate)   : null;
         const borderColor = priorityBorderColor(t.priority);
