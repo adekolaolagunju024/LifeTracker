@@ -13,6 +13,7 @@ const APP = {
   ganttEnd:   new Date('2027-05-31'),
   nwChart: null,
   onboardingStep: 1,
+  aiInsights: null,
 };
 const ONBOARDING_STEPS = 4;
 
@@ -1275,6 +1276,75 @@ async function markActionDone(taskId) {
   await API.updateTask(taskId, { status: 'Completed' });
   renderActions();
   showToast('✅ Marked as done');
+}
+
+// ── AI INSIGHTS ─────────────────────────────────────────────────
+async function loadAIInsights() {
+  const btn  = document.getElementById('ai-insights-btn');
+  const body = document.getElementById('ai-insights-body');
+  btn.disabled = true;
+  btn.textContent = 'Thinking…';
+  body.classList.remove('hidden');
+  body.innerHTML = `<p class="text-xs text-white/60">Analyzing your open tasks…</p>`;
+  try {
+    const result = await API.getAIInsights();
+    APP.aiInsights = result;
+    renderAIInsights(result);
+  } catch (e) {
+    const notConfigured = (e.message || '').includes('not configured');
+    body.innerHTML = `
+      <div class="bg-white/10 rounded-lg p-4 text-xs text-white/70">
+        <p class="font-semibold text-white mb-1">⚠️ ${esc(e.message || 'AI insights are unavailable')}</p>
+        ${notConfigured ? `<p>Add an Anthropic API key to the server's <code class="bg-black/20 px-1 rounded">.env</code> file as <code class="bg-black/20 px-1 rounded">ANTHROPIC_API_KEY</code>, then restart the server.</p>` : ''}
+      </div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Analyze My Tasks';
+  }
+}
+
+function renderAIInsights(result) {
+  const body = document.getElementById('ai-insights-body');
+
+  const priorityHTML = (result.priorityOrder || []).length ? `
+    <ol class="space-y-2 mb-4">${result.priorityOrder.map((p, i) => `
+      <li class="bg-white/10 rounded-lg p-3 flex items-start gap-3">
+        <span class="text-white/40 font-mono text-xs mt-0.5">${i + 1}</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold cursor-pointer hover:underline" onclick="editTask('${p.taskId}')">${esc(p.title)}</p>
+          <p class="text-xs text-white/50 mt-0.5">${esc(p.project)}${p.dueDate ? ' · Due ' + esc(p.dueDate) : ''}</p>
+          <p class="text-xs text-white/70 mt-1">${esc(p.reason)}</p>
+        </div>
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 flex-shrink-0">${esc(p.priority)}</span>
+      </li>`).join('')}</ol>` : '';
+
+  const suggestionsHTML = (result.suggestedNextSteps || []).length ? `
+    <div>
+      <p class="text-xs font-semibold text-white/50 uppercase tracking-widest mb-2">Suggested Next Steps</p>
+      <div class="space-y-2">
+        ${result.suggestedNextSteps.map((s, i) => `
+          <div class="bg-white/10 rounded-lg p-3 flex items-start gap-3">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold">${esc(s.title)}</p>
+              <p class="text-xs text-white/50 mt-0.5">${esc(s.projectTitle)} · ${esc(s.priority)} priority</p>
+              <p class="text-xs text-white/70 mt-1">${esc(s.reason)}</p>
+            </div>
+            <button onclick="addSuggestedTask(${i})" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0">+ Add</button>
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  body.innerHTML = `<p class="text-sm text-white/80 mb-4">${esc(result.summary || '')}</p>${priorityHTML}${suggestionsHTML}`;
+}
+
+async function addSuggestedTask(i) {
+  const s = APP.aiInsights?.suggestedNextSteps?.[i];
+  if (!s) return;
+  try {
+    await API.addTask({ title: s.title, projectId: s.projectId, priority: s.priority, status: 'Not Started' });
+    showToast('✅ Added: ' + s.title);
+    renderActions();
+  } catch (e) { showToast('❌ Failed to add task', 'error'); }
 }
 
 // ── SETTINGS ────────────────────────────────────────────────────

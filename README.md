@@ -13,6 +13,7 @@ A personal life, career, and wealth tracker. Multi-user, self-hosted, no externa
 - **Dashboard** — dynamic per project type: the Career Progress and Net Worth hero cards (and the Net Worth KPI) only appear once you actually have a project of that type, and reflow to fill the row when only one is present
 - **Wealth tracker** — categories with editable targets (add/edit/delete), current values, a net worth chart, and a monthly income/savings log; reached via a Wealth-type project rather than a dedicated nav item
 - **Actions** — a live, auto-generated feed (not a maintained list) of Overdue, Due This Week, and High-priority-in-progress tasks across every project; mark one done straight from the feed
+- **AI Insights** (optional) — a "✨ Analyze My Tasks" button on the Actions page sends your open tasks to Claude and gets back a prioritized focus list plus 2-4 suggested next-step tasks you can add with one click
 - **Google Drive backup** (optional) — connect a Google account to export data as JSON, Excel, Google Sheets, PDF, or image
 - **Dark mode**
 - **Mobile responsive layout**
@@ -22,6 +23,7 @@ A personal life, career, and wealth tracker. Multi-user, self-hosted, no externa
 - **Backend**: Node.js + Express, `better-sqlite3` (SQLite), `express-session`, `bcryptjs`
 - **Frontend**: Vanilla JS + Tailwind CSS (CDN) — no build step
 - **Exports**: `exceljs` (Excel), `puppeteer-core` (PDF/image reports), `googleapis` (Drive/Sheets)
+- **AI**: `@anthropic-ai/sdk` (Claude, tool-use for structured task-prioritization output)
 
 ## Setup
 
@@ -40,6 +42,7 @@ Edit `.env`:
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | No | Only needed for Google Drive backup/export. Create in Google Cloud Console → APIs & Services → Credentials |
 | `NODE_ENV` | No | Set to `production` when deployed, so session cookies require HTTPS |
 | `PUPPETEER_EXECUTABLE_PATH` | No | Path to a Chromium-family browser, only needed if one isn't auto-detected (used for PDF/image report rendering) |
+| `ANTHROPIC_API_KEY` | No | Only needed for the "✨ AI Insights" button on the Actions page. Get one at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
 
 Run it:
 

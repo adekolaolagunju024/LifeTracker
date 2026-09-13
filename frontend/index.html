@@ -701,6 +701,19 @@
           <p class="text-3xl font-black font-mono text-teal mt-1" id="act-high">0</p>
         </div>
       </div>
+
+      <!-- AI Insights -->
+      <div class="bg-gradient-to-br from-navy to-navy-2 rounded-xl p-5 mb-6 text-white">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <p class="text-sm font-bold">✨ AI Insights</p>
+            <p class="text-xs text-white/50 mt-0.5">Ask Claude to prioritize what's below and suggest next steps.</p>
+          </div>
+          <button onclick="loadAIInsights()" id="ai-insights-btn" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">Analyze My Tasks</button>
+        </div>
+        <div class="hidden mt-4" id="ai-insights-body"></div>
+      </div>
+
       <div id="action-list"></div>
     </div>
 

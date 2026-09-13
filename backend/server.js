@@ -47,6 +47,7 @@ app.use('/api/projects', require('./routes/projects'));
 app.use('/api/tasks',    require('./routes/tasks'));
 app.use('/api/wealth',   require('./routes/wealth'));
 app.use('/api/drive',    require('./routes/drive'));
+app.use('/api/ai',       require('./routes/ai'));
 
 // ── CATCH ALL — serve frontend ──
 app.get('*', (req, res) => {

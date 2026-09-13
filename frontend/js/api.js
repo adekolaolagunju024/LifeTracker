@@ -67,7 +67,9 @@ const API = {
   addMonthlyEntry:    (data)   => request('POST',   '/wealth/log', data),
   deleteMonthlyEntry: (id)     => request('DELETE', `/wealth/log/${id}`),
 
-  // ── ACTIONS ──
+  // ── AI INSIGHTS ──
+  getAIStatus:   ()  => request('GET',  '/ai/status'),
+  getAIInsights: ()  => request('POST', '/ai/insights'),
 
   // ── GOOGLE DRIVE ──
   getDriveStatus:     ()  => request('GET',  '/drive/status'),
