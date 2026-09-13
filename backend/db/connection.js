@@ -35,6 +35,7 @@ db.exec(`
     icon TEXT DEFAULT '📁',
     color TEXT DEFAULT '#0A7E8C',
     startDate TEXT DEFAULT '',
+    type TEXT DEFAULT 'career',
     createdAt TEXT NOT NULL
   );
 
@@ -109,5 +110,6 @@ function addColumnIfMissing(table, columnDef) {
 }
 addColumnIfMissing('projects', "startDate TEXT DEFAULT ''");
 addColumnIfMissing('projects', "parentId TEXT REFERENCES projects(id) ON DELETE CASCADE");
+addColumnIfMissing('projects', "type TEXT DEFAULT 'career'");
 
 module.exports = db;

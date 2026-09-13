@@ -196,7 +196,8 @@ async function renderDashboard() {
       API.getProfile(),
       API.getWealth(),
     ]);
-    const projects = allProjects.filter(p => !p.parentId); // top-level only, for the glance cards
+    const projects       = allProjects.filter(p => !p.parentId); // top-level only, for the glance cards
+    const careerProjects = projects.filter(p => p.type !== 'wealth');
 
     const done   = tasks.filter(t => t.status === 'Completed').length;
     const inprog = tasks.filter(t => t.status === 'In Progress').length;
@@ -223,10 +224,28 @@ async function renderDashboard() {
     document.getElementById('hero-career-pct').textContent    = careerPct + '%';
     document.getElementById('hero-career-sub').textContent    = `${done} of ${tasks.length} tasks complete`;
     document.getElementById('hero-career-prog').style.width   = careerPct + '%';
-    document.getElementById('hero-career-detail').textContent = `across ${projects.length} project${projects.length === 1 ? '' : 's'}`;
+    document.getElementById('hero-career-detail').textContent = `across ${careerProjects.length} project${careerProjects.length === 1 ? '' : 's'}`;
 
     // Project stat cards
     document.getElementById('project-stats').innerHTML = projects.map(proj => {
+      if (proj.type === 'wealth') {
+        return `
+          <div class="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:shadow-md transition-all"
+            onclick="showPage('project-detail','${proj.id}')">
+            <div class="flex items-center gap-3 mb-3">
+              <span class="text-2xl">${proj.icon}</span>
+              <div>
+                <p class="font-bold text-sm text-navy">${esc(proj.title)}</p>
+                <p class="text-xs text-gray-400">${fmt(nw, cur)} of ${fmt(target, cur)}</p>
+              </div>
+            </div>
+            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-500"
+                style="width:${p}%;background:${proj.color}"></div>
+            </div>
+            <p class="text-xs text-gray-400 mt-1.5 text-right">${p}% complete</p>
+          </div>`;
+      }
       const pts  = tasksInProjectTree(proj.id, allProjects, tasks);
       const pdone = pts.filter(t => t.status === 'Completed').length;
       const pp   = pct(pdone, pts.length);
@@ -269,15 +288,35 @@ async function renderDashboard() {
 // ── PROJECTS LIST ───────────────────────────────────────────────
 async function renderProjects() {
   try {
-    const [allProjects, tasks] = await Promise.all([API.getProjects(), API.getTasks()]);
+    const [allProjects, tasks, wealth, profile] = await Promise.all([
+      API.getProjects(), API.getTasks(), API.getWealth(), API.getProfile(),
+    ]);
     const projects = allProjects.filter(p => !p.parentId); // top-level only
+    const cur = profile.currency || '£';
 
     document.getElementById('projects-grid').innerHTML = projects.map(proj => {
-      const pts   = tasksInProjectTree(proj.id, allProjects, tasks);
-      const pdone = pts.filter(t => t.status === 'Completed').length;
-      const pinp  = pts.filter(t => t.status === 'In Progress').length;
-      const pp    = pct(pdone, pts.length);
-      const cost  = pts.reduce((s, t) => s + (t.cost || 0), 0);
+      const isWealth = proj.type === 'wealth';
+      let pts = [], pdone = 0, pinp = 0, pp = 0, cost = 0, tagsHTML = '', costLine = '';
+
+      if (isWealth) {
+        const nw     = Object.values(wealth.entries || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+        const target = profile.targetNetWorth || 100000;
+        pp = pct(nw, target);
+        const catCount = Object.keys(wealth.targets || {}).length;
+        tagsHTML = `<span class="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-semibold">${catCount} categories</span>
+          <span class="bg-amber-50 text-amber-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${fmt(nw, cur)} saved</span>`;
+        costLine = `<span>Target ${fmt(target, cur)}</span>`;
+      } else {
+        pts   = tasksInProjectTree(proj.id, allProjects, tasks);
+        pdone = pts.filter(t => t.status === 'Completed').length;
+        pinp  = pts.filter(t => t.status === 'In Progress').length;
+        pp    = pct(pdone, pts.length);
+        cost  = pts.reduce((s, t) => s + (t.cost || 0), 0);
+        tagsHTML = `<span class="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pts.length} tasks</span>
+          <span class="bg-green-50 text-green-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pdone} done</span>
+          <span class="bg-orange-50 text-orange-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pinp} active</span>`;
+        costLine = `<span>Est. £${cost.toLocaleString()}</span>`;
+      }
 
       return `
         <div class="bg-white rounded-xl border border-gray-200 p-5 project-card"
@@ -294,22 +333,18 @@ async function renderProjects() {
           <h3 class="font-bold text-navy text-base mb-1 cursor-pointer hover:text-teal"
             onclick="showPage('project-detail','${proj.id}')">${esc(proj.title)}</h3>
           <p class="text-gray-400 text-xs mb-4">${esc(proj.description || '')}</p>
-          <div class="flex gap-2 mb-3">
-            <span class="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pts.length} tasks</span>
-            <span class="bg-green-50 text-green-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pdone} done</span>
-            <span class="bg-orange-50 text-orange-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pinp} active</span>
-          </div>
+          <div class="flex gap-2 mb-3 flex-wrap">${tagsHTML}</div>
           <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
             <div class="h-full rounded-full transition-all duration-500"
               style="width:${pp}%;background:${proj.color}"></div>
           </div>
           <div class="flex justify-between text-xs text-gray-400 mb-4">
             <span>${pp}% complete</span>
-            <span>Est. £${cost.toLocaleString()}</span>
+            ${costLine}
           </div>
           <button onclick="showPage('project-detail','${proj.id}')"
             class="w-full py-2 rounded-lg text-white text-xs font-semibold transition-all hover:opacity-90"
-            style="background:${proj.color}">Open Project →</button>
+            style="background:${proj.color}">${isWealth ? 'Open Wealth Tracker →' : 'Open Project →'}</button>
         </div>`;
     }).join('');
 
@@ -324,6 +359,10 @@ async function renderProjectDetail(projectId) {
       API.getProjects({ parentId: projectId }),
       API.getTasks(),
     ]);
+
+    // Wealth-type projects are tracked via the dedicated Wealth Tracker page
+    // (its own £ inputs, monthly log, chart) rather than a task table.
+    if (proj.type === 'wealth') { showPage('wealth'); return; }
 
     document.getElementById('detail-icon').textContent      = proj.icon;
     document.getElementById('detail-title').textContent     = proj.title;
@@ -570,18 +609,55 @@ function buildTimelineColumns(mode, start, end, totalDays) {
   return { widths: cols.map(c => (c.days / totalDays) * 100), labels: cols.map(c => c.label) };
 }
 
+// A Wealth-type project has no real tasks — its Gantt "tasks" are its wealth
+// categories instead, spanning the project's start date to the profile's Net
+// Worth target date, each filled to show its own % of target reached.
+function buildWealthGanttRows(project, wealth, profile) {
+  const startDate = project.startDate || '';
+  const endDate   = profile.targetDate || '';
+  if (!startDate || !endDate) return [];
+  const targets = wealth.targets || {};
+  const entries = wealth.entries || {};
+  return Object.entries(targets).map(([key, wt]) => {
+    const val = parseFloat(entries[key]) || 0;
+    const progressPct = pct(val, wt.target);
+    return {
+      id: 'wealth:' + key,
+      __wealth: true,
+      wealthKey: key,
+      title: wt.label,
+      startDate, endDate,
+      progressPct,
+      currentVal: val,
+      targetVal: wt.target,
+      status: progressPct >= 100 ? 'Completed' : (val > 0 ? 'In Progress' : 'Not Started'),
+      priority: 'Medium',
+    };
+  });
+}
+
 async function renderGantt() {
   try {
-    const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
+    const [tasks, projects, wealth, profile] = await Promise.all([
+      API.getTasks(), API.getProjects(), API.getWealth(), API.getProfile(),
+    ]);
     const projectById = Object.fromEntries(projects.map(p => [p.id, p]));
     if (!APP.ganttViewMode) APP.ganttViewMode = 'month';
 
     document.querySelectorAll('.gantt-view-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === APP.ganttViewMode));
 
+    // Wealth-type projects contribute synthetic rows (one per wealth
+    // category) instead of real tasks — built once here and folded into the
+    // grouping below so they group/render/measure exactly like real tasks.
+    const wealthProjects = projects.filter(p => p.type === 'wealth');
+    const wealthRowsByProject = {};
+    wealthProjects.forEach(p => { wealthRowsByProject[p.id] = buildWealthGanttRows(p, wealth, profile); });
+    const allWealthRows = Object.values(wealthRowsByProject).flat();
+
     // Date range: span the actual task dates (with a month of padding either
     // side) so nothing gets cut off, falling back to a default window when
     // no task has any date yet.
-    const dated = tasks
+    const dated = tasks.concat(allWealthRows)
       .flatMap(t => [t.startDate, t.endDate])
       .filter(Boolean)
       .map(d => new Date(d))
@@ -654,6 +730,11 @@ async function renderGantt() {
     // project now, clicking its name opens that project's own edit modal.
     const byProject = {};
     tasks.forEach(t => { (byProject[t.projectId] = byProject[t.projectId] || []).push(t); });
+    // Wealth projects appear as their own group even with zero real tasks,
+    // using their synthetic per-category rows instead.
+    wealthProjects.forEach(p => {
+      byProject[p.id] = (byProject[p.id] || []).concat(wealthRowsByProject[p.id]);
+    });
     const groupProjectIds = Object.keys(byProject).sort((a, b) => {
       const pa = projectById[a], pb = projectById[b];
       return (pa?.title || '').localeCompare(pb?.title || '');
@@ -663,9 +744,10 @@ async function renderGantt() {
     groupProjectIds.forEach(groupId => {
       const pts = byProject[groupId];
       const groupProject = projectById[groupId];
+      const isWealthGroup = groupProject?.type === 'wealth';
       const color = groupProject?.color || '#6B7280';
       const groupTitle = groupProject?.title || 'Unknown project';
-      const done  = pts.filter(t => t.status === 'Completed').length;
+      const done  = isWealthGroup ? pts.filter(t => t.progressPct >= 100).length : pts.filter(t => t.status === 'Completed').length;
 
       const catDates = pts.flatMap(t => [t.startDate, t.endDate]).filter(Boolean).map(d => new Date(d)).filter(d => !isNaN(d));
       let summaryBar = '', catStart = '', catEnd = '';
@@ -678,9 +760,9 @@ async function renderGantt() {
         const gMax = posPct(maxDate);
         const dark = shadeColor(color, -40);
         summaryBar = `
-          <div class="gantt-summary-bar" style="left:${gMin}%;width:${Math.max(0.6, gMax - gMin)}%;background:${dark}"
-            title="${esc(groupTitle)}: ${catStart} → ${catEnd} (drag to shift every task in this folder)"
-            onmousedown="ganttSummaryMouseDown(event,'${groupId}')"></div>
+          <div class="gantt-summary-bar" style="left:${gMin}%;width:${Math.max(0.6, gMax - gMin)}%;background:${dark}${isWealthGroup ? ';cursor:default' : ''}"
+            title="${esc(groupTitle)}: ${catStart} → ${catEnd}${isWealthGroup ? '' : ' (drag to shift every task in this folder)'}"
+            ${isWealthGroup ? '' : `onmousedown="ganttSummaryMouseDown(event,'${groupId}')"`}></div>
           <div class="gantt-summary-cap" style="left:${gMin}%;border-top:7px solid ${dark}"></div>
           <div class="gantt-summary-cap" style="left:${gMax}%;border-top:7px solid ${dark}"></div>`;
       }
@@ -704,6 +786,32 @@ async function renderGantt() {
       if (isCollapsed) return;
 
       pts.forEach((t, i) => {
+        if (t.__wealth) {
+          const ts = new Date(t.startDate), te = new Date(t.endDate);
+          const barLeft  = Math.max(0, ((ts - start) / 86400000 / totalDays) * 100);
+          const barWidth = Math.max(0.8, Math.min(100 - barLeft, ((te - ts) / 86400000 / totalDays) * 100 + 0.5));
+          const fillColor = t.progressPct >= 100 ? '#1A7A4A' : t.progressPct > 50 ? color : '#C49A00';
+          const wealthBar = `
+            <div class="gantt-bar" style="left:${barLeft}%;width:${barWidth}%;background:#E5E7EB;border:1px solid #D1D5DB;cursor:pointer"
+              title="${esc(t.title)}: ${t.progressPct}% of target reached (click to open Wealth Tracker)"
+              onclick="showPage('wealth')">
+              <span style="position:absolute;inset:0;width:${Math.min(100, t.progressPct)}%;background:${fillColor};border-radius:2px"></span>
+              <span class="gantt-bar-label" style="position:relative;color:#1F2937">${esc(t.title)} · ${t.progressPct}%</span>
+            </div>`;
+          rowsHTML += `
+            <div class="grid border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px">
+              <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center overflow-hidden cursor-pointer" onclick="editWealthCat('${t.wealthKey}')" title="Edit wealth category">
+                <span class="text-xs text-gray-600 hover:text-teal truncate" title="${esc(t.title)}">${esc(t.title)}</span>
+              </div>
+              <div class="gantt-sticky gantt-sticky-2 px-3 py-2 border-r border-gray-200 flex items-center overflow-hidden text-[10px] font-semibold" style="color:${fillColor}">${t.progressPct}%</div>
+              <div class="gantt-sticky gantt-sticky-3 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDateShort(t.startDate)}</div>
+              <div class="gantt-sticky gantt-sticky-4 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDateShort(t.endDate)}</div>
+              <div class="gantt-sticky gantt-sticky-5 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDuration(t.startDate, t.endDate)}</div>
+              <div class="gantt-bar-area">${gridlines}${todayLine}${projectStartLines}${wealthBar}</div>
+            </div>`;
+          return;
+        }
+
         const ts = t.startDate ? new Date(t.startDate) : null;
         const te = t.endDate   ? new Date(t.endDate)   : null;
         const borderColor = priorityBorderColor(t.priority);
@@ -936,7 +1044,13 @@ async function renderWealth() {
       const pp  = pct(val, wt.target);
       return `
         <div class="bg-white rounded-xl border border-gray-200 p-4">
-          <h4 class="text-sm font-bold text-navy mb-3">${esc(wt.label)}</h4>
+          <div class="flex items-center justify-between mb-3 gap-2">
+            <h4 class="text-sm font-bold text-navy truncate">${esc(wt.label)}</h4>
+            <div class="flex items-center gap-1 shrink-0">
+              <button onclick="editWealthCat('${key}')" class="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 text-xs" title="Edit category">✏️</button>
+              <button onclick="deleteWealthCatConfirm('${key}', '${esc(wt.label).replace(/'/g, "\\'")}')" class="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 text-xs" title="Delete category">🗑️</button>
+            </div>
+          </div>
           <div class="flex items-center justify-between mb-2">
             <label class="text-xs text-gray-500 font-medium">Current (${cur})</label>
             <input type="number" min="0" placeholder="0" value="${val || ''}"
@@ -1002,19 +1116,22 @@ async function deleteLogEntry(id) {
 
 // ── NET WORTH CHART ─────────────────────────────────────────────
 function renderNWChart(log, cur = '£') {
-  const canvas = document.getElementById('nw-chart');
-  if (!canvas) return;
+  const wrap = document.getElementById('nw-chart-wrap');
+  if (!wrap) return;
 
   if (APP.nwChart) { APP.nwChart.destroy(); APP.nwChart = null; }
 
   if (!log.length) {
-    canvas.parentElement.innerHTML = `
+    wrap.innerHTML = `
       <div class="text-center py-10 text-gray-400 text-sm">
         <p class="text-2xl mb-2">📈</p>
         <p>No monthly data yet. Log your first month to see your chart.</p>
       </div>`;
     return;
   }
+
+  wrap.innerHTML = '<canvas id="nw-chart" height="80"></canvas>';
+  const canvas = document.getElementById('nw-chart');
 
   const sorted  = [...log].reverse();
   const labels  = sorted.map(e => e.month || '');
@@ -1499,6 +1616,8 @@ function openAddProject() {
   document.getElementById('proj-icon').value   = '📁';
   document.getElementById('proj-color').value  = '#0A7E8C';
   document.getElementById('proj-start').value  = '';
+  document.getElementById('proj-type').value   = 'career';
+  document.getElementById('proj-type-wrap').classList.remove('hidden');
   openModal('modal-project');
 }
 
@@ -1511,6 +1630,8 @@ function openAddSubfolder(parentId) {
   document.getElementById('proj-icon').value   = '📁';
   document.getElementById('proj-color').value  = '#0A7E8C';
   document.getElementById('proj-start').value  = '';
+  document.getElementById('proj-type').value   = 'career';
+  document.getElementById('proj-type-wrap').classList.add('hidden');
   openModal('modal-project');
 }
 
@@ -1524,6 +1645,8 @@ async function editProject(id) {
   document.getElementById('proj-icon').value   = p.icon;
   document.getElementById('proj-color').value  = p.color;
   document.getElementById('proj-start').value  = p.startDate || '';
+  document.getElementById('proj-type').value   = p.type || 'career';
+  document.getElementById('proj-type-wrap').classList.toggle('hidden', !!p.parentId);
   openModal('modal-project');
 }
 
@@ -1536,6 +1659,7 @@ async function saveProject() {
     color:       document.getElementById('proj-color').value,
     startDate:   document.getElementById('proj-start').value,
     parentId:    document.getElementById('proj-parent').value || null,
+    type:        document.getElementById('proj-parent').value ? undefined : document.getElementById('proj-type').value,
   };
   if (!data.title) { showToast('Project title is required', 'error'); return; }
   try {
@@ -1686,7 +1810,7 @@ async function saveAction() {
 }
 
 // LOG MODAL
-function openAddLog() {
+async function openAddLog() {
   const now = new Date();
   document.getElementById('log-month').value    = now.toLocaleString('default', { month: 'long', year: 'numeric' });
   document.getElementById('log-income').value   = '';
@@ -1694,6 +1818,8 @@ function openAddLog() {
   document.getElementById('log-expenses').value = '';
   document.getElementById('log-saved').value    = '';
   document.getElementById('log-notes').value    = '';
+  const profile = await API.getProfile();
+  document.querySelectorAll('.log-currency').forEach(el => el.textContent = profile.currency || '£');
   openModal('modal-log');
 }
 
@@ -1715,22 +1841,55 @@ async function saveLog() {
 }
 
 // WEALTH CATEGORY MODAL
-function openAddWealthCat() {
+async function openAddWealthCat() {
+  document.getElementById('wcat-key').value    = '';
   document.getElementById('wcat-label').value  = '';
   document.getElementById('wcat-target').value = '';
+  document.getElementById('modal-wcat-title').textContent = 'Add Wealth Category';
+  document.getElementById('wcat-save-btn').textContent    = 'Add Category';
+  const profile = await API.getProfile();
+  document.getElementById('wcat-target-currency').textContent = profile.currency || '£';
+  openModal('modal-wcat');
+}
+
+async function editWealthCat(key) {
+  const wealth = await API.getWealth();
+  const wt = wealth.targets[key];
+  if (!wt) return;
+  document.getElementById('wcat-key').value    = key;
+  document.getElementById('wcat-label').value  = wt.label;
+  document.getElementById('wcat-target').value = wt.target;
+  document.getElementById('modal-wcat-title').textContent = 'Edit Wealth Category';
+  document.getElementById('wcat-save-btn').textContent    = 'Save Changes';
+  const profile = await API.getProfile();
+  document.getElementById('wcat-target-currency').textContent = profile.currency || '£';
   openModal('modal-wcat');
 }
 
 async function saveWealthCat() {
+  const key    = document.getElementById('wcat-key').value;
   const label  = document.getElementById('wcat-label').value.trim();
   const target = parseFloat(document.getElementById('wcat-target').value) || 0;
   if (!label) { showToast('Label is required', 'error'); return; }
   try {
-    await API.addWealthCategory({ label, target });
+    if (key) {
+      await API.updateWealthCategory(key, { label, target });
+      showToast('✅ Category updated');
+    } else {
+      await API.addWealthCategory({ label, target });
+      showToast('✅ Category added');
+    }
     closeModal('modal-wcat');
     renderWealth();
-    showToast('✅ Category added');
-  } catch (e) { showToast('❌ Failed to add category', 'error'); }
+  } catch (e) { showToast('❌ Failed to save category', 'error'); }
+}
+
+function deleteWealthCatConfirm(key, label) {
+  confirmAction(`Delete "${label}"? Its logged value will be lost.`, async () => {
+    await API.deleteWealthCategory(key);
+    renderWealth();
+    showToast('🗑️ Category deleted');
+  });
 }
 
 // ── EXPORT / IMPORT ─────────────────────────────────────────────

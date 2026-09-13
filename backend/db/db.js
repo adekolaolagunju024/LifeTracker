@@ -65,8 +65,8 @@ function createProject(userId, project) {
     if (parent && parent.parentId) throw new Error("A sub-folder can't contain another sub-folder");
   }
   db.prepare(`
-    INSERT INTO projects (id, userId, parentId, title, description, icon, color, startDate, createdAt) VALUES (?,?,?,?,?,?,?,?,?)
-  `).run(project.id, userId, project.parentId || null, project.title, project.description || '', project.icon || '📁', project.color || '#0A7E8C', project.startDate || '', project.createdAt);
+    INSERT INTO projects (id, userId, parentId, title, description, icon, color, startDate, type, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?)
+  `).run(project.id, userId, project.parentId || null, project.title, project.description || '', project.icon || '📁', project.color || '#0A7E8C', project.startDate || '', project.type || 'career', project.createdAt);
   return getProjectById(userId, project.id);
 }
 
@@ -79,8 +79,8 @@ function updateProjectById(userId, id, patch) {
     const parent = getProjectById(userId, next.parentId);
     if (parent && parent.parentId) throw new Error("A sub-folder can't contain another sub-folder");
   }
-  db.prepare(`UPDATE projects SET title=?, description=?, icon=?, color=?, startDate=?, parentId=? WHERE id = ? AND userId = ?`)
-    .run(next.title, next.description, next.icon, next.color, next.startDate || '', next.parentId || null, id, userId);
+  db.prepare(`UPDATE projects SET title=?, description=?, icon=?, color=?, startDate=?, parentId=?, type=? WHERE id = ? AND userId = ?`)
+    .run(next.title, next.description, next.icon, next.color, next.startDate || '', next.parentId || null, next.type || 'career', id, userId);
   return getProjectById(userId, id);
 }
 
@@ -172,6 +172,17 @@ function addWealthTarget(userId, key, label, target) {
   db.prepare('INSERT INTO wealth_entries (userId, key, value) VALUES (?, ?, 0)').run(userId, key);
 }
 
+function updateWealthTarget(userId, key, { label, target }) {
+  db.prepare('UPDATE wealth_targets SET label = ?, target = ? WHERE userId = ? AND key = ?')
+    .run(label, target || 0, userId, key);
+  return getWealth(userId).targets[key];
+}
+
+function deleteWealthTarget(userId, key) {
+  db.prepare('DELETE FROM wealth_targets WHERE userId = ? AND key = ?').run(userId, key);
+  db.prepare('DELETE FROM wealth_entries WHERE userId = ? AND key = ?').run(userId, key);
+}
+
 function addMonthlyLogEntry(userId, entry) {
   db.prepare(`
     INSERT INTO wealth_log (id, userId, date, month, income, business, expenses, saved, notes) VALUES (?,?,?,?,?,?,?,?,?)
@@ -251,7 +262,7 @@ module.exports = {
   getProfile, updateProfile,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById,
-  getWealth, updateWealthEntries, addWealthTarget, addMonthlyLogEntry, deleteMonthlyLogEntry,
+  getWealth, updateWealthEntries, addWealthTarget, updateWealthTarget, deleteWealthTarget, addMonthlyLogEntry, deleteMonthlyLogEntry,
   listActions, getActionById, createAction, updateActionById, deleteActionById,
   getGoogleDrive, setGoogleDrive,
   getFullSnapshot,

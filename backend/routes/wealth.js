@@ -20,6 +20,18 @@ router.post('/targets', (req, res) => {
   res.status(201).json({ key, label: req.body.label, target: req.body.target || 0 });
 });
 
+// PUT /api/wealth/targets/:key
+router.put('/targets/:key', (req, res) => {
+  const target = db.updateWealthTarget(req.session.userId, req.params.key, req.body);
+  res.json(target);
+});
+
+// DELETE /api/wealth/targets/:key
+router.delete('/targets/:key', (req, res) => {
+  db.deleteWealthTarget(req.session.userId, req.params.key);
+  res.json({ success: true });
+});
+
 // GET /api/wealth/log
 router.get('/log', (req, res) => {
   res.json(db.getWealth(req.session.userId).monthlyLog);
