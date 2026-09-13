@@ -787,11 +787,23 @@ async function renderGantt() {
     wealthProjects.forEach(p => {
       byProject[p.id] = (byProject[p.id] || []).concat(wealthRowsByProject[p.id]);
     });
+    // Sort so a project's sub-folders stay grouped immediately beneath it —
+    // by family (the top-level project's title), then rank (the top-level
+    // group itself before its children), then the group's own title.
+    const familyTitle = id => {
+      const proj = projectById[id];
+      if (!proj) return '';
+      return proj.parentId ? (projectById[proj.parentId]?.title || '') : proj.title;
+    };
+    const groupRank = id => projectById[id]?.parentId ? 1 : 0;
     const groupProjectIds = Object.keys(byProject)
       .filter(id => !allowedGroupIds || allowedGroupIds.has(id))
       .sort((a, b) => {
-        const pa = projectById[a], pb = projectById[b];
-        return (pa?.title || '').localeCompare(pb?.title || '');
+        const family = familyTitle(a).localeCompare(familyTitle(b));
+        if (family !== 0) return family;
+        const rank = groupRank(a) - groupRank(b);
+        if (rank !== 0) return rank;
+        return (projectById[a]?.title || '').localeCompare(projectById[b]?.title || '');
       });
 
     let rowsHTML = '';
