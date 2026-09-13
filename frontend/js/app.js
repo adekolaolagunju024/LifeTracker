@@ -198,6 +198,8 @@ async function renderDashboard() {
     ]);
     const projects       = allProjects.filter(p => !p.parentId); // top-level only, for the glance cards
     const careerProjects = projects.filter(p => p.type !== 'wealth');
+    const hasCareer      = careerProjects.length > 0;
+    const hasWealth      = projects.some(pr => pr.type === 'wealth');
 
     const done   = tasks.filter(t => t.status === 'Completed').length;
     const inprog = tasks.filter(t => t.status === 'In Progress').length;
@@ -205,6 +207,19 @@ async function renderDashboard() {
     const target = profile.targetNetWorth || 100000;
     const p      = pct(nw, target);
     const cur    = profile.currency || '£';
+
+    // Dashboard is dynamic: a hero/KPI for a project type only shows up once
+    // a project of that type actually exists, and the survivor(s) reflow to
+    // fill the row. Adding a new type later just needs its own toggle here.
+    document.getElementById('kpi-nw-card').classList.toggle('hidden', !hasWealth);
+    document.getElementById('kpi-grid').classList.toggle('md:grid-cols-4', hasWealth);
+    document.getElementById('kpi-grid').classList.toggle('md:grid-cols-3', !hasWealth);
+
+    document.getElementById('hero-nw-card').classList.toggle('hidden', !hasWealth);
+    document.getElementById('hero-career-card').classList.toggle('hidden', !hasCareer);
+    const soloHero = hasCareer !== hasWealth; // exactly one of the two is showing
+    document.getElementById('hero-nw-card').classList.toggle('md:col-span-2', soloHero && hasWealth);
+    document.getElementById('hero-career-card').classList.toggle('md:col-span-2', soloHero && hasCareer);
 
     // KPIs
     document.getElementById('kpi-total').textContent  = tasks.length;
