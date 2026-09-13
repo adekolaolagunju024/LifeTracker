@@ -1,0 +1,1790 @@
+// ═══════════════════════════════════════════════════════════════
+// APP.JS — Frontend UI Logic
+// All rendering, interactions, modals, Gantt, charts
+// Calls API object from api.js — never fetch() directly
+// ═══════════════════════════════════════════════════════════════
+
+// ── APP STATE ──────────────────────────────────────────────────
+const APP = {
+  currentPage: 'dashboard',
+  currentProjectId: null,
+  filters: { status: '', priority: '', search: '' },
+  ganttStart: new Date('2026-05-01'),
+  ganttEnd:   new Date('2027-05-31'),
+  nwChart: null,
+  onboardingStep: 1,
+};
+const ONBOARDING_STEPS = 4;
+
+// ── UTILS ──────────────────────────────────────────────────────
+const fmt = (n, currency = '£') => currency + Math.round(n).toLocaleString();
+const pct = (a, b) => b > 0 ? Math.min(Math.round((a / b) * 100), 100) : 0;
+const esc = s => String(s).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// ── PRIORITY / STATUS COLORS (Gantt, task table) ─────────────────
+const PRIORITY_BORDER = { High: '#DC2626', Medium: '#F59E0B', Low: '#16A34A' };
+function priorityBorderColor(p) { return PRIORITY_BORDER[p] || '#9CA3AF'; }
+const STATUS_COLOR = { 'Completed': '#16A34A', 'In Progress': '#F97316', 'Not Started': '#9CA3AF' };
+function statusColor(s) { return STATUS_COLOR[s] || '#9CA3AF'; }
+function tintStyle(color) {
+  const isDark = document.documentElement.classList.contains('dark');
+  return isDark
+    ? `background:${color}2E;border-color:${color}77;color:${color}`
+    : `background:${color}17;border-color:${color}55;color:${color}`;
+}
+function shadeColor(hex, amount) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.max(0, Math.min(255, (n >> 16) + amount));
+  const g = Math.max(0, Math.min(255, ((n >> 8) & 0xff) + amount));
+  const b = Math.max(0, Math.min(255, (n & 0xff) + amount));
+  return `rgb(${r},${g},${b})`;
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = type === 'error' ? '#B03020' : '#0D1B2A';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+let _confirmCallback = null;
+function confirmAction(msg, cb) {
+  document.getElementById('confirm-message').textContent = msg;
+  _confirmCallback = cb;
+  openModal('modal-confirm');
+}
+function runConfirmedAction() {
+  const cb = _confirmCallback;
+  closeModal('modal-confirm');
+  _confirmCallback = null;
+  if (cb) cb();
+}
+function cancelConfirmAction() {
+  closeModal('modal-confirm');
+  _confirmCallback = null;
+}
+
+// ── THEME (dark mode) ─────────────────────────────────────────────
+function applyThemeIcon() {
+  const isDark = document.documentElement.classList.contains('dark');
+  const icon = isDark ? '☀️' : '🌙';
+  const iconEl = document.getElementById('theme-toggle-icon');
+  const iconSettingsEl = document.getElementById('theme-toggle-icon-settings');
+  const labelEl = document.getElementById('theme-toggle-label');
+  if (iconEl) iconEl.textContent = icon;
+  if (iconSettingsEl) iconSettingsEl.textContent = icon;
+  if (labelEl) labelEl.textContent = isDark ? 'Dark mode' : 'Light mode';
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('lt-theme', isDark ? 'dark' : 'light');
+  applyThemeIcon();
+  if (APP.currentPage === 'wealth') renderWealth(); // Chart.js needs a redraw for its own colors
+}
+
+// ── STATUS & PRIORITY BADGES ───────────────────────────────────
+function statusBadge(s) {
+  const map = {
+    'Completed':   'bg-green-100 text-green-700',
+    'In Progress': 'bg-orange-100 text-orange-700',
+    'Not Started': 'bg-gray-100 text-gray-500',
+  };
+  return `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${map[s] || 'bg-gray-100 text-gray-500'}">${esc(s)}</span>`;
+}
+
+function priorityBadge(p) {
+  const map = {
+    'High':   'bg-red-100 text-red-700',
+    'Medium': 'bg-yellow-100 text-yellow-700',
+    'Low':    'bg-green-100 text-green-700',
+  };
+  return `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${map[p] || 'bg-gray-100 text-gray-500'}">${esc(p)}</span>`;
+}
+
+// ── MOBILE SIDEBAR ───────────────────────────────────────────────
+function openMobileSidebar() {
+  document.getElementById('sidebar').classList.add('mobile-open');
+  document.getElementById('sidebar-backdrop').classList.remove('hidden');
+}
+
+function closeMobileSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebar-backdrop').classList.add('hidden');
+}
+
+// ── NAVIGATION ─────────────────────────────────────────────────
+function showPage(id, projectId = null) {
+  APP.currentPage      = id;
+  APP.currentProjectId = projectId;
+  APP.filters          = { status: '', priority: '', search: '' };
+  closeMobileSidebar();
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const pg = document.getElementById('page-' + (projectId ? 'project-detail' : id));
+  if (pg) pg.classList.add('active');
+
+  const titles = {
+    dashboard: 'Dashboard', projects: 'All Projects',
+    gantt: 'Gantt Chart',   wealth: 'Wealth Tracker',
+    actions: 'Actions',     settings: 'Settings',
+  };
+  document.getElementById('topbar-title').textContent =
+    projectId ? '' : (titles[id] || id);
+
+  if (id === 'dashboard')      renderDashboard();
+  if (id === 'projects')       renderProjects();
+  if (id === 'project-detail') renderProjectDetail(projectId);
+  if (id === 'gantt')          renderGantt();
+  if (id === 'wealth')         renderWealth();
+  if (id === 'actions')        renderActions();
+  if (id === 'settings')       renderSettings();
+
+  updateSidebar();
+}
+
+// ── SIDEBAR ────────────────────────────────────────────────────
+async function updateSidebar() {
+  try {
+    const [profile, wealth, projects] = await Promise.all([
+      API.getProfile(),
+      API.getWealth(),
+      API.getProjects({ parentId: 'null' }),
+    ]);
+
+    const nw     = Object.values(wealth.entries || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+    const target = profile.targetNetWorth || 100000;
+    const p      = pct(nw, target);
+    const cur    = profile.currency || '£';
+
+    document.getElementById('sidebar-name').textContent    = profile.name;
+    document.getElementById('sidebar-tagline').textContent = profile.tagline;
+    document.getElementById('sidebar-nw').textContent      = fmt(nw, cur);
+    document.getElementById('sidebar-prog').style.width    = p + '%';
+    document.getElementById('sidebar-sub').textContent     = fmt(nw, cur) + ' of ' + fmt(target, cur);
+
+    // Rebuild project nav
+    document.getElementById('project-nav').innerHTML = projects.map(proj => `
+      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all ${APP.currentProjectId === proj.id ? 'active' : ''}"
+        onclick="showPage('project-detail','${proj.id}')">
+        <span class="text-base w-5 text-center">${proj.icon}</span>
+        <span class="flex-1 text-left truncate">${esc(proj.title)}</span>
+      </button>`).join('');
+
+  } catch (e) { console.error('Sidebar error:', e); }
+}
+
+// Projects can have sub-folders (one level, parentId). For any place that
+// shows a project "at a glance", its task count/completion should include
+// tasks that live in its sub-folders too, not just tasks assigned to it
+// directly.
+function tasksInProjectTree(projectId, allProjects, allTasks) {
+  const childIds = allProjects.filter(p => p.parentId === projectId).map(p => p.id);
+  const ids = new Set([projectId, ...childIds]);
+  return allTasks.filter(t => ids.has(t.projectId));
+}
+
+// ── DASHBOARD ──────────────────────────────────────────────────
+async function renderDashboard() {
+  try {
+    const [tasks, allProjects, profile, wealth] = await Promise.all([
+      API.getTasks(),
+      API.getProjects(),
+      API.getProfile(),
+      API.getWealth(),
+    ]);
+    const projects = allProjects.filter(p => !p.parentId); // top-level only, for the glance cards
+
+    const done   = tasks.filter(t => t.status === 'Completed').length;
+    const inprog = tasks.filter(t => t.status === 'In Progress').length;
+    const nw     = Object.values(wealth.entries || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+    const target = profile.targetNetWorth || 100000;
+    const p      = pct(nw, target);
+    const cur    = profile.currency || '£';
+
+    // KPIs
+    document.getElementById('kpi-total').textContent  = tasks.length;
+    document.getElementById('kpi-done').textContent   = done;
+    document.getElementById('kpi-inprog').textContent = inprog;
+    document.getElementById('kpi-nw').textContent     = fmt(nw, cur);
+    document.getElementById('hero-name').textContent  = profile.name.split(' ')[0];
+
+    // Hero
+    document.getElementById('hero-nw').textContent   = fmt(nw, cur);
+    document.getElementById('hero-left').textContent = p + '% of your ' + fmt(target, cur) + ' target';
+    document.getElementById('hero-prog').style.width = p + '%';
+    document.getElementById('hero-pct').textContent  = p + '% complete';
+
+    // Career Progress hero — overall task completion across all projects
+    const careerPct = pct(done, tasks.length);
+    document.getElementById('hero-career-pct').textContent    = careerPct + '%';
+    document.getElementById('hero-career-sub').textContent    = `${done} of ${tasks.length} tasks complete`;
+    document.getElementById('hero-career-prog').style.width   = careerPct + '%';
+    document.getElementById('hero-career-detail').textContent = `across ${projects.length} project${projects.length === 1 ? '' : 's'}`;
+
+    // Project stat cards
+    document.getElementById('project-stats').innerHTML = projects.map(proj => {
+      const pts  = tasksInProjectTree(proj.id, allProjects, tasks);
+      const pdone = pts.filter(t => t.status === 'Completed').length;
+      const pp   = pct(pdone, pts.length);
+      return `
+        <div class="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:shadow-md transition-all"
+          onclick="showPage('project-detail','${proj.id}')">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="text-2xl">${proj.icon}</span>
+            <div>
+              <p class="font-bold text-sm text-navy">${esc(proj.title)}</p>
+              <p class="text-xs text-gray-400">${pts.length} tasks · ${pdone} done</p>
+            </div>
+          </div>
+          <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-500"
+              style="width:${pp}%;background:${proj.color}"></div>
+          </div>
+          <p class="text-xs text-gray-400 mt-1.5 text-right">${pp}% complete</p>
+        </div>`;
+    }).join('');
+
+    // Urgent tasks
+    const urgent = tasks.filter(t => t.status === 'In Progress' && t.priority === 'High').slice(0, 6);
+    document.getElementById('urgent-tasks').innerHTML = urgent.length
+      ? urgent.map(t => {
+          const proj = allProjects.find(p => p.id === t.projectId);
+          return `<tr class="border-b border-gray-100 hover:bg-gray-50">
+            <td class="px-4 py-3 text-lg">${proj?.icon || '📌'}</td>
+            <td class="px-4 py-3 text-sm font-medium cursor-pointer hover:text-teal" onclick="openTaskDetail('${t.id}')">${esc(t.title)}</td>
+            <td class="px-4 py-3 text-xs text-gray-500">${proj?.title || ''}</td>
+            <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">${t.endDate || '—'}</td>
+            <td class="px-4 py-3">${statusBadge(t.status)}</td>
+          </tr>`;
+        }).join('')
+      : `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400 text-sm">No urgent tasks right now 🎉</td></tr>`;
+
+  } catch (e) { console.error('Dashboard error:', e); }
+}
+
+// ── PROJECTS LIST ───────────────────────────────────────────────
+async function renderProjects() {
+  try {
+    const [allProjects, tasks] = await Promise.all([API.getProjects(), API.getTasks()]);
+    const projects = allProjects.filter(p => !p.parentId); // top-level only
+
+    document.getElementById('projects-grid').innerHTML = projects.map(proj => {
+      const pts   = tasksInProjectTree(proj.id, allProjects, tasks);
+      const pdone = pts.filter(t => t.status === 'Completed').length;
+      const pinp  = pts.filter(t => t.status === 'In Progress').length;
+      const pp    = pct(pdone, pts.length);
+      const cost  = pts.reduce((s, t) => s + (t.cost || 0), 0);
+
+      return `
+        <div class="bg-white rounded-xl border border-gray-200 p-5 project-card"
+          style="border-top: 4px solid ${proj.color}">
+          <div class="flex justify-between items-start mb-3">
+            <span class="text-3xl">${proj.icon}</span>
+            <div class="project-card-actions flex gap-1 opacity-0 transition-opacity">
+              <button onclick="event.stopPropagation();editProject('${proj.id}')"
+                class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm">✏️</button>
+              <button onclick="event.stopPropagation();deleteProjectConfirm('${proj.id}')"
+                class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm">🗑️</button>
+            </div>
+          </div>
+          <h3 class="font-bold text-navy text-base mb-1 cursor-pointer hover:text-teal"
+            onclick="showPage('project-detail','${proj.id}')">${esc(proj.title)}</h3>
+          <p class="text-gray-400 text-xs mb-4">${esc(proj.description || '')}</p>
+          <div class="flex gap-2 mb-3">
+            <span class="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pts.length} tasks</span>
+            <span class="bg-green-50 text-green-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pdone} done</span>
+            <span class="bg-orange-50 text-orange-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pinp} active</span>
+          </div>
+          <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
+            <div class="h-full rounded-full transition-all duration-500"
+              style="width:${pp}%;background:${proj.color}"></div>
+          </div>
+          <div class="flex justify-between text-xs text-gray-400 mb-4">
+            <span>${pp}% complete</span>
+            <span>Est. £${cost.toLocaleString()}</span>
+          </div>
+          <button onclick="showPage('project-detail','${proj.id}')"
+            class="w-full py-2 rounded-lg text-white text-xs font-semibold transition-all hover:opacity-90"
+            style="background:${proj.color}">Open Project →</button>
+        </div>`;
+    }).join('');
+
+  } catch (e) { console.error('Projects error:', e); }
+}
+
+// ── PROJECT DETAIL ──────────────────────────────────────────────
+async function renderProjectDetail(projectId) {
+  try {
+    const [proj, children, allTasks] = await Promise.all([
+      API.getProject(projectId),
+      API.getProjects({ parentId: projectId }),
+      API.getTasks(),
+    ]);
+
+    document.getElementById('detail-icon').textContent      = proj.icon;
+    document.getElementById('detail-title').textContent     = proj.title;
+    document.getElementById('detail-desc').textContent      = proj.description || '';
+    document.getElementById('detail-color').style.background = proj.color;
+    document.getElementById('topbar-title').textContent     = proj.title;
+
+    // Sub-folders can't themselves have sub-folders (one level of nesting only)
+    document.getElementById('btn-new-subfolder').classList.toggle('hidden', !!proj.parentId);
+
+    // Breadcrumb — only shown for a sub-folder (a project with a parent)
+    const crumb = document.getElementById('detail-breadcrumb');
+    if (proj.parentId) {
+      const parent = await API.getProject(proj.parentId).catch(() => null);
+      crumb.classList.remove('hidden');
+      crumb.classList.add('flex');
+      crumb.innerHTML = parent
+        ? `<button class="hover:text-teal font-semibold" onclick="showPage('project-detail','${parent.id}')">${parent.icon} ${esc(parent.title)}</button><span>/</span><span class="text-gray-600 font-semibold">${esc(proj.title)}</span>`
+        : '';
+    } else {
+      crumb.classList.add('hidden');
+      crumb.classList.remove('flex');
+    }
+
+    // Sub-folders — only shown when this project actually has any
+    const subSection = document.getElementById('detail-subfolders-section');
+    if (children.length) {
+      subSection.classList.remove('hidden');
+      document.getElementById('detail-subfolders-grid').innerHTML = children.map(sub => {
+        const pts = allTasks.filter(t => t.projectId === sub.id);
+        const pdone = pts.filter(t => t.status === 'Completed').length;
+        const pp = pct(pdone, pts.length);
+        return `
+          <div class="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:shadow-md transition-all project-card"
+            style="border-top: 3px solid ${sub.color}" onclick="showPage('project-detail','${sub.id}')">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-2xl">${sub.icon}</span>
+              <div class="project-card-actions flex gap-1 opacity-0 transition-opacity">
+                <button onclick="event.stopPropagation();editProject('${sub.id}')" class="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 text-xs">✏️</button>
+                <button onclick="event.stopPropagation();deleteProjectConfirm('${sub.id}')" class="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 text-xs">🗑️</button>
+              </div>
+            </div>
+            <p class="font-bold text-sm text-navy mb-1">${esc(sub.title)}</p>
+            <p class="text-xs text-gray-400 mb-2">${pts.length} tasks · ${pdone} done</p>
+            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full rounded-full" style="width:${pp}%;background:${sub.color}"></div>
+            </div>
+          </div>`;
+      }).join('');
+    } else {
+      subSection.classList.add('hidden');
+    }
+
+    renderTaskTable(projectId);
+
+  } catch (e) { console.error('Project detail error:', e); }
+}
+
+async function renderTaskTable(projectId) {
+  try {
+    const [tasks, project] = await Promise.all([
+      API.getTasks({
+        projectId,
+        status:   APP.filters.status   || undefined,
+        priority: APP.filters.priority || undefined,
+        search:   APP.filters.search   || undefined,
+      }),
+      API.getProject(projectId),
+    ]);
+    const minStart = project.startDate || '';
+
+    const done = tasks.filter(t => t.status === 'Completed').length;
+    const inp  = tasks.filter(t => t.status === 'In Progress').length;
+    const cost = tasks.reduce((s, t) => s + (t.cost || 0), 0);
+
+    document.getElementById('detail-stats').innerHTML = `
+      <div class="bg-white rounded-xl border border-gray-200 p-4 flex-1">
+        <p class="text-xs text-gray-400 font-semibold">Tasks</p>
+        <p class="text-2xl font-black font-mono text-navy mt-1">${tasks.length}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-4 flex-1">
+        <p class="text-xs text-gray-400 font-semibold">Done</p>
+        <p class="text-2xl font-black font-mono text-green-600 mt-1">${done}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-4 flex-1">
+        <p class="text-xs text-gray-400 font-semibold">Active</p>
+        <p class="text-2xl font-black font-mono text-orange-500 mt-1">${inp}</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-4 flex-1">
+        <p class="text-xs text-gray-400 font-semibold">Est. Cost</p>
+        <p class="text-2xl font-black font-mono text-yellow-600 mt-1">£${cost.toLocaleString()}</p>
+      </div>`;
+
+    document.getElementById('task-table-body').innerHTML = tasks.length
+      ? tasks.map(t => `
+          <tr class="border-b border-gray-100 hover:bg-gray-50">
+            <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">${esc(t.title)}</td>
+            <td class="px-4 py-3">
+              <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}"
+                onchange="updateTaskStatus('${t.id}', this.value, '${projectId}')">
+                ${['Not Started','In Progress','Completed'].map(s =>
+                  `<option ${t.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+              </select>
+            </td>
+            <td class="px-4 py-3">
+              <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(priorityBorderColor(t.priority))}"
+                onchange="updateTaskPriority('${t.id}', this.value, '${projectId}')">
+                ${['High','Medium','Low'].map(p =>
+                  `<option ${t.priority === p ? 'selected' : ''}>${p}</option>`).join('')}
+              </select>
+            </td>
+            <td class="px-4 py-3">
+              <input type="date" value="${t.startDate || ''}" min="${minStart}" class="rounded-lg px-2 py-1 text-xs border border-gray-200 focus:outline-none focus:border-teal w-full"
+                onchange="updateTaskStartDate('${t.id}', this.value, '${projectId}')">
+            </td>
+            <td class="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">${t.endDate || '—'}</td>
+            <td class="px-4 py-3 text-xs font-mono font-semibold ${(t.cost || 0) > 0 ? 'text-green-600' : 'text-gray-300'}">
+              ${(t.cost || 0) > 0 ? '£' + t.cost.toLocaleString() : '—'}
+            </td>
+            <td class="px-4 py-3">
+              <div class="flex gap-1">
+                <button onclick="addTaskToGoogleCalendar('${t.id}')" title="Add to Google Calendar"
+                  class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">📅</button>
+                <button onclick="editTask('${t.id}')"
+                  class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">✏️</button>
+                <button onclick="deleteTaskConfirm('${t.id}','${projectId}')"
+                  class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm opacity-60 hover:opacity-100">🗑️</button>
+              </div>
+            </td>
+          </tr>`).join('')
+      : `<tr><td colspan="7" class="px-4 py-10 text-center text-gray-400 text-sm">
+          No tasks match your filters.
+          <button onclick="clearFilters('${projectId}')" class="text-teal underline ml-1">Clear filters</button>
+          or <button onclick="openAddTask('${projectId}')" class="text-teal underline">add a task</button>.
+        </td></tr>`;
+
+  } catch (e) { console.error('Task table error:', e); }
+}
+
+async function updateTaskStatus(id, status, projectId) {
+  await API.updateTask(id, { status });
+  renderTaskTable(projectId);
+  updateSidebar();
+}
+
+async function updateTaskPriority(id, priority, projectId) {
+  await API.updateTask(id, { priority });
+  renderTaskTable(projectId);
+}
+
+async function updateGanttTaskDate(id, field, value) {
+  try {
+    await API.updateTask(id, { [field]: value });
+    showToast('✅ ' + (field === 'startDate' ? 'Start' : 'Due') + ' date updated');
+  } catch (e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+  renderGantt(); // re-render either way so a rejected edit reverts to the saved value
+}
+
+async function updateTaskStartDate(id, startDate, projectId) {
+  try {
+    await API.updateTask(id, { startDate });
+    showToast('✅ Start date updated');
+  } catch (e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+  renderTaskTable(projectId); // re-render either way so a rejected edit reverts to the saved value
+}
+
+function applyFilters(projectId) {
+  APP.filters.status   = document.getElementById('filter-status').value;
+  APP.filters.priority = document.getElementById('filter-priority').value;
+  APP.filters.search   = document.getElementById('filter-search').value;
+  renderTaskTable(projectId);
+}
+
+function clearFilters(projectId) {
+  APP.filters = { status: '', priority: '', search: '' };
+  ['filter-status','filter-priority','filter-search']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  renderTaskTable(projectId);
+}
+
+// ── GANTT ───────────────────────────────────────────────────────
+let ganttCollapsed = new Set();
+const GANTT_GRID_COLS = '200px 90px 85px 85px 70px 1fr';
+
+function toggleGanttGroup(groupId) {
+  if (ganttCollapsed.has(groupId)) ganttCollapsed.delete(groupId);
+  else ganttCollapsed.add(groupId);
+  renderGantt();
+}
+
+function setGanttViewMode(mode) {
+  APP.ganttViewMode = mode;
+  renderGantt();
+}
+
+function formatDuration(startDate, endDate) {
+  if (!startDate || !endDate) return '—';
+  const days = Math.round((new Date(endDate) - new Date(startDate)) / 86400000) + 1;
+  return days <= 0 ? '—' : (days === 1 ? '1 day' : `${days} days`);
+}
+
+function formatDateShort(dateStr) {
+  if (!dateStr) return '—';
+  return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+}
+
+// Builds the header columns for the timeline area under the chosen zoom
+// level. Bar/milestone positions are always computed from raw day offsets
+// (see posPct below), so switching view mode only changes how the header
+// and gridlines are divided up — never the underlying date math.
+function buildTimelineColumns(mode, start, end, totalDays) {
+  const cols = [];
+  if (mode === 'week') {
+    let cur = new Date(start);
+    while (cur < end) {
+      const next = new Date(cur); next.setDate(next.getDate() + 7);
+      const segEnd = next > end ? end : next;
+      const days = Math.max(1, Math.round((segEnd - cur) / 86400000));
+      cols.push({ days, label: cur.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) });
+      cur = next;
+    }
+  } else if (mode === 'year') {
+    let y = start.getFullYear();
+    while (y <= end.getFullYear()) {
+      const yStart = y === start.getFullYear() ? start : new Date(y, 0, 1);
+      const yEndCandidate = new Date(y, 11, 31);
+      const yEnd = yEndCandidate < end ? yEndCandidate : end;
+      const days = Math.max(1, Math.round((yEnd - yStart) / 86400000) + 1);
+      cols.push({ days, label: String(y) });
+      y++;
+    }
+  } else {
+    let cur = new Date(start.getFullYear(), start.getMonth(), 1);
+    while (cur <= end) {
+      const daysInMonth = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
+      cols.push({ days: daysInMonth, label: cur.toLocaleString('default', { month: 'short' }) + " '" + String(cur.getFullYear()).slice(2) });
+      cur.setMonth(cur.getMonth() + 1);
+    }
+  }
+  return { widths: cols.map(c => (c.days / totalDays) * 100), labels: cols.map(c => c.label) };
+}
+
+async function renderGantt() {
+  try {
+    const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
+    const projectById = Object.fromEntries(projects.map(p => [p.id, p]));
+    if (!APP.ganttViewMode) APP.ganttViewMode = 'month';
+
+    document.querySelectorAll('.gantt-view-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === APP.ganttViewMode));
+
+    // Date range: span the actual task dates (with a month of padding either
+    // side) so nothing gets cut off, falling back to a default window when
+    // no task has any date yet.
+    const dated = tasks
+      .flatMap(t => [t.startDate, t.endDate])
+      .filter(Boolean)
+      .map(d => new Date(d))
+      .filter(d => !isNaN(d));
+
+    let start, end;
+    if (dated.length) {
+      const minD = new Date(Math.min(...dated));
+      const maxD = new Date(Math.max(...dated));
+      start = new Date(minD.getFullYear(), minD.getMonth() - 1, 1);
+      end   = new Date(maxD.getFullYear(), maxD.getMonth() + 2, 0);
+    } else {
+      start = APP.ganttStart;
+      end   = APP.ganttEnd;
+    }
+    const totalDays = Math.ceil((end - start) / 86400000);
+
+    // Timeline header, divided according to the chosen zoom level
+    const { widths: colWidths, labels: colLabels } = buildTimelineColumns(APP.ganttViewMode, start, end, totalDays);
+
+    // Each column needs a minimum pixel width to keep its label readable —
+    // week view especially can produce far more columns than fit at a fixed
+    // table width, so the wrapper grows and the outer container scrolls.
+    const minColPx = { week: 50, month: 70, year: 90 }[APP.ganttViewMode] || 70;
+    const fixedColsPx = 200 + 90 + 85 + 85 + 70;
+    const ganttWidthPx = (fixedColsPx + colLabels.length * minColPx) + 'px';
+    document.getElementById('gantt-timeline-wrapper').style.minWidth = ganttWidthPx;
+    document.getElementById('gantt-rows-wrapper').style.minWidth = ganttWidthPx;
+
+    document.getElementById('gantt-months').innerHTML = colLabels.map((label, i) => `
+      <div class="text-xs font-semibold text-gray-500 py-2.5 border-r border-gray-200 text-center flex-shrink-0 truncate" style="width:${colWidths[i]}%">
+        ${label}
+      </div>`).join('');
+
+    // Vertical gridlines at each column boundary, reused in every row so the
+    // columns actually line up with the header above them.
+    let acc = 0;
+    const gridlines = colWidths.slice(0, -1).map(w => {
+      acc += w;
+      return `<div class="gantt-gridline" style="left:${acc}%"></div>`;
+    }).join('');
+
+    // Today line (only if "today" actually falls inside the visible range)
+    const today = new Date();
+    const todayLine = (today >= start && today <= end)
+      ? `<div class="today-line" style="left:${Math.max(0, Math.min(100, ((today - start) / 86400000 / totalDays) * 100))}%"></div>`
+      : '';
+
+    const posPct = d => Math.max(0, Math.min(100, ((d - start) / 86400000 / totalDays) * 100));
+
+    // Project start marker — a dashed green line (repeated per row, same
+    // technique as the today line) for every project that has one set,
+    // plus a badge above the table so it's visible without scrolling down.
+    const projectsWithStart = projects.filter(p => p.startDate);
+    const projectStartLines = projectsWithStart
+      .map(p => new Date(p.startDate))
+      .filter(d => d >= start && d <= end)
+      .map(d => `<div class="project-start-line" style="left:${posPct(d)}%"></div>`)
+      .join('');
+
+    document.getElementById('gantt-project-badges').innerHTML = projectsWithStart.map(p => `
+      <span class="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1 cursor-pointer" onclick="editProject('${p.id}')" title="Edit project">
+        🚩 ${esc(p.title)} starts ${formatDateShort(p.startDate)}
+      </span>`).join('');
+
+    // Group rows by the task's actual project (which may be a top-level
+    // project or one of its sub-folders) — MS Project style: a summary bar
+    // spanning the group's full date range, with individual task
+    // bars/milestones beneath it. Because the group IS a real, editable
+    // project now, clicking its name opens that project's own edit modal.
+    const byProject = {};
+    tasks.forEach(t => { (byProject[t.projectId] = byProject[t.projectId] || []).push(t); });
+    const groupProjectIds = Object.keys(byProject).sort((a, b) => {
+      const pa = projectById[a], pb = projectById[b];
+      return (pa?.title || '').localeCompare(pb?.title || '');
+    });
+
+    let rowsHTML = '';
+    groupProjectIds.forEach(groupId => {
+      const pts = byProject[groupId];
+      const groupProject = projectById[groupId];
+      const color = groupProject?.color || '#6B7280';
+      const groupTitle = groupProject?.title || 'Unknown project';
+      const done  = pts.filter(t => t.status === 'Completed').length;
+
+      const catDates = pts.flatMap(t => [t.startDate, t.endDate]).filter(Boolean).map(d => new Date(d)).filter(d => !isNaN(d));
+      let summaryBar = '', catStart = '', catEnd = '';
+      if (catDates.length) {
+        const minDate = new Date(Math.min(...catDates));
+        const maxDate = new Date(Math.max(...catDates));
+        catStart = minDate.toISOString().slice(0, 10);
+        catEnd   = maxDate.toISOString().slice(0, 10);
+        const gMin = posPct(minDate);
+        const gMax = posPct(maxDate);
+        const dark = shadeColor(color, -40);
+        summaryBar = `
+          <div class="gantt-summary-bar" style="left:${gMin}%;width:${Math.max(0.6, gMax - gMin)}%;background:${dark}"
+            title="${esc(groupTitle)}: ${catStart} → ${catEnd} (drag to shift every task in this folder)"
+            onmousedown="ganttSummaryMouseDown(event,'${groupId}')"></div>
+          <div class="gantt-summary-cap" style="left:${gMin}%;border-top:7px solid ${dark}"></div>
+          <div class="gantt-summary-cap" style="left:${gMax}%;border-top:7px solid ${dark}"></div>`;
+      }
+
+      const isCollapsed = ganttCollapsed.has(groupId);
+
+      rowsHTML += `
+        <div class="grid border-b border-gray-200 gantt-cat-row" style="grid-template-columns:${GANTT_GRID_COLS}">
+          <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-2 font-bold text-xs overflow-hidden">
+            <span class="text-gray-400 text-[10px] flex-shrink-0 transition-transform cursor-pointer" style="${isCollapsed ? '' : 'transform:rotate(90deg)'}" onclick="toggleGanttGroup('${groupId}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">▶</span>
+            <span class="w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${color}"></span>
+            <span class="truncate cursor-pointer hover:underline" style="color:${color}" onclick="editProject('${groupId}')" title="Edit this folder">${esc(groupProject?.icon || '')} ${esc(groupTitle)}</span>
+          </div>
+          <div class="gantt-sticky gantt-sticky-2 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 font-semibold">${done}/${pts.length}</div>
+          <div class="gantt-sticky gantt-sticky-3 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDateShort(catStart)}</div>
+          <div class="gantt-sticky gantt-sticky-4 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDateShort(catEnd)}</div>
+          <div class="gantt-sticky gantt-sticky-5 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDuration(catStart, catEnd)}</div>
+          <div class="gantt-bar-area h-8">${gridlines}${summaryBar}${todayLine}${projectStartLines}</div>
+        </div>`;
+
+      if (isCollapsed) return;
+
+      pts.forEach((t, i) => {
+        const ts = t.startDate ? new Date(t.startDate) : null;
+        const te = t.endDate   ? new Date(t.endDate)   : null;
+        const borderColor = priorityBorderColor(t.priority);
+        const fillColor   = t.status === 'Completed' ? shadeColor(color, 40) : color;
+        const minStart = groupProject ? (groupProject.startDate || '') : '';
+
+        let marker = '';
+        if (ts && te) {
+          const barLeft  = Math.max(0, ((ts - start) / 86400000 / totalDays) * 100);
+          const barWidth = Math.max(0.8, Math.min(100 - barLeft, ((te - ts) / 86400000 / totalDays) * 100 + 0.5));
+          marker = `
+            <div class="gantt-bar" style="left:${barLeft}%;width:${barWidth}%;background:${fillColor};border:2px solid ${borderColor}"
+              title="${esc(t.title)} [${t.priority} priority]: ${t.startDate} → ${t.endDate} (drag to move, edges to resize, click to edit)"
+              onmousedown="ganttBarMouseDown(event,'${t.id}','move')">
+              <span class="gantt-resize-handle" style="left:0" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-left')"></span>
+              <span class="gantt-bar-label">${esc(t.title)}</span>
+              <span class="gantt-resize-handle" style="right:0" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-right')"></span>
+            </div>`;
+        } else if (te) {
+          const pctPos = posPct(te);
+          marker = `<div class="gantt-milestone" style="left:${pctPos}%;background:${fillColor};border:2px solid ${borderColor}"
+            title="${esc(t.title)} [${t.priority} priority]: due ${t.endDate} (drag to move, click to edit)"
+            onmousedown="ganttBarMouseDown(event,'${t.id}','milestone')"></div>`;
+        }
+
+        rowsHTML += `
+          <div class="grid border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px">
+            <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center overflow-hidden cursor-pointer" onclick="editTask('${t.id}')" title="Edit task">
+              <span class="text-xs text-gray-600 hover:text-teal truncate" title="${esc(t.title)}">${esc(t.title)}</span>
+            </div>
+            <div class="gantt-sticky gantt-sticky-2 px-3 py-2 border-r border-gray-200 flex items-center overflow-hidden">
+              ${statusBadge(t.status)}
+            </div>
+            <div class="gantt-sticky gantt-sticky-3 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
+              <input type="date" value="${t.startDate || ''}" min="${minStart}" class="w-full rounded px-1 py-1 text-[10px] border border-gray-200 focus:outline-none focus:border-teal"
+                onchange="updateGanttTaskDate('${t.id}', 'startDate', this.value)">
+            </div>
+            <div class="gantt-sticky gantt-sticky-4 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
+              <input type="date" value="${t.endDate || ''}" class="w-full rounded px-1 py-1 text-[10px] border border-gray-200 focus:outline-none focus:border-teal"
+                onchange="updateGanttTaskDate('${t.id}', 'endDate', this.value)">
+            </div>
+            <div class="gantt-sticky gantt-sticky-5 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDuration(t.startDate, t.endDate)}</div>
+            <div class="gantt-bar-area">${gridlines}${todayLine}${projectStartLines}${marker}</div>
+          </div>`;
+      });
+    });
+
+    document.getElementById('gantt-rows').innerHTML = rowsHTML
+      || `<div class="p-10 text-center text-gray-400 text-sm">No tasks yet.</div>`;
+    document.getElementById('gantt-rows').dataset.totalDays = totalDays;
+
+    const groupLegend = groupProjectIds
+      .map(id => projectById[id])
+      .filter(Boolean)
+      .map(p => `<span class="flex items-center gap-1.5"><span class="inline-block w-2.5 h-2.5 rounded-sm" style="background:${p.color}"></span>${esc(p.title)}</span>`)
+      .join('');
+
+    document.getElementById('gantt-legend').innerHTML = `
+      <div class="flex gap-4 text-xs text-gray-500 flex-wrap mb-1.5">${groupLegend}</div>
+      <div class="flex gap-4 text-xs text-gray-500 flex-wrap">
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-2 rounded-sm border-2" style="border-color:${PRIORITY_BORDER.High}"></span>High priority</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-2 rounded-sm border-2" style="border-color:${PRIORITY_BORDER.Medium}"></span>Medium</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-2 rounded-sm border-2" style="border-color:${PRIORITY_BORDER.Low}"></span>Low</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-2 h-2 bg-gray-400 rounded-sm" style="transform:rotate(45deg)"></span>Due date only</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-1.5 rounded-sm bg-gray-700"></span>Folder summary</span>
+        <span class="flex items-center gap-1.5"><span class="inline-block w-0.5 h-3 bg-red-500 rounded"></span>Today</span>
+      </div>`;
+
+  } catch (e) { console.error('Gantt error:', e); }
+}
+
+// ── GANTT DRAG-TO-MOVE / RESIZE ───────────────────────────────────
+let ganttDrag = null;
+
+function addDaysToDateStr(dateStr, days) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function ganttBarMouseDown(e, taskId, mode) {
+  e.preventDefault();
+  e.stopPropagation();
+  const totalDays = parseFloat(document.getElementById('gantt-rows').dataset.totalDays);
+  const barEl  = mode === 'milestone' ? e.currentTarget : e.currentTarget.closest('.gantt-bar');
+  const areaEl = barEl.closest('.gantt-bar-area');
+
+  ganttDrag = {
+    taskId, mode, totalDays,
+    startX: e.clientX,
+    moved: 0,
+    areaWidth: areaEl.getBoundingClientRect().width,
+    origLeftPct: parseFloat(barEl.style.left),
+    origWidthPct: mode === 'milestone' ? 0 : parseFloat(barEl.style.width),
+    barEl,
+  };
+  document.addEventListener('mousemove', ganttMouseMove);
+  document.addEventListener('mouseup', ganttMouseUp);
+}
+
+// Dragging a folder's summary bar shifts every task directly in that
+// project by the same number of days — a bulk move, since most imported
+// goals only have a due date and the individual diamonds are small,
+// fiddly targets.
+function ganttSummaryMouseDown(e, groupId) {
+  e.preventDefault();
+  e.stopPropagation();
+  const totalDays = parseFloat(document.getElementById('gantt-rows').dataset.totalDays);
+  const barEl  = e.currentTarget;
+  const areaEl = barEl.closest('.gantt-bar-area');
+  const capEls = [...areaEl.querySelectorAll('.gantt-summary-cap')];
+
+  ganttDrag = {
+    mode: 'summary', groupId, totalDays,
+    startX: e.clientX,
+    moved: 0,
+    areaWidth: areaEl.getBoundingClientRect().width,
+    origLeftPct: parseFloat(barEl.style.left),
+    barEl,
+    capEls,
+    capOrigLeft: capEls.map(el => parseFloat(el.style.left)),
+  };
+  document.addEventListener('mousemove', ganttMouseMove);
+  document.addEventListener('mouseup', ganttMouseUp);
+}
+
+function ganttMouseMove(e) {
+  if (!ganttDrag) return;
+  const d = ganttDrag;
+  const deltaX = e.clientX - d.startX;
+  d.moved = Math.max(d.moved, Math.abs(deltaX));
+  const deltaPct   = (deltaX / d.areaWidth) * 100;
+  const minWidthPct = 100 / d.totalDays;
+
+  if (d.mode === 'move' || d.mode === 'milestone') {
+    d.barEl.style.left = (d.origLeftPct + deltaPct) + '%';
+  } else if (d.mode === 'resize-left') {
+    const maxLeft = d.origLeftPct + d.origWidthPct - minWidthPct;
+    const newLeft = Math.min(maxLeft, d.origLeftPct + deltaPct);
+    d.barEl.style.left  = newLeft + '%';
+    d.barEl.style.width = (d.origWidthPct - (newLeft - d.origLeftPct)) + '%';
+  } else if (d.mode === 'resize-right') {
+    d.barEl.style.width = Math.max(minWidthPct, d.origWidthPct + deltaPct) + '%';
+  } else if (d.mode === 'summary') {
+    d.barEl.style.left = (d.origLeftPct + deltaPct) + '%';
+    d.capEls.forEach((el, i) => { el.style.left = (d.capOrigLeft[i] + deltaPct) + '%'; });
+  }
+}
+
+async function ganttMouseUp(e) {
+  document.removeEventListener('mousemove', ganttMouseMove);
+  document.removeEventListener('mouseup', ganttMouseUp);
+  if (!ganttDrag) return;
+  const d = ganttDrag;
+  ganttDrag = null;
+
+  // Negligible movement means this was a click, not a drag — edit instead
+  // (a summary bar has no single task to edit, so a plain click does nothing).
+  if (d.moved < 4) { if (d.mode !== 'summary') editTask(d.taskId); return; }
+
+  const deltaDays = Math.round(((e.clientX - d.startX) / d.areaWidth) * d.totalDays);
+  if (deltaDays === 0) { renderGantt(); return; }
+
+  if (d.mode === 'summary') {
+    try {
+      const allTasks = await API.getTasks();
+      const groupTasks = allTasks.filter(t => t.projectId === d.groupId);
+      let lastError = null;
+      for (const t of groupTasks) {
+        const patch = {};
+        if (t.startDate) patch.startDate = addDaysToDateStr(t.startDate, deltaDays);
+        if (t.endDate)   patch.endDate   = addDaysToDateStr(t.endDate, deltaDays);
+        if (!Object.keys(patch).length) continue;
+        try { await API.updateTask(t.id, patch); } catch (err) { lastError = err.message; }
+      }
+      if (lastError) showToast('❌ ' + lastError, 'error');
+      else showToast(`✅ Shifted ${groupTasks.length} task${groupTasks.length === 1 ? '' : 's'}`);
+    } catch (err) {
+      showToast('❌ ' + err.message, 'error');
+    }
+    renderGantt();
+    return;
+  }
+
+  try {
+    const task = await API.getTask(d.taskId);
+    const patch = {};
+    if (d.mode === 'move') {
+      patch.startDate = addDaysToDateStr(task.startDate, deltaDays);
+      patch.endDate   = addDaysToDateStr(task.endDate, deltaDays);
+    } else if (d.mode === 'resize-left') {
+      patch.startDate = addDaysToDateStr(task.startDate, deltaDays);
+    } else if (d.mode === 'resize-right') {
+      patch.endDate = addDaysToDateStr(task.endDate, deltaDays);
+    } else if (d.mode === 'milestone') {
+      patch.endDate = addDaysToDateStr(task.endDate, deltaDays);
+    }
+    await API.updateTask(d.taskId, patch);
+    showToast('✅ Dates updated');
+  } catch (err) {
+    showToast('❌ ' + err.message, 'error');
+  }
+  renderGantt();
+}
+
+// ── WEALTH ──────────────────────────────────────────────────────
+async function renderWealth() {
+  try {
+    const [wealth, profile, log] = await Promise.all([
+      API.getWealth(),
+      API.getProfile(),
+      API.getMonthlyLog(),
+    ]);
+
+    const entries = wealth.entries || {};
+    const targets = wealth.targets || {};
+    const nw      = Object.values(entries).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+    const target  = profile.targetNetWorth || 100000;
+    const p       = pct(nw, target);
+    const cur     = profile.currency || '£';
+
+    document.getElementById('wealth-total').textContent = fmt(nw, cur);
+    document.getElementById('wealth-pct').textContent   = p + '%';
+    document.getElementById('wealth-prog').style.width  = p + '%';
+    document.getElementById('wealth-left').textContent  = fmt(Math.max(0, target - nw), cur) + ' to go';
+
+    // Wealth cards
+    document.getElementById('wealth-cards').innerHTML = Object.entries(targets).map(([key, wt]) => {
+      const val = parseFloat(entries[key]) || 0;
+      const pp  = pct(val, wt.target);
+      return `
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+          <h4 class="text-sm font-bold text-navy mb-3">${esc(wt.label)}</h4>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs text-gray-500 font-medium">Current (${cur})</label>
+            <input type="number" min="0" placeholder="0" value="${val || ''}"
+              class="w-32 border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-mono font-semibold text-right focus:outline-none focus:border-teal"
+              oninput="updateWealth('${key}', this.value)">
+          </div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs text-gray-400">Target</span>
+            <span class="text-xs font-mono font-bold text-green-600">${fmt(wt.target, cur)}</span>
+          </div>
+          <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-300"
+              style="width:${pp}%;background:${pp >= 100 ? '#1A7A4A' : pp > 50 ? '#0A7E8C' : '#C49A00'}"></div>
+          </div>
+          <p class="text-xs text-gray-400 text-right mt-1">${pp}%</p>
+        </div>`;
+    }).join('');
+
+    // Chart
+    renderNWChart(log, cur);
+
+    // Monthly log
+    document.getElementById('monthly-log').innerHTML = log.length
+      ? log.map(e => `
+          <tr class="border-b border-gray-100 hover:bg-gray-50">
+            <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">${esc(e.month || '')}</td>
+            <td class="px-4 py-3 text-xs font-mono font-semibold">${fmt(e.income || 0, cur)}</td>
+            <td class="px-4 py-3 text-xs font-mono font-semibold text-orange-600">${fmt(e.business || 0, cur)}</td>
+            <td class="px-4 py-3 text-xs font-mono">${fmt(e.expenses || 0, cur)}</td>
+            <td class="px-4 py-3 text-xs font-mono font-bold text-green-600">${fmt(e.saved || 0, cur)}</td>
+            <td class="px-4 py-3 text-xs text-gray-400">${esc(e.notes || '')}</td>
+            <td class="px-4 py-3">
+              <button onclick="deleteLogEntry('${e.id}')"
+                class="text-gray-300 hover:text-red-500 text-sm p-1 rounded hover:bg-red-50">🗑️</button>
+            </td>
+          </tr>`).join('')
+      : `<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400 text-sm">No entries yet. Log your first month above.</td></tr>`;
+
+  } catch (e) { console.error('Wealth error:', e); }
+}
+
+async function updateWealth(key, value) {
+  await API.updateWealthEntry({ [key]: parseFloat(value) || 0 });
+  updateSidebar();
+
+  // Update hero totals live
+  const [wealth, profile] = await Promise.all([API.getWealth(), API.getProfile()]);
+  const nw     = Object.values(wealth.entries || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+  const target = profile.targetNetWorth || 100000;
+  const p      = pct(nw, target);
+  const cur    = profile.currency || '£';
+  document.getElementById('wealth-total').textContent = fmt(nw, cur);
+  document.getElementById('wealth-pct').textContent   = p + '%';
+  document.getElementById('wealth-prog').style.width  = p + '%';
+  document.getElementById('wealth-left').textContent  = fmt(Math.max(0, target - nw), cur) + ' to go';
+}
+
+async function deleteLogEntry(id) {
+  await API.deleteMonthlyEntry(id);
+  renderWealth();
+  showToast('🗑️ Entry deleted');
+}
+
+// ── NET WORTH CHART ─────────────────────────────────────────────
+function renderNWChart(log, cur = '£') {
+  const canvas = document.getElementById('nw-chart');
+  if (!canvas) return;
+
+  if (APP.nwChart) { APP.nwChart.destroy(); APP.nwChart = null; }
+
+  if (!log.length) {
+    canvas.parentElement.innerHTML = `
+      <div class="text-center py-10 text-gray-400 text-sm">
+        <p class="text-2xl mb-2">📈</p>
+        <p>No monthly data yet. Log your first month to see your chart.</p>
+      </div>`;
+    return;
+  }
+
+  const sorted  = [...log].reverse();
+  const labels  = sorted.map(e => e.month || '');
+  const data    = sorted.map(e => parseFloat(e.saved) || 0);
+  const running = data.reduce((acc, val, i) => {
+    acc.push((acc[i - 1] || 0) + val); return acc;
+  }, []);
+
+  const isDark    = document.documentElement.classList.contains('dark');
+  const textColor = isDark ? '#CBD5E1' : '#374151';
+  const gridColor = isDark ? '#263449' : '#F3F4F6';
+
+  APP.nwChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Monthly Saved',
+          data,
+          borderColor: '#0A7E8C',
+          backgroundColor: 'rgba(10,126,140,0.08)',
+          borderWidth: 2,
+          pointBackgroundColor: '#0A7E8C',
+          pointRadius: 4,
+          tension: 0.4,
+          fill: true,
+        },
+        {
+          label: 'Running Total',
+          data: running,
+          borderColor: '#C49A00',
+          backgroundColor: 'rgba(196,154,0,0.06)',
+          borderWidth: 2,
+          pointBackgroundColor: '#C49A00',
+          pointRadius: 4,
+          tension: 0.4,
+          fill: true,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top', labels: { color: textColor, font: { family: 'Inter', size: 12 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${cur}${Math.round(ctx.parsed.y).toLocaleString()}`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            callback: v => cur + Math.round(v).toLocaleString(),
+            color: textColor,
+            font: { family: 'JetBrains Mono', size: 11 }
+          },
+          grid: { color: gridColor }
+        },
+        x: {
+          ticks: { color: textColor, font: { family: 'Inter', size: 11 } },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+// ── ACTIONS ─────────────────────────────────────────────────────
+async function renderActions() {
+  try {
+    const actions = await API.getActions();
+    const done    = actions.filter(a => a.done).length;
+
+    document.getElementById('act-total').textContent = actions.length;
+    document.getElementById('act-done').textContent  = done;
+    document.getElementById('act-rem').textContent   = actions.length - done;
+
+    const PRI = {
+      'Do Now': 'bg-red-100 text-red-700',
+      'High':   'bg-orange-100 text-orange-700',
+      'Medium': 'bg-yellow-100 text-yellow-700',
+      'Low':    'bg-green-100 text-green-700',
+    };
+
+    document.getElementById('action-list').innerHTML = actions.map(a => `
+      <div class="flex items-start gap-3 px-5 py-4 border-b border-gray-100 hover:bg-gray-50 transition-all action-item ${a.done ? 'done' : ''}">
+        <div class="action-check w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer ${a.done ? 'checked' : ''}"
+          onclick="toggleAction('${a.id}', ${a.done})"></div>
+        <div class="flex-1">
+          <h5 class="text-sm font-semibold text-navy">${esc(a.text)}</h5>
+          <p class="text-xs text-gray-400 mt-0.5">${esc(a.area || '')} · By ${esc(a.by || '')}</p>
+        </div>
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${PRI[a.priority] || 'bg-gray-100 text-gray-500'}">${esc(a.priority)}</span>
+        <button onclick="deleteAction('${a.id}')"
+          class="text-gray-300 hover:text-red-500 text-sm p-1 rounded hover:bg-red-50 opacity-60 hover:opacity-100">🗑️</button>
+      </div>`).join('');
+
+  } catch (e) { console.error('Actions error:', e); }
+}
+
+async function toggleAction(id, current) {
+  await API.toggleAction(id, current);
+  renderActions();
+}
+
+async function deleteAction(id) {
+  await API.deleteAction(id);
+  renderActions();
+  showToast('🗑️ Action deleted');
+}
+
+// ── SETTINGS ────────────────────────────────────────────────────
+async function renderSettings() {
+  try {
+    const p = await API.getProfile();
+    document.getElementById('set-name').value     = p.name;
+    document.getElementById('set-tagline').value  = p.tagline;
+    document.getElementById('set-currency').value = p.currency || '£';
+    document.getElementById('set-target').value   = p.targetNetWorth;
+    document.getElementById('set-date').value     = p.targetDate;
+    renderSettingsDrive();
+    API.getMe().then(me => { document.getElementById('account-email').textContent = me.email; }).catch(() => {});
+  } catch (e) { console.error('Settings error:', e); }
+}
+
+async function saveSettings() {
+  try {
+    await API.updateProfile({
+      name:           document.getElementById('set-name').value,
+      tagline:        document.getElementById('set-tagline').value,
+      currency:       document.getElementById('set-currency').value,
+      targetNetWorth: parseFloat(document.getElementById('set-target').value) || 100000,
+      targetDate:     document.getElementById('set-date').value,
+    });
+    updateSidebar();
+    showToast('✅ Settings saved!');
+  } catch (e) { showToast('❌ Failed to save', 'error'); }
+}
+
+// ── AUTH ────────────────────────────────────────────────────────
+async function checkAuth() {
+  const status = await API.getAuthStatus();
+  if (!status.authenticated) {
+    showAuthView('login');
+    return false;
+  }
+  return true;
+}
+
+function showAuthView(view) {
+  document.getElementById('auth-overlay').classList.add('open');
+  document.getElementById('auth-view-login').classList.toggle('active', view === 'login');
+  document.getElementById('auth-view-register').classList.toggle('active', view === 'register');
+}
+
+function closeAuth() {
+  document.getElementById('auth-overlay').classList.remove('open');
+}
+
+function showAuthError(id, message) {
+  const el = document.getElementById(id);
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+async function submitAuthRegister() {
+  const email    = document.getElementById('auth-register-email').value.trim();
+  const password = document.getElementById('auth-register-password').value;
+  const confirm  = document.getElementById('auth-register-confirm').value;
+  if (password.length < 6) return showAuthError('auth-register-error', 'Password must be at least 6 characters');
+  if (password !== confirm) return showAuthError('auth-register-error', 'Passwords do not match');
+  try {
+    await API.register(email, password);
+    closeAuth();
+    await afterAuth();
+  } catch (e) { showAuthError('auth-register-error', e.message); }
+}
+
+async function submitAuthLogin() {
+  const email    = document.getElementById('auth-login-email').value.trim();
+  const password = document.getElementById('auth-login-password').value;
+  try {
+    await API.login(email, password);
+    closeAuth();
+    await afterAuth();
+  } catch (e) { showAuthError('auth-login-error', e.message); }
+}
+
+async function afterAuth() {
+  const showingOnboarding = await checkOnboarding();
+  if (!showingOnboarding) await showPage('dashboard');
+}
+
+async function logout() {
+  await API.logout();
+  window.location.reload();
+}
+
+async function submitChangePassword() {
+  const currentPassword = document.getElementById('pw-current').value;
+  const newPassword     = document.getElementById('pw-new').value;
+  if (newPassword.length < 6) return showToast('New password must be at least 6 characters', 'error');
+  try {
+    await API.changePassword(currentPassword, newPassword);
+    document.getElementById('pw-current').value = '';
+    document.getElementById('pw-new').value      = '';
+    showToast('✅ Password changed');
+  } catch (e) { showToast('❌ ' + e.message, 'error'); }
+}
+
+// ── ONBOARDING WIZARD ──────────────────────────────────────────
+async function checkOnboarding() {
+  const profile = await API.getProfile();
+  if (!profile.onboarded) {
+    startOnboarding();
+    return true;
+  }
+  return false;
+}
+
+function startOnboarding() {
+  APP.onboardingStep = 1;
+  document.getElementById('onb-name').value     = '';
+  document.getElementById('onb-tagline').value  = '';
+  document.getElementById('onb-currency').value = '£';
+  document.getElementById('onb-target').value   = '100000';
+  document.getElementById('onb-date').value     = '';
+  document.getElementById('onb-proj-title').value = '';
+  document.getElementById('onb-proj-icon').value  = '📁';
+  document.getElementById('onb-proj-color').value = '#0A7E8C';
+  document.getElementById('onboarding-overlay').classList.add('open');
+  renderOnboardingStep();
+}
+
+function renderOnboardingStep() {
+  for (let i = 1; i <= ONBOARDING_STEPS; i++) {
+    document.getElementById('onb-step-' + i).classList.toggle('active', i === APP.onboardingStep);
+    const dot = document.getElementById('onb-dot-' + i);
+    dot.classList.toggle('active', i === APP.onboardingStep);
+    dot.classList.toggle('done', i < APP.onboardingStep);
+  }
+  document.getElementById('onb-back-btn').style.visibility = APP.onboardingStep === 1 ? 'hidden' : 'visible';
+  document.getElementById('onb-next-btn').textContent = APP.onboardingStep === ONBOARDING_STEPS ? 'Finish' : 'Next';
+
+  if (APP.onboardingStep === 4) renderOnboardingDriveStatus();
+}
+
+function onboardingBack() {
+  if (APP.onboardingStep === 1) return;
+  APP.onboardingStep--;
+  renderOnboardingStep();
+}
+
+async function onboardingNext() {
+  if (APP.onboardingStep < ONBOARDING_STEPS) {
+    APP.onboardingStep++;
+    renderOnboardingStep();
+  } else {
+    await finishOnboarding();
+  }
+}
+
+async function skipOnboarding() {
+  await API.updateProfile({ onboarded: true });
+  closeOnboarding();
+  showToast('👋 Setup skipped — you can change anything in Settings');
+}
+
+async function finishOnboarding() {
+  try {
+    await API.updateProfile({
+      name:           document.getElementById('onb-name').value.trim()     || 'Your Name',
+      tagline:        document.getElementById('onb-tagline').value.trim()  || 'My Life & Wealth Tracker',
+      currency:       document.getElementById('onb-currency').value.trim() || '£',
+      targetNetWorth: parseFloat(document.getElementById('onb-target').value) || 100000,
+      targetDate:     document.getElementById('onb-date').value,
+      onboarded:      true,
+    });
+
+    const projTitle = document.getElementById('onb-proj-title').value.trim();
+    if (projTitle) {
+      await API.addProject({
+        title:       projTitle,
+        description: '',
+        icon:        document.getElementById('onb-proj-icon').value.trim() || '📁',
+        color:       document.getElementById('onb-proj-color').value,
+      });
+    }
+
+    closeOnboarding();
+    showToast('✅ All set up — welcome to LifeTracker!');
+  } catch (e) {
+    showToast('❌ Something went wrong finishing setup', 'error');
+  }
+}
+
+async function closeOnboarding() {
+  document.getElementById('onboarding-overlay').classList.remove('open');
+  await showPage('dashboard');
+}
+
+async function rerunOnboarding() {
+  await API.updateProfile({ onboarded: false });
+  startOnboarding();
+}
+
+// ── GOOGLE DRIVE ────────────────────────────────────────────────
+async function connectDrive() {
+  window.location.href = API.connectDriveUrl();
+}
+
+async function renderOnboardingDriveStatus() {
+  try {
+    const status = await API.getDriveStatus();
+    const textEl = document.getElementById('onb-drive-text');
+    const btnEl  = document.getElementById('onb-drive-connect-btn');
+    if (!status.configured) {
+      textEl.textContent = 'Google Drive backup isn’t configured on this server yet. You can set it up later in Settings.';
+      btnEl.style.display = 'none';
+    } else if (status.connected) {
+      textEl.textContent = '✅ Connected — your data can now be backed up to Drive any time.';
+      btnEl.style.display = 'none';
+    } else {
+      textEl.textContent = 'Not connected yet.';
+      btnEl.style.display = 'inline-block';
+    }
+  } catch (e) { console.error('Drive status error:', e); }
+}
+
+async function renderSettingsDrive() {
+  try {
+    const status = await API.getDriveStatus();
+    const textEl    = document.getElementById('settings-drive-text');
+    const subEl     = document.getElementById('settings-drive-sub');
+    const actionsEl = document.getElementById('settings-drive-actions');
+    const formatsEl = document.getElementById('settings-drive-formats');
+
+    if (!status.configured) {
+      textEl.textContent = 'Not configured on this server.';
+      subEl.textContent  = 'Add GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI to the server .env file to enable this.';
+      actionsEl.innerHTML = '';
+      formatsEl.classList.add('hidden');
+      return;
+    }
+
+    if (status.connected) {
+      textEl.textContent = '✅ Connected to Google Drive';
+      subEl.textContent  = status.lastBackupAt
+        ? `Last backup: ${new Date(status.lastBackupAt).toLocaleString()}`
+        : 'No backups yet — click "Backup Now" to create your first one.';
+      actionsEl.innerHTML = `
+        <button onclick="backupAs('json')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">☁️ Backup Now (JSON)</button>
+        <button onclick="disconnectDriveConfirm()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">Disconnect</button>`;
+      formatsEl.classList.remove('hidden');
+    } else {
+      textEl.textContent = 'Not connected';
+      subEl.textContent  = 'Connect your Google Drive to save backups of your data with one click.';
+      actionsEl.innerHTML = `
+        <button onclick="connectDrive()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Connect Google Drive</button>`;
+      formatsEl.classList.add('hidden');
+    }
+  } catch (e) { console.error('Settings Drive error:', e); }
+}
+
+const BACKUP_FNS = {
+  json:   API => API.backupToDrive,
+  sheets: API => API.backupToSheets,
+  excel:  API => API.backupToExcel,
+  pdf:    API => API.backupToPdf,
+  image:  API => API.backupToImage,
+};
+const BACKUP_LABELS = { json: 'JSON backup', sheets: 'Google Sheet', excel: 'Excel workbook', pdf: 'PDF report', image: 'Image report' };
+
+async function backupAs(format) {
+  showToast(`⏳ Creating ${BACKUP_LABELS[format]}…`);
+  try {
+    const result = await BACKUP_FNS[format](API)();
+    showToast(`✅ ${BACKUP_LABELS[format]} saved to Drive`);
+    if (result.link) window.open(result.link, '_blank');
+    renderSettingsDrive();
+  } catch (e) { showToast(`❌ ${BACKUP_LABELS[format]} failed — ${e.message}`, 'error'); }
+}
+
+function disconnectDriveConfirm() {
+  confirmAction('Disconnect Google Drive? You can reconnect any time.', async () => {
+    await API.disconnectDrive();
+    showToast('🔌 Google Drive disconnected');
+    renderSettingsDrive();
+  });
+}
+
+function handleDriveRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has('drive')) return;
+  if (params.get('drive') === 'connected') showToast('✅ Google Drive connected');
+  if (params.get('drive') === 'error')     showToast('❌ Google Drive connection failed', 'error');
+  window.history.replaceState({}, '', window.location.pathname);
+}
+
+// ── TASK DETAIL SIDE PANEL ───────────────────────────────────────
+let APP_currentDetailTaskId = null;
+
+async function openTaskDetail(id) {
+  try {
+    const t = await API.getTask(id);
+    const proj = t.projectId ? await API.getProject(t.projectId).catch(() => null) : null;
+    APP_currentDetailTaskId = id;
+
+    document.getElementById('td-project-icon').textContent  = proj ? proj.icon : '';
+    document.getElementById('td-project-title').textContent = proj ? proj.title : '';
+    document.getElementById('td-title').textContent = t.title;
+    document.getElementById('td-badges').innerHTML   = statusBadge(t.status) + priorityBadge(t.priority);
+    document.getElementById('td-cost').textContent      = (t.cost || 0) > 0 ? '£' + t.cost.toLocaleString() : '—';
+    document.getElementById('td-start').textContent     = t.startDate || '—';
+    document.getElementById('td-end').textContent       = t.endDate || '—';
+    document.getElementById('td-notes').textContent     = t.notes && t.notes.trim() ? t.notes : 'No notes for this task yet.';
+
+    document.getElementById('task-detail-backdrop').classList.remove('hidden');
+    document.getElementById('task-detail-panel').classList.remove('translate-x-full');
+  } catch (e) { console.error('Task detail error:', e); }
+}
+
+function closeTaskDetail() {
+  document.getElementById('task-detail-backdrop').classList.add('hidden');
+  document.getElementById('task-detail-panel').classList.add('translate-x-full');
+  APP_currentDetailTaskId = null;
+}
+
+function editTaskFromDetail() {
+  const id = APP_currentDetailTaskId;
+  closeTaskDetail();
+  if (id) editTask(id);
+}
+
+// ── GOOGLE CALENDAR ──────────────────────────────────────────────
+// Uses Google's public "render" link (no OAuth, no setup needed) — opens a
+// pre-filled event that the user reviews and saves themselves, in contrast
+// to the Drive integration which needs GOOGLE_CLIENT_ID/SECRET configured.
+async function addTaskToGoogleCalendar(taskId) {
+  if (!taskId) return;
+  try {
+    const t = await API.getTask(taskId);
+    const start = t.startDate || t.endDate;
+    const end   = t.endDate   || t.startDate;
+    if (!start) { showToast('Set a start or due date on this task first', 'error'); return; }
+
+    // Google Calendar's all-day "dates" range is start-inclusive, end-exclusive.
+    const gcalStart = start.replace(/-/g, '');
+    const gcalEnd   = addDaysToDateStr(end, 1).replace(/-/g, '');
+
+    const details = [
+      t.priority ? `Priority: ${t.priority}` : '',
+      t.notes || '',
+    ].filter(Boolean).join('\n');
+
+    const url = new URL('https://calendar.google.com/calendar/render');
+    url.searchParams.set('action', 'TEMPLATE');
+    url.searchParams.set('text', t.title);
+    url.searchParams.set('dates', `${gcalStart}/${gcalEnd}`);
+    if (details) url.searchParams.set('details', details);
+
+    window.open(url.toString(), '_blank');
+  } catch (e) {
+    showToast('❌ Could not open Google Calendar', 'error');
+  }
+}
+
+// ── MODALS ───────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// PROJECT MODAL
+function openAddProject() {
+  document.getElementById('modal-project-title').textContent = 'New Project';
+  document.getElementById('proj-id').value     = '';
+  document.getElementById('proj-parent').value = '';
+  document.getElementById('proj-title').value  = '';
+  document.getElementById('proj-desc').value   = '';
+  document.getElementById('proj-icon').value   = '📁';
+  document.getElementById('proj-color').value  = '#0A7E8C';
+  document.getElementById('proj-start').value  = '';
+  openModal('modal-project');
+}
+
+function openAddSubfolder(parentId) {
+  document.getElementById('modal-project-title').textContent = 'New Sub-folder';
+  document.getElementById('proj-id').value     = '';
+  document.getElementById('proj-parent').value = parentId;
+  document.getElementById('proj-title').value  = '';
+  document.getElementById('proj-desc').value   = '';
+  document.getElementById('proj-icon').value   = '📁';
+  document.getElementById('proj-color').value  = '#0A7E8C';
+  document.getElementById('proj-start').value  = '';
+  openModal('modal-project');
+}
+
+async function editProject(id) {
+  const p = await API.getProject(id);
+  document.getElementById('modal-project-title').textContent = p.parentId ? 'Edit Sub-folder' : 'Edit Project';
+  document.getElementById('proj-id').value     = id;
+  document.getElementById('proj-parent').value = p.parentId || '';
+  document.getElementById('proj-title').value  = p.title;
+  document.getElementById('proj-desc').value   = p.description || '';
+  document.getElementById('proj-icon').value   = p.icon;
+  document.getElementById('proj-color').value  = p.color;
+  document.getElementById('proj-start').value  = p.startDate || '';
+  openModal('modal-project');
+}
+
+async function saveProject() {
+  const id   = document.getElementById('proj-id').value;
+  const data = {
+    title:       document.getElementById('proj-title').value.trim(),
+    description: document.getElementById('proj-desc').value.trim(),
+    icon:        document.getElementById('proj-icon').value.trim() || '📁',
+    color:       document.getElementById('proj-color').value,
+    startDate:   document.getElementById('proj-start').value,
+    parentId:    document.getElementById('proj-parent').value || null,
+  };
+  if (!data.title) { showToast('Project title is required', 'error'); return; }
+  try {
+    if (id) { await API.updateProject(id, data); showToast('✅ Project updated'); }
+    else    { await API.addProject(data);         showToast(data.parentId ? '✅ Sub-folder created' : '✅ Project created'); }
+    closeModal('modal-project');
+    if (APP.currentProjectId) renderProjectDetail(APP.currentProjectId);
+    else renderProjects();
+    updateSidebar();
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to save project'), 'error'); }
+}
+
+async function deleteProjectConfirm(id) {
+  const p = await API.getProject(id);
+  const isSubfolder = !!p?.parentId;
+  confirmAction(`Delete "${p?.title}"? ${isSubfolder ? 'All its tasks' : 'All its sub-folders and tasks'} will also be deleted.`, async () => {
+    await API.deleteProject(id);
+    showToast('🗑️ ' + (isSubfolder ? 'Sub-folder' : 'Project') + ' deleted');
+    if (APP.currentProjectId === id) {
+      // Was viewing the thing we just deleted — go up to its parent, or the flat list if it was top-level.
+      if (isSubfolder) await showPage('project-detail', p.parentId);
+      else await showPage('projects');
+    } else if (APP.currentProjectId) {
+      renderProjectDetail(APP.currentProjectId); // deleted a sibling sub-folder while viewing its parent
+    } else {
+      renderProjects();
+    }
+    updateSidebar();
+  });
+}
+
+// TASK MODAL
+async function openAddTask(projectId) {
+  document.getElementById('modal-task-title').textContent = 'New Task';
+  document.getElementById('task-id').value         = '';
+  document.getElementById('task-title-in').value   = '';
+  document.getElementById('task-status').value     = 'Not Started';
+  document.getElementById('task-priority').value   = 'High';
+  document.getElementById('task-start').value      = '';
+  document.getElementById('task-end').value        = '';
+  document.getElementById('task-cost').value       = '';
+  document.getElementById('task-notes').value      = '';
+  await populateProjectSelect(projectId);
+  openModal('modal-task');
+}
+
+async function editTask(id) {
+  const t = await API.getTask(id);
+  document.getElementById('modal-task-title').textContent = 'Edit Task';
+  document.getElementById('task-id').value         = id;
+  document.getElementById('task-title-in').value   = t.title;
+  document.getElementById('task-status').value     = t.status;
+  document.getElementById('task-priority').value   = t.priority;
+  document.getElementById('task-start').value      = t.startDate || '';
+  document.getElementById('task-end').value        = t.endDate || '';
+  document.getElementById('task-cost').value       = t.cost || '';
+  document.getElementById('task-notes').value      = t.notes || '';
+  await populateProjectSelect(t.projectId);
+  openModal('modal-task');
+}
+
+let _projectStartDates = {};
+
+function onTaskProjectChange() {
+  const projectId = document.getElementById('task-project').value;
+  document.getElementById('task-start').min = _projectStartDates[projectId] || '';
+}
+
+// Projects can have one level of sub-folders — group the dropdown by
+// top-level project, with its sub-folders nested under it, so a task can be
+// assigned either straight to a project or to one of its sub-folders.
+async function populateProjectSelect(selectedId) {
+  const allProjects = await API.getProjects();
+  _projectStartDates = Object.fromEntries(allProjects.map(p => [p.id, p.startDate || '']));
+  document.getElementById('task-start').min = _projectStartDates[selectedId] || '';
+
+  const topLevel = allProjects.filter(p => !p.parentId);
+  const childrenOf = pid => allProjects.filter(p => p.parentId === pid);
+
+  document.getElementById('task-project').innerHTML = topLevel.map(top => {
+    const kids = childrenOf(top.id);
+    const topOption = `<option value="${top.id}" ${top.id === selectedId ? 'selected' : ''}>${top.icon} ${esc(top.title)}</option>`;
+    if (!kids.length) return topOption;
+    const kidOptions = kids.map(k =>
+      `<option value="${k.id}" ${k.id === selectedId ? 'selected' : ''}>${k.icon} ${esc(k.title)}</option>`
+    ).join('');
+    return `<optgroup label="${esc(top.title)}">${topOption}${kidOptions}</optgroup>`;
+  }).join('');
+}
+
+async function saveTask() {
+  const id = document.getElementById('task-id').value;
+
+  const data = {
+    projectId: document.getElementById('task-project').value,
+    title:     document.getElementById('task-title-in').value.trim(),
+    status:    document.getElementById('task-status').value,
+    priority:  document.getElementById('task-priority').value,
+    startDate: document.getElementById('task-start').value,
+    endDate:   document.getElementById('task-end').value,
+    cost:      parseFloat(document.getElementById('task-cost').value) || 0,
+    notes:     document.getElementById('task-notes').value.trim(),
+  };
+  if (!data.title)     { showToast('Task title is required', 'error'); return; }
+  if (!data.projectId) { showToast('Please select a project', 'error'); return; }
+  try {
+    if (id) { await API.updateTask(id, data); showToast('✅ Task updated'); }
+    else    { await API.addTask(data);         showToast('✅ Task added'); }
+    closeModal('modal-task');
+    if (APP.currentProjectId) renderTaskTable(APP.currentProjectId);
+    updateSidebar();
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to save task'), 'error'); }
+}
+
+async function deleteTaskConfirm(id, projectId) {
+  const t = await API.getTask(id);
+  confirmAction(`Delete "${t?.title}"?`, async () => {
+    await API.deleteTask(id);
+    showToast('🗑️ Task deleted');
+    renderTaskTable(projectId);
+    updateSidebar();
+  });
+}
+
+// ACTION MODAL
+function openAddAction() {
+  document.getElementById('act-text').value     = '';
+  document.getElementById('act-area').value     = '';
+  document.getElementById('act-by').value       = '';
+  document.getElementById('act-priority').value = 'High';
+  openModal('modal-action');
+}
+
+async function saveAction() {
+  const data = {
+    text:     document.getElementById('act-text').value.trim(),
+    area:     document.getElementById('act-area').value.trim(),
+    by:       document.getElementById('act-by').value.trim(),
+    priority: document.getElementById('act-priority').value,
+  };
+  if (!data.text) { showToast('Action text is required', 'error'); return; }
+  try {
+    await API.addAction(data);
+    closeModal('modal-action');
+    renderActions();
+    showToast('✅ Action added');
+  } catch (e) { showToast('❌ Failed to add action', 'error'); }
+}
+
+// LOG MODAL
+function openAddLog() {
+  const now = new Date();
+  document.getElementById('log-month').value    = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+  document.getElementById('log-income').value   = '';
+  document.getElementById('log-business').value = '';
+  document.getElementById('log-expenses').value = '';
+  document.getElementById('log-saved').value    = '';
+  document.getElementById('log-notes').value    = '';
+  openModal('modal-log');
+}
+
+async function saveLog() {
+  const income   = parseFloat(document.getElementById('log-income').value)   || 0;
+  const business = parseFloat(document.getElementById('log-business').value) || 0;
+  const expenses = parseFloat(document.getElementById('log-expenses').value) || 0;
+  const saved    = parseFloat(document.getElementById('log-saved').value)    || (income + business - expenses);
+  try {
+    await API.addMonthlyEntry({
+      month: document.getElementById('log-month').value,
+      income, business, expenses, saved,
+      notes: document.getElementById('log-notes').value.trim(),
+    });
+    closeModal('modal-log');
+    renderWealth();
+    showToast('✅ Month logged');
+  } catch (e) { showToast('❌ Failed to save entry', 'error'); }
+}
+
+// WEALTH CATEGORY MODAL
+function openAddWealthCat() {
+  document.getElementById('wcat-label').value  = '';
+  document.getElementById('wcat-target').value = '';
+  openModal('modal-wcat');
+}
+
+async function saveWealthCat() {
+  const label  = document.getElementById('wcat-label').value.trim();
+  const target = parseFloat(document.getElementById('wcat-target').value) || 0;
+  if (!label) { showToast('Label is required', 'error'); return; }
+  try {
+    await API.addWealthCategory({ label, target });
+    closeModal('modal-wcat');
+    renderWealth();
+    showToast('✅ Category added');
+  } catch (e) { showToast('❌ Failed to add category', 'error'); }
+}
+
+// ── EXPORT / IMPORT ─────────────────────────────────────────────
+async function exportData() {
+  try {
+    const [profile, projects, tasks, wealth, actions] = await Promise.all([
+      API.getProfile(), API.getProjects(), API.getTasks(), API.getWealth(), API.getActions(),
+    ]);
+    const blob = new Blob(
+      [JSON.stringify({ profile, projects, tasks, wealth, actions }, null, 2)],
+      { type: 'application/json' }
+    );
+    const a = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = 'lifetracker_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    showToast('✅ Data exported!');
+  } catch (e) { showToast('❌ Export failed', 'error'); }
+}
+
+function importData() {
+  const input    = document.createElement('input');
+  input.type     = 'file';
+  input.accept   = '.json';
+  input.onchange = e => {
+    const file   = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        showToast('✅ Data imported — restart server to apply', 'success');
+        console.log('Imported data:', data);
+      } catch { showToast('❌ Invalid file', 'error'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+async function resetData() {
+  confirmAction('Reset ALL data? This cannot be undone.', async () => {
+    showToast('✅ Reset — restart your server to apply');
+  });
+}
+
+// ── INIT ─────────────────────────────────────────────────────────
+async function init() {
+  document.getElementById('topbar-date').textContent =
+    new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  applyThemeIcon();
+  handleDriveRedirect();
+  const authed = await checkAuth();
+  if (authed) await afterAuth();
+}
+
+document.addEventListener('DOMContentLoaded', init);

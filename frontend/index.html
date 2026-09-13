@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LifeTracker</title>
+
+  <!-- Apply saved theme before first paint to avoid a flash of the wrong theme -->
+  <script>
+    (function() {
+      const saved = localStorage.getItem('lt-theme');
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (saved ? saved === 'dark' : prefersDark) document.documentElement.classList.add('dark');
+    })();
+  </script>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            navy:   { DEFAULT: '#0D1B2A', 2: '#1B3A5C' },
+            teal:   { DEFAULT: '#0A7E8C', light: '#E0F4F6' },
+            gold:   { DEFAULT: '#C49A00', light: '#FEF9E7' },
+            brand:  { green: '#1A7A4A', orange: '#C0642A', red: '#B03020' },
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Only things Tailwind can't do */
+    .page { display: none; }
+    .page.active { display: block; }
+    .modal-overlay { display: none; }
+    .modal-overlay.open { display: flex; }
+    .onboarding-overlay { display: none; }
+    .onboarding-overlay.open { display: flex; }
+    .auth-overlay { display: none; }
+    .auth-overlay.open { display: flex; }
+    .auth-view { display: none; }
+    .auth-view.active { display: block; }
+    .onb-step { display: none; }
+    .onb-step.active { display: block; }
+    .onb-dot { width: 8px; height: 8px; border-radius: 999px; background: #E5E7EB; transition: all .2s; }
+    .onb-dot.active { background: #0A7E8C; width: 20px; }
+    .onb-dot.done { background: #1A7A4A; }
+    .nav-item.active { background: #0A7E8C !important; color: #fff !important; }
+    .action-check.checked { background: #1A7A4A; border-color: #1A7A4A; }
+    .action-check.checked::after { content: '✓'; color: #fff; font-size: 11px; font-weight: 700; }
+    .action-item.done h5 { text-decoration: line-through; color: #9CA3AF; }
+    .nw-prog-fill { background: linear-gradient(90deg, #0A7E8C, #C49A00); }
+    .hero-bar-fill { background: linear-gradient(90deg, #0A7E8C, #C49A00); }
+    .career-bar-fill { background: linear-gradient(90deg, #0A7E8C, #1A7A4A); }
+    .gantt-bar-area { position: relative; overflow: hidden; display: flex; align-items: center; }
+    .gantt-bar { position: absolute; height: 20px; border-radius: 3px; min-width: 4px; display: flex; align-items: center; overflow: visible; box-sizing: border-box; z-index: 3; cursor: grab; }
+    .gantt-bar:active { cursor: grabbing; }
+    .gantt-bar-label { pointer-events: none; }
+    .gantt-resize-handle { position: absolute; top: 0; bottom: 0; width: 7px; cursor: ew-resize; z-index: 4; }
+    .gantt-bar-label { font-size: 10px; color: #fff; font-weight: 600; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #EF4444; z-index: 5; pointer-events: none; }
+    .project-start-line { position: absolute; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(180deg,#059669 0 6px,transparent 6px 10px); z-index: 5; pointer-events: none; }
+    .gantt-sticky { position: sticky; z-index: 6; background: inherit; }
+    .gantt-sticky-1 { left: 0; }
+    .gantt-sticky-2 { left: 200px; }
+    .gantt-sticky-3 { left: 290px; }
+    .gantt-sticky-4 { left: 375px; }
+    .gantt-sticky-5 { left: 460px; box-shadow: 3px 0 6px -2px rgba(0,0,0,.08); }
+    .dark .gantt-sticky-5 { box-shadow: 3px 0 6px -2px rgba(0,0,0,.4); }
+    .gantt-gridline { position: absolute; top: 0; bottom: 0; width: 1px; background: #EDF0F3; z-index: 1; pointer-events: none; }
+    .gantt-milestone { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 3px; z-index: 4; box-sizing: border-box; cursor: grab; transform: translate(-50%, -50%) rotate(45deg); }
+    .gantt-milestone:active { cursor: grabbing; }
+    .gantt-summary-bar { position: absolute; top: 50%; height: 10px; border-radius: 2px; transform: translateY(-50%); z-index: 3; cursor: grab; }
+    .gantt-summary-bar:active { cursor: grabbing; }
+    .gantt-view-btn { color: #6B7280; }
+    .gantt-view-btn.active { background: #fff; color: #0A7E8C; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+    .dark .gantt-view-btn.active { background: #1E293B; }
+    .gantt-summary-cap { position: absolute; top: 50%; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; margin-top: -2px; transform: translateX(-50%); z-index: 3; }
+    .gantt-cat-row { background: #F8FAFC; }
+    .gantt-row-alt { background: #FAFAFA; }
+    .toast { position: fixed; bottom: 24px; right: 24px; z-index: 999; opacity: 0; transform: translateY(10px); transition: all .25s; pointer-events: none; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
+    .project-card:hover .project-card-actions { opacity: 1 !important; }
+    @media (max-width: 767px) {
+      #sidebar { transform: translateX(-100%); transition: transform .25s ease; }
+      #sidebar.mobile-open { transform: translateX(0); }
+      #main-content { margin-left: 0 !important; }
+    }
+
+    /* Accessibility: visible keyboard focus ring everywhere */
+    :focus-visible { outline: 2px solid #0A7E8C; outline-offset: 2px; border-radius: 2px; }
+
+    /* ── DARK MODE ──────────────────────────────────────────────────
+       Applied via global overrides keyed to the existing Tailwind
+       utility classes (scoped under html.dark), rather than adding
+       dark: variants to every element across ~2000 lines of templates. */
+    .dark body { background-color: #0B1220; color: #E2E8F0; }
+    .dark ::-webkit-scrollbar-thumb { background: #374151; }
+
+    .dark .bg-white       { background-color: #151F32 !important; }
+    .dark .bg-gray-50     { background-color: #0F1729 !important; }
+    .dark .bg-gray-100    { background-color: #1E293B !important; }
+    .dark .bg-gray-200    { background-color: #263449 !important; }
+    .dark .bg-black\/50   { background-color: rgba(0,0,0,.7) !important; }
+    .dark .bg-black\/40   { background-color: rgba(0,0,0,.6) !important; }
+
+    .dark .text-navy      { color: #F1F5F9 !important; }
+    .dark .text-navy-2    { color: #CBD5E1 !important; }
+    .dark .text-gray-900  { color: #F1F5F9 !important; }
+    .dark .text-gray-700  { color: #CBD5E1 !important; }
+    .dark .text-gray-600  { color: #94A3B8 !important; }
+    .dark .text-gray-500  { color: #94A3B8 !important; }
+    .dark .text-gray-400  { color: #64748B !important; }
+    .dark .text-gray-300  { color: #475569 !important; }
+
+    .dark .border-gray-100 { border-color: #1E293B !important; }
+    .dark .border-gray-200 { border-color: #263449 !important; }
+    .dark .border-gray-300 { border-color: #334155 !important; }
+    .dark .divide-gray-100 > * + * { border-color: #1E293B !important; }
+
+    .dark .hover\:bg-gray-50:hover   { background-color: #1E293B !important; }
+    .dark .hover\:bg-gray-100:hover  { background-color: #263449 !important; }
+    .dark .hover\:bg-gray-200:hover  { background-color: #334155 !important; }
+    .dark .hover\:text-gray-600:hover { color: #E2E8F0 !important; }
+
+    .dark input, .dark select, .dark textarea {
+      background-color: #0F1729 !important;
+      border-color: #334155 !important;
+      color: #E2E8F0 !important;
+    }
+    .dark input::placeholder, .dark textarea::placeholder { color: #475569 !important; }
+
+    .dark .bg-red-50   { background-color: rgba(176,48,32,.15) !important; }
+    .dark .bg-green-50 { background-color: rgba(26,122,74,.15) !important; }
+    .dark .bg-orange-50{ background-color: rgba(192,100,42,.15) !important; }
+    .dark .bg-teal-light { background-color: rgba(10,126,140,.15) !important; }
+    .dark .hover\:bg-red-50:hover { background-color: rgba(176,48,32,.2) !important; }
+    .dark .hover\:bg-red-100:hover { background-color: rgba(176,48,32,.3) !important; }
+    .dark .border-red-200 { border-color: rgba(176,48,32,.4) !important; }
+
+    .dark .bg-red-100, .dark .bg-green-100, .dark .bg-orange-100, .dark .bg-yellow-100 { filter: brightness(0.35) saturate(1.4); }
+    .dark .text-red-700, .dark .text-red-600   { color: #FCA5A5 !important; }
+    .dark .text-green-700, .dark .text-green-600 { color: #86EFAC !important; }
+    .dark .text-orange-700, .dark .text-orange-600, .dark .text-orange-500 { color: #FDBA74 !important; }
+    .dark .text-yellow-700, .dark .text-yellow-600 { color: #FDE68A !important; }
+    .dark .text-brand-green  { color: #86EFAC !important; }
+    .dark .text-brand-orange { color: #FDBA74 !important; }
+    .dark .text-gold  { color: #FDE68A !important; }
+    .dark .text-teal  { color: #5EEAD4 !important; }
+    .dark .gantt-cat-row { background: #0F1729 !important; }
+    .dark .gantt-row-alt { background: #121B2E !important; }
+    .dark .gantt-gridline { background: #1E293B !important; }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-900 min-h-screen">
+
+<!-- ═══ AUTH GATE ═══ -->
+<div class="auth-overlay fixed inset-0 bg-navy z-[60] items-center justify-center p-5" id="auth-overlay">
+  <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-8">
+    <h1 class="text-xl font-black text-navy mb-1">LifeTracker</h1>
+
+    <!-- LOGIN -->
+    <div class="auth-view active" id="auth-view-login">
+      <p class="text-gray-500 text-sm mb-5">Log in to continue.</p>
+      <div class="mb-3">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Email</label>
+        <input type="email" id="auth-login-email" placeholder="you@example.com" autocomplete="username"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      </div>
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Password</label>
+        <input type="password" id="auth-login-password" placeholder="Password" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter') submitAuthLogin()"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      </div>
+      <p class="text-xs text-red-600 mb-3 hidden" id="auth-login-error"></p>
+      <button onclick="submitAuthLogin()" class="w-full bg-teal hover:bg-teal/90 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">Log In</button>
+      <p class="text-xs text-gray-400 mt-4 text-center">New here? <button onclick="showAuthView('register')" class="text-teal font-semibold hover:underline">Create an account</button></p>
+    </div>
+
+    <!-- REGISTER -->
+    <div class="auth-view" id="auth-view-register">
+      <p class="text-gray-500 text-sm mb-5">Create an account to get started.</p>
+      <div class="mb-3">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Email</label>
+        <input type="email" id="auth-register-email" placeholder="you@example.com" autocomplete="username"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      </div>
+      <div class="mb-3">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Password</label>
+        <input type="password" id="auth-register-password" placeholder="At least 6 characters" autocomplete="new-password"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      </div>
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Confirm Password</label>
+        <input type="password" id="auth-register-confirm" placeholder="Repeat password" autocomplete="new-password"
+          onkeydown="if(event.key==='Enter') submitAuthRegister()"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      </div>
+      <p class="text-xs text-red-600 mb-3 hidden" id="auth-register-error"></p>
+      <button onclick="submitAuthRegister()" class="w-full bg-teal hover:bg-teal/90 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">Create Account</button>
+      <p class="text-xs text-gray-400 mt-4 text-center">Already have an account? <button onclick="showAuthView('login')" class="text-teal font-semibold hover:underline">Log in</button></p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ONBOARDING WIZARD ═══ -->
+<div class="onboarding-overlay fixed inset-0 bg-navy/95 z-50 items-center justify-center p-5" id="onboarding-overlay">
+  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
+
+    <!-- Progress -->
+    <div class="flex items-center justify-center gap-2 pt-6 pb-2">
+      <div class="onb-dot" id="onb-dot-1"></div>
+      <div class="onb-dot" id="onb-dot-2"></div>
+      <div class="onb-dot" id="onb-dot-3"></div>
+      <div class="onb-dot" id="onb-dot-4"></div>
+    </div>
+
+    <div class="px-8 py-4 overflow-y-auto flex-1">
+
+      <!-- STEP 1 — WELCOME -->
+      <div class="onb-step" id="onb-step-1">
+        <h2 class="text-2xl font-black text-navy mb-1">Welcome to LifeTracker 👋</h2>
+        <p class="text-gray-500 text-sm mb-6">Let's set a few things up so your dashboard feels like yours. This takes about a minute.</p>
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Your Name</label>
+          <input type="text" id="onb-name" placeholder="e.g. Adekola Olagunju"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Tagline</label>
+          <input type="text" id="onb-tagline" placeholder="e.g. My Life & Wealth Tracker"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+      </div>
+
+      <!-- STEP 2 — TARGETS -->
+      <div class="onb-step" id="onb-step-2">
+        <h2 class="text-2xl font-black text-navy mb-1">Set your wealth target 💎</h2>
+        <p class="text-gray-500 text-sm mb-6">This powers your net worth progress bar on the dashboard.</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Currency Symbol</label>
+            <input type="text" id="onb-currency" placeholder="£" maxlength="3"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Net Worth Target</label>
+            <input type="number" id="onb-target" placeholder="100000"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Target Date</label>
+            <input type="date" id="onb-date"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3 — FIRST PROJECT -->
+      <div class="onb-step" id="onb-step-3">
+        <h2 class="text-2xl font-black text-navy mb-1">Create your first project 📁</h2>
+        <p class="text-gray-500 text-sm mb-6">Optional — you can always add projects later. Leave the title blank to skip this.</p>
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Project Title</label>
+          <input type="text" id="onb-proj-title" placeholder="e.g. UK Career Goals"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Icon (emoji)</label>
+            <input type="text" id="onb-proj-icon" placeholder="🎓" maxlength="4"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Colour</label>
+            <input type="color" id="onb-proj-color" value="#0A7E8C"
+              class="w-full h-10 border border-gray-200 rounded-lg px-2 py-1 cursor-pointer">
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 4 — GOOGLE DRIVE -->
+      <div class="onb-step" id="onb-step-4">
+        <h2 class="text-2xl font-black text-navy mb-1">Back up to Google Drive ☁️</h2>
+        <p class="text-gray-500 text-sm mb-6">Optional — connect your Google Drive so you can save a backup of your data with one click, any time. You can also do this later in Settings.</p>
+        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4" id="onb-drive-box">
+          <p class="text-sm text-gray-500" id="onb-drive-text">Checking connection…</p>
+          <button onclick="connectDrive()" id="onb-drive-connect-btn"
+            class="mt-3 bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Connect Google Drive</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-between px-8 py-5 border-t border-gray-100">
+      <button onclick="skipOnboarding()" class="text-gray-400 hover:text-gray-600 text-xs font-semibold">Skip setup</button>
+      <div class="flex gap-3">
+        <button onclick="onboardingBack()" id="onb-back-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Back</button>
+        <button onclick="onboardingNext()" id="onb-next-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-5 py-2 rounded-lg">Next</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="flex min-h-screen">
+
+  <!-- ═══ MOBILE SIDEBAR BACKDROP ═══ -->
+  <div class="hidden fixed inset-0 bg-black/50 z-40 md:hidden" id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <nav class="w-64 min-h-screen bg-navy fixed top-0 left-0 flex flex-col z-50 overflow-y-auto" id="sidebar">
+
+    <!-- Logo -->
+    <div class="px-5 py-5 border-b border-white/10">
+      <h1 class="text-white font-black text-sm tracking-tight" id="sidebar-name">LifeTracker</h1>
+      <p class="text-white/35 text-xs mt-1" id="sidebar-tagline">My Life & Wealth Tracker</p>
+    </div>
+
+    <!-- Nav -->
+    <div class="px-3 py-4 space-y-1">
+      <p class="text-white/25 text-[9px] font-bold tracking-widest px-3 mb-2 uppercase">Overview</p>
+      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('dashboard')">
+        <span class="text-base w-5 text-center">🏠</span> Dashboard
+      </button>
+      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('gantt')">
+        <span class="text-base w-5 text-center">📊</span> Gantt Chart
+      </button>
+    </div>
+
+    <div class="px-3 pb-2 space-y-1">
+      <p class="text-white/25 text-[9px] font-bold tracking-widest px-3 mb-2 uppercase">Projects</p>
+      <div id="project-nav" class="space-y-1"></div>
+      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('projects')">
+        <span class="text-base w-5 text-center">📁</span> All Projects
+      </button>
+    </div>
+
+    <div class="px-3 pb-2 space-y-1">
+      <p class="text-white/25 text-[9px] font-bold tracking-widest px-3 mb-2 uppercase">Wealth</p>
+      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('wealth')">
+        <span class="text-base w-5 text-center">💎</span> Wealth Tracker
+      </button>
+      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('actions')">
+        <span class="text-base w-5 text-center">✅</span> Actions
+      </button>
+    </div>
+
+    <div class="px-3 pb-4 space-y-1">
+      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('settings')">
+        <span class="text-base w-5 text-center">⚙️</span> Settings
+      </button>
+    </div>
+
+    <!-- Net Worth Widget -->
+    <div class="mt-auto p-4 border-t border-white/10">
+      <div class="bg-white/6 rounded-xl p-4">
+        <p class="text-white/35 text-[9px] font-bold tracking-widest uppercase">Net Worth</p>
+        <p class="text-gold font-black text-2xl font-mono mt-1" id="sidebar-nw">£0</p>
+        <div class="h-1 bg-white/10 rounded-full overflow-hidden my-2">
+          <div class="nw-prog-fill h-full rounded-full transition-all duration-500" id="sidebar-prog" style="width:0%"></div>
+        </div>
+        <p class="text-white/25 text-[10px]" id="sidebar-sub">£0 of target</p>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══ MAIN ═══ -->
+  <main class="ml-64 flex-1 min-w-0 min-h-screen" id="main-content">
+
+    <!-- Topbar -->
+    <div class="bg-white border-b border-gray-200 px-4 md:px-6 h-14 flex items-center justify-between sticky top-0 z-30 gap-2">
+      <div class="flex items-center gap-3 min-w-0">
+        <button onclick="openMobileSidebar()" class="md:hidden text-navy text-xl leading-none px-1 flex-shrink-0" aria-label="Open menu">☰</button>
+        <h2 class="font-bold text-navy text-sm truncate" id="topbar-title">Dashboard</h2>
+      </div>
+      <div class="flex items-center gap-2 md:gap-3 flex-shrink-0">
+        <span class="text-gray-400 text-xs font-mono hidden sm:inline" id="topbar-date"></span>
+        <button onclick="toggleTheme()" aria-label="Toggle dark mode" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="theme-toggle-btn"><span id="theme-toggle-icon">🌙</span></button>
+        <button onclick="exportData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 md:px-4 py-2 rounded-lg transition-all">⬇<span class="hidden sm:inline"> Export</span></button>
+        <button onclick="importData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 md:px-4 py-2 rounded-lg transition-all">⬆<span class="hidden sm:inline"> Import</span></button>
+      </div>
+    </div>
+
+    <!-- ─── DASHBOARD ─── -->
+    <div class="page active p-6" id="page-dashboard">
+      <div class="mb-6">
+        <h2 class="text-2xl font-black text-navy">Welcome back, <span id="hero-name">there</span> 👋</h2>
+        <p class="text-gray-500 text-sm mt-1">Here's your live snapshot across all goals, projects and wealth.</p>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-5 border border-gray-200">
+          <p class="text-xs font-semibold text-gray-400">Total Tasks</p>
+          <p class="text-3xl font-black font-mono text-teal mt-1" id="kpi-total">0</p>
+          <p class="text-xs text-gray-400 mt-1">across all projects</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-gray-200">
+          <p class="text-xs font-semibold text-gray-400">Completed</p>
+          <p class="text-3xl font-black font-mono text-brand-green mt-1" id="kpi-done">0</p>
+          <p class="text-xs text-gray-400 mt-1">keep going!</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-gray-200">
+          <p class="text-xs font-semibold text-gray-400">In Progress</p>
+          <p class="text-3xl font-black font-mono text-brand-orange mt-1" id="kpi-inprog">0</p>
+          <p class="text-xs text-gray-400 mt-1">active now</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-gray-200">
+          <p class="text-xs font-semibold text-gray-400">Net Worth</p>
+          <p class="text-3xl font-black font-mono text-gold mt-1" id="kpi-nw">£0</p>
+          <p class="text-xs text-gray-400 mt-1">target: £100,000</p>
+        </div>
+      </div>
+
+      <!-- Hero Progress -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div class="bg-gradient-to-br from-navy to-navy-2 rounded-2xl p-6 text-white">
+          <p class="text-xs font-semibold text-white/40 uppercase tracking-widest">Net Worth Progress</p>
+          <p class="text-5xl font-black font-mono text-gold mt-2" id="hero-nw">£0</p>
+          <p class="text-xs text-white/40 mt-1" id="hero-left">0% of your target</p>
+          <div class="h-2 bg-white/10 rounded-full mt-4 overflow-hidden">
+            <div class="hero-bar-fill h-full rounded-full transition-all duration-500" id="hero-prog" style="width:0%"></div>
+          </div>
+          <p class="text-xs text-white/30 mt-2" id="hero-pct">0% complete</p>
+        </div>
+        <div class="bg-gradient-to-br from-navy to-navy-2 rounded-2xl p-6 text-white">
+          <p class="text-xs font-semibold text-white/40 uppercase tracking-widest">Career Progress</p>
+          <p class="text-5xl font-black font-mono text-teal mt-2" id="hero-career-pct">0%</p>
+          <p class="text-xs text-white/40 mt-1" id="hero-career-sub">0 of 0 tasks complete</p>
+          <div class="h-2 bg-white/10 rounded-full mt-4 overflow-hidden">
+            <div class="career-bar-fill h-full rounded-full transition-all duration-500" id="hero-career-prog" style="width:0%"></div>
+          </div>
+          <p class="text-xs text-white/30 mt-2" id="hero-career-detail">across 0 projects</p>
+        </div>
+      </div>
+
+      <!-- Projects at a Glance -->
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-1 h-4 bg-teal rounded-full"></div>
+          <h3 class="text-sm font-bold text-navy-2">Projects at a Glance</h3>
+        </div>
+        <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="project-stats"></div>
+
+      <!-- Urgent Tasks -->
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-1 h-4 bg-teal rounded-full"></div>
+        <h3 class="text-sm font-bold text-navy-2">⚡ Urgent — High Priority In Progress</h3>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+        <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead><tr class="bg-navy text-white text-xs">
+            <th class="px-4 py-3 text-left font-semibold"></th>
+            <th class="px-4 py-3 text-left font-semibold">Task</th>
+            <th class="px-4 py-3 text-left font-semibold">Project</th>
+            <th class="px-4 py-3 text-left font-semibold">Due</th>
+            <th class="px-4 py-3 text-left font-semibold">Status</th>
+          </tr></thead>
+          <tbody id="urgent-tasks"></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── ALL PROJECTS ─── -->
+    <div class="page p-6" id="page-projects">
+      <div class="mb-6">
+        <h2 class="text-2xl font-black text-navy">Projects</h2>
+        <p class="text-gray-500 text-sm mt-1">Each project is a collection of related goals and tasks.</p>
+      </div>
+      <div class="mb-5">
+        <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5" id="projects-grid"></div>
+    </div>
+
+    <!-- ─── PROJECT DETAIL ─── -->
+    <div class="page p-6" id="page-project-detail">
+      <!-- Breadcrumb (only shown when viewing a sub-folder) -->
+      <div class="hidden items-center gap-1.5 text-xs text-gray-400 mb-3" id="detail-breadcrumb"></div>
+
+      <!-- Header -->
+      <div class="bg-white rounded-xl border border-gray-200 p-5 mb-5 flex items-center gap-4">
+        <span class="text-4xl" id="detail-icon">📁</span>
+        <div class="w-1.5 h-10 rounded-full flex-shrink-0" id="detail-color"></div>
+        <div class="flex-1">
+          <h2 class="text-xl font-black text-navy" id="detail-title">Project</h2>
+          <p class="text-gray-500 text-sm mt-1" id="detail-desc"></p>
+        </div>
+        <div class="flex gap-2 ml-auto flex-wrap">
+          <button onclick="openAddSubfolder(APP.currentProjectId)" id="btn-new-subfolder" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">+ New Sub-folder</button>
+          <button onclick="openAddTask(APP.currentProjectId)" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">+ Add Task</button>
+          <button onclick="editProject(APP.currentProjectId)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">✏️ Edit</button>
+          <button onclick="deleteProjectConfirm(APP.currentProjectId)" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">🗑️ Delete</button>
+        </div>
+      </div>
+
+      <!-- Sub-folders (only shown when this project has any) -->
+      <div class="hidden mb-6" id="detail-subfolders-section">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-1 h-4 bg-teal rounded-full"></div>
+          <h3 class="text-sm font-bold text-navy-2">Sub-folders</h3>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="detail-subfolders-grid"></div>
+      </div>
+
+      <!-- Mini KPIs -->
+      <div class="flex gap-4 mb-5" id="detail-stats"></div>
+
+      <!-- Filters -->
+      <div class="flex gap-3 mb-4 flex-wrap">
+        <input type="text" id="filter-search" placeholder="🔍 Search tasks..."
+          class="flex-1 min-w-48 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal"
+          oninput="applyFilters(APP.currentProjectId)">
+        <select id="filter-status" onchange="applyFilters(APP.currentProjectId)"
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          <option value="">All Statuses</option>
+          <option>Not Started</option><option>In Progress</option><option>Completed</option>
+        </select>
+        <select id="filter-priority" onchange="applyFilters(APP.currentProjectId)"
+          class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          <option value="">All Priorities</option>
+          <option>High</option><option>Medium</option><option>Low</option>
+        </select>
+        <button onclick="clearFilters(APP.currentProjectId)"
+          class="bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold px-4 py-2 rounded-lg">Clear</button>
+      </div>
+
+      <!-- Task Table -->
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead><tr class="bg-navy text-white text-xs">
+            <th class="px-4 py-3 text-left font-semibold">Task</th>
+            <th class="px-4 py-3 text-left font-semibold">Status</th>
+            <th class="px-4 py-3 text-left font-semibold">Priority</th>
+            <th class="px-4 py-3 text-left font-semibold">Start</th>
+            <th class="px-4 py-3 text-left font-semibold">Due</th>
+            <th class="px-4 py-3 text-left font-semibold">Cost</th>
+            <th class="px-4 py-3 text-left font-semibold"></th>
+          </tr></thead>
+          <tbody id="task-table-body"></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── GANTT ─── -->
+    <div class="page p-6" id="page-gantt">
+      <div class="mb-6">
+        <h2 class="text-2xl font-black text-navy">Gantt Chart</h2>
+        <p class="text-gray-500 text-sm mt-1">Visual timeline of all tasks across every project.</p>
+      </div>
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2" id="gantt-project-badges"></div>
+        <div class="flex gap-1 bg-gray-100 rounded-lg p-1" id="gantt-view-toggle">
+          <button onclick="setGanttViewMode('week')" data-mode="week" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Week</button>
+          <button onclick="setGanttViewMode('month')" data-mode="month" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Month</button>
+          <button onclick="setGanttViewMode('year')" data-mode="year" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Year</button>
+        </div>
+      </div>
+      <div id="gantt-legend" class="mb-3"></div>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <!-- Header: never scrolls vertically; its horizontal scrollLeft is kept
+             in sync with the body below via JS (position:sticky can't be used
+             here — a sticky header's containing block is its own thin row, so
+             it runs out of room to stick after a few dozen pixels of vertical
+             scroll; a separate non-scrolling header sidesteps that entirely). -->
+        <div class="overflow-hidden" id="gantt-header-scroll">
+          <div style="min-width:900px" id="gantt-timeline-wrapper">
+            <div class="grid border-b border-gray-200" style="grid-template-columns:200px 90px 85px 85px 70px 1fr">
+              <div class="gantt-sticky gantt-sticky-1 px-4 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Task / Project</div>
+              <div class="gantt-sticky gantt-sticky-2 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Status</div>
+              <div class="gantt-sticky gantt-sticky-3 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Start</div>
+              <div class="gantt-sticky gantt-sticky-4 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Due</div>
+              <div class="gantt-sticky gantt-sticky-5 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Duration</div>
+              <div class="flex overflow-hidden bg-gray-50" id="gantt-months"></div>
+            </div>
+          </div>
+        </div>
+        <div class="overflow-auto" style="max-height:65vh" id="gantt-rows-scroll" onscroll="document.getElementById('gantt-header-scroll').scrollLeft = this.scrollLeft">
+          <div style="min-width:900px" id="gantt-rows-wrapper">
+            <div id="gantt-rows"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── WEALTH ─── -->
+    <div class="page p-6" id="page-wealth">
+      <div class="mb-6">
+        <h2 class="text-2xl font-black text-navy">Wealth Tracker</h2>
+        <p class="text-gray-500 text-sm mt-1">Update your values each month. Net worth updates live.</p>
+      </div>
+
+      <!-- Hero -->
+      <div class="bg-gradient-to-br from-navy to-navy-2 rounded-2xl p-6 mb-6 text-white">
+        <p class="text-xs font-semibold text-white/40 uppercase tracking-widest">Total Net Worth</p>
+        <p class="text-5xl font-black font-mono text-gold mt-2" id="wealth-total">£0</p>
+        <p class="text-xs text-white/40 mt-1"><span id="wealth-pct">0%</span> of target</p>
+        <div class="h-2 bg-white/10 rounded-full mt-4 overflow-hidden">
+          <div class="hero-bar-fill h-full rounded-full transition-all duration-500" id="wealth-prog" style="width:0%"></div>
+        </div>
+        <p class="text-xs text-white/30 mt-2" id="wealth-left"></p>
+      </div>
+
+      <!-- Wealth Cards -->
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-1 h-4 bg-teal rounded-full"></div>
+          <h3 class="text-sm font-bold text-navy-2">Wealth Categories</h3>
+        </div>
+        <button onclick="openAddWealthCat()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">+ Add Category</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6" id="wealth-cards"></div>
+
+      <!-- Net Worth Chart -->
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-1 h-4 bg-teal rounded-full"></div>
+        <h3 class="text-sm font-bold text-navy-2">📈 Net Worth Over Time</h3>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+        <canvas id="nw-chart" height="80"></canvas>
+      </div>
+
+      <!-- Monthly Log -->
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-1 h-4 bg-teal rounded-full"></div>
+          <h3 class="text-sm font-bold text-navy-2">Monthly Income & Savings Log</h3>
+        </div>
+        <button onclick="openAddLog()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">+ Log Month</button>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead><tr class="bg-navy text-white text-xs">
+            <th class="px-4 py-3 text-left font-semibold">Month</th>
+            <th class="px-4 py-3 text-left font-semibold">Job Income</th>
+            <th class="px-4 py-3 text-left font-semibold">Business</th>
+            <th class="px-4 py-3 text-left font-semibold">Expenses</th>
+            <th class="px-4 py-3 text-left font-semibold">Saved</th>
+            <th class="px-4 py-3 text-left font-semibold">Notes</th>
+            <th class="px-4 py-3 text-left font-semibold"></th>
+          </tr></thead>
+          <tbody id="monthly-log"></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── ACTIONS ─── -->
+    <div class="page p-6" id="page-actions">
+      <div class="mb-6">
+        <h2 class="text-2xl font-black text-navy">Actions</h2>
+        <p class="text-gray-500 text-sm mt-1">Tick off tasks as you complete them.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-5 border border-gray-200">
+          <p class="text-xs font-semibold text-gray-400">Total</p>
+          <p class="text-3xl font-black font-mono text-teal mt-1" id="act-total">0</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-gray-200">
+          <p class="text-xs font-semibold text-gray-400">Done</p>
+          <p class="text-3xl font-black font-mono text-brand-green mt-1" id="act-done">0</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-gray-200">
+          <p class="text-xs font-semibold text-gray-400">To Do</p>
+          <p class="text-3xl font-black font-mono text-brand-orange mt-1" id="act-rem">0</p>
+        </div>
+      </div>
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-1 h-4 bg-teal rounded-full"></div>
+          <h3 class="text-sm font-bold text-navy-2">Action List</h3>
+        </div>
+        <button onclick="openAddAction()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">+ Add Action</button>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" id="action-list"></div>
+    </div>
+
+    <!-- ─── SETTINGS ─── -->
+    <div class="page p-6" id="page-settings">
+      <div class="mb-6">
+        <h2 class="text-2xl font-black text-navy">Settings</h2>
+        <p class="text-gray-500 text-sm mt-1">Personalise your tracker.</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Appearance</h3>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-semibold text-navy">Dark mode</p>
+            <p class="text-xs text-gray-400 mt-0.5">Switch between light and dark themes.</p>
+          </div>
+          <button onclick="toggleTheme()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2">
+            <span id="theme-toggle-icon-settings">🌙</span> <span id="theme-toggle-label">Light mode</span>
+          </button>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Your Profile</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Your Name</label>
+            <input type="text" id="set-name" placeholder="e.g. Adekola Olagunju"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Tagline</label>
+            <input type="text" id="set-tagline"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Currency Symbol</label>
+            <input type="text" id="set-currency" value="£" maxlength="3"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Net Worth Target</label>
+            <input type="number" id="set-target" value="100000"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Target Date</label>
+            <input type="date" id="set-date" value="2027-05-01"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          </div>
+        </div>
+        <button onclick="saveSettings()" class="mt-5 bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-5 py-2.5 rounded-lg">💾 Save Profile</button>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Data Management</h3>
+        <div class="flex gap-3 flex-wrap">
+          <button onclick="exportData()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">⬇ Export Data (JSON)</button>
+          <button onclick="importData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">⬆ Import Data (JSON)</button>
+          <button onclick="resetData()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">🔄 Reset to Defaults</button>
+        </div>
+        <p class="text-xs text-gray-400 mt-3">Export regularly as a backup. Import to restore on another device.</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Google Drive Backup</h3>
+        <p class="text-sm text-gray-500 mb-1" id="settings-drive-text">Checking connection…</p>
+        <p class="text-xs text-gray-400 mb-4" id="settings-drive-sub"></p>
+        <div class="flex gap-3 flex-wrap" id="settings-drive-actions"></div>
+        <div class="hidden" id="settings-drive-formats">
+          <p class="text-xs font-semibold text-gray-500 mt-5 mb-2 border-t border-gray-100 pt-4">Export a copy as…</p>
+          <div class="flex gap-3 flex-wrap">
+            <button onclick="backupAs('sheets')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📊 Google Sheet</button>
+            <button onclick="backupAs('excel')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📗 Excel (.xlsx)</button>
+            <button onclick="backupAs('pdf')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📄 PDF Report</button>
+            <button onclick="backupAs('image')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🖼️ Image Report</button>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Account & Security</h3>
+        <p class="text-xs text-gray-400 mb-4">Logged in as <span class="font-semibold text-gray-600" id="account-email">—</span></p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Current Password</label>
+            <input type="password" id="pw-current" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">New Password</label>
+            <input type="password" id="pw-new" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          </div>
+        </div>
+        <div class="flex gap-3 flex-wrap items-center">
+          <button onclick="submitChangePassword()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">🔒 Change Password</button>
+          <button onclick="logout()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🚪 Log Out</button>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">First-Time Setup</h3>
+        <p class="text-xs text-gray-400 mb-3">Re-run the welcome wizard (name, targets, first project, Google Drive).</p>
+        <button onclick="rerunOnboarding()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🧭 Re-run Setup Wizard</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- PROJECT MODAL -->
+<div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-project">
+  <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+      <h3 class="text-base font-bold text-navy" id="modal-project-title">New Project</h3>
+      <button onclick="closeModal('modal-project')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+    </div>
+    <div class="p-6 overflow-y-auto flex-1">
+      <input type="hidden" id="proj-id">
+      <input type="hidden" id="proj-parent">
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Project Title *</label>
+        <input type="text" id="proj-title" placeholder="e.g. UK Career Goals"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      </div>
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+        <textarea id="proj-desc" rows="3" placeholder="What is this project about?"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Icon (emoji)</label>
+          <input type="text" id="proj-icon" placeholder="🎓" maxlength="4"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Colour</label>
+          <input type="color" id="proj-color" value="#0A7E8C"
+            class="w-full h-10 border border-gray-200 rounded-lg px-2 py-1 cursor-pointer">
+        </div>
+      </div>
+      <div class="mt-4">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Start Date</label>
+        <input type="date" id="proj-start"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        <p class="text-xs text-gray-400 mt-1">Optional. If set, tasks in this project can't start before this date.</p>
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+      <button onclick="closeModal('modal-project')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
+      <button onclick="saveProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Save Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- TASK MODAL -->
+<div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-task">
+  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+      <h3 class="text-base font-bold text-navy" id="modal-task-title">New Task</h3>
+      <button onclick="closeModal('modal-task')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+    </div>
+    <div class="p-6 overflow-y-auto flex-1 space-y-4">
+      <input type="hidden" id="task-id">
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Project *</label>
+        <select id="task-project" onchange="onTaskProjectChange()" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal"></select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Task Title *</label>
+        <input type="text" id="task-title-in" placeholder="e.g. PRINCE2 Foundation Exam"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Status</label>
+          <select id="task-status" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+            <option>Not Started</option><option>In Progress</option><option>Completed</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Priority</label>
+          <select id="task-priority" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+            <option>High</option><option>Medium</option><option>Low</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Cost (£)</label>
+          <input type="number" id="task-cost" placeholder="0" min="0"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Start Date</label>
+          <input type="date" id="task-start"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Due Date</label>
+          <input type="date" id="task-end"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Notes</label>
+        <textarea id="task-notes" rows="3" placeholder="Any details, links or reminders..."
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+      <button onclick="closeModal('modal-task')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
+      <button onclick="saveTask()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Save Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACTION MODAL -->
+<div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-action">
+  <div class="bg-white rounded-2xl w-full max-w-sm max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+      <h3 class="text-base font-bold text-navy">New Action</h3>
+      <button onclick="closeModal('modal-action')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+    </div>
+    <div class="p-6 overflow-y-auto flex-1 space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Action *</label>
+        <textarea id="act-text" rows="3" placeholder="What needs to be done?"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Area</label>
+        <input type="text" id="act-area" placeholder="e.g. 💰 Investments"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">By When</label>
+          <input type="text" id="act-by" placeholder="e.g. Jun 2026"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Priority</label>
+          <select id="act-priority" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+            <option>Do Now</option><option>High</option><option>Medium</option><option>Low</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+      <button onclick="closeModal('modal-action')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
+      <button onclick="saveAction()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Add Action</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOG MODAL -->
+<div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-log">
+  <div class="bg-white rounded-2xl w-full max-w-sm max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+      <h3 class="text-base font-bold text-navy">Log a Month</h3>
+      <button onclick="closeModal('modal-log')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+    </div>
+    <div class="p-6 overflow-y-auto flex-1 space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Month</label>
+        <input type="text" id="log-month" placeholder="e.g. May 2026"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Job Income (£)</label>
+          <input type="number" id="log-income" placeholder="0"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Business (£)</label>
+          <input type="number" id="log-business" placeholder="0"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Expenses (£)</label>
+          <input type="number" id="log-expenses" placeholder="0"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Amount Saved (£)</label>
+          <input type="number" id="log-saved" placeholder="auto-calc"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Notes</label>
+        <textarea id="log-notes" rows="2" placeholder="Key wins or challenges..."
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+      <button onclick="closeModal('modal-log')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
+      <button onclick="saveLog()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- WEALTH CATEGORY MODAL -->
+<div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-wcat">
+  <div class="bg-white rounded-2xl w-full max-w-sm max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+      <h3 class="text-base font-bold text-navy">Add Wealth Category</h3>
+      <button onclick="closeModal('modal-wcat')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Label *</label>
+        <input type="text" id="wcat-label" placeholder="e.g. 🏠 Rental Property"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Target Amount (£)</label>
+        <input type="number" id="wcat-target" placeholder="e.g. 50000"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+      <button onclick="closeModal('modal-wcat')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
+      <button onclick="saveWealthCat()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Add Category</button>
+    </div>
+  </div>
+</div>
+
+<!-- TASK DETAIL SIDE PANEL -->
+<div class="hidden fixed inset-0 bg-black/40 z-40" id="task-detail-backdrop" onclick="closeTaskDetail()"></div>
+<div class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300 translate-x-full" id="task-detail-panel">
+  <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Task Details</p>
+    <button onclick="closeTaskDetail()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+  </div>
+  <div class="p-6 overflow-y-auto flex-1">
+    <div class="flex items-center gap-2 mb-2">
+      <span id="td-project-icon" class="text-lg"></span>
+      <span id="td-project-title" class="text-xs font-semibold text-gray-400"></span>
+    </div>
+    <h2 class="text-xl font-black text-navy mb-3" id="td-title">Task</h2>
+    <div class="flex flex-wrap gap-2 mb-5" id="td-badges"></div>
+
+    <div class="grid grid-cols-2 gap-4 mb-5 text-sm">
+      <div>
+        <p class="text-xs font-semibold text-gray-400 mb-0.5">Cost</p>
+        <p class="font-medium text-navy" id="td-cost">—</p>
+      </div>
+      <div>
+        <p class="text-xs font-semibold text-gray-400 mb-0.5">Start Date</p>
+        <p class="font-medium text-navy" id="td-start">—</p>
+      </div>
+      <div>
+        <p class="text-xs font-semibold text-gray-400 mb-0.5">Due Date</p>
+        <p class="font-medium text-navy" id="td-end">—</p>
+      </div>
+    </div>
+
+    <div class="border-t border-gray-100 pt-4">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Notes</p>
+      <p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed" id="td-notes">No notes for this task yet.</p>
+    </div>
+  </div>
+  <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 flex-wrap">
+    <button onclick="closeTaskDetail()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Close</button>
+    <button onclick="addTaskToGoogleCalendar(APP_currentDetailTaskId)" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-semibold px-4 py-2 rounded-lg">📅 Add to Google Calendar</button>
+    <button onclick="editTaskFromDetail()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">✏️ Edit Task</button>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL (replaces native browser confirm()) -->
+<div class="modal-overlay fixed inset-0 bg-black/50 z-[70] items-center justify-center p-5" id="modal-confirm">
+  <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+    <h3 class="text-base font-bold text-navy mb-2">Please confirm</h3>
+    <p class="text-sm text-gray-600 mb-6" id="confirm-message"></p>
+    <div class="flex justify-end gap-3">
+      <button onclick="cancelConfirmAction()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
+      <button onclick="runConfirmedAction()" class="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-4 py-2 rounded-lg">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast bg-navy text-white px-5 py-3 rounded-xl text-sm font-medium shadow-xl" id="toast"></div>
+
+<!-- SCRIPTS -->
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>

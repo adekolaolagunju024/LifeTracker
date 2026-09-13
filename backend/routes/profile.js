@@ -1,19 +1,15 @@
 const express = require('express');
 const router  = express.Router();
-const { readDB, writeDB } = require('../db/db');
+const db      = require('../db/db');
 
 // GET /api/profile
 router.get('/', (req, res) => {
-  const db = readDB();
-  res.json(db.profile);
+  res.json(db.getProfile(req.session.userId));
 });
 
 // PUT /api/profile
 router.put('/', (req, res) => {
-  const db = readDB();
-  db.profile = { ...db.profile, ...req.body };
-  writeDB(db);
-  res.json(db.profile);
+  res.json(db.updateProfile(req.session.userId, req.body));
 });
 
 module.exports = router;

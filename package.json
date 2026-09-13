@@ -1,15 +1,25 @@
 {
-  "name": "life-wealth-tracker",
+  "name": "lifetracker",
   "version": "1.0.0",
-  "description": "Personal Life, Career & Wealth Tracker — built by Adekola Olagunju",
+  "description": "Personal Life, Career & Wealth Tracker",
   "main": "backend/server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node backend/server.js",
     "dev": "nodemon backend/server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "express": "^4.18.2",
+    "express-session": "^1.19.0",
+    "googleapis": "^180.0.0",
+    "puppeteer-core": "^25.10.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
