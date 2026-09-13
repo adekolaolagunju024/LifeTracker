@@ -105,7 +105,10 @@ router.post('/insights', async (req, res) => {
     res.json(result);
   } catch (e) {
     console.error('AI insights error:', e);
-    res.status(500).json({ error: 'Failed to generate AI insights. ' + (e.message || '') });
+    // The SDK's own .message is a raw "<status> <json body>" dump — pull out
+    // just the API's own error message when it's there, for a readable UI.
+    const apiMessage = e?.error?.error?.message || e?.message || 'Unknown error';
+    res.status(502).json({ error: apiMessage });
   }
 });
 
