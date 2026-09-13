@@ -72,3 +72,7 @@ frontend/
 ```
 
 Personal data files (e.g. `AdekolaProjects/`) are gitignored and never pushed — this repo is public.
+
+## License
+
+All rights reserved — see [LICENSE](LICENSE). No permission is granted to use, copy, modify, or distribute this code.
