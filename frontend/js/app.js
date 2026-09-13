@@ -1389,6 +1389,10 @@ function showAuthView(view) {
   document.getElementById('auth-overlay').classList.add('open');
   document.getElementById('auth-view-login').classList.toggle('active', view === 'login');
   document.getElementById('auth-view-register').classList.toggle('active', view === 'register');
+  API.getGoogleLoginStatus().then(status => {
+    document.getElementById('google-login-btn').classList.toggle('hidden', !status.configured);
+    document.getElementById('google-register-btn').classList.toggle('hidden', !status.configured);
+  }).catch(() => {});
 }
 
 function closeAuth() {
@@ -1401,6 +1405,28 @@ function showAuthError(id, message) {
   el.classList.remove('hidden');
 }
 
+// Lets the browser's native password manager offer to save the credential
+// (works even in an SPA with no full-page navigation) on browsers that
+// support the Credential Management API — a no-op everywhere else.
+function offerToSaveCredential(email, password) {
+  if (!window.PasswordCredential) return;
+  try {
+    navigator.credentials.store(new PasswordCredential({ id: email, password, name: email }));
+  } catch { /* best-effort only */ }
+}
+
+function handleAuthRegisterSubmit(event) {
+  event.preventDefault();
+  submitAuthRegister();
+  return false;
+}
+
+function handleAuthLoginSubmit(event) {
+  event.preventDefault();
+  submitAuthLogin();
+  return false;
+}
+
 async function submitAuthRegister() {
   const email    = document.getElementById('auth-register-email').value.trim();
   const password = document.getElementById('auth-register-password').value;
@@ -1409,6 +1435,7 @@ async function submitAuthRegister() {
   if (password !== confirm) return showAuthError('auth-register-error', 'Passwords do not match');
   try {
     await API.register(email, password);
+    offerToSaveCredential(email, password);
     closeAuth();
     await afterAuth();
   } catch (e) { showAuthError('auth-register-error', e.message); }
@@ -1417,11 +1444,26 @@ async function submitAuthRegister() {
 async function submitAuthLogin() {
   const email    = document.getElementById('auth-login-email').value.trim();
   const password = document.getElementById('auth-login-password').value;
+  const remember = document.getElementById('auth-login-remember').checked;
   try {
-    await API.login(email, password);
+    await API.login(email, password, remember);
+    offerToSaveCredential(email, password);
     closeAuth();
     await afterAuth();
   } catch (e) { showAuthError('auth-login-error', e.message); }
+}
+
+async function startGoogleLogin() {
+  try {
+    const status = await API.getGoogleLoginStatus();
+    if (!status.configured) {
+      showToast('Sign in with Google isn\'t configured on this server yet.', 'error');
+      return;
+    }
+    window.location.href = '/api/auth/google';
+  } catch {
+    showToast('Sign in with Google isn\'t available right now.', 'error');
+  }
 }
 
 async function afterAuth() {
@@ -1632,6 +1674,13 @@ function handleDriveRedirect() {
   if (!params.has('drive')) return;
   if (params.get('drive') === 'connected') showToast('✅ Google Drive connected');
   if (params.get('drive') === 'error')     showToast('❌ Google Drive connection failed', 'error');
+  window.history.replaceState({}, '', window.location.pathname);
+}
+
+function handleAuthRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has('auth')) return;
+  if (params.get('auth') === 'error') showToast('❌ Google sign-in failed', 'error');
   window.history.replaceState({}, '', window.location.pathname);
 }
 
@@ -2019,6 +2068,7 @@ async function init() {
     new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   applyThemeIcon();
   handleDriveRedirect();
+  handleAuthRedirect();
   const authed = await checkAuth();
   if (authed) await afterAuth();
 }

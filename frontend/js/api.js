@@ -85,7 +85,8 @@ const API = {
   getAuthStatus:   ()        => request('GET',  '/auth/status'),
   getMe:           ()        => request('GET',  '/auth/me'),
   register:        (email, password) => request('POST', '/auth/register', { email, password }),
-  login:           (email, password) => request('POST', '/auth/login', { email, password }),
+  login:           (email, password, remember = true) => request('POST', '/auth/login', { email, password, remember }),
   logout:          ()        => request('POST', '/auth/logout'),
   changePassword:  (currentPassword, newPassword) => request('PUT', '/auth/password', { currentPassword, newPassword }),
+  getGoogleLoginStatus: ()   => request('GET',  '/auth/google/status'),
 };

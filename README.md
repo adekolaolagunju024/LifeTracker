@@ -4,7 +4,7 @@ A personal life, career, and wealth tracker. Multi-user, self-hosted, no externa
 
 ## Features
 
-- **Accounts** — email/password registration and login, sessions scoped per user (`express-session`)
+- **Accounts** — email/password registration and login, sessions scoped per user (`express-session`), an optional "Sign in with Google" (finds-or-creates an account by email), a "Keep me signed in" toggle (persistent 30-day session vs. a session-only cookie cleared when the browser closes), and browser-native password-save support (real `<form>` submits + the Credential Management API)
 - **Onboarding wizard** — name, wealth targets, and first project on first login
 - **Projects & sub-folders** — one level of nested sub-projects (e.g. "UK Career Goals" → "Cloud Engineering Goals"), each individually editable
 - **Project types** — a top-level project is either **Career** or **Wealth**; more types can be added later. Both get a full task list (add/edit/delete, filters, KPIs) — a Wealth project additionally shows a banner linking to the Wealth Tracker for its £ categories/monthly log/chart
@@ -39,7 +39,7 @@ Edit `.env`:
 | `SESSION_SECRET` | Yes (production) | Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `PORT` | No | Defaults to `3000`; most hosts set this automatically |
 | `DB_PATH` | No | Defaults to `backend/db/lifetracker.sqlite`. On most cloud hosts the filesystem resets on redeploy — point this at a mounted persistent volume in production |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | No | Only needed for Google Drive backup/export. Create in Google Cloud Console → APIs & Services → Credentials |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | No | Powers both Google Drive backup/export AND "Sign in with Google". Create in Google Cloud Console → APIs & Services → Credentials, and add **both** `.../api/drive/callback` and `.../api/auth/google/callback` as Authorized redirect URIs on that one OAuth client |
 | `NODE_ENV` | No | Set to `production` when deployed, so session cookies require HTTPS |
 | `PUPPETEER_EXECUTABLE_PATH` | No | Path to a Chromium-family browser, only needed if one isn't auto-detected (used for PDF/image report rendering) |
 | `ANTHROPIC_API_KEY` | No | Only needed for the "✨ AI Insights" button on the Actions page. Get one at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
