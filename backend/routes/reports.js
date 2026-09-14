@@ -9,7 +9,12 @@ const { renderGanttImage } = require('../reports/visual');
 // cookie so the headless page loads already logged in as them.
 router.get('/gantt-image', async (req, res) => {
   try {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    // Loop back to this same process directly on its own bound port, not
+    // the public-facing host from the request — on a platform like Railway
+    // that's a different domain behind a proxy/CDN, and routing the
+    // internal Puppeteer request back out through it is unreliable (or
+    // blocked outright) and always slower than talking to localhost.
+    const baseUrl = `http://localhost:${process.env.PORT || 3000}`;
     const buffer = await renderGanttImage(req.headers.cookie, baseUrl);
     res.set('Content-Type', 'image/png');
     res.set('Content-Disposition', `attachment; filename="gantt-chart_${new Date().toISOString().slice(0, 10)}.png"`);

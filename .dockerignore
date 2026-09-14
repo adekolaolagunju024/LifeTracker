@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.env
+.git
+.gitignore
+AdekolaProjects
+backend/db/*.sqlite
+backend/db/*.sqlite-journal
+backend/db/*.sqlite-wal
+backend/db/*.sqlite-shm
+backend/db/database.json
+backend/db/database.json.migrated

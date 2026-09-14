@@ -120,8 +120,20 @@ function reportHtml(snapshot) {
 </body></html>`;
 }
 
+// Most container hosts (Railway, Render, Docker generally) run the process
+// as root with no user-namespace sandbox available, which Chromium refuses
+// to start under without --no-sandbox. Harmless here since we only ever
+// load our own trusted, server-rendered pages — never arbitrary user URLs.
+function launchBrowser() {
+  return puppeteer.launch({
+    executablePath: findBrowser(),
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  });
+}
+
 async function withReportPage(snapshot, fn) {
-  const browser = await puppeteer.launch({ executablePath: findBrowser(), headless: true });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     await page.setContent(reportHtml(snapshot), { waitUntil: 'load' });
@@ -145,7 +157,7 @@ async function renderReportImage(snapshot) {
 // DOM-to-canvas renderer clips flex-centered text inside CSS Grid rows, a
 // known limitation; a real browser has no such issue.
 async function renderGanttImage(cookieHeader, baseUrl) {
-  const browser = await puppeteer.launch({ executablePath: findBrowser(), headless: true });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     if (cookieHeader) await page.setExtraHTTPHeaders({ Cookie: cookieHeader });

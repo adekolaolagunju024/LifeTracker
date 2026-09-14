@@ -21,7 +21,7 @@ A personal life, career, and wealth tracker. Multi-user, self-hosted, no externa
 
 ## Tech stack
 
-- **Backend**: Node.js + Express, `better-sqlite3` (SQLite), `express-session`, `bcryptjs`
+- **Backend**: Node.js (22+) + Express, `better-sqlite3` (SQLite), `express-session` backed by `better-sqlite3-session-store` (sessions survive redeploys), `bcryptjs`
 - **Frontend**: Vanilla JS + Tailwind CSS (CDN) — no build step
 - **Exports**: `exceljs` (Excel), `puppeteer-core` (PDF/image reports), `googleapis` (Drive/Sheets)
 - **AI**: `@anthropic-ai/sdk` (Claude, tool-use for structured output — task prioritization and file-to-project extraction), `multer` (file uploads)
@@ -42,7 +42,7 @@ Edit `.env`:
 | `DB_PATH` | No | Defaults to `backend/db/lifetracker.sqlite`. On most cloud hosts the filesystem resets on redeploy — point this at a mounted persistent volume in production |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | No | Powers both Google Drive backup/export AND "Sign in with Google". Create in Google Cloud Console → APIs & Services → Credentials, and add **both** `.../api/drive/callback` and `.../api/auth/google/callback` as Authorized redirect URIs on that one OAuth client |
 | `NODE_ENV` | No | Set to `production` when deployed, so session cookies require HTTPS |
-| `PUPPETEER_EXECUTABLE_PATH` | No | Path to a Chromium-family browser, only needed if one isn't auto-detected (used for PDF/image report rendering) |
+| `PUPPETEER_EXECUTABLE_PATH` | No | Path to a Chromium-family browser, used for PDF/image reports and the Gantt chart's image export. The `Dockerfile` sets this to the Chromium it installs — only set it yourself on a non-Docker host |
 | `ANTHROPIC_API_KEY` | No | Only needed for the "✨ AI Insights" button on the Actions page. Get one at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
 
 Run it:
@@ -56,11 +56,23 @@ Then open `http://localhost:3000`.
 
 ## Deploying
 
-A `Procfile` (`web: node backend/server.js`) is included for Heroku-style platforms. For any host:
+A `Dockerfile` is included and is the recommended path — it installs Chromium (needed for PDF/image exports) and runs it with `--no-sandbox`, which containers require since they run as root with no sandbox namespace available. A `Procfile` (`web: node backend/server.js`) is also included for buildpack-style platforms, but without Chromium pre-installed those platforms will show PDF/image export errors unless you separately configure a Chromium buildpack and set `PUPPETEER_EXECUTABLE_PATH`.
+
+### Railway (recommended)
+
+1. Create a new project from this repo — Railway detects the `Dockerfile` automatically.
+2. **Attach a volume**: mount it at `/data`, then set `DB_PATH=/data/lifetracker.sqlite`. Without this the SQLite database (and every session) is wiped on every redeploy.
+3. Set environment variables: `SESSION_SECRET` (generate one — see the table below), `NODE_ENV=production`, and `ANTHROPIC_API_KEY`/`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`GOOGLE_REDIRECT_URI` if you want those features live. Don't set `PUPPETEER_EXECUTABLE_PATH` — the Dockerfile already does.
+4. Once Railway gives you a domain, if you're using Google features, go back to Google Cloud Console and add **both** `https://<your-domain>/api/drive/callback` and `https://<your-domain>/api/auth/google/callback` as Authorized redirect URIs on the OAuth client, and update `GOOGLE_REDIRECT_URI` to the first one.
+
+### Any other host
 
 1. Set `SESSION_SECRET` and `NODE_ENV=production`.
 2. Attach persistent storage and set `DB_PATH` to a file inside it — otherwise the SQLite database is wiped on every redeploy.
-3. Set the Google OAuth variables only if Drive backup should be enabled.
+3. Make sure a Chromium-family browser is available and set `PUPPETEER_EXECUTABLE_PATH` to it — used for PDF/image reports and the Gantt chart's image export. Building from the included `Dockerfile` handles this automatically.
+4. Set the Google OAuth variables only if Drive backup / Sign in with Google should be enabled — see the redirect URI note above.
+
+Sessions are stored in the same SQLite database (`better-sqlite3-session-store`) rather than in memory, so — as long as `DB_PATH` points at persistent storage — logins survive redeploys instead of forcing everyone to sign in again each time.
 
 ## Project structure
 

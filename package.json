@@ -4,7 +4,7 @@
   "description": "Personal Life, Career & Wealth Tracker",
   "main": "backend/server.js",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "scripts": {
     "start": "node backend/server.js",
@@ -14,6 +14,7 @@
     "@anthropic-ai/sdk": "^0.125.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^13.0.3",
+    "better-sqlite3-session-store": "^0.1.0",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",

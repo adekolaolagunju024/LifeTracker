@@ -5,10 +5,19 @@ const session = require('express-session');
 const cors    = require('cors');
 const path    = require('path');
 
+const db = require('./db/connection');
 const requireAuth = require('./middleware/requireAuth');
+const SqliteStore = require('better-sqlite3-session-store')(session);
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
+
+// Behind a reverse proxy (Railway, Render, Heroku, etc.) the connection to
+// this process is plain HTTP even when the public-facing request was HTTPS
+// — without this, req.protocol always reports "http", which breaks the
+// dynamically-built Google OAuth redirect URI and the Gantt image export's
+// internal loopback URL.
+app.set('trust proxy', 1);
 
 if (!process.env.SESSION_SECRET) {
   console.warn('⚠️  SESSION_SECRET is not set in .env — using an insecure development default. Set one before deploying.');
@@ -18,6 +27,7 @@ if (!process.env.SESSION_SECRET) {
 app.use(cors());
 app.use(express.json());
 app.use(session({
+  store: new SqliteStore({ client: db, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
   secret: process.env.SESSION_SECRET || 'lifetracker-dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
