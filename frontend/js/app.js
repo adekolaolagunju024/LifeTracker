@@ -1798,6 +1798,130 @@ function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 // PROJECT MODAL
+// ── IMPORT PROJECT FROM FILE (AI) ─────────────────────────────────
+function openImportProject() {
+  document.getElementById('import-file-input').value = '';
+  document.getElementById('import-error').classList.add('hidden');
+  document.getElementById('import-step-upload').classList.remove('hidden');
+  document.getElementById('import-upload-actions').classList.remove('hidden');
+  document.getElementById('import-upload-actions').classList.add('flex');
+  document.getElementById('import-step-preview').classList.add('hidden');
+  document.getElementById('import-preview-actions').classList.add('hidden');
+  document.getElementById('import-preview-actions').classList.remove('flex');
+  openModal('modal-import');
+}
+
+async function analyzeImportFile() {
+  const fileInput = document.getElementById('import-file-input');
+  const errorEl = document.getElementById('import-error');
+  errorEl.classList.add('hidden');
+  const file = fileInput.files[0];
+  if (!file) { errorEl.textContent = 'Choose a file first'; errorEl.classList.remove('hidden'); return; }
+
+  const btn = document.getElementById('import-analyze-btn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Reading file…';
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/ai/import-project', { method: 'POST', body: formData });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Import failed');
+
+    document.getElementById('import-proj-icon').value  = body.icon || '📁';
+    document.getElementById('import-proj-title').value = body.title || '';
+    document.getElementById('import-proj-desc').value  = body.description || '';
+    renderImportTasksList(body.tasks || []);
+
+    document.getElementById('import-step-upload').classList.add('hidden');
+    document.getElementById('import-upload-actions').classList.add('hidden');
+    document.getElementById('import-upload-actions').classList.remove('flex');
+    document.getElementById('import-step-preview').classList.remove('hidden');
+    document.getElementById('import-preview-actions').classList.remove('hidden');
+    document.getElementById('import-preview-actions').classList.add('flex');
+  } catch (e) {
+    errorEl.textContent = e.message || 'Failed to read that file';
+    errorEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+const IMPORT_PRIORITIES = ['High', 'Medium', 'Low'];
+const IMPORT_STATUSES   = ['Not Started', 'In Progress', 'Completed'];
+
+function renderImportTasksList(tasks) {
+  document.getElementById('import-task-count').textContent = tasks.length;
+  document.getElementById('import-tasks-list').innerHTML = tasks.map((t, i) => `
+    <div class="border border-gray-200 rounded-lg p-3" data-task-index="${i}">
+      <div class="flex items-start gap-2 mb-2">
+        <input type="text" class="import-task-title flex-1 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-teal" value="${esc(t.title || '')}">
+        <button onclick="this.closest('[data-task-index]').remove(); updateImportTaskCount();" class="text-gray-300 hover:text-red-500 text-sm p-1.5 rounded hover:bg-red-50">🗑️</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mb-2">
+        <select class="import-task-priority border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-teal">
+          ${IMPORT_PRIORITIES.map(p => `<option ${t.priority === p ? 'selected' : ''}>${p}</option>`).join('')}
+        </select>
+        <select class="import-task-status border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-teal">
+          ${IMPORT_STATUSES.map(s => `<option ${t.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <input type="date" class="import-task-start border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-teal" value="${t.startDate || ''}">
+        <input type="date" class="import-task-end border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-teal" value="${t.endDate || ''}">
+      </div>
+    </div>`).join('') || `<p class="text-xs text-gray-400 text-center py-4">No tasks found in that file — you can still create the project and add tasks manually.</p>`;
+}
+
+function updateImportTaskCount() {
+  document.getElementById('import-task-count').textContent = document.querySelectorAll('#import-tasks-list [data-task-index]').length;
+}
+
+async function createImportedProject() {
+  const title = document.getElementById('import-proj-title').value.trim();
+  if (!title) { showToast('Project title is required', 'error'); return; }
+
+  const btn = document.getElementById('import-create-btn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+
+  try {
+    const proj = await API.addProject({
+      title,
+      icon: document.getElementById('import-proj-icon').value.trim() || '📁',
+      description: document.getElementById('import-proj-desc').value.trim(),
+    });
+
+    const rows = document.querySelectorAll('#import-tasks-list [data-task-index]');
+    for (const row of rows) {
+      const taskTitle = row.querySelector('.import-task-title').value.trim();
+      if (!taskTitle) continue;
+      await API.addTask({
+        projectId: proj.id,
+        title: taskTitle,
+        priority: row.querySelector('.import-task-priority').value,
+        status: row.querySelector('.import-task-status').value,
+        startDate: row.querySelector('.import-task-start').value,
+        endDate: row.querySelector('.import-task-end').value,
+      });
+    }
+
+    closeModal('modal-import');
+    showToast(`✅ Created "${title}" with ${rows.length} task${rows.length === 1 ? '' : 's'}`);
+    if (APP.currentProjectId) renderProjectDetail(APP.currentProjectId); else renderProjects();
+    updateSidebar();
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'Failed to create project'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
 function openAddProject() {
   document.getElementById('modal-project-title').textContent = 'New Project';
   document.getElementById('proj-id').value     = '';

@@ -14,6 +14,7 @@ A personal life, career, and wealth tracker. Multi-user, self-hosted, no externa
 - **Wealth tracker** — categories with editable targets (add/edit/delete), current values, a net worth chart, and a monthly income/savings log; reached via a Wealth-type project rather than a dedicated nav item
 - **Actions** — a live, auto-generated feed (not a maintained list) of Overdue, Due This Week, and High-priority-in-progress tasks across every project; mark one done straight from the feed
 - **AI Insights** (optional) — a "✨ Analyze My Tasks" button on the Actions page sends your open tasks to Claude and gets back a prioritized focus list plus 2-4 suggested next-step tasks you can add with one click
+- **Import Project from File** (optional) — on All Projects, upload a `.xlsx`/`.pdf`/`.png`/`.jpg` (a plan, checklist, or spreadsheet) and Claude proposes a project with tasks extracted from it; every field is editable and nothing is created until you confirm
 - **Google Drive backup** (optional) — connect a Google account to export data as JSON, Excel, Google Sheets, PDF, or image
 - **Dark mode**
 - **Mobile responsive layout**
@@ -23,7 +24,7 @@ A personal life, career, and wealth tracker. Multi-user, self-hosted, no externa
 - **Backend**: Node.js + Express, `better-sqlite3` (SQLite), `express-session`, `bcryptjs`
 - **Frontend**: Vanilla JS + Tailwind CSS (CDN) — no build step
 - **Exports**: `exceljs` (Excel), `puppeteer-core` (PDF/image reports), `googleapis` (Drive/Sheets)
-- **AI**: `@anthropic-ai/sdk` (Claude, tool-use for structured task-prioritization output)
+- **AI**: `@anthropic-ai/sdk` (Claude, tool-use for structured output — task prioritization and file-to-project extraction), `multer` (file uploads)
 
 ## Setup
 
