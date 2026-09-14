@@ -589,6 +589,47 @@ function setGanttProjectFilter(projectId) {
   renderGantt();
 }
 
+// ── GANTT PRINT / IMAGE EXPORT ────────────────────────────────────
+// Print reuses the exact chart already on screen via the browser's own
+// print engine — the .gantt-exporting/@media print CSS just un-freezes the
+// sticky columns and drops the scroll clipping so it flows at full size.
+//
+// Image export goes to the server instead of a client-side canvas library:
+// html2canvas's manual DOM-to-canvas renderer clips flex-centered text
+// inside this chart's CSS Grid rows (a known limitation), so a real
+// headless browser screenshot of the live page is used for pixel-perfect
+// output — see backend/reports/visual.js renderGanttImage().
+function printGanttChart() {
+  window.print();
+}
+
+async function exportGanttImage() {
+  const btn = document.getElementById('gantt-export-img-btn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Rendering…';
+  try {
+    const res = await fetch('/api/reports/gantt-image');
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'Export failed');
+    }
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'gantt-chart_' + new Date().toISOString().slice(0, 10) + '.png';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('✅ Image exported');
+  } catch (e) {
+    console.error('Gantt image export error:', e);
+    showToast('❌ ' + (e.message || 'Failed to export image'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
 function formatDuration(startDate, endDate) {
   if (!startDate || !endDate) return '—';
   const days = Math.round((new Date(endDate) - new Date(startDate)) / 86400000) + 1;

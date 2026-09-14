@@ -9,7 +9,7 @@ A personal life, career, and wealth tracker. Multi-user, self-hosted, no externa
 - **Projects & sub-folders** — one level of nested sub-projects (e.g. "UK Career Goals" → "Cloud Engineering Goals"), each individually editable
 - **Project types** — a top-level project is either **Career** or **Wealth**; more types can be added later. Both get a full task list (add/edit/delete, filters, KPIs) — a Wealth project additionally shows a banner linking to the Wealth Tracker for its £ categories/monthly log/chart
 - **Tasks** — status, priority, start/due dates, notes; "Add to Google Calendar" per task
-- **Gantt chart** — drag-to-move / drag-to-resize bars, collapsible groups by project (a project's sub-folders always stay grouped directly beneath it, never scattered alphabetically among unrelated projects), Week/Month/Year zoom, a project filter dropdown to zoom into a single project's tasks, and frozen Task/Status/Start/Due/Duration columns with a horizontally scrolling timeline. Shows real tasks only — Wealth-type projects appear here the same as Career ones, via their tasks
+- **Gantt chart** — drag-to-move / drag-to-resize bars, collapsible groups by project (a project's sub-folders always stay grouped directly beneath it, never scattered alphabetically among unrelated projects), Week/Month/Year zoom, a project filter dropdown to zoom into a single project's tasks, frozen Task/Status/Start/Due/Duration columns with a horizontally scrolling timeline, and **Print/PDF** (the browser's native print, with a stylesheet that un-freezes the columns) or **Export Image** (a server-side headless-browser screenshot of the live chart — more reliable than a client-side canvas library, which clips text in this chart's CSS Grid rows). Shows real tasks only — Wealth-type projects appear here the same as Career ones, via their tasks
 - **Dashboard** — dynamic per project type: the Career Progress and Net Worth hero cards (and the Net Worth KPI) only appear once you actually have a project of that type, and reflow to fill the row when only one is present
 - **Wealth tracker** — categories with editable targets (add/edit/delete), current values, a net worth chart, and a monthly income/savings log; reached via a Wealth-type project rather than a dedicated nav item
 - **Actions** — a live, auto-generated feed (not a maintained list) of Overdue, Due This Week, and High-priority-in-progress tasks across every project; mark one done straight from the feed
@@ -68,8 +68,8 @@ backend/
   server.js           entry point, middleware, route mounting
   db/                  SQLite connection, schema/migrations, data-access layer
   middleware/          session auth gate
-  routes/              one file per API resource (auth, projects, tasks, wealth, actions, drive, profile)
-  reports/             Excel/PDF/image export generation
+  routes/              one file per API resource (auth, projects, tasks, wealth, drive, ai, reports, profile)
+  reports/             Excel/PDF/image export generation, plus the Gantt chart's image export
 frontend/
   index.html           all pages/modals (single-page app, no router)
   js/app.js            UI logic, rendering, event handling

@@ -139,4 +139,58 @@ async function renderReportImage(snapshot) {
   return withReportPage(snapshot, page => page.screenshot({ fullPage: true }));
 }
 
-module.exports = { renderReportPdf, renderReportImage };
+// Screenshots the Gantt chart exactly as the user has it (same filter/zoom)
+// by loading the real running app as a real browser, rather than
+// re-implementing the chart's CSS Grid layout — html2canvas's manual
+// DOM-to-canvas renderer clips flex-centered text inside CSS Grid rows, a
+// known limitation; a real browser has no such issue.
+async function renderGanttImage(cookieHeader, baseUrl) {
+  const browser = await puppeteer.launch({ executablePath: findBrowser(), headless: true });
+  try {
+    const page = await browser.newPage();
+    if (cookieHeader) await page.setExtraHTTPHeaders({ Cookie: cookieHeader });
+    await page.goto(baseUrl + '/', { waitUntil: 'networkidle0' });
+    // Defensively dismiss anything that could sit on top of the chart —
+    // e.g. an un-onboarded account's onboarding wizard opens automatically
+    // on login, which would otherwise get captured instead of the chart.
+    await page.evaluate(() => {
+      document.getElementById('onboarding-overlay')?.classList.remove('open');
+      document.querySelectorAll('.modal-overlay.open').forEach(el => el.classList.remove('open'));
+    });
+    await page.evaluate(() => showPage('gantt'));
+    await page.waitForSelector('.gantt-cat-row', { timeout: 10000 });
+    await page.evaluate(() => document.getElementById('gantt-chart-card').classList.add('gantt-exporting'));
+    await new Promise(r => setTimeout(r, 300)); // let the un-frozen layout settle
+
+    // The viewport must be tall enough that the page never needs to
+    // scroll — the app's topbar is position:sticky, and once the page
+    // scrolls it stays pinned over the same screen region the (now
+    // scrolled) card occupies, corrupting the crop. Sizing to the whole
+    // page's height rather than just the card's avoids that entirely.
+    //
+    // Width can't be read off the card itself: .gantt-exporting sets the
+    // scroll panes to overflow:visible so the full timeline isn't clipped,
+    // but a visible-overflow child spills outside its parent without the
+    // parent's own scrollWidth growing to match — the inner wrapper divs
+    // (which carry the real width as an explicit inline min-width) are
+    // measured directly instead.
+    const box = await page.evaluate(() => {
+      const innerWidth = Math.max(
+        document.getElementById('gantt-timeline-wrapper')?.scrollWidth || 0,
+        document.getElementById('gantt-rows-wrapper')?.scrollWidth || 0,
+      );
+      return {
+        width: Math.ceil(innerWidth),
+        pageHeight: Math.ceil(document.documentElement.scrollHeight),
+      };
+    });
+    await page.setViewport({ width: box.width + 280, height: box.pageHeight + 40 });
+
+    const element = await page.$('#gantt-chart-card');
+    return await element.screenshot({ type: 'png' });
+  } finally {
+    await browser.close();
+  }
+}
+
+module.exports = { renderReportPdf, renderReportImage, renderGanttImage };

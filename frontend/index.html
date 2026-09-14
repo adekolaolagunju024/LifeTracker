@@ -90,6 +90,24 @@
     .gantt-summary-cap { position: absolute; top: 50%; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; margin-top: -2px; transform: translateX(-50%); z-index: 3; }
     .gantt-cat-row { background: #F8FAFC; }
     .gantt-row-alt { background: #FAFAFA; }
+
+    /* Used for both printing and PNG export: the frozen columns and the
+       two-pane scroll split exist only so the chart fits on screen — for
+       output we want everything to just flow at full size instead, so
+       sticky positioning and the height/overflow clipping are neutralised. */
+    .gantt-exporting #gantt-header-scroll,
+    .gantt-exporting #gantt-rows-scroll { overflow: visible !important; max-height: none !important; }
+    .gantt-exporting .gantt-sticky { position: static !important; box-shadow: none !important; }
+
+    @media print {
+      body * { visibility: hidden; }
+      #page-gantt, #page-gantt * { visibility: visible; }
+      #page-gantt { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
+      #gantt-header-scroll, #gantt-rows-scroll { overflow: visible !important; max-height: none !important; }
+      .gantt-sticky { position: static !important; box-shadow: none !important; }
+      #gantt-project-filter, #gantt-view-toggle, .gantt-view-btn, [onclick^="printGanttChart"], [onclick^="exportGanttImage"] { display: none !important; }
+      @page { size: landscape; margin: 12mm; }
+    }
     .toast { position: fixed; bottom: 24px; right: 24px; z-index: 999; opacity: 0; transform: translateY(10px); transition: all .25s; pointer-events: none; }
     .toast.show { opacity: 1; transform: translateY(0); }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -629,10 +647,14 @@
             <button onclick="setGanttViewMode('month')" data-mode="month" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Month</button>
             <button onclick="setGanttViewMode('year')" data-mode="year" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Year</button>
           </div>
+          <div class="flex gap-2">
+            <button onclick="printGanttChart()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">🖨️ Print / PDF</button>
+            <button onclick="exportGanttImage()" id="gantt-export-img-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">🖼️ Export Image</button>
+          </div>
         </div>
       </div>
       <div id="gantt-legend" class="mb-3"></div>
-      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" id="gantt-chart-card">
         <!-- Header: never scrolls vertically; its horizontal scrollLeft is kept
              in sync with the body below via JS (position:sticky can't be used
              here — a sticky header's containing block is its own thin row, so
