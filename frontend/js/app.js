@@ -2206,19 +2206,36 @@ function importData() {
   input.type     = 'file';
   input.accept   = '.json';
   input.onchange = e => {
-    const file   = e.target.files[0];
+    const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        showToast('✅ Data imported — restart server to apply', 'success');
-        console.log('Imported data:', data);
-      } catch { showToast('❌ Invalid file', 'error'); }
+      let data;
+      try { data = JSON.parse(ev.target.result); }
+      catch { showToast('❌ Invalid file', 'error'); return; }
+
+      const projCount = (data.projects || []).length;
+      const taskCount = (data.tasks || []).length;
+      confirmAction(
+        `Import ${projCount} project${projCount === 1 ? '' : 's'} and ${taskCount} task${taskCount === 1 ? '' : 's'} from this file? This adds to what's already here — it won't replace or remove anything.`,
+        () => runImportData(data)
+      );
     };
     reader.readAsText(file);
   };
   input.click();
+}
+
+async function runImportData(data) {
+  try {
+    const result = await API.importData(data);
+    showToast(`✅ Imported ${result.projects} project${result.projects === 1 ? '' : 's'}, ${result.tasks} task${result.tasks === 1 ? '' : 's'}`);
+    if (APP.currentProjectId) renderProjectDetail(APP.currentProjectId);
+    else await showPage(APP.currentPage);
+    updateSidebar();
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'Import failed'), 'error');
+  }
 }
 
 async function resetData() {

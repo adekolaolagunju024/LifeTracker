@@ -89,4 +89,7 @@ const API = {
   logout:          ()        => request('POST', '/auth/logout'),
   changePassword:  (currentPassword, newPassword) => request('PUT', '/auth/password', { currentPassword, newPassword }),
   getGoogleLoginStatus: ()   => request('GET',  '/auth/google/status'),
+
+  // ── DATA IMPORT ──
+  importData: (data) => request('POST', '/data/import', data),
 };

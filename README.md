@@ -16,6 +16,7 @@ A personal life, career, and wealth tracker. Multi-user, self-hosted, no externa
 - **AI Insights** (optional) — a "✨ Analyze My Tasks" button on the Actions page sends your open tasks to Claude and gets back a prioritized focus list plus 2-4 suggested next-step tasks you can add with one click
 - **Import Project from File** (optional) — on All Projects, upload a `.xlsx`/`.pdf`/`.png`/`.jpg` (a plan, checklist, or spreadsheet) and Claude proposes a project with tasks extracted from it; every field is editable and nothing is created until you confirm
 - **Google Drive backup** (optional) — connect a Google account to export data as JSON, Excel, Google Sheets, PDF, or image
+- **Export / Import Data (JSON)** — Settings has a full account export (profile, projects, tasks, wealth) and a matching import that recreates it for the current user, remapping project/sub-folder ids as needed. Additive, not a wipe-and-replace — the standard way to move data between two instances (e.g. local → a fresh deploy)
 - **Dark mode**
 - **Mobile responsive layout**
 
@@ -81,7 +82,7 @@ backend/
   server.js           entry point, middleware, route mounting
   db/                  SQLite connection, schema/migrations, data-access layer
   middleware/          session auth gate
-  routes/              one file per API resource (auth, projects, tasks, wealth, drive, ai, reports, profile)
+  routes/              one file per API resource (auth, projects, tasks, wealth, drive, ai, reports, data, profile)
   reports/             Excel/PDF/image export generation, plus the Gantt chart's image export
 frontend/
   index.html           all pages/modals (single-page app, no router)
