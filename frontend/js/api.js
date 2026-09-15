@@ -88,6 +88,9 @@ const API = {
   login:           (email, password, remember = true) => request('POST', '/auth/login', { email, password, remember }),
   logout:          ()        => request('POST', '/auth/logout'),
   changePassword:  (currentPassword, newPassword) => request('PUT', '/auth/password', { currentPassword, newPassword }),
+  deleteAccount:   (password) => request('DELETE', '/auth/account', { password }),
+  forgotPassword:  (email)    => request('POST', '/auth/forgot-password', { email }),
+  resetPassword:   (token, newPassword) => request('POST', '/auth/reset-password', { token, newPassword }),
   getGoogleLoginStatus: ()   => request('GET',  '/auth/google/status'),
 
   // ── DATA IMPORT ──

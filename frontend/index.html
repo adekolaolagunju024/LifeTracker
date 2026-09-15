@@ -99,6 +99,18 @@
     .gantt-exporting #gantt-rows-scroll { overflow: visible !important; max-height: none !important; }
     .gantt-exporting .gantt-sticky { position: static !important; box-shadow: none !important; }
 
+    /* Mobile: the 5 frozen columns (530px) alone are wider than most phone
+       screens, so the actual timeline bars — the point of a Gantt chart —
+       were scrolled out of reach. Drop Start/Due/Duration (visible in the
+       task's own edit panel anyway) and narrow what's left so the timeline
+       is reachable after one short swipe instead of a very long one. */
+    @media (max-width: 767px) {
+      .gantt-grid-row { grid-template-columns: 130px 64px 1fr !important; }
+      .gantt-sticky-3, .gantt-sticky-4, .gantt-sticky-5 { display: none !important; }
+      .gantt-sticky-2 { left: 130px !important; box-shadow: 3px 0 6px -2px rgba(0,0,0,.08); }
+      .dark .gantt-sticky-2 { box-shadow: 3px 0 6px -2px rgba(0,0,0,.4); }
+    }
+
     @media print {
       body * { visibility: hidden; }
       #page-gantt, #page-gantt * { visibility: visible; }
@@ -108,6 +120,8 @@
       #gantt-project-filter, #gantt-view-toggle, .gantt-view-btn, [onclick^="printGanttChart"], [onclick^="exportGanttImage"] { display: none !important; }
       @page { size: landscape; margin: 12mm; }
     }
+    .spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -0.15em; }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .toast { position: fixed; bottom: 24px; right: 24px; z-index: 999; opacity: 0; transform: translateY(10px); transition: all .25s; pointer-events: none; }
     .toast.show { opacity: 1; transform: translateY(0); }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -225,14 +239,52 @@
           <input type="password" id="auth-login-password" placeholder="Password" autocomplete="current-password"
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         </div>
-        <label class="flex items-center gap-2 mb-4 cursor-pointer select-none">
-          <input type="checkbox" id="auth-login-remember" checked class="rounded border-gray-300 text-teal focus:ring-teal">
-          <span class="text-xs text-gray-500">Keep me signed in</span>
-        </label>
+        <div class="flex items-center justify-between mb-4">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="auth-login-remember" checked class="rounded border-gray-300 text-teal focus:ring-teal">
+            <span class="text-xs text-gray-500">Keep me signed in</span>
+          </label>
+          <button type="button" onclick="showAuthView('forgot')" class="text-xs text-teal font-semibold hover:underline">Forgot password?</button>
+        </div>
         <p class="text-xs text-red-600 mb-3 hidden" id="auth-login-error"></p>
         <button type="submit" class="w-full bg-teal hover:bg-teal/90 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">Log In</button>
       </form>
       <p class="text-xs text-gray-400 mt-4 text-center">New here? <button onclick="showAuthView('register')" class="text-teal font-semibold hover:underline">Create an account</button></p>
+    </div>
+
+    <!-- FORGOT PASSWORD -->
+    <div class="auth-view" id="auth-view-forgot">
+      <p class="text-gray-500 text-sm mb-5">Enter your email and we'll generate a reset link.</p>
+      <form onsubmit="return handleAuthForgotSubmit(event)">
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Email</label>
+          <input type="email" id="auth-forgot-email" placeholder="you@example.com" autocomplete="username"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <p class="text-xs text-gray-500 mb-3 hidden" id="auth-forgot-success">If that email has an account, a reset link has been generated. Since this app doesn't send email yet, ask the server owner to check the server console/logs for the link.</p>
+        <button type="submit" class="w-full bg-teal hover:bg-teal/90 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">Send Reset Link</button>
+      </form>
+      <p class="text-xs text-gray-400 mt-4 text-center"><button onclick="showAuthView('login')" class="text-teal font-semibold hover:underline">Back to login</button></p>
+    </div>
+
+    <!-- RESET PASSWORD -->
+    <div class="auth-view" id="auth-view-reset">
+      <p class="text-gray-500 text-sm mb-5">Choose a new password.</p>
+      <form onsubmit="return handleAuthResetSubmit(event)">
+        <div class="mb-3">
+          <label class="block text-xs font-semibold text-gray-600 mb-1">New Password</label>
+          <input type="password" id="auth-reset-password" placeholder="At least 6 characters" autocomplete="new-password"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <div class="mb-4">
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Confirm New Password</label>
+          <input type="password" id="auth-reset-confirm" placeholder="Repeat password" autocomplete="new-password"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <p class="text-xs text-red-600 mb-3 hidden" id="auth-reset-error"></p>
+        <button type="submit" class="w-full bg-teal hover:bg-teal/90 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">Set New Password</button>
+      </form>
+      <p class="text-xs text-gray-400 mt-4 text-center"><button onclick="showAuthView('login')" class="text-teal font-semibold hover:underline">Back to login</button></p>
     </div>
 
     <!-- REGISTER -->
@@ -453,6 +505,13 @@
       </div>
     </div>
 
+    <!-- Daily digest — overdue/due-today tasks, shown once per day, dismissible -->
+    <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3" id="digest-banner">
+      <span class="text-lg leading-none">👋</span>
+      <div class="flex-1 min-w-0 text-sm text-amber-900" id="digest-banner-text"></div>
+      <button onclick="dismissDigestBanner()" class="text-amber-500 hover:text-amber-700 text-lg leading-none px-1 flex-shrink-0" aria-label="Dismiss">&times;</button>
+    </div>
+
     <!-- ─── DASHBOARD ─── -->
     <div class="page active p-6" id="page-dashboard">
       <div class="mb-6">
@@ -655,6 +714,7 @@
         </div>
       </div>
       <div id="gantt-legend" class="mb-3"></div>
+      <p class="md:hidden text-[11px] text-gray-400 mb-2">↔ Swipe the chart to see the full timeline</p>
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" id="gantt-chart-card">
         <!-- Header: never scrolls vertically; its horizontal scrollLeft is kept
              in sync with the body below via JS (position:sticky can't be used
@@ -663,7 +723,7 @@
              scroll; a separate non-scrolling header sidesteps that entirely). -->
         <div class="overflow-hidden" id="gantt-header-scroll">
           <div style="min-width:900px" id="gantt-timeline-wrapper">
-            <div class="grid border-b border-gray-200" style="grid-template-columns:200px 90px 85px 85px 70px 1fr">
+            <div class="grid gantt-grid-row border-b border-gray-200" style="grid-template-columns:200px 90px 85px 85px 70px 1fr">
               <div class="gantt-sticky gantt-sticky-1 px-4 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Task / Project</div>
               <div class="gantt-sticky gantt-sticky-2 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Status</div>
               <div class="gantt-sticky gantt-sticky-3 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Start</div>
@@ -770,7 +830,7 @@
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div>
             <p class="text-sm font-bold">✨ AI Insights</p>
-            <p class="text-xs text-white/50 mt-0.5">Ask Claude to prioritize what's below and suggest next steps.</p>
+            <p class="text-xs text-white/50 mt-0.5">Ask Claude to prioritize what's below and suggest next steps. Takes ~15-20s and uses your Anthropic API credits.</p>
           </div>
           <button onclick="loadAIInsights()" id="ai-insights-btn" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">Analyze My Tasks</button>
         </div>
@@ -871,10 +931,19 @@
           <button onclick="logout()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🚪 Log Out</button>
         </div>
       </div>
-      <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
         <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">First-Time Setup</h3>
         <p class="text-xs text-gray-400 mb-3">Re-run the welcome wizard (name, targets, first project, Google Drive).</p>
         <button onclick="rerunOnboarding()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🧭 Re-run Setup Wizard</button>
+      </div>
+      <div class="bg-white rounded-xl border border-red-200 p-6">
+        <h3 class="text-sm font-bold text-red-600 border-b border-red-100 pb-3 mb-5">Danger Zone</h3>
+        <p class="text-xs text-gray-400 mb-3">Permanently deletes your account and everything in it — every project, task, and wealth record. Export your data first if you want a copy; this cannot be undone.</p>
+        <div class="max-w-xs mb-3">
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Enter your password to confirm</label>
+          <input type="password" id="delete-account-password" autocomplete="current-password" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-400">
+        </div>
+        <button onclick="deleteAccountConfirm()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">🗑️ Delete My Account</button>
       </div>
     </div>
 
@@ -947,7 +1016,7 @@
 
     <!-- Step 1: upload -->
     <div id="import-step-upload" class="p-6 overflow-y-auto flex-1">
-      <p class="text-sm text-gray-500 mb-4">Upload an Excel sheet, PDF, or image of a plan/checklist. AI will read it and propose a project with tasks — nothing is created until you review and confirm.</p>
+      <p class="text-sm text-gray-500 mb-4">Upload an Excel sheet, PDF, or image of a plan/checklist. AI will read it and propose a project with tasks — nothing is created until you review and confirm. Takes ~15-20s and uses your Anthropic API credits.</p>
       <input type="file" id="import-file-input" accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
         class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3">
       <p class="text-xs text-red-600 hidden" id="import-error"></p>
@@ -1029,6 +1098,16 @@
           <label class="block text-xs font-semibold text-gray-600 mb-1">Due Date</label>
           <input type="date" id="task-end"
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Repeat</label>
+          <select id="task-recurrence" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+            <option value="none">Doesn't repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          <p class="text-xs text-gray-400 mt-1">Marking it Completed creates the next occurrence automatically.</p>
         </div>
       </div>
       <div>

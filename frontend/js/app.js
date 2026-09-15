@@ -481,7 +481,7 @@ async function renderTaskTable(projectId) {
     document.getElementById('task-table-body').innerHTML = tasks.length
       ? tasks.map(t => `
           <tr class="border-b border-gray-100 hover:bg-gray-50">
-            <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">${esc(t.title)}</td>
+            <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}</td>
             <td class="px-4 py-3">
               <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}"
                 onchange="updateTaskStatus('${t.id}', this.value, '${projectId}')">
@@ -525,7 +525,11 @@ async function renderTaskTable(projectId) {
 }
 
 async function updateTaskStatus(id, status, projectId) {
+  const before = await API.getTask(id);
   await API.updateTask(id, { status });
+  if (before.status !== 'Completed' && status === 'Completed' && before.recurrence && before.recurrence !== 'none') {
+    showToast('✅ Completed — next occurrence scheduled');
+  }
   renderTaskTable(projectId);
   updateSidebar();
 }
@@ -607,7 +611,7 @@ async function exportGanttImage() {
   const btn = document.getElementById('gantt-export-img-btn');
   const originalLabel = btn.textContent;
   btn.disabled = true;
-  btn.textContent = 'Rendering…';
+  btn.innerHTML = `<span class="spinner"></span> Rendering… (~10-15s)`;
   try {
     const res = await fetch('/api/reports/gantt-image');
     if (!res.ok) {
@@ -834,7 +838,7 @@ async function renderGantt() {
       const isCollapsed = ganttCollapsed.has(groupId);
 
       rowsHTML += `
-        <div class="grid border-b border-gray-200 gantt-cat-row" style="grid-template-columns:${GANTT_GRID_COLS}">
+        <div class="grid gantt-grid-row border-b border-gray-200 gantt-cat-row" style="grid-template-columns:${GANTT_GRID_COLS}">
           <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-2 font-bold text-xs overflow-hidden">
             <span class="text-gray-400 text-[10px] flex-shrink-0 transition-transform cursor-pointer" style="${isCollapsed ? '' : 'transform:rotate(90deg)'}" onclick="toggleGanttGroup('${groupId}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">▶</span>
             <span class="w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${color}"></span>
@@ -876,7 +880,7 @@ async function renderGantt() {
         }
 
         rowsHTML += `
-          <div class="grid border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px">
+          <div class="grid gantt-grid-row border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px">
             <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center overflow-hidden cursor-pointer" onclick="editTask('${t.id}')" title="Edit task">
               <span class="text-xs text-gray-600 hover:text-teal truncate" title="${esc(t.title)}">${esc(t.title)}</span>
             </div>
@@ -1324,9 +1328,9 @@ async function loadAIInsights() {
   const btn  = document.getElementById('ai-insights-btn');
   const body = document.getElementById('ai-insights-body');
   btn.disabled = true;
-  btn.textContent = 'Thinking…';
+  btn.innerHTML = `<span class="spinner"></span> Thinking…`;
   body.classList.remove('hidden');
-  body.innerHTML = `<p class="text-xs text-white/60">Analyzing your open tasks…</p>`;
+  body.innerHTML = `<p class="text-xs text-white/60 flex items-center gap-2"><span class="spinner"></span> Reading your open tasks and asking Claude to prioritize them — usually 15-20s…</p>`;
   try {
     const result = await API.getAIInsights();
     APP.aiInsights = result;
@@ -1430,6 +1434,8 @@ function showAuthView(view) {
   document.getElementById('auth-overlay').classList.add('open');
   document.getElementById('auth-view-login').classList.toggle('active', view === 'login');
   document.getElementById('auth-view-register').classList.toggle('active', view === 'register');
+  document.getElementById('auth-view-forgot').classList.toggle('active', view === 'forgot');
+  document.getElementById('auth-view-reset').classList.toggle('active', view === 'reset');
   API.getGoogleLoginStatus().then(status => {
     document.getElementById('google-login-btn').classList.toggle('hidden', !status.configured);
     document.getElementById('google-register-btn').classList.toggle('hidden', !status.configured);
@@ -1494,6 +1500,45 @@ async function submitAuthLogin() {
   } catch (e) { showAuthError('auth-login-error', e.message); }
 }
 
+function handleAuthForgotSubmit(event) {
+  event.preventDefault();
+  submitAuthForgot();
+  return false;
+}
+
+function handleAuthResetSubmit(event) {
+  event.preventDefault();
+  submitAuthReset();
+  return false;
+}
+
+async function submitAuthForgot() {
+  const email = document.getElementById('auth-forgot-email').value.trim();
+  try {
+    await API.forgotPassword(email);
+    document.getElementById('auth-forgot-success').classList.remove('hidden');
+  } catch {
+    // Same response either way — this endpoint never reveals whether the email exists.
+    document.getElementById('auth-forgot-success').classList.remove('hidden');
+  }
+}
+
+let pendingResetToken = null;
+
+async function submitAuthReset() {
+  const password = document.getElementById('auth-reset-password').value;
+  const confirm  = document.getElementById('auth-reset-confirm').value;
+  if (password.length < 6) return showAuthError('auth-reset-error', 'Password must be at least 6 characters');
+  if (password !== confirm) return showAuthError('auth-reset-error', 'Passwords do not match');
+  try {
+    await API.resetPassword(pendingResetToken, password);
+    showToast('Password updated — log in with your new password.', 'success');
+    // Drop the token from the URL so a refresh/back doesn't re-show the reset form.
+    window.history.replaceState({}, '', window.location.pathname);
+    showAuthView('login');
+  } catch (e) { showAuthError('auth-reset-error', e.message); }
+}
+
 async function startGoogleLogin() {
   try {
     const status = await API.getGoogleLoginStatus();
@@ -1510,6 +1555,52 @@ async function startGoogleLogin() {
 async function afterAuth() {
   const showingOnboarding = await checkOnboarding();
   if (!showingOnboarding) await showPage('dashboard');
+  checkDailyDigest();
+}
+
+// Proactive nudge: a dismissible banner on open if anything's overdue or due
+// today. There's no email/push service configured (would need a paid
+// provider), so "proactive" here means "surfaced the moment you open the
+// app" rather than delivered to you outside it. Shows at most once per
+// calendar day per browser (tracked in localStorage) so it doesn't nag on
+// every page load.
+// Local (not UTC) YYYY-MM-DD — endDate is stored as a plain date string, and
+// new Date('2026-09-15') parses as UTC midnight, which is a different
+// instant from local midnight in any non-UTC timezone. Comparing everything
+// as local date strings instead of Date objects sidesteps that entirely.
+function localDateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+async function checkDailyDigest() {
+  try {
+    const todayKey = localDateKey(new Date());
+    let dismissedDay = null;
+    try { dismissedDay = localStorage.getItem('digestDismissedDate'); } catch { /* private mode etc */ }
+    if (dismissedDay === todayKey) return;
+
+    const tasks = await API.getTasks();
+    let overdueCount = 0, dueTodayCount = 0;
+    tasks.forEach(t => {
+      if (t.status === 'Completed' || !t.endDate) return;
+      const dueKey = t.endDate.slice(0, 10);
+      if (dueKey < todayKey) overdueCount++;
+      else if (dueKey === todayKey) dueTodayCount++;
+    });
+    if (!overdueCount && !dueTodayCount) return;
+
+    const parts = [];
+    if (overdueCount) parts.push(`<strong>${overdueCount}</strong> task${overdueCount === 1 ? '' : 's'} overdue`);
+    if (dueTodayCount) parts.push(`<strong>${dueTodayCount}</strong> due today`);
+    document.getElementById('digest-banner-text').innerHTML =
+      `${parts.join(' · ')}. <button onclick="showPage('actions')" class="underline font-semibold hover:no-underline">View in Actions →</button>`;
+    document.getElementById('digest-banner').classList.remove('hidden');
+  } catch (e) { console.error('Digest error:', e); }
+}
+
+function dismissDigestBanner() {
+  document.getElementById('digest-banner').classList.add('hidden');
+  try { localStorage.setItem('digestDismissedDate', localDateKey(new Date())); } catch { /* private mode etc */ }
 }
 
 async function logout() {
@@ -1527,6 +1618,20 @@ async function submitChangePassword() {
     document.getElementById('pw-new').value      = '';
     showToast('✅ Password changed');
   } catch (e) { showToast('❌ ' + e.message, 'error'); }
+}
+
+function deleteAccountConfirm() {
+  const password = document.getElementById('delete-account-password').value;
+  if (!password) { showToast('Enter your password to confirm', 'error'); return; }
+  confirmAction(
+    'Permanently delete your account and everything in it? This cannot be undone.',
+    async () => {
+      try {
+        await API.deleteAccount(password);
+        window.location.reload();
+      } catch (e) { showToast('❌ ' + (e.message || 'Failed to delete account'), 'error'); }
+    }
+  );
 }
 
 // ── ONBOARDING WIZARD ──────────────────────────────────────────
@@ -1725,6 +1830,17 @@ function handleAuthRedirect() {
   window.history.replaceState({}, '', window.location.pathname);
 }
 
+// Left in the URL (not cleared) until the reset form is actually submitted,
+// so a page reload while the reset view is open doesn't lose the token.
+function handleResetTokenRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('resetToken');
+  if (!token) return false;
+  pendingResetToken = token;
+  showAuthView('reset');
+  return true;
+}
+
 // ── TASK DETAIL SIDE PANEL ───────────────────────────────────────
 let APP_currentDetailTaskId = null;
 
@@ -1821,7 +1937,7 @@ async function analyzeImportFile() {
   const btn = document.getElementById('import-analyze-btn');
   const originalLabel = btn.textContent;
   btn.disabled = true;
-  btn.textContent = 'Reading file…';
+  btn.innerHTML = `<span class="spinner"></span> Reading file with Claude… (~15-20s)`;
 
   try {
     const formData = new FormData();
@@ -2017,6 +2133,7 @@ async function openAddTask(projectId) {
   document.getElementById('task-end').value        = '';
   document.getElementById('task-cost').value       = '';
   document.getElementById('task-notes').value      = '';
+  document.getElementById('task-recurrence').value = 'none';
   await populateProjectSelect(projectId);
   openModal('modal-task');
 }
@@ -2032,6 +2149,7 @@ async function editTask(id) {
   document.getElementById('task-end').value        = t.endDate || '';
   document.getElementById('task-cost').value       = t.cost || '';
   document.getElementById('task-notes').value      = t.notes || '';
+  document.getElementById('task-recurrence').value = t.recurrence || 'none';
   await populateProjectSelect(t.projectId);
   openModal('modal-task');
 }
@@ -2077,12 +2195,20 @@ async function saveTask() {
     endDate:   document.getElementById('task-end').value,
     cost:      parseFloat(document.getElementById('task-cost').value) || 0,
     notes:     document.getElementById('task-notes').value.trim(),
+    recurrence: document.getElementById('task-recurrence').value,
   };
   if (!data.title)     { showToast('Task title is required', 'error'); return; }
   if (!data.projectId) { showToast('Please select a project', 'error'); return; }
   try {
-    if (id) { await API.updateTask(id, data); showToast('✅ Task updated'); }
-    else    { await API.addTask(data);         showToast('✅ Task added'); }
+    if (id) {
+      const wasCompleted = (await API.getTask(id)).status === 'Completed';
+      await API.updateTask(id, data);
+      const justRecurred = !wasCompleted && data.status === 'Completed' && data.recurrence !== 'none';
+      showToast(justRecurred ? '✅ Task completed — next occurrence scheduled' : '✅ Task updated');
+    } else {
+      await API.addTask(data);
+      showToast('✅ Task added');
+    }
     closeModal('modal-task');
     if (APP.currentProjectId) renderTaskTable(APP.currentProjectId);
     updateSidebar();
@@ -2251,6 +2377,7 @@ async function init() {
   applyThemeIcon();
   handleDriveRedirect();
   handleAuthRedirect();
+  if (handleResetTokenRedirect()) return;
   const authed = await checkAuth();
   if (authed) await afterAuth();
 }

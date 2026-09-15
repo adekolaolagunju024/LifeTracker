@@ -118,6 +118,40 @@ router.get('/google/callback', async (req, res) => {
   }
 });
 
+// POST /api/auth/forgot-password — generates a reset link. There's no email
+// service configured (would need a paid/third-party provider), so the link
+// is logged server-side instead of sent — good enough for a self-hosted
+// single-owner instance, and the account owner can read their own server
+// logs. The response is identical whether or not the email exists, so this
+// endpoint can't be used to discover registered emails.
+router.post('/forgot-password', async (req, res) => {
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const user = db.getUserByEmail(email);
+  if (user) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+    db.setPasswordResetToken(user.id, token, expiresAt);
+    const resetUrl = `${req.protocol}://${req.get('host')}/?resetToken=${token}`;
+    console.log(`\n🔑 Password reset requested for ${email}\n   ${resetUrl}\n   (valid 1 hour)\n`);
+  }
+  res.json({ success: true });
+});
+
+// POST /api/auth/reset-password
+router.post('/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
+  const user = db.getUserByResetToken(token || '');
+  if (!user || !user.resetTokenExpires || new Date(user.resetTokenExpires) < new Date()) {
+    return res.status(400).json({ error: 'That reset link is invalid or has expired' });
+  }
+
+  db.setUserPasswordHash(user.id, await bcrypt.hash(newPassword, 10));
+  db.clearPasswordResetToken(user.id);
+  res.json({ success: true });
+});
+
 // POST /api/auth/logout
 router.post('/logout', (req, res) => {
   req.session.destroy(() => res.json({ success: true }));
@@ -136,6 +170,21 @@ router.put('/password', async (req, res) => {
 
   db.setUserPasswordHash(user.id, await bcrypt.hash(newPassword, 10));
   res.json({ success: true });
+});
+
+// DELETE /api/auth/account — permanently deletes this account and every row
+// that references it (profile, projects, tasks, wealth data, integrations
+// all cascade). Requires the current password as confirmation since there's
+// no undo.
+router.delete('/account', async (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+
+  const user = db.getUserById(req.session.userId);
+  const ok = await bcrypt.compare(req.body.password || '', user.passwordHash);
+  if (!ok) return res.status(401).json({ error: 'Incorrect password' });
+
+  db.deleteUser(user.id);
+  req.session.destroy(() => res.json({ success: true }));
 });
 
 module.exports = router;

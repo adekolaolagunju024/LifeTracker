@@ -1,4 +1,5 @@
 const db = require('./connection');
+const { v4: uuid } = require('uuid');
 
 // ── USERS ────────────────────────────────────────────────────────
 function createUser({ id, email, passwordHash, createdAt }) {
@@ -20,6 +21,24 @@ function getUserById(id) {
 
 function setUserPasswordHash(id, passwordHash) {
   db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(passwordHash, id);
+}
+
+// Every other table's userId column is ON DELETE CASCADE, so this alone
+// removes the profile, projects, tasks, wealth data, and integrations too.
+function deleteUser(id) {
+  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+}
+
+function setPasswordResetToken(id, token, expiresAt) {
+  db.prepare('UPDATE users SET resetToken = ?, resetTokenExpires = ? WHERE id = ?').run(token, expiresAt, id);
+}
+
+function getUserByResetToken(token) {
+  return db.prepare('SELECT * FROM users WHERE resetToken = ?').get(token);
+}
+
+function clearPasswordResetToken(id) {
+  db.prepare('UPDATE users SET resetToken = NULL, resetTokenExpires = NULL WHERE id = ?').run(id);
 }
 
 // ── PROFILE ──────────────────────────────────────────────────────
@@ -119,11 +138,23 @@ function createTask(userId, task) {
   if (!project) throw new Error('Project not found');
   assertTaskNotBeforeProject(project, task.startDate);
   db.prepare(`
-    INSERT INTO tasks (id, userId, projectId, title, category, status, priority, startDate, endDate, cost, notes, createdAt)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    INSERT INTO tasks (id, userId, projectId, title, category, status, priority, startDate, endDate, cost, notes, recurrence, createdAt)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(task.id, userId, task.projectId, task.title, task.category || '', task.status || 'Not Started', task.priority || 'Medium',
-         task.startDate || '', task.endDate || '', task.cost || 0, task.notes || '', task.createdAt);
+         task.startDate || '', task.endDate || '', task.cost || 0, task.notes || '', task.recurrence || 'none', task.createdAt);
   return getTaskById(userId, task.id);
+}
+
+// Shifts a date forward by one recurrence interval — used to schedule the
+// next occurrence when a recurring task is completed.
+function shiftDateByRecurrence(dateStr, recurrence) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (recurrence === 'daily')        d.setDate(d.getDate() + 1);
+  else if (recurrence === 'weekly')  d.setDate(d.getDate() + 7);
+  else if (recurrence === 'monthly') d.setMonth(d.getMonth() + 1);
+  else return dateStr;
+  return d.toISOString().slice(0, 10);
 }
 
 function updateTaskById(userId, id, patch) {
@@ -134,9 +165,31 @@ function updateTaskById(userId, id, patch) {
   if (!project) throw new Error('Project not found');
   assertTaskNotBeforeProject(project, next.startDate);
   db.prepare(`
-    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?
+    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?
     WHERE id = ? AND userId = ?
-  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, id, userId);
+  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', id, userId);
+
+  // Completing a recurring task schedules its next occurrence automatically
+  // — e.g. "apply to 5 jobs this week" comes back next week instead of
+  // needing to be recreated by hand every time.
+  const justCompleted = current.status !== 'Completed' && next.status === 'Completed';
+  if (justCompleted && next.recurrence && next.recurrence !== 'none') {
+    createTask(userId, {
+      id: uuid(),
+      projectId: next.projectId,
+      title: next.title,
+      category: next.category,
+      status: 'Not Started',
+      priority: next.priority,
+      startDate: shiftDateByRecurrence(next.startDate, next.recurrence),
+      endDate: shiftDateByRecurrence(next.endDate, next.recurrence),
+      cost: next.cost,
+      notes: next.notes,
+      recurrence: next.recurrence,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
   return getTaskById(userId, id);
 }
 
@@ -227,7 +280,8 @@ function getFullSnapshot(userId) {
 }
 
 module.exports = {
-  createUser, getUserByEmail, getUserById, setUserPasswordHash,
+  createUser, getUserByEmail, getUserById, setUserPasswordHash, deleteUser,
+  setPasswordResetToken, getUserByResetToken, clearPasswordResetToken,
   getProfile, updateProfile,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById,

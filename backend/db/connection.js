@@ -13,6 +13,8 @@ db.exec(`
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE COLLATE NOCASE,
     passwordHash TEXT NOT NULL,
+    resetToken TEXT,
+    resetTokenExpires TEXT,
     createdAt TEXT NOT NULL
   );
 
@@ -51,6 +53,7 @@ db.exec(`
     endDate TEXT DEFAULT '',
     cost REAL DEFAULT 0,
     notes TEXT DEFAULT '',
+    recurrence TEXT DEFAULT 'none',
     createdAt TEXT NOT NULL
   );
 
@@ -100,6 +103,9 @@ function addColumnIfMissing(table, columnDef) {
 addColumnIfMissing('projects', "startDate TEXT DEFAULT ''");
 addColumnIfMissing('projects', "parentId TEXT REFERENCES projects(id) ON DELETE CASCADE");
 addColumnIfMissing('projects', "type TEXT DEFAULT 'career'");
+addColumnIfMissing('tasks', "recurrence TEXT DEFAULT 'none'");
+addColumnIfMissing('users', "resetToken TEXT");
+addColumnIfMissing('users', "resetTokenExpires TEXT");
 
 // The manually-maintained "actions" checklist was replaced by a live feed
 // computed from tasks (overdue / due this week / high priority) — drop the
