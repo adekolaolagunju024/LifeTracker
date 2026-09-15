@@ -1,0 +1,9 @@
+{
+  "appId": "com.lifetracker.app",
+  "appName": "LifeTracker",
+  "webDir": "www",
+  "server": {
+    "url": "https://lifetracker-production-c3b1.up.railway.app",
+    "cleartext": false
+  }
+}

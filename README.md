@@ -77,6 +77,23 @@ A `Dockerfile` is included and is the recommended path — it installs Chromium 
 
 Sessions are stored in the same SQLite database (`better-sqlite3-session-store`) rather than in memory, so — as long as `DB_PATH` points at persistent storage — logins survive redeploys instead of forcing everyone to sign in again each time.
 
+## Android app
+
+`mobile/` is a thin [Capacitor](https://capacitorjs.com) wrapper — a real installable Android app whose WebView just points at the live Railway deployment (`mobile/capacitor.config.json` → `server.url`). There's no separate mobile codebase to maintain: any change pushed and deployed to Railway shows up in the app immediately, no rebuild needed. A rebuild is only needed for things baked into the native shell (app name/icon, the URL it points at).
+
+Not published to the Play Store (personal use only) — it's installed by sideloading the APK directly.
+
+**Rebuilding the APK** (requires a JDK 21 and the Android SDK command-line tools — set `JAVA_HOME` and `ANDROID_HOME` first):
+
+```bash
+cd mobile
+npx cap sync android        # only needed after changing capacitor.config.json
+cd android
+./gradlew assembleDebug     # gradlew.bat on Windows
+```
+
+The APK is written to `mobile/android/app/build/outputs/apk/debug/app-debug.apk`. To install it on a phone: enable "Install unknown apps" for whatever app you use to open the file (e.g. Files, Chrome), transfer the APK over (USB, email to yourself, cloud drive), and tap it — or with the phone connected via USB and USB debugging on, `adb install app-debug.apk`.
+
 ## Project structure
 
 ```
@@ -90,6 +107,9 @@ frontend/
   index.html           all pages/modals (single-page app, no router)
   js/app.js            UI logic, rendering, event handling
   js/api.js            thin fetch wrapper for the backend API
+mobile/
+  capacitor.config.json  points the Android WebView at the live Railway URL
+  android/               native Android project (Capacitor-generated)
 ```
 
 Personal data files (e.g. `AdekolaProjects/`) are gitignored and never pushed — this repo is public.
