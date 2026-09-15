@@ -1583,7 +1583,7 @@ async function onboardingNext() {
 
 async function skipOnboarding() {
   await API.updateProfile({ onboarded: true });
-  closeOnboarding();
+  await closeOnboarding();
   showToast('👋 Setup skipped — you can change anything in Settings');
 }
 
@@ -1608,7 +1608,7 @@ async function finishOnboarding() {
       });
     }
 
-    closeOnboarding();
+    await closeOnboarding();
     showToast('✅ All set up — welcome to LifeTracker!');
   } catch (e) {
     showToast('❌ Something went wrong finishing setup', 'error');
