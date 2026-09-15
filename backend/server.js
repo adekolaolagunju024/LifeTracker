@@ -1,4 +1,6 @@
-require('dotenv').config();
+// quiet: true suppresses dotenv's startup log line, which rotates through
+// self-promotional "tips" for the maintainers' other products on every boot.
+require('dotenv').config({ quiet: true });
 
 const express = require('express');
 const session = require('express-session');

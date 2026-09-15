@@ -5,6 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LifeTracker</title>
 
+  <!-- Installable web app: on Android, Chrome's "Add to Home Screen" install
+       prompt reads manifest.json; on iOS, Safari's "Add to Home Screen" has
+       no manifest support at all and needs these apple-* tags + a PNG icon
+       (SVG/rounded icons aren't honored) to get a full-screen app with no
+       browser chrome instead of a plain bookmark shortcut. -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/icon-180.png">
+  <meta name="theme-color" content="#0D1B2A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LifeTracker">
+
   <!-- Apply saved theme before first paint to avoid a flash of the wrong theme -->
   <script>
     (function() {

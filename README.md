@@ -77,11 +77,15 @@ A `Dockerfile` is included and is the recommended path — it installs Chromium 
 
 Sessions are stored in the same SQLite database (`better-sqlite3-session-store`) rather than in memory, so — as long as `DB_PATH` points at persistent storage — logins survive redeploys instead of forcing everyone to sign in again each time.
 
+## iPhone
+
+An APK only installs on Android — iOS can't sideload one, and there's no workaround for that. Instead, the web app itself is set up for Safari's "Add to Home Screen": with the `apple-mobile-web-app-*` meta tags and `apple-touch-icon` in `frontend/index.html`, that gives a real full-screen app icon on the home screen with no browser chrome, entirely free (no Mac, no Apple Developer account, no Xcode). A proper native iOS app (App Store or sideloaded) would additionally need a Mac with Xcode and, to distribute it at all, a $99/year Apple Developer account.
+
 ## Android app
 
 `mobile/` is a thin [Capacitor](https://capacitorjs.com) wrapper — a real installable Android app whose WebView just points at the live Railway deployment (`mobile/capacitor.config.json` → `server.url`). There's no separate mobile codebase to maintain: any change pushed and deployed to Railway shows up in the app immediately, no rebuild needed. A rebuild is only needed for things baked into the native shell (app name/icon, the URL it points at).
 
-Not published to the Play Store (personal use only) — it's installed by sideloading the APK directly.
+Not published to the Play Store (personal use only) — it's installed by sideloading the APK directly. The app icon (`frontend/icons/`, generated from a single SVG) is shared between the web manifest and the Android launcher icon (both the flat pre-Android-8 icon and the adaptive icon's foreground/background layers).
 
 **Rebuilding the APK** (requires a JDK 21 and the Android SDK command-line tools — set `JAVA_HOME` and `ANDROID_HOME` first):
 
