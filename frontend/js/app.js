@@ -549,6 +549,21 @@ async function updateGanttTaskDate(id, field, value) {
   renderGantt(); // re-render either way so a rejected edit reverts to the saved value
 }
 
+async function updateGanttTaskStatus(id, status) {
+  try {
+    const before = await API.getTask(id);
+    await API.updateTask(id, { status });
+    if (before.status !== 'Completed' && status === 'Completed' && before.recurrence && before.recurrence !== 'none') {
+      showToast('✅ Completed — next occurrence scheduled');
+    } else {
+      showToast('✅ Status updated');
+    }
+  } catch (e) {
+    showToast('❌ ' + e.message, 'error');
+  }
+  renderGantt();
+}
+
 async function updateTaskStartDate(id, startDate, projectId) {
   try {
     await API.updateTask(id, { startDate });
@@ -884,8 +899,12 @@ async function renderGantt() {
             <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center overflow-hidden cursor-pointer" onclick="editTask('${t.id}')" title="Edit task">
               <span class="text-xs text-gray-600 hover:text-teal truncate" title="${esc(t.title)}">${esc(t.title)}</span>
             </div>
-            <div class="gantt-sticky gantt-sticky-2 px-3 py-2 border-r border-gray-200 flex items-center overflow-hidden">
-              ${statusBadge(t.status)}
+            <div class="gantt-sticky gantt-sticky-2 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
+              <select class="w-full rounded px-1 py-1 text-[10px] font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}"
+                onclick="event.stopPropagation()" onchange="updateGanttTaskStatus('${t.id}', this.value)">
+                ${['Not Started','In Progress','Completed'].map(s =>
+                  `<option ${t.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+              </select>
             </div>
             <div class="gantt-sticky gantt-sticky-3 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
               <input type="date" value="${t.startDate || ''}" min="${minStart}" class="w-full rounded px-1 py-1 text-[10px] border border-gray-200 focus:outline-none focus:border-teal"
