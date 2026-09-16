@@ -590,11 +590,22 @@ function clearFilters(projectId) {
 
 // ── GANTT ───────────────────────────────────────────────────────
 let ganttCollapsed = new Set();
+let ganttGroupIds = []; // every group id currently rendered — kept up to date by renderGantt(), used by Collapse All
 const GANTT_GRID_COLS = '200px 90px 85px 85px 70px 1fr';
 
 function toggleGanttGroup(groupId) {
   if (ganttCollapsed.has(groupId)) ganttCollapsed.delete(groupId);
   else ganttCollapsed.add(groupId);
+  renderGantt();
+}
+
+function collapseAllGantt() {
+  ganttGroupIds.forEach(id => ganttCollapsed.add(id));
+  renderGantt();
+}
+
+function expandAllGantt() {
+  ganttCollapsed.clear();
   renderGantt();
 }
 
@@ -826,6 +837,7 @@ async function renderGantt() {
         if (rank !== 0) return rank;
         return (projectById[a]?.title || '').localeCompare(projectById[b]?.title || '');
       });
+    ganttGroupIds = groupProjectIds;
 
     let rowsHTML = '';
     groupProjectIds.forEach(groupId => {
