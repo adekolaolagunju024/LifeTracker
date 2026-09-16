@@ -18,7 +18,7 @@ A personal life, career, and wealth tracker. Multi-user, self-hosted, no externa
 - **AI Insights** (optional) — a "✨ Analyze My Tasks" button on the Actions page sends your open tasks to Claude and gets back a prioritized focus list plus 2-4 suggested next-step tasks you can add with one click. Button copy sets expectations up front (time + that it uses your API credits) and shows a spinner while it runs
 - **Import Project from File** (optional) — on All Projects, upload a `.xlsx`/`.pdf`/`.png`/`.jpg` (a plan, checklist, or spreadsheet) and Claude proposes a project with tasks extracted from it; every field is editable and nothing is created until you confirm
 - **Google Drive backup** (optional) — connect a Google account to export data as JSON, Excel, Google Sheets, PDF, or image
-- **Export / Import Data (JSON)** — Settings has a full account export (profile, projects, tasks, wealth) and a matching import that recreates it for the current user, remapping project/sub-folder ids as needed. Additive, not a wipe-and-replace — the standard way to move data between two instances (e.g. local → a fresh deploy)
+- **Export / Import Data (JSON)** — Settings has a full account export (profile, projects, tasks, wealth) and a matching import that recreates it for the current user, remapping project/sub-folder ids as needed. Additive, not a wipe-and-replace — the standard way to move data between two instances (e.g. local → a fresh deploy). Also reachable from anywhere via the sidebar's **File** menu, alongside Settings and Log Out — kept off the topbar and out of the nav list to keep both tidy
 - **Dark mode**
 - **Mobile responsive layout**
 

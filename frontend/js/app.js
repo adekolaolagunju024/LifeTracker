@@ -115,6 +115,28 @@ function closeMobileSidebar() {
   document.getElementById('sidebar-backdrop').classList.add('hidden');
 }
 
+// ── FILE MENU ──────────────────────────────────────────────────
+// A small dropdown for account/data-level actions (Settings, Export/Import,
+// Log Out) that don't need their own permanent sidebar buttons or topbar
+// real estate.
+function toggleFileMenu(e) {
+  e.stopPropagation();
+  document.getElementById('file-menu').classList.toggle('hidden');
+}
+
+function closeFileMenu() {
+  document.getElementById('file-menu').classList.add('hidden');
+}
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('file-menu');
+  const btn  = document.getElementById('file-menu-btn');
+  if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && !btn.contains(e.target)) {
+    closeFileMenu();
+  }
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeFileMenu(); });
+
 // ── NAVIGATION ─────────────────────────────────────────────────
 function showPage(id, projectId = null) {
   APP.currentPage      = id;

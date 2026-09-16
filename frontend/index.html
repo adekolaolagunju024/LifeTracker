@@ -488,11 +488,26 @@
       </button>
     </div>
 
-    <div class="px-3 pb-4 space-y-1">
+    <div class="px-3 pb-4 space-y-1 relative">
       <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
-        onclick="showPage('settings')">
-        <span class="text-base w-5 text-center">⚙️</span> Settings
+        onclick="toggleFileMenu(event)" id="file-menu-btn">
+        <span class="text-base w-5 text-center">📁</span> File
       </button>
+      <div class="hidden absolute left-3 right-3 bottom-full mb-1 bg-white rounded-lg shadow-xl border border-gray-200 py-1.5 z-50" id="file-menu">
+        <button onclick="closeFileMenu(); showPage('settings')" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left">
+          <span class="w-5 text-center">⚙️</span> Settings
+        </button>
+        <button onclick="closeFileMenu(); exportData()" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left">
+          <span class="w-5 text-center">⬇</span> Export Data (JSON)
+        </button>
+        <button onclick="closeFileMenu(); importData()" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left">
+          <span class="w-5 text-center">⬆</span> Import Data (JSON)
+        </button>
+        <div class="border-t border-gray-100 my-1"></div>
+        <button onclick="closeFileMenu(); logout()" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 text-left">
+          <span class="w-5 text-center">🚪</span> Log Out
+        </button>
+      </div>
     </div>
 
     <!-- Net Worth Widget -->
@@ -520,8 +535,6 @@
       <div class="flex items-center gap-2 md:gap-3 flex-shrink-0">
         <span class="text-gray-400 text-xs font-mono hidden sm:inline" id="topbar-date"></span>
         <button onclick="toggleTheme()" aria-label="Toggle dark mode" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="theme-toggle-btn"><span id="theme-toggle-icon">🌙</span></button>
-        <button onclick="exportData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 md:px-4 py-2 rounded-lg transition-all">⬇<span class="hidden sm:inline"> Export</span></button>
-        <button onclick="importData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 md:px-4 py-2 rounded-lg transition-all">⬆<span class="hidden sm:inline"> Import</span></button>
       </div>
     </div>
 
