@@ -101,6 +101,9 @@
     .gantt-view-btn { color: #6B7280; }
     .gantt-view-btn.active { background: #fff; color: #0A7E8C; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
     .dark .gantt-view-btn.active { background: #1E293B; }
+    .dash-view-btn { color: #6B7280; }
+    .dash-view-btn.active { background: #fff; color: #0A7E8C; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+    .dark .dash-view-btn.active { background: #1E293B; }
     .gantt-summary-cap { position: absolute; top: 50%; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; margin-top: -2px; transform: translateX(-50%); z-index: 3; }
     .gantt-cat-row { background: #F8FAFC; }
     .gantt-row-alt { background: #FAFAFA; }
@@ -583,14 +586,34 @@
       </div>
 
       <!-- Projects at a Glance -->
-      <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div class="flex items-center gap-2">
           <div class="w-1 h-4 bg-teal rounded-full"></div>
           <h3 class="text-sm font-bold text-navy-2">Projects at a Glance</h3>
         </div>
-        <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
+        <div class="flex items-center gap-2">
+          <div class="flex gap-1 bg-gray-100 rounded-lg p-1">
+            <button onclick="setDashboardProjectView('cards')" data-view="cards" class="dash-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">▦ Cards</button>
+            <button onclick="setDashboardProjectView('table')" data-view="table" class="dash-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">☰ Table</button>
+          </div>
+          <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
+        </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="project-stats"></div>
+      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6 hidden" id="project-stats-table-wrap">
+        <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead><tr class="bg-navy text-white text-xs">
+            <th class="px-4 py-3 text-left font-semibold">Project</th>
+            <th class="px-4 py-3 text-left font-semibold">Tasks</th>
+            <th class="px-4 py-3 text-left font-semibold">Done</th>
+            <th class="px-4 py-3 text-left font-semibold">Overdue</th>
+            <th class="px-4 py-3 text-left font-semibold">Progress</th>
+          </tr></thead>
+          <tbody id="project-stats-table-body"></tbody>
+        </table>
+        </div>
+      </div>
 
       <!-- Urgent Tasks -->
       <div class="flex items-center gap-2 mb-3">

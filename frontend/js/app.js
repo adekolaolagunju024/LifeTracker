@@ -189,6 +189,11 @@ function tasksInProjectTree(projectId, allProjects, allTasks) {
 }
 
 // ── DASHBOARD ──────────────────────────────────────────────────
+function setDashboardProjectView(mode) {
+  try { localStorage.setItem('dashboardProjectView', mode); } catch { /* private mode etc */ }
+  renderDashboard();
+}
+
 async function renderDashboard() {
   try {
     const [tasks, allProjects, profile, wealth] = await Promise.all([
@@ -242,38 +247,28 @@ async function renderDashboard() {
     document.getElementById('hero-career-prog').style.width   = careerPct + '%';
     document.getElementById('hero-career-detail').textContent = `across ${careerProjects.length} project${careerProjects.length === 1 ? '' : 's'}`;
 
-    // Project stat cards
-    document.getElementById('project-stats').innerHTML = projects.map(proj => {
-      if (proj.type === 'wealth') {
-        return `
-          <div class="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:shadow-md transition-all"
-            onclick="showPage('project-detail','${proj.id}')">
-            <div class="flex items-center gap-3 mb-3">
-              <span class="text-2xl">${proj.icon}</span>
-              <div>
-                <p class="font-bold text-sm text-navy">${esc(proj.title)}</p>
-                <p class="text-xs text-gray-400">${fmt(nw, cur)} of ${fmt(target, cur)}</p>
-              </div>
-            </div>
-            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div class="h-full rounded-full transition-all duration-500"
-                style="width:${p}%;background:${proj.color}"></div>
-            </div>
-            <p class="text-xs text-gray-400 mt-1.5 text-right">${p}% complete</p>
-          </div>`;
-      }
-      const pts  = tasksInProjectTree(proj.id, allProjects, tasks);
-      const pdone = pts.filter(t => t.status === 'Completed').length;
-      const pp   = pct(pdone, pts.length);
-      return `
+    // Project stat cards / table — same underlying per-project stats, two renderings
+    const todayKey = localDateKey(new Date());
+    let cardsHTML = '', tableRowsHTML = '';
+    projects.forEach(proj => {
+      const isWealth = proj.type === 'wealth';
+      const pts      = tasksInProjectTree(proj.id, allProjects, tasks);
+      const pdone    = pts.filter(t => t.status === 'Completed').length;
+      const overdue  = pts.filter(t => t.status !== 'Completed' && t.endDate && t.endDate.slice(0, 10) < todayKey).length;
+      const pp       = isWealth ? p : pct(pdone, pts.length);
+      const subLine  = isWealth ? `${fmt(nw, cur)} of ${fmt(target, cur)}` : `${pts.length} tasks · ${pdone} done`;
+      const overdueBadge = overdue > 0 ? `<span class="flex-shrink-0 bg-red-50 text-red-600 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">🔴 ${overdue} overdue</span>` : '';
+
+      cardsHTML += `
         <div class="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:shadow-md transition-all"
           onclick="showPage('project-detail','${proj.id}')">
           <div class="flex items-center gap-3 mb-3">
             <span class="text-2xl">${proj.icon}</span>
-            <div>
-              <p class="font-bold text-sm text-navy">${esc(proj.title)}</p>
-              <p class="text-xs text-gray-400">${pts.length} tasks · ${pdone} done</p>
+            <div class="flex-1 min-w-0">
+              <p class="font-bold text-sm text-navy truncate">${esc(proj.title)}</p>
+              <p class="text-xs text-gray-400">${subLine}</p>
             </div>
+            ${overdueBadge}
           </div>
           <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
             <div class="h-full rounded-full transition-all duration-500"
@@ -281,7 +276,31 @@ async function renderDashboard() {
           </div>
           <p class="text-xs text-gray-400 mt-1.5 text-right">${pp}% complete</p>
         </div>`;
-    }).join('');
+
+      tableRowsHTML += `
+        <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onclick="showPage('project-detail','${proj.id}')">
+          <td class="px-4 py-3 text-sm font-semibold text-navy whitespace-nowrap"><span class="mr-1.5">${proj.icon}</span>${esc(proj.title)}</td>
+          <td class="px-4 py-3 text-xs text-gray-500">${pts.length}</td>
+          <td class="px-4 py-3 text-xs text-gray-500">${pdone}</td>
+          <td class="px-4 py-3 text-xs font-semibold ${overdue > 0 ? 'text-red-600' : 'text-gray-300'}">${overdue || '—'}</td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-2">
+              <div class="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden flex-shrink-0"><div class="h-full rounded-full" style="width:${pp}%;background:${proj.color}"></div></div>
+              <span class="text-xs text-gray-400 font-mono">${pp}%</span>
+            </div>
+          </td>
+        </tr>`;
+    });
+    const emptyMsg = `<p class="text-center text-gray-400 text-sm py-8 col-span-full">No projects yet — <button onclick="openAddProject()" class="text-teal underline">create one</button>.</p>`;
+    document.getElementById('project-stats').innerHTML = cardsHTML || emptyMsg;
+    document.getElementById('project-stats-table-body').innerHTML = tableRowsHTML
+      || `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400 text-sm">No projects yet.</td></tr>`;
+
+    let dashView = 'cards';
+    try { dashView = localStorage.getItem('dashboardProjectView') || 'cards'; } catch { /* private mode etc */ }
+    document.getElementById('project-stats').classList.toggle('hidden', dashView !== 'cards');
+    document.getElementById('project-stats-table-wrap').classList.toggle('hidden', dashView !== 'table');
+    document.querySelectorAll('.dash-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === dashView));
 
     // Urgent tasks
     const urgent = tasks.filter(t => t.status === 'In Progress' && t.priority === 'High').slice(0, 6);
