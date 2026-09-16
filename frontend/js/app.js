@@ -599,13 +599,10 @@ function toggleGanttGroup(groupId) {
   renderGantt();
 }
 
-function collapseAllGantt() {
-  ganttGroupIds.forEach(id => ganttCollapsed.add(id));
-  renderGantt();
-}
-
-function expandAllGantt() {
-  ganttCollapsed.clear();
+function toggleAllGantt() {
+  const allCollapsed = ganttGroupIds.length > 0 && ganttGroupIds.every(id => ganttCollapsed.has(id));
+  if (allCollapsed) ganttCollapsed.clear();
+  else ganttGroupIds.forEach(id => ganttCollapsed.add(id));
   renderGantt();
 }
 
@@ -838,6 +835,8 @@ async function renderGantt() {
         return (projectById[a]?.title || '').localeCompare(projectById[b]?.title || '');
       });
     ganttGroupIds = groupProjectIds;
+    const allCollapsed = ganttGroupIds.length > 0 && ganttGroupIds.every(id => ganttCollapsed.has(id));
+    document.getElementById('gantt-toggle-all-btn').textContent = allCollapsed ? 'Expand All' : 'Collapse All';
 
     let rowsHTML = '';
     groupProjectIds.forEach(groupId => {
