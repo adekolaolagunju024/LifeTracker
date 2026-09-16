@@ -718,6 +718,9 @@ async function renderGantt() {
       return `<optgroup label="${esc(top.title)}">${topOption}${kidOptions}</optgroup>`;
     }).join('');
     filterSel.value = APP.ganttProjectFilter;
+    // Filter pointed at a project that's since been deleted — fall back to "All Projects"
+    // instead of silently filtering every remaining task out of the chart.
+    if (filterSel.value !== APP.ganttProjectFilter) APP.ganttProjectFilter = filterSel.value;
 
     // Which groups the filter allows through — selecting a top-level project
     // includes its sub-folders too, so you still see every task in that tree.
@@ -853,11 +856,13 @@ async function renderGantt() {
       const isCollapsed = ganttCollapsed.has(groupId);
 
       rowsHTML += `
-        <div class="grid gantt-grid-row border-b border-gray-200 gantt-cat-row" style="grid-template-columns:${GANTT_GRID_COLS}">
+        <div class="grid gantt-grid-row group border-b border-gray-200 gantt-cat-row" style="grid-template-columns:${GANTT_GRID_COLS}">
           <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-2 font-bold text-xs overflow-hidden">
             <span class="text-gray-400 text-[10px] flex-shrink-0 transition-transform cursor-pointer" style="${isCollapsed ? '' : 'transform:rotate(90deg)'}" onclick="toggleGanttGroup('${groupId}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">▶</span>
             <span class="w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${color}"></span>
-            <span class="truncate cursor-pointer hover:underline" style="color:${color}" onclick="editProject('${groupId}')" title="Edit this folder">${esc(groupProject?.icon || '')} ${esc(groupTitle)}</span>
+            <span class="truncate cursor-pointer hover:underline flex-1 min-w-0" style="color:${color}" onclick="editProject('${groupId}')" title="Edit this folder">${esc(groupProject?.icon || '')} ${esc(groupTitle)}</span>
+            <button onclick="openAddTask('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-teal px-1" title="Add task to this project">➕</button>
+            <button onclick="deleteProjectConfirm('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete this project">🗑️</button>
           </div>
           <div class="gantt-sticky gantt-sticky-2 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 font-semibold">${done}/${pts.length}</div>
           <div class="gantt-sticky gantt-sticky-3 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDateShort(catStart)}</div>
@@ -895,9 +900,10 @@ async function renderGantt() {
         }
 
         rowsHTML += `
-          <div class="grid gantt-grid-row border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px">
-            <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center overflow-hidden cursor-pointer" onclick="editTask('${t.id}')" title="Edit task">
-              <span class="text-xs text-gray-600 hover:text-teal truncate" title="${esc(t.title)}">${esc(t.title)}</span>
+          <div class="grid gantt-grid-row group border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px">
+            <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-1 overflow-hidden">
+              <span class="flex-1 min-w-0 text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="editTask('${t.id}')" title="${esc(t.title)} (click to edit)">${esc(t.title)}</span>
+              <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">🗑️</button>
             </div>
             <div class="gantt-sticky gantt-sticky-2 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
               <select class="w-full rounded px-1 py-1 text-[10px] font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}"
@@ -2118,6 +2124,7 @@ async function saveProject() {
     closeModal('modal-project');
     if (APP.currentProjectId) renderProjectDetail(APP.currentProjectId);
     else renderProjects();
+    if (APP.currentPage === 'gantt') renderGantt();
     updateSidebar();
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to save project'), 'error'); }
 }
@@ -2137,6 +2144,7 @@ async function deleteProjectConfirm(id) {
     } else {
       renderProjects();
     }
+    if (APP.currentPage === 'gantt') renderGantt();
     updateSidebar();
   });
 }
@@ -2230,6 +2238,7 @@ async function saveTask() {
     }
     closeModal('modal-task');
     if (APP.currentProjectId) renderTaskTable(APP.currentProjectId);
+    if (APP.currentPage === 'gantt') renderGantt();
     updateSidebar();
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to save task'), 'error'); }
 }
@@ -2240,6 +2249,7 @@ async function deleteTaskConfirm(id, projectId) {
     await API.deleteTask(id);
     showToast('🗑️ Task deleted');
     renderTaskTable(projectId);
+    if (APP.currentPage === 'gantt') renderGantt();
     updateSidebar();
   });
 }
