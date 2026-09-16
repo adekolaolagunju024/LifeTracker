@@ -116,7 +116,7 @@ function listTasks(userId, filters = {}) {
   if (filters.priority)  { sql += ' AND priority = ?';  params.push(filters.priority); }
   if (filters.category)  { sql += ' AND category = ?';  params.push(filters.category); }
   if (filters.search)    { sql += ' AND LOWER(title) LIKE ?'; params.push('%' + filters.search.toLowerCase() + '%'); }
-  sql += ' ORDER BY createdAt ASC';
+  sql += ' ORDER BY sortOrder ASC, createdAt ASC';
   return db.prepare(sql).all(...params).map(t => ({ ...t, cost: t.cost || 0 }));
 }
 
@@ -137,12 +137,26 @@ function createTask(userId, task) {
   const project = getProjectById(userId, task.projectId);
   if (!project) throw new Error('Project not found');
   assertTaskNotBeforeProject(project, task.startDate);
+  // New tasks go to the bottom of their project's manual order.
+  const { maxOrder } = db.prepare('SELECT MAX(sortOrder) AS maxOrder FROM tasks WHERE userId = ? AND projectId = ?').get(userId, task.projectId);
+  const sortOrder = (maxOrder ?? -1) + 1;
   db.prepare(`
-    INSERT INTO tasks (id, userId, projectId, title, category, status, priority, startDate, endDate, cost, notes, recurrence, createdAt)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+    INSERT INTO tasks (id, userId, projectId, title, category, status, priority, startDate, endDate, cost, notes, recurrence, sortOrder, createdAt)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(task.id, userId, task.projectId, task.title, task.category || '', task.status || 'Not Started', task.priority || 'Medium',
-         task.startDate || '', task.endDate || '', task.cost || 0, task.notes || '', task.recurrence || 'none', task.createdAt);
+         task.startDate || '', task.endDate || '', task.cost || 0, task.notes || '', task.recurrence || 'none', sortOrder, task.createdAt);
   return getTaskById(userId, task.id);
+}
+
+// Persists a manual drag-to-reorder within one project — taskIds is the
+// full new order for that project, so each task's sortOrder becomes its
+// index in the array.
+function reorderTasks(userId, projectId, taskIds) {
+  const stmt = db.prepare('UPDATE tasks SET sortOrder = ? WHERE id = ? AND userId = ? AND projectId = ?');
+  const run = db.transaction((ids) => {
+    ids.forEach((id, index) => stmt.run(index, id, userId, projectId));
+  });
+  run(taskIds);
 }
 
 // Shifts a date forward by one recurrence interval — used to schedule the
@@ -284,7 +298,7 @@ module.exports = {
   setPasswordResetToken, getUserByResetToken, clearPasswordResetToken,
   getProfile, updateProfile,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById,
-  listTasks, getTaskById, createTask, updateTaskById, deleteTaskById,
+  listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, reorderTasks,
   getWealth, updateWealthEntries, addWealthTarget, updateWealthTarget, deleteWealthTarget, addMonthlyLogEntry, deleteMonthlyLogEntry,
   getGoogleDrive, setGoogleDrive,
   getFullSnapshot,

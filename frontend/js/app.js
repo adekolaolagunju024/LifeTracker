@@ -911,8 +911,9 @@ async function renderGantt() {
         }
 
         rowsHTML += `
-          <div class="grid gantt-grid-row group border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px">
+          <div class="grid gantt-grid-row group border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px" data-task-id="${t.id}" data-group="${groupId}">
             <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-1 overflow-hidden">
+              <span class="flex-shrink-0 hidden group-hover:inline cursor-grab text-gray-300 hover:text-gray-500 px-0.5" onmousedown="ganttRowMouseDown(event, '${t.id}', '${t.projectId}', '${groupId}')" title="Drag to reorder">⠿</span>
               <span class="flex-1 min-w-0 text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="editTask('${t.id}')" title="${esc(t.title)} (click to edit)">${esc(t.title)}</span>
               <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">🗑️</button>
             </div>
@@ -1091,6 +1092,61 @@ async function ganttMouseUp(e) {
     showToast('✅ Dates updated');
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
+  }
+  renderGantt();
+}
+
+// Manual drag-to-reorder of task rows within one project group. Kept
+// separate from ganttDrag above since it moves whole DOM rows by index
+// rather than repositioning a bar by percentage — different enough
+// mechanics that sharing one state object would just add branching.
+let ganttRowDrag = null;
+
+function ganttRowMouseDown(e, taskId, projectId, groupId) {
+  e.preventDefault();
+  e.stopPropagation();
+  const rowEl = e.currentTarget.closest('.gantt-grid-row');
+  ganttRowDrag = { taskId, projectId, groupId, rowEl, dropTarget: null, dropPos: null };
+  rowEl.classList.add('gantt-row-dragging');
+  document.addEventListener('mousemove', ganttRowMouseMove);
+  document.addEventListener('mouseup', ganttRowMouseUp);
+}
+
+function ganttRowMouseMove(e) {
+  const d = ganttRowDrag;
+  if (!d) return;
+  document.querySelectorAll('.gantt-drop-above, .gantt-drop-below').forEach(r => r.classList.remove('gantt-drop-above', 'gantt-drop-below'));
+
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const targetRow = el && el.closest(`.gantt-grid-row[data-group="${d.groupId}"][data-task-id]`);
+  if (!targetRow || targetRow === d.rowEl) { d.dropTarget = null; return; }
+
+  const rect = targetRow.getBoundingClientRect();
+  const isAbove = e.clientY < rect.top + rect.height / 2;
+  targetRow.classList.add(isAbove ? 'gantt-drop-above' : 'gantt-drop-below');
+  d.dropTarget = targetRow;
+  d.dropPos = isAbove ? 'above' : 'below';
+}
+
+async function ganttRowMouseUp() {
+  document.removeEventListener('mousemove', ganttRowMouseMove);
+  document.removeEventListener('mouseup', ganttRowMouseUp);
+  const d = ganttRowDrag;
+  ganttRowDrag = null;
+  if (!d) return;
+
+  d.rowEl.classList.remove('gantt-row-dragging');
+  document.querySelectorAll('.gantt-drop-above, .gantt-drop-below').forEach(r => r.classList.remove('gantt-drop-above', 'gantt-drop-below'));
+  if (!d.dropTarget) return; // dropped outside any row in the same group — leave order unchanged
+
+  if (d.dropPos === 'above') d.dropTarget.parentNode.insertBefore(d.rowEl, d.dropTarget);
+  else d.dropTarget.parentNode.insertBefore(d.rowEl, d.dropTarget.nextSibling);
+
+  const orderedIds = [...document.querySelectorAll(`.gantt-grid-row[data-group="${d.groupId}"][data-task-id]`)].map(r => r.dataset.taskId);
+  try {
+    await API.reorderTasks(d.projectId, orderedIds);
+  } catch (err) {
+    showToast('❌ ' + (err.message || 'Failed to save new order'), 'error');
   }
   renderGantt();
 }

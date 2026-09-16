@@ -54,6 +54,7 @@ db.exec(`
     cost REAL DEFAULT 0,
     notes TEXT DEFAULT '',
     recurrence TEXT DEFAULT 'none',
+    sortOrder INTEGER DEFAULT 0,
     createdAt TEXT NOT NULL
   );
 
@@ -104,6 +105,7 @@ addColumnIfMissing('projects', "startDate TEXT DEFAULT ''");
 addColumnIfMissing('projects', "parentId TEXT REFERENCES projects(id) ON DELETE CASCADE");
 addColumnIfMissing('projects', "type TEXT DEFAULT 'career'");
 addColumnIfMissing('tasks', "recurrence TEXT DEFAULT 'none'");
+addColumnIfMissing('tasks', "sortOrder INTEGER DEFAULT 0");
 addColumnIfMissing('users', "resetToken TEXT");
 addColumnIfMissing('users', "resetTokenExpires TEXT");
 

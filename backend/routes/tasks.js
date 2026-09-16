@@ -29,6 +29,16 @@ router.post('/', (req, res) => {
   }
 });
 
+// PUT /api/tasks/reorder — persists a manual drag-to-reorder within one
+// project. Must be registered before PUT /:id, or Express would match
+// "reorder" as an :id.
+router.put('/reorder', (req, res) => {
+  const { projectId, taskIds } = req.body;
+  if (!projectId || !Array.isArray(taskIds)) return res.status(400).json({ error: 'projectId and taskIds are required' });
+  db.reorderTasks(req.session.userId, projectId, taskIds);
+  res.json({ success: true });
+});
+
 // PUT /api/tasks/:id
 router.put('/:id', (req, res) => {
   try {

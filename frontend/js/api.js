@@ -56,6 +56,7 @@ const API = {
   addTask:    (data)    => request('POST',   '/tasks', data),
   updateTask: (id, d)   => request('PUT',    `/tasks/${id}`, d),
   deleteTask: (id)      => request('DELETE', `/tasks/${id}`),
+  reorderTasks: (projectId, taskIds) => request('PUT', '/tasks/reorder', { projectId, taskIds }),
 
   // ── WEALTH ──
   getWealth:          ()       => request('GET',    '/wealth'),
