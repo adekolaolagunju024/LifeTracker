@@ -1,4 +1,4 @@
-# LifeTracker
+# Waypoint
 
 A general-purpose personal goal tracker — Career and Wealth are just two of the built-in project types; use it for any goal, in any area of life. Multi-user, self-hosted, no external dependencies required to run locally.
 
@@ -86,6 +86,8 @@ An APK only installs on Android — iOS can't sideload one, and there's no worka
 `mobile/` is a thin [Capacitor](https://capacitorjs.com) wrapper — a real installable Android app whose WebView just points at the live Railway deployment (`mobile/capacitor.config.json` → `server.url`). There's no separate mobile codebase to maintain: any change pushed and deployed to Railway shows up in the app immediately, no rebuild needed. A rebuild is only needed for things baked into the native shell (app name/icon, the URL it points at).
 
 Not published to the Play Store (personal use only) — it's installed by sideloading the APK directly. The app icon (`frontend/icons/`, generated from a single SVG) is shared between the web manifest and the Android launcher icon (both the flat pre-Android-8 icon and the adaptive icon's foreground/background layers).
+
+The Android `appId` is still `com.lifetracker.app`, left over from before the app was renamed to Waypoint — intentionally not changed, since Android treats a different `appId` as a different app entirely rather than an update to the one already installed. Changing it is possible any time (edit it in `mobile/capacitor.config.json` and `mobile/android/app/src/main/res/values/strings.xml`, then rebuild), it would just mean reinstalling on any phone that already has the old one.
 
 **Rebuilding the APK** (requires a JDK 21 and the Android SDK command-line tools — set `JAVA_HOME` and `ANDROID_HOME` first):
 

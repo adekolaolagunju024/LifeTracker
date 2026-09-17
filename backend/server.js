@@ -30,7 +30,7 @@ app.use(cors());
 app.use(express.json());
 app.use(session({
   store: new SqliteStore({ client: db, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
-  secret: process.env.SESSION_SECRET || 'lifetracker-dev-secret-change-me',
+  secret: process.env.SESSION_SECRET || 'waypoint-dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -69,5 +69,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 LifeTracker running at http://localhost:${PORT}\n`);
+  console.log(`\n🚀 Waypoint running at http://localhost:${PORT}\n`);
 });

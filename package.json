@@ -1,7 +1,7 @@
 {
-  "name": "lifetracker",
+  "name": "waypoint",
   "version": "1.0.0",
-  "description": "Personal Life, Career & Wealth Tracker",
+  "description": "A general-purpose personal goal tracker",
   "main": "backend/server.js",
   "engines": {
     "node": ">=22"

@@ -1,7 +1,7 @@
 {
-  "name": "LifeTracker",
-  "short_name": "LifeTracker",
-  "description": "Personal life, career, and wealth tracker",
+  "name": "Waypoint",
+  "short_name": "Waypoint",
+  "description": "A general-purpose personal goal tracker",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0D1B2A",

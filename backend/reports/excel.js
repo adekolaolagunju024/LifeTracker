@@ -12,7 +12,7 @@ function styleHeaderRow(row) {
 
 async function buildWorkbook(snapshot) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'LifeTracker';
+  wb.creator = 'Waypoint';
   wb.created = new Date();
 
   const projectTitleById = Object.fromEntries(snapshot.projects.map(p => [p.id, p.title]));

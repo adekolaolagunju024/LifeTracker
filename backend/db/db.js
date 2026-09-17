@@ -6,7 +6,11 @@ function createUser({ id, email, passwordHash, createdAt }) {
   db.prepare(`INSERT INTO users (id, email, passwordHash, createdAt) VALUES (?,?,?,?)`)
     .run(id, email, passwordHash, createdAt);
 
-  db.prepare(`INSERT INTO profile (userId) VALUES (?)`).run(id);
+  // Explicit, not relying on the column DEFAULT — SQLite bakes a column's
+  // default into the table at CREATE TABLE time, so editing the DEFAULT in
+  // code has no effect on a database (local or the live one) that already
+  // exists with the table already created.
+  db.prepare(`INSERT INTO profile (userId, tagline) VALUES (?, ?)`).run(id, 'Every Goal, One Path');
   db.prepare(`INSERT INTO integrations (userId) VALUES (?)`).run(id);
   return getUserById(id);
 }

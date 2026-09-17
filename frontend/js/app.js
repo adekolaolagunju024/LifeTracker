@@ -1821,7 +1821,7 @@ async function finishOnboarding() {
     }
 
     await closeOnboarding();
-    showToast('✅ All set up — welcome to LifeTracker!');
+    showToast('✅ All set up — welcome to Waypoint!');
   } catch (e) {
     showToast('❌ Something went wrong finishing setup', 'error');
   }
@@ -2432,7 +2432,7 @@ async function exportData() {
     );
     const a = document.createElement('a');
     a.href     = URL.createObjectURL(blob);
-    a.download = 'lifetracker_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+    a.download = 'waypoint_backup_' + new Date().toISOString().slice(0, 10) + '.json';
     a.click();
     showToast('✅ Data exported!');
   } catch (e) { showToast('❌ Export failed', 'error'); }

@@ -21,7 +21,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS profile (
     userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL DEFAULT 'Your Name',
-    tagline TEXT NOT NULL DEFAULT 'My Life & Wealth Tracker',
+    tagline TEXT NOT NULL DEFAULT 'Every Goal, One Path',
     currency TEXT NOT NULL DEFAULT '£',
     targetNetWorth REAL NOT NULL DEFAULT 100000,
     targetDate TEXT NOT NULL DEFAULT '2027-05-01',
@@ -90,7 +90,7 @@ db.exec(`
     googleDriveConnected INTEGER NOT NULL DEFAULT 0,
     googleDriveRefreshToken TEXT,
     googleDriveFolderId TEXT,
-    googleDriveFolderName TEXT NOT NULL DEFAULT 'LifeTracker Backups',
+    googleDriveFolderName TEXT NOT NULL DEFAULT 'Waypoint Backups',
     googleDriveLastBackupAt TEXT
   );
 `);

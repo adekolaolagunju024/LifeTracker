@@ -33,10 +33,8 @@ function reportHtml(snapshot) {
   const done  = tasks.filter(t => t.status === 'Completed').length;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const overdueCount = tasks.filter(t => t.status !== 'Completed' && t.endDate && new Date(t.endDate) < today).length;
-  const nw    = Object.values(wealth.entries || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
-  const cur   = profile.currency || '£';
-  const nwPct = pct(nw, profile.targetNetWorth);
-  const carPct = pct(done, tasks.length);
+  const cur     = profile.currency || '£';
+  const goalsPct = pct(done, tasks.length);
 
   const projectRows = projects.map(p => {
     const pts = tasks.filter(t => t.projectId === p.id);
@@ -81,26 +79,19 @@ function reportHtml(snapshot) {
   .footer { margin-top: 24px; font-size: 10px; color: #9CA3AF; }
 </style></head>
 <body>
-  <h1>${esc(profile.name)}'s LifeTracker Report</h1>
+  <h1>${esc(profile.name)}'s Waypoint Report</h1>
   <p class="sub">Generated ${new Date().toLocaleString()}</p>
 
   <div class="kpis">
     <div class="kpi"><div class="label">Total Tasks</div><div class="value">${tasks.length}</div></div>
     <div class="kpi"><div class="label">Completed</div><div class="value">${done}</div></div>
     <div class="kpi"><div class="label">Projects</div><div class="value">${projects.length}</div></div>
-    <div class="kpi"><div class="label">Net Worth</div><div class="value">${money(nw, cur)}</div></div>
   </div>
 
   <div class="hero">
-    <div class="label">Net Worth Progress</div>
-    <div class="value">${money(nw, cur)}</div>
-    <div class="bar-track"><div class="bar-fill" style="width:${nwPct}%"></div></div>
-    <p class="sub" style="color:rgba(255,255,255,.4);margin:6px 0 0">${nwPct}% of ${money(profile.targetNetWorth, cur)} target</p>
-  </div>
-  <div class="hero">
-    <div class="label">Career Progress</div>
-    <div class="value">${carPct}%</div>
-    <div class="bar-track"><div class="bar-fill" style="width:${carPct}%"></div></div>
+    <div class="label">Goals Progress</div>
+    <div class="value">${goalsPct}%</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${goalsPct}%"></div></div>
     <p class="sub" style="color:rgba(255,255,255,.4);margin:6px 0 0">${done} of ${tasks.length} tasks complete</p>
   </div>
 
@@ -116,7 +107,7 @@ function reportHtml(snapshot) {
     ${logRows}
   </table>
 
-  <p class="footer">${overdueCount} task${overdueCount === 1 ? '' : 's'} overdue · LifeTracker</p>
+  <p class="footer">${overdueCount} task${overdueCount === 1 ? '' : 's'} overdue · Waypoint</p>
 </body></html>`;
 }
 
