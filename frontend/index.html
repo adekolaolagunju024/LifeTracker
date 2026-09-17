@@ -75,9 +75,8 @@
     .onb-dot.active { background: #0A7E8C; width: 20px; }
     .onb-dot.done { background: #1A7A4A; }
     .nav-item.active { background: #0A7E8C !important; color: #fff !important; }
-    .nw-prog-fill { background: linear-gradient(90deg, #0A7E8C, #C49A00); }
     .hero-bar-fill { background: linear-gradient(90deg, #0A7E8C, #C49A00); }
-    .career-bar-fill { background: linear-gradient(90deg, #0A7E8C, #1A7A4A); }
+    .goals-bar-fill { background: linear-gradient(90deg, #0A7E8C, #1A7A4A); }
     .gantt-bar-area { position: relative; overflow: hidden; display: flex; align-items: center; }
     .gantt-bar { position: absolute; height: 20px; border-radius: 3px; min-width: 4px; display: flex; align-items: center; overflow: visible; box-sizing: border-box; z-index: 3; cursor: grab; }
     .gantt-bar:active { cursor: grabbing; }
@@ -510,17 +509,6 @@
       </div>
     </div>
 
-    <!-- Net Worth Widget -->
-    <div class="mt-auto p-4 border-t border-white/10">
-      <div class="bg-white/6 rounded-xl p-4">
-        <p class="text-white/35 text-[9px] font-bold tracking-widest uppercase">Net Worth</p>
-        <p class="text-gold font-black text-2xl font-mono mt-1" id="sidebar-nw">£0</p>
-        <div class="h-1 bg-white/10 rounded-full overflow-hidden my-2">
-          <div class="nw-prog-fill h-full rounded-full transition-all duration-500" id="sidebar-prog" style="width:0%"></div>
-        </div>
-        <p class="text-white/25 text-[10px]" id="sidebar-sub">£0 of target</p>
-      </div>
-    </div>
   </nav>
 
   <!-- ═══ MAIN ═══ -->
@@ -549,11 +537,11 @@
     <div class="page active p-6" id="page-dashboard">
       <div class="mb-6">
         <h2 class="text-2xl font-black text-navy">Welcome back, <span id="hero-name">there</span> 👋</h2>
-        <p class="text-gray-500 text-sm mt-1">Here's your live snapshot across all goals, projects and wealth.</p>
+        <p class="text-gray-500 text-sm mt-1">Here's your live snapshot across every goal you're tracking.</p>
       </div>
 
       <!-- KPI Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="kpi-grid">
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6" id="kpi-grid">
         <div class="bg-white rounded-xl p-5 border border-gray-200">
           <p class="text-xs font-semibold text-gray-400">Total Tasks</p>
           <p class="text-3xl font-black font-mono text-teal mt-1" id="kpi-total">0</p>
@@ -569,32 +557,18 @@
           <p class="text-3xl font-black font-mono text-brand-orange mt-1" id="kpi-inprog">0</p>
           <p class="text-xs text-gray-400 mt-1">active now</p>
         </div>
-        <div class="bg-white rounded-xl p-5 border border-gray-200" id="kpi-nw-card">
-          <p class="text-xs font-semibold text-gray-400">Net Worth</p>
-          <p class="text-3xl font-black font-mono text-gold mt-1" id="kpi-nw">£0</p>
-          <p class="text-xs text-gray-400 mt-1">target: £100,000</p>
-        </div>
       </div>
 
-      <!-- Hero Progress — each card only shows if a project of that type exists -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="hero-grid">
-        <div class="bg-gradient-to-br from-navy to-navy-2 rounded-2xl p-6 text-white" id="hero-nw-card">
-          <p class="text-xs font-semibold text-white/40 uppercase tracking-widest">Net Worth Progress</p>
-          <p class="text-5xl font-black font-mono text-gold mt-2" id="hero-nw">£0</p>
-          <p class="text-xs text-white/40 mt-1" id="hero-left">0% of your target</p>
+      <!-- Goals Progress hero — overall task completion across every project, whatever its type -->
+      <div class="grid grid-cols-1 gap-4 mb-6" id="hero-grid">
+        <div class="bg-gradient-to-br from-navy to-navy-2 rounded-2xl p-6 text-white" id="hero-goals-card">
+          <p class="text-xs font-semibold text-white/40 uppercase tracking-widest">Goals Progress</p>
+          <p class="text-5xl font-black font-mono text-teal mt-2" id="hero-goals-pct">0%</p>
+          <p class="text-xs text-white/40 mt-1" id="hero-goals-sub">0 of 0 tasks complete</p>
           <div class="h-2 bg-white/10 rounded-full mt-4 overflow-hidden">
-            <div class="hero-bar-fill h-full rounded-full transition-all duration-500" id="hero-prog" style="width:0%"></div>
+            <div class="goals-bar-fill h-full rounded-full transition-all duration-500" id="hero-goals-prog" style="width:0%"></div>
           </div>
-          <p class="text-xs text-white/30 mt-2" id="hero-pct">0% complete</p>
-        </div>
-        <div class="bg-gradient-to-br from-navy to-navy-2 rounded-2xl p-6 text-white" id="hero-career-card">
-          <p class="text-xs font-semibold text-white/40 uppercase tracking-widest">Career Progress</p>
-          <p class="text-5xl font-black font-mono text-teal mt-2" id="hero-career-pct">0%</p>
-          <p class="text-xs text-white/40 mt-1" id="hero-career-sub">0 of 0 tasks complete</p>
-          <div class="h-2 bg-white/10 rounded-full mt-4 overflow-hidden">
-            <div class="career-bar-fill h-full rounded-full transition-all duration-500" id="hero-career-prog" style="width:0%"></div>
-          </div>
-          <p class="text-xs text-white/30 mt-2" id="hero-career-detail">across 0 projects</p>
+          <p class="text-xs text-white/30 mt-2" id="hero-goals-detail">across 0 projects</p>
         </div>
       </div>
 

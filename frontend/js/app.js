@@ -172,22 +172,13 @@ function showPage(id, projectId = null) {
 // ── SIDEBAR ────────────────────────────────────────────────────
 async function updateSidebar() {
   try {
-    const [profile, wealth, projects] = await Promise.all([
+    const [profile, projects] = await Promise.all([
       API.getProfile(),
-      API.getWealth(),
       API.getProjects({ parentId: 'null' }),
     ]);
 
-    const nw     = Object.values(wealth.entries || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
-    const target = profile.targetNetWorth || 100000;
-    const p      = pct(nw, target);
-    const cur    = profile.currency || '£';
-
     document.getElementById('sidebar-name').textContent    = profile.name;
     document.getElementById('sidebar-tagline').textContent = profile.tagline;
-    document.getElementById('sidebar-nw').textContent      = fmt(nw, cur);
-    document.getElementById('sidebar-prog').style.width    = p + '%';
-    document.getElementById('sidebar-sub').textContent     = fmt(nw, cur) + ' of ' + fmt(target, cur);
 
     // Rebuild project nav
     document.getElementById('project-nav').innerHTML = projects.map(proj => `
@@ -224,50 +215,33 @@ async function renderDashboard() {
       API.getProfile(),
       API.getWealth(),
     ]);
-    const projects       = allProjects.filter(p => !p.parentId); // top-level only, for the glance cards
-    const careerProjects = projects.filter(p => p.type !== 'wealth');
-    const hasCareer      = careerProjects.length > 0;
-    const hasWealth      = projects.some(pr => pr.type === 'wealth');
+    const projects = allProjects.filter(p => !p.parentId); // top-level only, for the glance cards
 
     const done   = tasks.filter(t => t.status === 'Completed').length;
     const inprog = tasks.filter(t => t.status === 'In Progress').length;
+    // Still needed below for wealth-type projects' own card/table stats —
+    // this is a general goal tracker, not a net-worth dashboard, so nothing
+    // wealth-specific gets top-level KPI/hero billing anymore, but an
+    // individual Wealth-type project still shows its own £ progress same as
+    // any other project shows its own stats.
     const nw     = Object.values(wealth.entries || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
     const target = profile.targetNetWorth || 100000;
     const p      = pct(nw, target);
     const cur    = profile.currency || '£';
 
-    // Dashboard is dynamic: a hero/KPI for a project type only shows up once
-    // a project of that type actually exists, and the survivor(s) reflow to
-    // fill the row. Adding a new type later just needs its own toggle here.
-    document.getElementById('kpi-nw-card').classList.toggle('hidden', !hasWealth);
-    document.getElementById('kpi-grid').classList.toggle('md:grid-cols-4', hasWealth);
-    document.getElementById('kpi-grid').classList.toggle('md:grid-cols-3', !hasWealth);
-
-    document.getElementById('hero-nw-card').classList.toggle('hidden', !hasWealth);
-    document.getElementById('hero-career-card').classList.toggle('hidden', !hasCareer);
-    const soloHero = hasCareer !== hasWealth; // exactly one of the two is showing
-    document.getElementById('hero-nw-card').classList.toggle('md:col-span-2', soloHero && hasWealth);
-    document.getElementById('hero-career-card').classList.toggle('md:col-span-2', soloHero && hasCareer);
-
     // KPIs
     document.getElementById('kpi-total').textContent  = tasks.length;
     document.getElementById('kpi-done').textContent   = done;
     document.getElementById('kpi-inprog').textContent = inprog;
-    document.getElementById('kpi-nw').textContent     = fmt(nw, cur);
     document.getElementById('hero-name').textContent  = profile.name.split(' ')[0];
 
-    // Hero
-    document.getElementById('hero-nw').textContent   = fmt(nw, cur);
-    document.getElementById('hero-left').textContent = p + '% of your ' + fmt(target, cur) + ' target';
-    document.getElementById('hero-prog').style.width = p + '%';
-    document.getElementById('hero-pct').textContent  = p + '% complete';
-
-    // Career Progress hero — overall task completion across all projects
-    const careerPct = pct(done, tasks.length);
-    document.getElementById('hero-career-pct').textContent    = careerPct + '%';
-    document.getElementById('hero-career-sub').textContent    = `${done} of ${tasks.length} tasks complete`;
-    document.getElementById('hero-career-prog').style.width   = careerPct + '%';
-    document.getElementById('hero-career-detail').textContent = `across ${careerProjects.length} project${careerProjects.length === 1 ? '' : 's'}`;
+    // Goals Progress hero — overall task completion across every project,
+    // regardless of type; goals are goals, whether Career, Wealth, Health, etc.
+    const goalsPct = pct(done, tasks.length);
+    document.getElementById('hero-goals-pct').textContent    = goalsPct + '%';
+    document.getElementById('hero-goals-sub').textContent    = `${done} of ${tasks.length} tasks complete`;
+    document.getElementById('hero-goals-prog').style.width   = goalsPct + '%';
+    document.getElementById('hero-goals-detail').textContent = `across ${projects.length} project${projects.length === 1 ? '' : 's'}`;
 
     // Project stat cards / table — same underlying per-project stats, two renderings
     const todayKey = localDateKey(new Date());
