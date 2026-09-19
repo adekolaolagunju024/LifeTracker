@@ -228,4 +228,45 @@ async function handleImportProject(req, res) {
   }
 }
 
+const BREAKDOWN_SYSTEM_PROMPT = today => `You help someone who has a goal but doesn't know how to break it down into concrete steps. Today's date is ${today}. Given a plain-language goal description (and optionally a target timeframe), propose a project and a sequence of concrete, actionable tasks that would realistically achieve it.
+
+Sequence the tasks logically (e.g. research/setup before execution, execution before review), and give each one a realistic startDate and endDate so the whole set is spread sensibly across the available time — don't pile every task onto the same day, and don't make one task span the entire timeframe. If no timeframe is given, use your own judgment for a sensible overall duration for a goal like this and say so implicitly through the dates you choose. Aim for 5-12 tasks — enough to be a genuine plan, not so many it's overwhelming. Call the propose_project tool with the result.`;
+
+// POST /api/ai/breakdown-goal — same output shape as import-project, but
+// starting from a plain-text goal description instead of an uploaded file,
+// for someone who doesn't have a source document and just needs a
+// starting plan. Shares the review-before-creating step (and the actual
+// project/task creation) with the file-import flow on the frontend.
+router.post('/breakdown-goal', async (req, res) => {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY to .env to enable it.' });
+  }
+  const goal = String(req.body.goal || '').trim();
+  const timeframe = String(req.body.timeframe || '').trim();
+  if (!goal) return res.status(400).json({ error: 'Describe your goal first' });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const userText = `My goal: ${goal}${timeframe ? `\nTarget timeframe: ${timeframe}` : ''}\n\nBreak this down into a project and a sequenced list of tasks with realistic dates, then call propose_project.`;
+
+  try {
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const response = await client.messages.create({
+      model: MODEL,
+      max_tokens: 4000,
+      system: BREAKDOWN_SYSTEM_PROMPT(today),
+      messages: [{ role: 'user', content: userText }],
+      tools: [IMPORT_TOOL],
+      tool_choice: { type: 'tool', name: 'propose_project' },
+    });
+
+    const toolUse = response.content.find(c => c.type === 'tool_use');
+    if (!toolUse) throw new Error('AI could not break that goal down');
+    res.json(toolUse.input);
+  } catch (e) {
+    console.error('AI breakdown-goal error:', e);
+    const apiMessage = e?.error?.error?.message || e?.message || 'Unknown error';
+    res.status(502).json({ error: apiMessage });
+  }
+});
+
 module.exports = router;

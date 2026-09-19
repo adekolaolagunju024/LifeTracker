@@ -2047,6 +2047,8 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 // ── IMPORT PROJECT FROM FILE (AI) ─────────────────────────────────
 function openImportProject() {
   document.getElementById('import-file-input').value = '';
+  document.getElementById('import-goal-text').value = '';
+  document.getElementById('import-goal-timeframe').value = '';
   document.getElementById('import-error').classList.add('hidden');
   document.getElementById('import-step-upload').classList.remove('hidden');
   document.getElementById('import-upload-actions').classList.remove('hidden');
@@ -2054,27 +2056,62 @@ function openImportProject() {
   document.getElementById('import-step-preview').classList.add('hidden');
   document.getElementById('import-preview-actions').classList.add('hidden');
   document.getElementById('import-preview-actions').classList.remove('flex');
+  setImportMethod('file');
   openModal('modal-import');
 }
 
+function setImportMethod(method) {
+  document.querySelectorAll('.import-method-btn').forEach(b => b.classList.toggle('active', b.dataset.method === method));
+  document.getElementById('import-method-file').classList.toggle('hidden', method !== 'file');
+  document.getElementById('import-method-goal').classList.toggle('hidden', method !== 'goal');
+  document.getElementById('import-analyze-btn').textContent = method === 'file' ? 'Analyze File' : 'Break It Down';
+  document.getElementById('import-analyze-btn').dataset.method = method;
+  document.getElementById('import-error').classList.add('hidden');
+}
+
+// Dispatches to whichever method the "Upload a file" / "Describe your
+// goal" toggle is currently set to — both end up at the same review step,
+// since propose_project returns the same shape either way.
 async function analyzeImportFile() {
+  const method = document.getElementById('import-analyze-btn').dataset.method || 'file';
+  if (method === 'goal') return analyzeGoalBreakdown();
+
   const fileInput = document.getElementById('import-file-input');
   const errorEl = document.getElementById('import-error');
   errorEl.classList.add('hidden');
   const file = fileInput.files[0];
   if (!file) { errorEl.textContent = 'Choose a file first'; errorEl.classList.remove('hidden'); return; }
 
+  const formData = new FormData();
+  formData.append('file', file);
+  await runProjectProposal(() => fetch('/api/ai/import-project', { method: 'POST', body: formData }), 'Reading file with Claude… (~15-20s)', 'Failed to read that file');
+}
+
+async function analyzeGoalBreakdown() {
+  const errorEl = document.getElementById('import-error');
+  errorEl.classList.add('hidden');
+  const goal = document.getElementById('import-goal-text').value.trim();
+  if (!goal) { errorEl.textContent = 'Describe your goal first'; errorEl.classList.remove('hidden'); return; }
+  const timeframe = document.getElementById('import-goal-timeframe').value.trim();
+
+  await runProjectProposal(() => fetch('/api/ai/breakdown-goal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ goal, timeframe }),
+  }), 'Breaking your goal down with Claude… (~15-20s)', 'Failed to break that goal down');
+}
+
+async function runProjectProposal(doFetch, loadingLabel, failMessage) {
+  const errorEl = document.getElementById('import-error');
   const btn = document.getElementById('import-analyze-btn');
   const originalLabel = btn.textContent;
   btn.disabled = true;
-  btn.innerHTML = `<span class="spinner"></span> Reading file with Claude… (~15-20s)`;
+  btn.innerHTML = `<span class="spinner"></span> ${loadingLabel}`;
 
   try {
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await fetch('/api/ai/import-project', { method: 'POST', body: formData });
+    const res = await doFetch();
     const body = await res.json();
-    if (!res.ok) throw new Error(body.error || 'Import failed');
+    if (!res.ok) throw new Error(body.error || failMessage);
 
     document.getElementById('import-proj-icon').value  = body.icon || '📁';
     document.getElementById('import-proj-title').value = body.title || '';
@@ -2088,7 +2125,7 @@ async function analyzeImportFile() {
     document.getElementById('import-preview-actions').classList.remove('hidden');
     document.getElementById('import-preview-actions').classList.add('flex');
   } catch (e) {
-    errorEl.textContent = e.message || 'Failed to read that file';
+    errorEl.textContent = e.message || failMessage;
     errorEl.classList.remove('hidden');
   } finally {
     btn.disabled = false;
