@@ -162,19 +162,102 @@
     /* Accessibility: visible keyboard focus ring everywhere */
     :focus-visible { outline: 2px solid #0A7E8C; outline-offset: 2px; border-radius: 2px; }
 
+    /* ── GLASS UI (iOS-style translucent material) ────────────────────
+       Same trick as the dark-mode overrides below: keyed to Tailwind
+       utility classes that are already used everywhere (bg-white for
+       every card/modal/table, bg-gray-100 for every pill/secondary
+       button), rather than retrofitting a new class onto ~2000 lines of
+       templates. A frosted panel only reads as "glass" with something
+       colorful behind it to blur, hence the gradient wallpaper on body
+       (previously a flat bg-gray-100) — every panel blurs that. */
+    html { background: #E0F4F6; } /* fallback so any sliver past body's own box isn't stark white */
+    body {
+      background: linear-gradient(135deg, #E0F4F6 0%, #F3F0FF 30%, #FEF9E7 65%, #E0F4F6 100%);
+      background-attachment: fixed;
+    }
+    .bg-white {
+      background-color: rgba(255,255,255,.62) !important;
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      box-shadow: 0 4px 24px rgba(13,27,42,.06);
+    }
+    .bg-gray-50 {
+      background-color: rgba(255,255,255,.4) !important;
+      backdrop-filter: blur(14px) saturate(160%);
+      -webkit-backdrop-filter: blur(14px) saturate(160%);
+    }
+    .bg-gray-100 {
+      background-color: rgba(255,255,255,.5) !important;
+      backdrop-filter: blur(14px) saturate(160%);
+      -webkit-backdrop-filter: blur(14px) saturate(160%);
+    }
+    .border-gray-100 { border-color: rgba(255,255,255,.5) !important; }
+    .border-gray-200 { border-color: rgba(255,255,255,.55) !important; }
+    /* Modal/onboarding content boxes sit on a dark dimmed backdrop, not the
+       page's colorful wallpaper — the standard .bg-white glass would blur
+       that dark backdrop right through the card and read as muddy grey, so
+       these get a near-opaque frosted treatment instead: still glassy, but
+       clearly a clean surface floating above the dim, not tinted by it. */
+    .modal-overlay .bg-white, .onboarding-overlay .bg-white {
+      background-color: rgba(255,255,255,.92) !important;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .shadow-2xl, .shadow-md { box-shadow: 0 8px 32px rgba(13,27,42,.10), inset 0 1px 0 rgba(255,255,255,.4) !important; }
+
+    #sidebar {
+      background: linear-gradient(180deg, rgba(13,27,42,.82), rgba(27,58,92,.78)) !important;
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-right: 1px solid rgba(255,255,255,.08);
+    }
+    .modal-overlay.open, .onboarding-overlay.open {
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    ::-webkit-scrollbar-thumb { background: rgba(13,27,42,.25); }
+
     /* ── DARK MODE ──────────────────────────────────────────────────
        Applied via global overrides keyed to the existing Tailwind
        utility classes (scoped under html.dark), rather than adding
        dark: variants to every element across ~2000 lines of templates. */
-    .dark body { background-color: #0B1220; color: #E2E8F0; }
+    html.dark { background: #0D1B2A; }
+    .dark body {
+      background: linear-gradient(135deg, #0D1B2A 0%, #1B3A5C 45%, #0A3D42 75%, #0D1B2A 100%);
+      background-attachment: fixed;
+      color: #E2E8F0;
+    }
     .dark ::-webkit-scrollbar-thumb { background: #374151; }
 
-    .dark .bg-white       { background-color: #151F32 !important; }
-    .dark .bg-gray-50     { background-color: #0F1729 !important; }
-    .dark .bg-gray-100    { background-color: #1E293B !important; }
-    .dark .bg-gray-200    { background-color: #263449 !important; }
+    .dark .bg-white {
+      background-color: rgba(21,31,50,.6) !important;
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      box-shadow: 0 4px 24px rgba(0,0,0,.25);
+    }
+    .dark .bg-gray-50 {
+      background-color: rgba(15,23,41,.5) !important;
+      backdrop-filter: blur(14px) saturate(160%);
+      -webkit-backdrop-filter: blur(14px) saturate(160%);
+    }
+    .dark .modal-overlay .bg-white, .dark .onboarding-overlay .bg-white {
+      background-color: rgba(21,31,50,.94) !important;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .dark .bg-gray-100 {
+      background-color: rgba(30,41,59,.55) !important;
+      backdrop-filter: blur(14px) saturate(160%);
+      -webkit-backdrop-filter: blur(14px) saturate(160%);
+    }
+    .dark .bg-gray-200 { background-color: rgba(38,52,73,.6) !important; }
     .dark .bg-black\/50   { background-color: rgba(0,0,0,.7) !important; }
     .dark .bg-black\/40   { background-color: rgba(0,0,0,.6) !important; }
+    .dark .shadow-2xl, .dark .shadow-md { box-shadow: 0 8px 32px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06) !important; }
+    .dark #sidebar {
+      background: linear-gradient(180deg, rgba(5,12,20,.85), rgba(13,27,42,.8)) !important;
+      border-right: 1px solid rgba(255,255,255,.05);
+    }
 
     .dark .text-navy      { color: #F1F5F9 !important; }
     .dark .text-navy-2    { color: #CBD5E1 !important; }
@@ -185,8 +268,8 @@
     .dark .text-gray-400  { color: #64748B !important; }
     .dark .text-gray-300  { color: #475569 !important; }
 
-    .dark .border-gray-100 { border-color: #1E293B !important; }
-    .dark .border-gray-200 { border-color: #263449 !important; }
+    .dark .border-gray-100 { border-color: rgba(255,255,255,.06) !important; }
+    .dark .border-gray-200 { border-color: rgba(255,255,255,.09) !important; }
     .dark .border-gray-300 { border-color: #334155 !important; }
     .dark .divide-gray-100 > * + * { border-color: #1E293B !important; }
 
@@ -224,7 +307,7 @@
     .dark .gantt-gridline { background: #1E293B !important; }
   </style>
 </head>
-<body class="bg-gray-100 font-sans text-gray-900 min-h-screen">
+<body class="font-sans text-gray-900 min-h-screen">
 
 <!-- ═══ AUTH GATE ═══ -->
 <div class="auth-overlay fixed inset-0 z-[60] items-center justify-center p-5 overflow-hidden" id="auth-overlay">
@@ -234,7 +317,7 @@
   </video>
   <div class="absolute inset-0" style="background:linear-gradient(160deg, rgba(13,27,42,.88), rgba(10,126,140,.55))"></div>
 
-  <div class="relative bg-white/95 backdrop-blur rounded-2xl w-full max-w-sm shadow-2xl p-8">
+  <div class="relative bg-white/70 backdrop-blur-2xl rounded-2xl w-full max-w-sm shadow-2xl p-8" style="border:1px solid rgba(255,255,255,.4)">
     <h1 class="text-xl font-black text-navy mb-1">Waypoint</h1>
 
     <!-- LOGIN -->
