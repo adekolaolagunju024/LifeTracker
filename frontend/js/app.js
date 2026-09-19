@@ -725,6 +725,9 @@ async function renderGantt() {
     const projectById = Object.fromEntries(projects.map(p => [p.id, p]));
     if (!APP.ganttViewMode) APP.ganttViewMode = 'month';
     if (APP.ganttProjectFilter === undefined) APP.ganttProjectFilter = '';
+    let pageView = 'timeline';
+    try { pageView = localStorage.getItem('ganttPageView') || 'timeline'; } catch { /* private mode etc */ }
+    applyGanttPageView(pageView);
 
     document.querySelectorAll('.gantt-view-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === APP.ganttViewMode));
 
@@ -975,7 +978,112 @@ async function renderGantt() {
         <span class="flex items-center gap-1.5"><span class="inline-block w-0.5 h-3 bg-red-500 rounded"></span>Today</span>
       </div>`;
 
+    renderKanbanBoard(dateSourceTasks, projectById);
   } catch (e) { console.error('Gantt error:', e); }
+}
+
+// ── KANBAN VIEW ────────────────────────────────────────────────
+// A second, drag-to-change-status view of the same Gantt page — reuses
+// whatever renderGantt() already fetched (respecting the current project
+// filter) instead of a second round-trip to the API.
+const KANBAN_COLUMNS = ['Not Started', 'In Progress', 'Completed'];
+const KANBAN_COLUMN_COLOR = { 'Not Started': '#6B7280', 'In Progress': '#C0642A', 'Completed': '#1A7A4A' };
+
+function setGanttPageView(mode) {
+  try { localStorage.setItem('ganttPageView', mode); } catch { /* private mode etc */ }
+  applyGanttPageView(mode);
+}
+
+function applyGanttPageView(mode) {
+  document.querySelectorAll('#gantt-page-view-toggle .gantt-view-btn').forEach(b => b.classList.toggle('active', b.dataset.pageview === mode));
+  document.getElementById('gantt-timeline-view').classList.toggle('hidden', mode !== 'timeline');
+  document.getElementById('gantt-kanban-view').classList.toggle('hidden', mode !== 'kanban');
+  // Zoom level and Print/Export only make sense for the timeline.
+  document.getElementById('gantt-view-toggle').classList.toggle('hidden', mode !== 'timeline');
+  document.getElementById('gantt-export-actions').classList.toggle('hidden', mode !== 'timeline');
+}
+
+function renderKanbanBoard(tasks, projectById) {
+  const board = document.getElementById('kanban-board');
+  if (!board) return;
+
+  board.innerHTML = KANBAN_COLUMNS.map(status => {
+    const colTasks = tasks.filter(t => t.status === status);
+    const cards = colTasks.map(t => {
+      const proj = projectById[t.projectId];
+      const borderColor = PRIORITY_BORDER[t.priority] || '#D1D5DB';
+      return `
+        <div class="kanban-card group bg-white rounded-lg border border-gray-200 p-3 mb-2" style="border-left:3px solid ${borderColor}"
+          data-task-id="${t.id}" data-status="${status}"
+          onmousedown="kanbanCardMouseDown(event, '${t.id}', '${status}')">
+          <div class="flex items-start justify-between gap-2 mb-1.5">
+            <span class="text-sm font-semibold text-navy cursor-pointer hover:text-teal" onclick="editTask('${t.id}')">${esc(t.title)}</span>
+            <div class="flex-shrink-0 hidden group-hover:flex gap-1">
+              <button onclick="addTaskToGoogleCalendar('${t.id}')" class="text-gray-400 hover:text-gray-600 text-xs" title="Add to Google Calendar">📅</button>
+              <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="text-gray-400 hover:text-red-500 text-xs" title="Delete task">🗑️</button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between text-xs text-gray-400">
+            <span class="truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}</span>
+            ${t.endDate ? `<span class="flex-shrink-0 ml-2">${formatDateShort(t.endDate)}</span>` : ''}
+          </div>
+        </div>`;
+    }).join('') || `<p class="text-xs text-gray-400 text-center py-6">No tasks</p>`;
+
+    return `
+      <div class="bg-gray-50 rounded-xl p-3 kanban-column" data-status="${status}">
+        <div class="flex items-center justify-between mb-3 px-1">
+          <h4 class="text-xs font-bold uppercase tracking-wide" style="color:${KANBAN_COLUMN_COLOR[status]}">${status} (${colTasks.length})</h4>
+          <button onclick="openAddTaskWithStatus('${status}')" class="text-gray-400 hover:text-teal text-sm px-1" title="Add task">➕</button>
+        </div>
+        <div class="kanban-column-body" data-status="${status}" style="min-height:60px">${cards}</div>
+      </div>`;
+  }).join('');
+}
+
+function openAddTaskWithStatus(status) {
+  openAddTask(APP.ganttProjectFilter || undefined);
+  document.getElementById('task-status').value = status;
+}
+
+// Manual drag-to-change-status, mouse-based like the rest of the Gantt
+// chart's drag interactions (row reorder, bar move/resize) rather than the
+// HTML5 Drag and Drop API, for the same "drop indicator" feel throughout.
+let kanbanDrag = null;
+
+function kanbanCardMouseDown(e, taskId, currentStatus) {
+  if (e.target.closest('button')) return; // let the 📅/🗑️ buttons handle their own click
+  e.preventDefault();
+  const cardEl = e.currentTarget;
+  kanbanDrag = { taskId, currentStatus, cardEl, dropStatus: null };
+  cardEl.classList.add('kanban-card-dragging');
+  document.addEventListener('mousemove', kanbanMouseMove);
+  document.addEventListener('mouseup', kanbanMouseUp);
+}
+
+function kanbanMouseMove(e) {
+  const d = kanbanDrag;
+  if (!d) return;
+  document.querySelectorAll('.kanban-column-dragover').forEach(c => c.classList.remove('kanban-column-dragover'));
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const column = el && el.closest('.kanban-column');
+  d.dropStatus = column ? column.dataset.status : null;
+  if (column) column.classList.add('kanban-column-dragover');
+}
+
+async function kanbanMouseUp() {
+  document.removeEventListener('mousemove', kanbanMouseMove);
+  document.removeEventListener('mouseup', kanbanMouseUp);
+  const d = kanbanDrag;
+  kanbanDrag = null;
+  if (!d) return;
+
+  d.cardEl.classList.remove('kanban-card-dragging');
+  document.querySelectorAll('.kanban-column-dragover').forEach(c => c.classList.remove('kanban-column-dragover'));
+
+  if (d.dropStatus && d.dropStatus !== d.currentStatus) {
+    await updateGanttTaskStatus(d.taskId, d.dropStatus); // already re-renders Gantt (and, in turn, Kanban) on completion
+  }
 }
 
 // ── GANTT DRAG-TO-MOVE / RESIZE ───────────────────────────────────

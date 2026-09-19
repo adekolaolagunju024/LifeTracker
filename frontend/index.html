@@ -112,6 +112,10 @@
     .gantt-row-dragging { opacity: 0.4; }
     .gantt-drop-above { box-shadow: inset 0 2px 0 0 #0A7E8C; }
     .gantt-drop-below { box-shadow: inset 0 -2px 0 0 #0A7E8C; }
+    .kanban-card { cursor: grab; }
+    .kanban-card-dragging { opacity: 0.4; }
+    .kanban-column-dragover { background: #E0F4F6 !important; }
+    .dark .kanban-column-dragover { background: #0F3A40 !important; }
 
     /* Used for both printing and PNG export: the frozen columns and the
        two-pane scroll split exist only so the chart fits on screen — for
@@ -736,17 +740,24 @@
             class="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
             <option value="">All Projects</option>
           </select>
+          <div class="flex gap-1 bg-gray-100 rounded-lg p-1" id="gantt-page-view-toggle">
+            <button onclick="setGanttPageView('timeline')" data-pageview="timeline" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">🗂️ Timeline</button>
+            <button onclick="setGanttPageView('kanban')" data-pageview="kanban" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">📋 Kanban</button>
+          </div>
           <div class="flex gap-1 bg-gray-100 rounded-lg p-1" id="gantt-view-toggle">
             <button onclick="setGanttViewMode('week')" data-mode="week" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Week</button>
             <button onclick="setGanttViewMode('month')" data-mode="month" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Month</button>
             <button onclick="setGanttViewMode('year')" data-mode="year" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Year</button>
           </div>
-          <div class="flex gap-2">
+          <div class="flex gap-2" id="gantt-export-actions">
             <button onclick="printGanttChart()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">🖨️ Print / PDF</button>
             <button onclick="exportGanttImage()" id="gantt-export-img-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">🖼️ Export Image</button>
           </div>
         </div>
       </div>
+
+      <!-- ═══ TIMELINE (Gantt) VIEW ═══ -->
+      <div id="gantt-timeline-view">
       <div id="gantt-legend" class="mb-3"></div>
       <p class="md:hidden text-[11px] text-gray-400 mb-2">↔ Swipe the chart to see the full timeline</p>
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" id="gantt-chart-card">
@@ -772,6 +783,12 @@
             <div id="gantt-rows"></div>
           </div>
         </div>
+      </div>
+      </div>
+
+      <!-- ═══ KANBAN VIEW ═══ -->
+      <div class="hidden" id="gantt-kanban-view">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="kanban-board"></div>
       </div>
     </div>
 
