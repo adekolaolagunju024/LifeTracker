@@ -890,6 +890,18 @@
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Notifications</h3>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-semibold text-navy">📧 Daily email digest</p>
+            <p class="text-xs text-gray-400 mt-0.5">One email a day (mornings) listing anything overdue, due today, or due tomorrow. Skipped automatically on days there's nothing to report.</p>
+          </div>
+          <button onclick="toggleEmailDigest()" id="email-digest-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2 flex-shrink-0">
+            <span id="email-digest-label">Off</span>
+          </button>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
         <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Your Profile</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>

@@ -14,7 +14,8 @@ A general-purpose personal goal tracker — Career and Wealth are just two of th
 - **Dashboard** — goal-agnostic on purpose: the KPI row (Total/Completed/In Progress) and the "Goals Progress" hero card both aggregate every project regardless of type, since Wealth is just one goal among many, not a special headline metric. "Projects at a Glance" shows live per-project stats (tasks, done, an overdue count highlighted in red, progress — a Wealth-type project shows its own £ progress toward its own target instead) as cards or a compact table — pick whichever with the Cards/Table toggle, which is remembered next time
 - **Wealth tracker** — categories with editable targets (add/edit/delete), current values, a net worth chart, and a monthly income/savings log; reached via a Wealth-type project rather than a dedicated nav item
 - **Actions** — a live, auto-generated feed (not a maintained list) of Overdue, Due This Week, and High-priority-in-progress tasks across every project; mark one done straight from the feed
-- **Daily digest** — a dismissible banner on login/reload if anything is overdue or due today, linking straight into Actions. No email/push service is configured, so this is "surfaced the moment you open the app" rather than delivered outside it; shows at most once per day
+- **Daily digest** — a dismissible banner on login/reload if anything is overdue or due today, linking straight into Actions; shows at most once per day
+- **Daily digest email** (optional) — a genuine outside-the-app notification: one email a day (07:00 server time) grouping Overdue / Due Today / Due Tomorrow tasks by project, sent via Gmail SMTP. Opt-in per account from Settings → Notifications; skipped automatically on a day with nothing to report, and skipped entirely (with a log line, not an error) if Gmail credentials aren't configured on the server
 - **AI Insights** (optional) — a "✨ Analyze My Tasks" button on the Actions page sends your open tasks to Claude and gets back a prioritized focus list plus 2-4 suggested next-step tasks you can add with one click. Button copy sets expectations up front (time + that it uses your API credits) and shows a spinner while it runs
 - **Import Project from File** (optional) — on All Projects, upload a `.xlsx`/`.pdf`/`.png`/`.jpg` (a plan, checklist, or spreadsheet) and Claude proposes a project with tasks extracted from it; every field is editable and nothing is created until you confirm
 - **Google Drive backup** (optional) — connect a Google account to export data as JSON, Excel, Google Sheets, PDF, or image
@@ -47,6 +48,8 @@ Edit `.env`:
 | `NODE_ENV` | No | Set to `production` when deployed, so session cookies require HTTPS |
 | `PUPPETEER_EXECUTABLE_PATH` | No | Path to a Chromium-family browser, used for PDF/image reports and the Gantt chart's image export. The `Dockerfile` sets this to the Chromium it installs — only set it yourself on a non-Docker host |
 | `ANTHROPIC_API_KEY` | No | Only needed for the "✨ AI Insights" button on the Actions page. Get one at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
+| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | No | Powers the daily digest email. `GMAIL_APP_PASSWORD` is **not** your normal Gmail password — generate one at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) (requires 2-Step Verification on that Google account). Leave both blank to disable the feature |
+| `APP_URL` | No | Public URL used for the "Open Waypoint" link in digest emails, since a background email job has no incoming request to derive it from. Defaults to `http://localhost:3000` |
 
 Run it:
 
@@ -65,7 +68,7 @@ A `Dockerfile` is included and is the recommended path — it installs Chromium 
 
 1. Create a new project from this repo — Railway detects the `Dockerfile` automatically.
 2. **Attach a volume**: mount it at `/data`, then set `DB_PATH=/data/lifetracker.sqlite`. Without this the SQLite database (and every session) is wiped on every redeploy.
-3. Set environment variables: `SESSION_SECRET` (generate one — see the table below), `NODE_ENV=production`, and `ANTHROPIC_API_KEY`/`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`GOOGLE_REDIRECT_URI` if you want those features live. Don't set `PUPPETEER_EXECUTABLE_PATH` — the Dockerfile already does.
+3. Set environment variables: `SESSION_SECRET` (generate one — see the table below), `NODE_ENV=production`, `APP_URL` (your Railway domain, once you have it), and `ANTHROPIC_API_KEY`/`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`GOOGLE_REDIRECT_URI`/`GMAIL_USER`/`GMAIL_APP_PASSWORD` if you want those features live. Don't set `PUPPETEER_EXECUTABLE_PATH` — the Dockerfile already does.
 4. Once Railway gives you a domain, if you're using Google features, go back to Google Cloud Console and add **both** `https://<your-domain>/api/drive/callback` and `https://<your-domain>/api/auth/google/callback` as Authorized redirect URIs on the OAuth client, and update `GOOGLE_REDIRECT_URI` to the first one.
 
 ### Any other host

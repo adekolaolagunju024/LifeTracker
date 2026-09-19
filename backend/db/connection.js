@@ -25,7 +25,9 @@ db.exec(`
     currency TEXT NOT NULL DEFAULT '£',
     targetNetWorth REAL NOT NULL DEFAULT 100000,
     targetDate TEXT NOT NULL DEFAULT '2027-05-01',
-    onboarded INTEGER NOT NULL DEFAULT 0
+    onboarded INTEGER NOT NULL DEFAULT 0,
+    emailDigestEnabled INTEGER NOT NULL DEFAULT 0,
+    lastDigestSentDate TEXT
   );
 
   CREATE TABLE IF NOT EXISTS projects (
@@ -108,6 +110,8 @@ addColumnIfMissing('tasks', "recurrence TEXT DEFAULT 'none'");
 addColumnIfMissing('tasks', "sortOrder INTEGER DEFAULT 0");
 addColumnIfMissing('users', "resetToken TEXT");
 addColumnIfMissing('users', "resetTokenExpires TEXT");
+addColumnIfMissing('profile', "emailDigestEnabled INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('profile', "lastDigestSentDate TEXT");
 
 // The manually-maintained "actions" checklist was replaced by a live feed
 // computed from tasks (overdue / due this week / high priority) — drop the

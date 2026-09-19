@@ -10,6 +10,7 @@ const path    = require('path');
 const db = require('./db/connection');
 const requireAuth = require('./middleware/requireAuth');
 const SqliteStore = require('better-sqlite3-session-store')(session);
+const { startDigestScheduler } = require('./email/digest');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -71,3 +72,5 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`\n🚀 Waypoint running at http://localhost:${PORT}\n`);
 });
+
+startDigestScheduler();

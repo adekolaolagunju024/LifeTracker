@@ -48,17 +48,31 @@ function clearPasswordResetToken(id) {
 // ── PROFILE ──────────────────────────────────────────────────────
 function getProfile(userId) {
   const row = db.prepare('SELECT * FROM profile WHERE userId = ?').get(userId);
-  return { ...row, onboarded: !!row.onboarded };
+  return { ...row, onboarded: !!row.onboarded, emailDigestEnabled: !!row.emailDigestEnabled };
 }
 
 function updateProfile(userId, patch) {
   const current = getProfile(userId);
   const next = { ...current, ...patch };
   db.prepare(`
-    UPDATE profile SET name=?, tagline=?, currency=?, targetNetWorth=?, targetDate=?, onboarded=?
+    UPDATE profile SET name=?, tagline=?, currency=?, targetNetWorth=?, targetDate=?, onboarded=?, emailDigestEnabled=?
     WHERE userId = ?
-  `).run(next.name, next.tagline, next.currency, next.targetNetWorth, next.targetDate, next.onboarded ? 1 : 0, userId);
+  `).run(next.name, next.tagline, next.currency, next.targetNetWorth, next.targetDate, next.onboarded ? 1 : 0, next.emailDigestEnabled ? 1 : 0, userId);
   return getProfile(userId);
+}
+
+// All users with the digest turned on — the scheduler needs the email
+// address too, which lives on `users`, not `profile`.
+function listUsersForDigest() {
+  return db.prepare(`
+    SELECT u.id AS userId, u.email, p.name, p.lastDigestSentDate
+    FROM profile p JOIN users u ON u.id = p.userId
+    WHERE p.emailDigestEnabled = 1
+  `).all();
+}
+
+function setLastDigestSentDate(userId, dateStr) {
+  db.prepare('UPDATE profile SET lastDigestSentDate = ? WHERE userId = ?').run(dateStr, userId);
 }
 
 // ── PROJECTS (a project may have a parentId, making it a sub-folder) ──
@@ -300,7 +314,7 @@ function getFullSnapshot(userId) {
 module.exports = {
   createUser, getUserByEmail, getUserById, setUserPasswordHash, deleteUser,
   setPasswordResetToken, getUserByResetToken, clearPasswordResetToken,
-  getProfile, updateProfile,
+  getProfile, updateProfile, listUsersForDigest, setLastDigestSentDate,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, reorderTasks,
   getWealth, updateWealthEntries, addWealthTarget, updateWealthTarget, deleteWealthTarget, addMonthlyLogEntry, deleteMonthlyLogEntry,

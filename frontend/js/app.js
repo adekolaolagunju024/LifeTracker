@@ -1508,6 +1508,7 @@ async function renderSettings() {
     document.getElementById('set-currency').value = p.currency || '£';
     document.getElementById('set-target').value   = p.targetNetWorth;
     document.getElementById('set-date').value     = p.targetDate;
+    setEmailDigestButton(p.emailDigestEnabled);
     renderSettingsDrive();
     API.getMe().then(me => { document.getElementById('account-email').textContent = me.email; }).catch(() => {});
   } catch (e) { console.error('Settings error:', e); }
@@ -1525,6 +1526,27 @@ async function saveSettings() {
     updateSidebar();
     showToast('✅ Settings saved!');
   } catch (e) { showToast('❌ Failed to save', 'error'); }
+}
+
+function setEmailDigestButton(enabled) {
+  const btn   = document.getElementById('email-digest-btn');
+  const label = document.getElementById('email-digest-label');
+  btn.classList.toggle('bg-teal', enabled);
+  btn.classList.toggle('text-white', enabled);
+  btn.classList.toggle('bg-gray-100', !enabled);
+  btn.classList.toggle('text-gray-700', !enabled);
+  label.textContent = enabled ? 'On' : 'Off';
+  btn.dataset.enabled = enabled ? '1' : '0';
+}
+
+async function toggleEmailDigest() {
+  const btn = document.getElementById('email-digest-btn');
+  const next = btn.dataset.enabled !== '1';
+  try {
+    await API.updateProfile({ emailDigestEnabled: next });
+    setEmailDigestButton(next);
+    showToast(next ? '✅ Daily digest emails turned on' : 'Daily digest emails turned off');
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to update'), 'error'); }
 }
 
 // ── AUTH ────────────────────────────────────────────────────────
