@@ -100,6 +100,10 @@
     .gantt-view-btn { color: #6B7280; }
     .gantt-view-btn.active { background: #fff; color: #0A7E8C; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
     .dark .gantt-view-btn.active { background: #1E293B; }
+    .gantt-switch-btn { color: #6B7280; }
+    .gantt-switch-btn.active { color: #0A7E8C; }
+    .dark .gantt-switch-btn.active { color: #5EEAD4; }
+    #gantt-switch-thumb.kanban-active { transform: translateX(100%); }
     .dash-view-btn { color: #6B7280; }
     .dash-view-btn.active { background: #fff; color: #0A7E8C; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
     .dark .dash-view-btn.active { background: #1E293B; }
@@ -823,9 +827,10 @@
             class="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
             <option value="">All Projects</option>
           </select>
-          <div class="flex gap-1 bg-gray-100 rounded-lg p-1" id="gantt-page-view-toggle">
-            <button onclick="setGanttPageView('timeline')" data-pageview="timeline" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">🗂️ Timeline</button>
-            <button onclick="setGanttPageView('kanban')" data-pageview="kanban" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">📋 Kanban</button>
+          <div class="relative flex bg-gray-100 rounded-full p-1" id="gantt-page-view-toggle" style="width:216px">
+            <div id="gantt-switch-thumb" class="absolute top-1 bottom-1 left-1 rounded-full bg-white shadow" style="width:calc(50% - 4px); transition:transform .2s ease-out"></div>
+            <button onclick="setGanttPageView('timeline')" data-pageview="timeline" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">📊 Gantt Chart</button>
+            <button onclick="setGanttPageView('kanban')" data-pageview="kanban" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">📋 Kanban</button>
           </div>
           <div class="flex gap-1 bg-gray-100 rounded-lg p-1" id="gantt-view-toggle">
             <button onclick="setGanttViewMode('week')" data-mode="week" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Week</button>

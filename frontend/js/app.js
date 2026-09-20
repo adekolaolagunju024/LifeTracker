@@ -995,7 +995,8 @@ function setGanttPageView(mode) {
 }
 
 function applyGanttPageView(mode) {
-  document.querySelectorAll('#gantt-page-view-toggle .gantt-view-btn').forEach(b => b.classList.toggle('active', b.dataset.pageview === mode));
+  document.querySelectorAll('#gantt-page-view-toggle .gantt-switch-btn').forEach(b => b.classList.toggle('active', b.dataset.pageview === mode));
+  document.getElementById('gantt-switch-thumb').classList.toggle('kanban-active', mode === 'kanban');
   document.getElementById('gantt-timeline-view').classList.toggle('hidden', mode !== 'timeline');
   document.getElementById('gantt-kanban-view').classList.toggle('hidden', mode !== 'kanban');
   // Zoom level and Print/Export only make sense for the timeline.
