@@ -1015,7 +1015,8 @@ function renderKanbanBoard(tasks, projectById) {
       return `
         <div class="kanban-card group bg-white rounded-lg border border-gray-200 p-3 mb-2" style="border-left:3px solid ${borderColor}"
           data-task-id="${t.id}" data-status="${status}"
-          onmousedown="kanbanCardMouseDown(event, '${t.id}', '${status}')">
+          onmousedown="kanbanCardMouseDown(event, '${t.id}', '${status}')"
+          ontouchstart="kanbanCardMouseDown(event, '${t.id}', '${status}')">
           <div class="flex items-start justify-between gap-2 mb-1.5">
             <span class="text-sm font-semibold text-navy cursor-pointer hover:text-teal" onclick="editTask('${t.id}')">${esc(t.title)}</span>
             <div class="flex-shrink-0 hidden group-hover:flex gap-1">
@@ -1046,10 +1047,20 @@ function openAddTaskWithStatus(status) {
   document.getElementById('task-status').value = status;
 }
 
-// Manual drag-to-change-status, mouse-based like the rest of the Gantt
-// chart's drag interactions (row reorder, bar move/resize) rather than the
-// HTML5 Drag and Drop API, for the same "drop indicator" feel throughout.
+// Manual drag-to-change-status, mouse- and touch-based like the rest of
+// the Gantt chart's drag interactions (row reorder, bar move/resize)
+// rather than the HTML5 Drag and Drop API, for the same "drop indicator"
+// feel throughout — and so it actually works on a phone/tablet (including
+// the Android app), where mouse events never fire at all.
 let kanbanDrag = null;
+
+// Mouse and touch events carry coordinates differently — normalize once
+// here rather than branching in every handler below.
+function pointerXY(e) {
+  if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  if (e.changedTouches && e.changedTouches.length) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
 
 function kanbanCardMouseDown(e, taskId, currentStatus) {
   if (e.target.closest('button')) return; // let the 📅/🗑️ buttons handle their own click
@@ -1059,13 +1070,18 @@ function kanbanCardMouseDown(e, taskId, currentStatus) {
   cardEl.classList.add('kanban-card-dragging');
   document.addEventListener('mousemove', kanbanMouseMove);
   document.addEventListener('mouseup', kanbanMouseUp);
+  document.addEventListener('touchmove', kanbanMouseMove, { passive: false });
+  document.addEventListener('touchend', kanbanMouseUp);
+  document.addEventListener('touchcancel', kanbanMouseUp);
 }
 
 function kanbanMouseMove(e) {
   const d = kanbanDrag;
   if (!d) return;
+  if (e.cancelable) e.preventDefault(); // stop the page from scrolling while dragging a card on touch
   document.querySelectorAll('.kanban-column-dragover').forEach(c => c.classList.remove('kanban-column-dragover'));
-  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const { x, y } = pointerXY(e);
+  const el = document.elementFromPoint(x, y);
   const column = el && el.closest('.kanban-column');
   d.dropStatus = column ? column.dataset.status : null;
   if (column) column.classList.add('kanban-column-dragover');
@@ -1074,6 +1090,9 @@ function kanbanMouseMove(e) {
 async function kanbanMouseUp() {
   document.removeEventListener('mousemove', kanbanMouseMove);
   document.removeEventListener('mouseup', kanbanMouseUp);
+  document.removeEventListener('touchmove', kanbanMouseMove);
+  document.removeEventListener('touchend', kanbanMouseUp);
+  document.removeEventListener('touchcancel', kanbanMouseUp);
   const d = kanbanDrag;
   kanbanDrag = null;
   if (!d) return;
