@@ -134,6 +134,14 @@
     .kanban-card-dragging { opacity: 0.4; }
     .kanban-column-dragover { background: #E0F4F6 !important; }
     .dark .kanban-column-dragover { background: #0F3A40 !important; }
+    .kanban-card-ghost {
+      pointer-events: none;
+      z-index: 999;
+      cursor: grabbing;
+      transform: rotate(2deg) scale(1.04);
+      box-shadow: 0 16px 40px rgba(13,27,42,.25);
+      opacity: .96;
+    }
 
     /* Used for both printing and PNG export: the frozen columns and the
        two-pane scroll split exist only so the chart fits on screen — for
@@ -894,6 +902,23 @@
 
       <!-- ═══ KANBAN VIEW ═══ -->
       <div class="hidden" id="gantt-kanban-view">
+        <div class="flex items-center gap-3 flex-wrap mb-4">
+          <label class="text-xs font-semibold text-gray-500 flex items-center gap-1.5">Sort
+            <select id="kanban-sort" onchange="setKanbanSort(this.value)" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
+              <option value="due">Due Soon</option>
+              <option value="priority">Priority</option>
+              <option value="manual">Recently Added</option>
+            </select>
+          </label>
+          <label class="text-xs font-semibold text-gray-500 flex items-center gap-1.5">Priority
+            <select id="kanban-priority-filter" onchange="setKanbanPriorityFilter(this.value)" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
+              <option value="">All</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </label>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="kanban-board"></div>
       </div>
     </div>

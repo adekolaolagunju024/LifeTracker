@@ -1010,12 +1010,68 @@ function applyGanttPageView(mode) {
   document.getElementById('gantt-export-actions').classList.toggle('hidden', mode !== 'timeline');
 }
 
+const PRIORITY_RANK = { High: 0, Medium: 1, Low: 2 };
+
+// Overdue, then due today, then due this week, then everything else — same
+// buckets as the Actions feed and the daily digest, just used to sort
+// Kanban cards instead of splitting them into labeled sections. Answers
+// "what do I actually need to do today or this week" at a glance, which a
+// flat chronological sort doesn't (a task due in 3 years still sorts
+// "correctly" but tells you nothing useful about urgency).
+function dueSoonRank(t) {
+  if (!t.endDate) return 3;
+  const todayKey = localDateKey(new Date());
+  const weekAheadKey = localDateKey(new Date(Date.now() + 7 * 86400000));
+  const dueKey = t.endDate.slice(0, 10);
+  if (dueKey < todayKey) return 0;      // overdue
+  if (dueKey === todayKey) return 1;    // due today
+  if (dueKey <= weekAheadKey) return 2; // due this week
+  return 3;                             // later
+}
+
+function dueSoonCompare(a, b) {
+  const rankDiff = dueSoonRank(a) - dueSoonRank(b);
+  if (rankDiff !== 0) return rankDiff;
+  return (a.endDate || '9999') < (b.endDate || '9999') ? -1 : 1;
+}
+
+const KANBAN_SORTS = {
+  manual:   { label: 'Recently Added', fn: (a, b) => 0 }, // API order (createdAt ASC) — leave as-is
+  priority: { label: 'Priority',       fn: (a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] },
+  due:      { label: 'Due Soon',       fn: dueSoonCompare },
+};
+
+function setKanbanSort(sort) {
+  APP.kanbanSort = sort;
+  try { localStorage.setItem('kanbanSort', sort); } catch { /* private mode etc */ }
+  renderGantt();
+}
+
+function setKanbanPriorityFilter(priority) {
+  APP.kanbanPriorityFilter = priority;
+  try { localStorage.setItem('kanbanPriorityFilter', priority); } catch { /* private mode etc */ }
+  renderGantt();
+}
+
 function renderKanbanBoard(tasks, projectById) {
   const board = document.getElementById('kanban-board');
   if (!board) return;
 
+  if (APP.kanbanSort === undefined) {
+    try { APP.kanbanSort = localStorage.getItem('kanbanSort') || 'due'; } catch { APP.kanbanSort = 'due'; }
+  }
+  if (APP.kanbanPriorityFilter === undefined) {
+    try { APP.kanbanPriorityFilter = localStorage.getItem('kanbanPriorityFilter') || ''; } catch { APP.kanbanPriorityFilter = ''; }
+  }
+  const sortSel = document.getElementById('kanban-sort');
+  if (sortSel) sortSel.value = APP.kanbanSort;
+  const prioritySel = document.getElementById('kanban-priority-filter');
+  if (prioritySel) prioritySel.value = APP.kanbanPriorityFilter;
+
+  if (APP.kanbanPriorityFilter) tasks = tasks.filter(t => t.priority === APP.kanbanPriorityFilter);
+
   board.innerHTML = KANBAN_COLUMNS.map(status => {
-    const colTasks = tasks.filter(t => t.status === status);
+    const colTasks = tasks.filter(t => t.status === status).sort(KANBAN_SORTS[APP.kanbanSort].fn);
     const cards = colTasks.map(t => {
       const proj = projectById[t.projectId];
       const borderColor = PRIORITY_BORDER[t.priority] || '#D1D5DB';
@@ -1073,7 +1129,32 @@ function kanbanCardMouseDown(e, taskId, currentStatus) {
   if (e.target.closest('button')) return; // let the 📅/🗑️ buttons handle their own click
   e.preventDefault();
   const cardEl = e.currentTarget;
-  kanbanDrag = { taskId, currentStatus, cardEl, dropStatus: null };
+  const rect = cardEl.getBoundingClientRect();
+  const { x, y } = pointerXY(e);
+
+  // A floating clone that tracks the cursor exactly, so the card visibly
+  // "lifts and follows" rather than just fading in place while an
+  // invisible drag happens underneath. pointer-events:none keeps it out of
+  // elementFromPoint's way for drop-target detection.
+  const ghost = cardEl.cloneNode(true);
+  ghost.classList.add('kanban-card-ghost');
+  ghost.classList.remove('group');
+  // Purely a visual copy — strip anything that would make code elsewhere
+  // (or a test) mistake it for the real, interactive card.
+  ghost.removeAttribute('data-task-id');
+  ghost.removeAttribute('onmousedown');
+  ghost.removeAttribute('ontouchstart');
+  ghost.style.position = 'fixed';
+  ghost.style.width = rect.width + 'px';
+  ghost.style.left = rect.left + 'px';
+  ghost.style.top = rect.top + 'px';
+  ghost.style.margin = '0';
+  document.body.appendChild(ghost);
+
+  kanbanDrag = {
+    taskId, currentStatus, cardEl, ghost, dropStatus: null,
+    grabDX: x - rect.left, grabDY: y - rect.top,
+  };
   cardEl.classList.add('kanban-card-dragging');
   document.addEventListener('mousemove', kanbanMouseMove);
   document.addEventListener('mouseup', kanbanMouseUp);
@@ -1086,9 +1167,12 @@ function kanbanMouseMove(e) {
   const d = kanbanDrag;
   if (!d) return;
   if (e.cancelable) e.preventDefault(); // stop the page from scrolling while dragging a card on touch
-  document.querySelectorAll('.kanban-column-dragover').forEach(c => c.classList.remove('kanban-column-dragover'));
   const { x, y } = pointerXY(e);
-  const el = document.elementFromPoint(x, y);
+  d.ghost.style.left = (x - d.grabDX) + 'px';
+  d.ghost.style.top = (y - d.grabDY) + 'px';
+
+  document.querySelectorAll('.kanban-column-dragover').forEach(c => c.classList.remove('kanban-column-dragover'));
+  const el = document.elementFromPoint(x, y); // pointer-events:none on the ghost keeps it out of this
   const column = el && el.closest('.kanban-column');
   d.dropStatus = column ? column.dataset.status : null;
   if (column) column.classList.add('kanban-column-dragover');
@@ -1104,6 +1188,7 @@ async function kanbanMouseUp() {
   kanbanDrag = null;
   if (!d) return;
 
+  d.ghost.remove();
   d.cardEl.classList.remove('kanban-card-dragging');
   document.querySelectorAll('.kanban-column-dragover').forEach(c => c.classList.remove('kanban-column-dragover'));
 
