@@ -1604,11 +1604,19 @@ async function renderActions() {
     tasks.forEach(t => {
       if (t.status === 'Completed') return;
       const dueKey = t.endDate ? t.endDate.slice(0, 10) : null;
-      if (dueKey && dueKey < todayKey)      { overdue.push(t);      return; }
-      if (dueKey && dueKey <= weekAheadKey) { dueThisWeek.push(t);  return; }
-      const startKey = t.startDate ? t.startDate.slice(0, 10) : null;
-      if (startKey && startKey >= todayKey && startKey <= weekAheadKey) { startingThisWeek.push(t); return; }
-      if (t.status === 'In Progress' && t.priority === 'High') { highPriority.push(t); return; }
+      // Overdue/Due This Week/Starting This Week stay mutually exclusive with
+      // each other, but High Priority is an independent lens, not a leftover
+      // bucket — a task that's In Progress + High shows here even if it's
+      // already flagged as due or starting soon above.
+      if (dueKey && dueKey < todayKey) {
+        overdue.push(t);
+      } else if (dueKey && dueKey <= weekAheadKey) {
+        dueThisWeek.push(t);
+      } else {
+        const startKey = t.startDate ? t.startDate.slice(0, 10) : null;
+        if (startKey && startKey >= todayKey && startKey <= weekAheadKey) startingThisWeek.push(t);
+      }
+      if (t.status === 'In Progress' && t.priority === 'High') highPriority.push(t);
     });
     overdue.sort((a, b) => a.endDate < b.endDate ? -1 : a.endDate > b.endDate ? 1 : 0);
     dueThisWeek.sort((a, b) => a.endDate < b.endDate ? -1 : a.endDate > b.endDate ? 1 : 0);
@@ -1664,7 +1672,7 @@ async function renderActions() {
         const days = daysBetweenKeys(todayKey, t.startDate.slice(0, 10));
         return days === 0 ? 'Starts today' : `Starts in ${days} day${days === 1 ? '' : 's'}`;
       }, 'Nothing starting this week') +
-      section('High Priority — In Progress', '⭐', highPriority, () => '', 'No other high-priority tasks in progress');
+      section('High Priority — In Progress', '⭐', highPriority, () => '', 'No high-priority tasks in progress');
 
   } catch (e) { console.error('Actions error:', e); }
 }
