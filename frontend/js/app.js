@@ -1593,23 +1593,31 @@ async function renderActions() {
     const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
     const projectById = Object.fromEntries(projects.map(p => [p.id, p]));
 
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const weekAhead = new Date(today); weekAhead.setDate(weekAhead.getDate() + 7);
+    // String-compared local date keys, not raw Date objects — endDate/
+    // startDate are plain "YYYY-MM-DD" strings that new Date() parses as
+    // UTC midnight, a different instant from local midnight in any
+    // non-UTC timezone, which can put a task in the wrong bucket by a day.
+    const todayKey = localDateKey(new Date());
+    const weekAheadKey = localDateKey(new Date(Date.now() + 7 * 86400000));
 
-    const overdue = [], dueThisWeek = [], highPriority = [];
+    const overdue = [], dueThisWeek = [], startingThisWeek = [], highPriority = [];
     tasks.forEach(t => {
       if (t.status === 'Completed') return;
-      const due = t.endDate ? new Date(t.endDate) : null;
-      if (due && due < today)      { overdue.push(t);      return; }
-      if (due && due <= weekAhead) { dueThisWeek.push(t);  return; }
+      const dueKey = t.endDate ? t.endDate.slice(0, 10) : null;
+      if (dueKey && dueKey < todayKey)      { overdue.push(t);      return; }
+      if (dueKey && dueKey <= weekAheadKey) { dueThisWeek.push(t);  return; }
+      const startKey = t.startDate ? t.startDate.slice(0, 10) : null;
+      if (startKey && startKey >= todayKey && startKey <= weekAheadKey) { startingThisWeek.push(t); return; }
       if (t.status === 'In Progress' && t.priority === 'High') { highPriority.push(t); return; }
     });
-    overdue.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
-    dueThisWeek.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
+    overdue.sort((a, b) => a.endDate < b.endDate ? -1 : a.endDate > b.endDate ? 1 : 0);
+    dueThisWeek.sort((a, b) => a.endDate < b.endDate ? -1 : a.endDate > b.endDate ? 1 : 0);
+    startingThisWeek.sort((a, b) => a.startDate < b.startDate ? -1 : a.startDate > b.startDate ? 1 : 0);
     highPriority.sort((a, b) => a.title.localeCompare(b.title));
 
-    document.getElementById('act-overdue').textContent = overdue.length;
-    document.getElementById('act-week').textContent    = dueThisWeek.length;
+    document.getElementById('act-overdue').textContent  = overdue.length;
+    document.getElementById('act-week').textContent     = dueThisWeek.length;
+    document.getElementById('act-starting').textContent = startingThisWeek.length;
     document.getElementById('act-high').textContent     = highPriority.length;
 
     const row = (t, reason) => {
@@ -1637,15 +1645,25 @@ async function renderActions() {
         </div>
       </div>`;
 
+    // Both sides parsed the same way (UTC midnight for the calendar date,
+    // ignoring the local offset entirely) so the day count itself can't
+    // drift a day off depending on timezone, even though it's built from
+    // the same local-date keys used for bucketing above.
+    const daysBetweenKeys = (fromKey, toKey) => Math.round((new Date(toKey + 'T00:00:00Z') - new Date(fromKey + 'T00:00:00Z')) / 86400000);
+
     document.getElementById('action-list').innerHTML =
       section('Overdue', '🔴', overdue, t => {
-        const days = Math.round((today - new Date(t.endDate)) / 86400000);
+        const days = daysBetweenKeys(t.endDate.slice(0, 10), todayKey);
         return `${days} day${days === 1 ? '' : 's'} overdue`;
       }, 'Nothing overdue 🎉') +
       section('Due This Week', '🟡', dueThisWeek, t => {
-        const days = Math.round((new Date(t.endDate) - today) / 86400000);
+        const days = daysBetweenKeys(todayKey, t.endDate.slice(0, 10));
         return days === 0 ? 'Due today' : `Due in ${days} day${days === 1 ? '' : 's'}`;
       }, 'Nothing due this week') +
+      section('Starting This Week', '🚀', startingThisWeek, t => {
+        const days = daysBetweenKeys(todayKey, t.startDate.slice(0, 10));
+        return days === 0 ? 'Starts today' : `Starts in ${days} day${days === 1 ? '' : 's'}`;
+      }, 'Nothing starting this week') +
       section('High Priority — In Progress', '⭐', highPriority, () => '', 'No other high-priority tasks in progress');
 
   } catch (e) { console.error('Actions error:', e); }

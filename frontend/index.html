@@ -327,6 +327,7 @@
     .dark .text-brand-green  { color: #86EFAC !important; }
     .dark .text-brand-orange { color: #FDBA74 !important; }
     .dark .text-gold  { color: #FDE68A !important; }
+    .dark .text-blue-600 { color: #7DD3FC !important; }
     .dark .text-teal  { color: #5EEAD4 !important; }
     .dark .gantt-cat-row { background: #0F1729 !important; }
     .dark .gantt-row-alt { background: #121B2E !important; }
@@ -993,7 +994,7 @@
         <h2 class="text-2xl font-black text-navy">Actions</h2>
         <p class="text-gray-500 text-sm mt-1">A live view of what needs attention right now, across every project — nothing to maintain by hand.</p>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div class="bg-white rounded-xl p-5 border border-gray-200">
           <p class="text-xs font-semibold text-gray-400">🔴 Overdue</p>
           <p class="text-3xl font-black font-mono text-red-600 mt-1" id="act-overdue">0</p>
@@ -1001,6 +1002,10 @@
         <div class="bg-white rounded-xl p-5 border border-gray-200">
           <p class="text-xs font-semibold text-gray-400">🟡 Due This Week</p>
           <p class="text-3xl font-black font-mono text-brand-orange mt-1" id="act-week">0</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-gray-200">
+          <p class="text-xs font-semibold text-gray-400">🚀 Starting This Week</p>
+          <p class="text-3xl font-black font-mono text-blue-600 mt-1" id="act-starting">0</p>
         </div>
         <div class="bg-white rounded-xl p-5 border border-gray-200">
           <p class="text-xs font-semibold text-gray-400">⭐ High Priority</p>
