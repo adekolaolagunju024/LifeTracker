@@ -74,7 +74,7 @@
     .onb-dot { width: 8px; height: 8px; border-radius: 999px; background: #E5E7EB; transition: all .2s; }
     .onb-dot.active { background: #0A7E8C; width: 20px; }
     .onb-dot.done { background: #1A7A4A; }
-    .nav-item.active { background: #0A7E8C !important; color: #fff !important; }
+    .nav-item.active { background: rgba(10,126,140,.28) !important; color: #fff !important; box-shadow: inset 3px 0 0 0 #0A7E8C; }
     .hero-bar-fill { background: linear-gradient(90deg, #0A7E8C, #C49A00); }
     .goals-bar-fill { background: linear-gradient(90deg, #0A7E8C, #1A7A4A); }
     .gantt-bar-area { position: relative; overflow: hidden; display: flex; align-items: center; }
@@ -104,6 +104,20 @@
     .gantt-switch-btn.active { color: #0A7E8C; }
     .dark .gantt-switch-btn.active { color: #5EEAD4; }
     #gantt-switch-thumb.kanban-active { transform: translateX(100%); }
+
+    /* Native-feeling iOS toggle switch, reused anywhere a setting is a
+       plain on/off (Dark Mode, email digest) instead of a button with a
+       text label that changes. */
+    .ios-switch { position: relative; width: 46px; height: 27px; border-radius: 999px; background: #D1D5DB; border: none; padding: 0; cursor: pointer; flex-shrink: 0; transition: background .2s; }
+    .ios-switch.on { background: #0A7E8C; }
+    .ios-switch-knob { position: absolute; top: 2px; left: 2px; width: 23px; height: 23px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s; }
+    .ios-switch.on .ios-switch-knob { transform: translateX(19px); }
+    .dark .ios-switch { background: #374151; }
+
+    /* Apple-style icon badge — a small rounded-square tinted backdrop
+       behind a nav/section icon, used in the sidebar and Settings. */
+    .icon-badge { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; font-size: 15px; flex-shrink: 0; }
+    .icon-badge-sm { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 7px; font-size: 12px; flex-shrink: 0; }
     .dash-view-btn { color: #6B7280; }
     .dash-view-btn.active { background: #fff; color: #0A7E8C; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
     .dark .dash-view-btn.active { background: #1E293B; }
@@ -556,49 +570,53 @@
     </div>
 
     <!-- Nav -->
-    <div class="px-3 py-4 space-y-1">
+    <div class="px-3 py-4 space-y-1.5">
       <p class="text-white/25 text-[9px] font-bold tracking-widest px-3 mb-2 uppercase">Overview</p>
-      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
-        onclick="showPage('dashboard')">
-        <span class="text-base w-5 text-center">🏠</span> Dashboard
+      <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('dashboard')" data-page="dashboard">
+        <span class="icon-badge" style="background:rgba(10,126,140,.22)">🏠</span> Dashboard
       </button>
-      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
-        onclick="showPage('gantt')">
-        <span class="text-base w-5 text-center">📊</span> Chart
+      <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('gantt')" data-page="gantt">
+        <span class="icon-badge" style="background:rgba(124,58,237,.22)">📊</span> Chart
       </button>
-      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
-        onclick="showPage('actions')">
-        <span class="text-base w-5 text-center">✅</span> Actions
+      <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('actions')" data-page="actions">
+        <span class="icon-badge" style="background:rgba(26,122,74,.22)">✅</span> Actions
       </button>
     </div>
 
-    <div class="px-3 pb-2 space-y-1">
+    <div class="mx-4 border-t border-white/8"></div>
+
+    <div class="px-3 py-2 space-y-1.5">
       <p class="text-white/25 text-[9px] font-bold tracking-widest px-3 mb-2 uppercase">Projects</p>
-      <div id="project-nav" class="space-y-1"></div>
-      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
-        onclick="showPage('projects')">
-        <span class="text-base w-5 text-center">📁</span> All Projects
+      <div id="project-nav" class="space-y-1.5"></div>
+      <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('projects')" data-page="projects">
+        <span class="icon-badge" style="background:rgba(196,154,0,.22)">📁</span> All Projects
       </button>
     </div>
+
+    <div class="mx-4 border-t border-white/8"></div>
 
     <div class="px-3 pb-4 space-y-1 relative">
-      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+      <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="toggleFileMenu(event)" id="file-menu-btn">
-        <span class="text-base w-5 text-center">📁</span> File
+        <span class="icon-badge" style="background:rgba(255,255,255,.12)">📁</span> File
       </button>
-      <div class="hidden absolute left-3 right-3 bottom-full mb-1 bg-white rounded-lg shadow-xl border border-gray-200 py-1.5 z-50" id="file-menu">
-        <button onclick="closeFileMenu(); showPage('settings')" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left">
-          <span class="w-5 text-center">⚙️</span> Settings
+      <div class="hidden absolute left-3 right-3 bottom-full mb-1 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50" id="file-menu">
+        <button onclick="closeFileMenu(); showPage('settings')" class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">
+          <span class="icon-badge-sm" style="background:#6B728022">⚙️</span> Settings
         </button>
-        <button onclick="closeFileMenu(); exportData()" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left">
-          <span class="w-5 text-center">⬇</span> Export Data (JSON)
+        <button onclick="closeFileMenu(); exportData()" class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">
+          <span class="icon-badge-sm" style="background:#0A7E8C22">⬇</span> Export Data (JSON)
         </button>
-        <button onclick="closeFileMenu(); importData()" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left">
-          <span class="w-5 text-center">⬆</span> Import Data (JSON)
+        <button onclick="closeFileMenu(); importData()" class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">
+          <span class="icon-badge-sm" style="background:#C49A0022">⬆</span> Import Data (JSON)
         </button>
         <div class="border-t border-gray-100 my-1"></div>
-        <button onclick="closeFileMenu(); logout()" class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 text-left">
-          <span class="w-5 text-center">🚪</span> Log Out
+        <button onclick="closeFileMenu(); logout()" class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 text-left">
+          <span class="icon-badge-sm" style="background:#B0302022">🚪</span> Log Out
         </button>
       </div>
     </div>
@@ -986,31 +1004,30 @@
         <p class="text-gray-500 text-sm mt-1">Personalise your tracker.</p>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Appearance</h3>
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-semibold text-navy">Dark mode</p>
-            <p class="text-xs text-gray-400 mt-0.5">Switch between light and dark themes.</p>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy pb-4 mb-1"><span class="icon-badge" style="background:#6B728022">⚙️</span> Preferences</h3>
+        <div class="flex items-center justify-between py-3.5 border-b border-gray-100">
+          <div class="flex items-center gap-3">
+            <span class="icon-badge" style="background:#1B3A5C22">🌙</span>
+            <div>
+              <p class="text-sm font-semibold text-navy">Dark Mode</p>
+              <p class="text-xs text-gray-400 mt-0.5">Switch between light and dark themes.</p>
+            </div>
           </div>
-          <button onclick="toggleTheme()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2">
-            <span id="theme-toggle-icon-settings">🌙</span> <span id="theme-toggle-label">Light mode</span>
-          </button>
+          <button onclick="toggleTheme()" class="ios-switch" id="theme-switch" role="switch" aria-label="Toggle dark mode"><span class="ios-switch-knob"></span></button>
+        </div>
+        <div class="flex items-center justify-between pt-3.5">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="icon-badge" style="background:#0A7E8C22">📧</span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-navy">Daily Email Digest</p>
+              <p class="text-xs text-gray-400 mt-0.5">One email a day (mornings) listing anything overdue, due today, or due tomorrow. Skipped automatically on days there's nothing to report.</p>
+            </div>
+          </div>
+          <button onclick="toggleEmailDigest()" class="ios-switch" id="email-digest-btn" role="switch" aria-label="Toggle daily email digest"><span class="ios-switch-knob"></span></button>
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Notifications</h3>
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-semibold text-navy">📧 Daily email digest</p>
-            <p class="text-xs text-gray-400 mt-0.5">One email a day (mornings) listing anything overdue, due today, or due tomorrow. Skipped automatically on days there's nothing to report.</p>
-          </div>
-          <button onclick="toggleEmailDigest()" id="email-digest-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2 flex-shrink-0">
-            <span id="email-digest-label">Off</span>
-          </button>
-        </div>
-      </div>
-      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Your Profile</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#0A7E8C22">👤</span> Your Profile</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-semibold text-gray-600 mb-1">Your Name</label>
@@ -1041,7 +1058,7 @@
         <button onclick="saveSettings()" class="mt-5 bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-5 py-2.5 rounded-lg">💾 Save Profile</button>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Data Management</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#C0642A22">💾</span> Data Management</h3>
         <div class="flex gap-3 flex-wrap">
           <button onclick="exportData()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">⬇ Export Data (JSON)</button>
           <button onclick="importData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">⬆ Import Data (JSON)</button>
@@ -1050,7 +1067,7 @@
         <p class="text-xs text-gray-400 mt-3">Export regularly as a backup. Import to restore on another device.</p>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Google Drive Backup</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#1B3A5C22">☁️</span> Google Drive Backup</h3>
         <p class="text-sm text-gray-500 mb-1" id="settings-drive-text">Checking connection…</p>
         <p class="text-xs text-gray-400 mb-4" id="settings-drive-sub"></p>
         <div class="flex gap-3 flex-wrap" id="settings-drive-actions"></div>
@@ -1065,7 +1082,7 @@
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">Account & Security</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#1A7A4A22">🔒</span> Account & Security</h3>
         <p class="text-xs text-gray-400 mb-4">Logged in as <span class="font-semibold text-gray-600" id="account-email">—</span></p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
@@ -1083,12 +1100,12 @@
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5">First-Time Setup</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#7C3AED22">🧭</span> First-Time Setup</h3>
         <p class="text-xs text-gray-400 mb-3">Re-run the welcome wizard (name, targets, first project, Google Drive).</p>
         <button onclick="rerunOnboarding()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🧭 Re-run Setup Wizard</button>
       </div>
       <div class="bg-white rounded-xl border border-red-200 p-6">
-        <h3 class="text-sm font-bold text-red-600 border-b border-red-100 pb-3 mb-5">Danger Zone</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-red-600 border-b border-red-100 pb-3 mb-5"><span class="icon-badge" style="background:#B0302022">⚠️</span> Danger Zone</h3>
         <p class="text-xs text-gray-400 mb-3">Permanently deletes your account and everything in it — every project, task, and wealth record. Export your data first if you want a copy; this cannot be undone.</p>
         <div class="max-w-xs mb-3">
           <label class="block text-xs font-semibold text-gray-600 mb-1">Enter your password to confirm</label>

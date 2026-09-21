@@ -69,13 +69,10 @@ function cancelConfirmAction() {
 // ── THEME (dark mode) ─────────────────────────────────────────────
 function applyThemeIcon() {
   const isDark = document.documentElement.classList.contains('dark');
-  const icon = isDark ? '☀️' : '🌙';
   const iconEl = document.getElementById('theme-toggle-icon');
-  const iconSettingsEl = document.getElementById('theme-toggle-icon-settings');
-  const labelEl = document.getElementById('theme-toggle-label');
-  if (iconEl) iconEl.textContent = icon;
-  if (iconSettingsEl) iconSettingsEl.textContent = icon;
-  if (labelEl) labelEl.textContent = isDark ? 'Dark mode' : 'Light mode';
+  const switchEl = document.getElementById('theme-switch');
+  if (iconEl) iconEl.textContent = isDark ? '☀️' : '🌙';
+  if (switchEl) switchEl.classList.toggle('on', isDark);
 }
 
 function toggleTheme() {
@@ -150,6 +147,15 @@ function showPage(id, projectId = null) {
   const pg = document.getElementById('page-' + (projectId ? 'project-detail' : id));
   if (pg) pg.classList.add('active');
 
+  // Static nav items (Dashboard/Chart/Actions/All Projects) never actually
+  // got a persistent selected state before — only the dynamically-built
+  // per-project links did. project-detail pages stay correctly highlighted
+  // via that existing per-project logic (rebuilt below in updateSidebar()).
+  if (!projectId) {
+    const navBtn = document.querySelector(`.nav-item[data-page="${id}"]`);
+    if (navBtn) navBtn.classList.add('active');
+  }
+
   const titles = {
     dashboard: 'Dashboard', projects: 'All Projects',
     gantt: 'Gantt Chart',   wealth: 'Wealth Tracker',
@@ -182,9 +188,9 @@ async function updateSidebar() {
 
     // Rebuild project nav
     document.getElementById('project-nav').innerHTML = projects.map(proj => `
-      <button class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all ${APP.currentProjectId === proj.id ? 'active' : ''}"
+      <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all ${APP.currentProjectId === proj.id ? 'active' : ''}"
         onclick="showPage('project-detail','${proj.id}')">
-        <span class="text-base w-5 text-center">${proj.icon}</span>
+        <span class="icon-badge" style="background:${proj.color}33">${proj.icon}</span>
         <span class="flex-1 text-left truncate">${esc(proj.title)}</span>
       </button>`).join('');
 
@@ -1658,13 +1664,8 @@ async function saveSettings() {
 }
 
 function setEmailDigestButton(enabled) {
-  const btn   = document.getElementById('email-digest-btn');
-  const label = document.getElementById('email-digest-label');
-  btn.classList.toggle('bg-teal', enabled);
-  btn.classList.toggle('text-white', enabled);
-  btn.classList.toggle('bg-gray-100', !enabled);
-  btn.classList.toggle('text-gray-700', !enabled);
-  label.textContent = enabled ? 'On' : 'Off';
+  const btn = document.getElementById('email-digest-btn');
+  btn.classList.toggle('on', enabled);
   btn.dataset.enabled = enabled ? '1' : '0';
 }
 
