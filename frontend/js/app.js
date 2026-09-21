@@ -1012,33 +1012,40 @@ function applyGanttPageView(mode) {
 
 const PRIORITY_RANK = { High: 0, Medium: 1, Low: 2 };
 
-// Overdue, then due today, then due this week, then everything else — same
+// Overdue/started, then today, then this week, then everything else — same
 // buckets as the Actions feed and the daily digest, just used to sort
 // Kanban cards instead of splitting them into labeled sections. Answers
-// "what do I actually need to do today or this week" at a glance, which a
-// flat chronological sort doesn't (a task due in 3 years still sorts
-// "correctly" but tells you nothing useful about urgency).
-function dueSoonRank(t) {
-  if (!t.endDate) return 3;
+// "what do I actually need to do (or start) today or this week" at a
+// glance, which a flat chronological sort doesn't (a date 3 years out
+// still sorts "correctly" but tells you nothing about urgency). Shared by
+// both the "Due Soon" and "Starting Soon" sorts — same logic, different
+// date field.
+function soonRank(t, field) {
+  const dateStr = t[field];
+  if (!dateStr) return 3;
   const todayKey = localDateKey(new Date());
   const weekAheadKey = localDateKey(new Date(Date.now() + 7 * 86400000));
-  const dueKey = t.endDate.slice(0, 10);
-  if (dueKey < todayKey) return 0;      // overdue
-  if (dueKey === todayKey) return 1;    // due today
-  if (dueKey <= weekAheadKey) return 2; // due this week
-  return 3;                             // later
+  const key = dateStr.slice(0, 10);
+  if (key < todayKey) return 0;      // overdue (or already should have started)
+  if (key === todayKey) return 1;    // today
+  if (key <= weekAheadKey) return 2; // this week
+  return 3;                          // later
 }
 
-function dueSoonCompare(a, b) {
-  const rankDiff = dueSoonRank(a) - dueSoonRank(b);
-  if (rankDiff !== 0) return rankDiff;
-  return (a.endDate || '9999') < (b.endDate || '9999') ? -1 : 1;
+function soonCompare(field) {
+  return (a, b) => {
+    const rankDiff = soonRank(a, field) - soonRank(b, field);
+    if (rankDiff !== 0) return rankDiff;
+    const av = a[field] || '9999', bv = b[field] || '9999';
+    return av < bv ? -1 : av > bv ? 1 : 0;
+  };
 }
 
 const KANBAN_SORTS = {
   manual:   { label: 'Recently Added', fn: (a, b) => 0 }, // API order (createdAt ASC) — leave as-is
   priority: { label: 'Priority',       fn: (a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] },
-  due:      { label: 'Due Soon',       fn: dueSoonCompare },
+  due:      { label: 'Due Soon',       fn: soonCompare('endDate') },
+  start:    { label: 'Starting Soon',  fn: soonCompare('startDate') },
 };
 
 function setKanbanSort(sort) {
