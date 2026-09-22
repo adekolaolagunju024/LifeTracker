@@ -2294,8 +2294,6 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 // ── IMPORT PROJECT FROM FILE (AI) ─────────────────────────────────
 function openImportProject() {
   document.getElementById('import-file-input').value = '';
-  document.getElementById('import-goal-text').value = '';
-  document.getElementById('import-goal-timeframe').value = '';
   document.getElementById('import-error').classList.add('hidden');
   document.getElementById('import-step-upload').classList.remove('hidden');
   document.getElementById('import-upload-actions').classList.remove('hidden');
@@ -2303,6 +2301,7 @@ function openImportProject() {
   document.getElementById('import-step-preview').classList.add('hidden');
   document.getElementById('import-preview-actions').classList.add('hidden');
   document.getElementById('import-preview-actions').classList.remove('flex');
+  resetProjectChat();
   setImportMethod('file');
   openModal('modal-import');
 }
@@ -2310,19 +2309,15 @@ function openImportProject() {
 function setImportMethod(method) {
   document.querySelectorAll('.import-method-btn').forEach(b => b.classList.toggle('active', b.dataset.method === method));
   document.getElementById('import-method-file').classList.toggle('hidden', method !== 'file');
-  document.getElementById('import-method-goal').classList.toggle('hidden', method !== 'goal');
-  document.getElementById('import-analyze-btn').textContent = method === 'file' ? 'Analyze File' : 'Break It Down';
+  document.getElementById('import-method-chat').classList.toggle('hidden', method !== 'chat');
+  document.getElementById('import-analyze-btn').classList.toggle('hidden', method === 'chat');
+  document.getElementById('import-analyze-btn').textContent = 'Analyze File';
   document.getElementById('import-analyze-btn').dataset.method = method;
   document.getElementById('import-error').classList.add('hidden');
+  if (method === 'chat') document.getElementById('chat-input').focus();
 }
 
-// Dispatches to whichever method the "Upload a file" / "Describe your
-// goal" toggle is currently set to — both end up at the same review step,
-// since propose_project returns the same shape either way.
 async function analyzeImportFile() {
-  const method = document.getElementById('import-analyze-btn').dataset.method || 'file';
-  if (method === 'goal') return analyzeGoalBreakdown();
-
   const fileInput = document.getElementById('import-file-input');
   const errorEl = document.getElementById('import-error');
   errorEl.classList.add('hidden');
@@ -2334,18 +2329,85 @@ async function analyzeImportFile() {
   await runProjectProposal(() => fetch('/api/ai/import-project', { method: 'POST', body: formData }), 'Reading file with Claude… (~15-20s)', 'Failed to read that file');
 }
 
-async function analyzeGoalBreakdown() {
-  const errorEl = document.getElementById('import-error');
-  errorEl.classList.add('hidden');
-  const goal = document.getElementById('import-goal-text').value.trim();
-  if (!goal) { errorEl.textContent = 'Describe your goal first'; errorEl.classList.remove('hidden'); return; }
-  const timeframe = document.getElementById('import-goal-timeframe').value.trim();
+// ── CREATE PROJECT VIA AI CHAT ────────────────────────────────────
+// A real multi-turn conversation: the frontend keeps the whole history in
+// APP.projectChat and resends it every turn (the /project-chat endpoint is
+// stateless). Claude either replies with a normal chat message to keep
+// asking questions, or calls propose_project once it has enough — which
+// hands off to the exact same review/edit/create step as the file-upload
+// and (former) single-shot goal flows.
+function resetProjectChat() {
+  APP.projectChat = [];
+  const wrap = document.getElementById('chat-messages');
+  wrap.innerHTML = '';
+  document.getElementById('chat-input').value = '';
+  addChatBubble('assistant', "Hi! What goal are you working towards? Tell me a bit about it and I'll help shape it into a project.");
+}
 
-  await runProjectProposal(() => fetch('/api/ai/breakdown-goal', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ goal, timeframe }),
-  }), 'Breaking your goal down with Claude… (~15-20s)', 'Failed to break that goal down');
+function addChatBubble(role, text, pending) {
+  const wrap = document.getElementById('chat-messages');
+  const el = document.createElement('div');
+  el.className = 'max-w-[85%] text-sm rounded-2xl px-3 py-2 whitespace-pre-wrap ' +
+    (role === 'user' ? 'self-end bg-teal text-white rounded-br-sm' : 'self-start bg-gray-100 text-navy rounded-bl-sm');
+  if (pending) el.classList.add('opacity-60');
+  el.textContent = text;
+  wrap.appendChild(el);
+  wrap.scrollTop = wrap.scrollHeight;
+  return el;
+}
+
+async function sendProjectChatMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const sendBtn = document.getElementById('chat-send-btn');
+  APP.projectChat.push({ role: 'user', content: text });
+  addChatBubble('user', text);
+  input.value = '';
+  input.disabled = true;
+  sendBtn.disabled = true;
+  const typingEl = addChatBubble('assistant', 'Thinking…', true);
+
+  try {
+    const res = await fetch('/api/ai/project-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: APP.projectChat }),
+    });
+    const body = await res.json();
+    typingEl.remove();
+    if (!res.ok) throw new Error(body.error || 'Chat failed');
+
+    if (body.type === 'proposal') {
+      addChatBubble('assistant', "Here's a plan I've put together — review and edit it below ⬇");
+      showImportPreview(body.proposal);
+    } else {
+      APP.projectChat.push({ role: 'assistant', content: body.message });
+      addChatBubble('assistant', body.message);
+    }
+  } catch (e) {
+    typingEl.remove();
+    addChatBubble('assistant', '⚠️ ' + (e.message || 'Something went wrong — try again'));
+  } finally {
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
+
+function showImportPreview(body) {
+  document.getElementById('import-proj-icon').value  = body.icon || '📁';
+  document.getElementById('import-proj-title').value = body.title || '';
+  document.getElementById('import-proj-desc').value  = body.description || '';
+  renderImportTasksList(body.tasks || []);
+
+  document.getElementById('import-step-upload').classList.add('hidden');
+  document.getElementById('import-upload-actions').classList.add('hidden');
+  document.getElementById('import-upload-actions').classList.remove('flex');
+  document.getElementById('import-step-preview').classList.remove('hidden');
+  document.getElementById('import-preview-actions').classList.remove('hidden');
+  document.getElementById('import-preview-actions').classList.add('flex');
 }
 
 async function runProjectProposal(doFetch, loadingLabel, failMessage) {
@@ -2359,18 +2421,7 @@ async function runProjectProposal(doFetch, loadingLabel, failMessage) {
     const res = await doFetch();
     const body = await res.json();
     if (!res.ok) throw new Error(body.error || failMessage);
-
-    document.getElementById('import-proj-icon').value  = body.icon || '📁';
-    document.getElementById('import-proj-title').value = body.title || '';
-    document.getElementById('import-proj-desc').value  = body.description || '';
-    renderImportTasksList(body.tasks || []);
-
-    document.getElementById('import-step-upload').classList.add('hidden');
-    document.getElementById('import-upload-actions').classList.add('hidden');
-    document.getElementById('import-upload-actions').classList.remove('flex');
-    document.getElementById('import-step-preview').classList.remove('hidden');
-    document.getElementById('import-preview-actions').classList.remove('hidden');
-    document.getElementById('import-preview-actions').classList.add('flex');
+    showImportPreview(body);
   } catch (e) {
     errorEl.textContent = e.message || failMessage;
     errorEl.classList.remove('hidden');

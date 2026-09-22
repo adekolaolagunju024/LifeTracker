@@ -269,4 +269,56 @@ router.post('/breakdown-goal', async (req, res) => {
   }
 });
 
+const CHAT_SYSTEM_PROMPT = today => `You are a friendly planning assistant helping someone turn a goal into a concrete project with tasks, through natural back-and-forth conversation. Today's date is ${today}.
+
+Ask short, specific clarifying questions when they'd genuinely sharpen the plan — timeframe, scope, current progress, constraints. Don't interrogate: one or two questions is usually enough, and if the goal is already clear and specific, you can skip straight to proposing.
+
+Once you have enough to propose a solid, sequenced plan AND the user seems ready (they've answered your questions, or said something like "go ahead", "that's enough", "just do it"), call the propose_project tool with realistic startDate/endDate on every task — don't pile everything on one day. Otherwise, just send a normal short conversational reply (a sentence or two, plus your question) and do not call the tool yet.`;
+
+// POST /api/ai/project-chat — a multi-turn version of breakdown-goal: the
+// frontend keeps the whole conversation client-side (this endpoint is
+// stateless) and resends it every turn. Claude either replies with plain
+// text to keep the conversation going, or calls propose_project once it
+// has enough to finalize — same tool/shape as import-project and
+// breakdown-goal, so the frontend's review-before-creating step is shared.
+router.post('/project-chat', async (req, res) => {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY to .env to enable it.' });
+  }
+
+  const incoming = Array.isArray(req.body.messages) ? req.body.messages : [];
+  const messages = incoming
+    .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+    .map(m => ({ role: m.role, content: m.content.trim() }))
+    .slice(-30);
+
+  if (!messages.length || messages[0].role !== 'user') {
+    return res.status(400).json({ error: 'No conversation to respond to' });
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  try {
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const response = await client.messages.create({
+      model: MODEL,
+      max_tokens: 4000,
+      system: CHAT_SYSTEM_PROMPT(today),
+      messages,
+      tools: [IMPORT_TOOL],
+      tool_choice: { type: 'auto' },
+    });
+
+    const toolUse = response.content.find(c => c.type === 'tool_use');
+    if (toolUse) return res.json({ type: 'proposal', proposal: toolUse.input });
+
+    const textBlock = response.content.find(c => c.type === 'text');
+    res.json({ type: 'message', message: textBlock ? textBlock.text : "Sorry, I didn't catch that — could you say more?" });
+  } catch (e) {
+    console.error('AI project-chat error:', e);
+    const apiMessage = e?.error?.error?.message || e?.message || 'Unknown error';
+    res.status(502).json({ error: apiMessage });
+  }
+});
+
 module.exports = router;

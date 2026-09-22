@@ -1225,7 +1225,7 @@
     <div id="import-step-upload" class="p-6 overflow-y-auto flex-1">
       <div class="flex gap-1 bg-gray-100 rounded-lg p-1 mb-4" id="import-method-toggle">
         <button onclick="setImportMethod('file')" data-method="file" class="import-method-btn flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-all">📄 Upload a file</button>
-        <button onclick="setImportMethod('goal')" data-method="goal" class="import-method-btn flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-all">💡 Describe your goal</button>
+        <button onclick="setImportMethod('chat')" data-method="chat" class="import-method-btn flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-all">💬 Chat with AI</button>
       </div>
 
       <div id="import-method-file">
@@ -1234,17 +1234,13 @@
           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3">
       </div>
 
-      <div id="import-method-goal" class="hidden">
-        <p class="text-sm text-gray-500 mb-4">Not sure how to break a goal into tasks? Describe it in your own words and Claude will propose a project with a sequenced set of tasks and realistic dates — nothing is created until you review and confirm. Takes ~15-20s and uses your Anthropic API credits.</p>
-        <div class="mb-3">
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Your goal</label>
-          <textarea id="import-goal-text" rows="3" placeholder="e.g. Run my first marathon, or Launch a small online store selling handmade candles"
-            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
-        </div>
-        <div class="mb-3">
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Target timeframe <span class="font-normal text-gray-400">(optional)</span></label>
-          <input type="text" id="import-goal-timeframe" placeholder="e.g. 6 months, by December, no rush"
-            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      <div id="import-method-chat" class="hidden">
+        <p class="text-sm text-gray-500 mb-3">Not sure how to break a goal into tasks? Chat it through with Claude — answer a couple of questions and it'll propose a project with a sequenced set of tasks and realistic dates when it's ready. Nothing is created until you review and confirm.</p>
+        <div id="chat-messages" class="border border-gray-200 rounded-lg p-3 mb-3 space-y-2 overflow-y-auto flex flex-col" style="max-height:260px; min-height:160px;"></div>
+        <div class="flex gap-2">
+          <input type="text" id="chat-input" placeholder="Type a message…" onkeydown="if(event.key==='Enter'){event.preventDefault(); sendProjectChatMessage();}"
+            class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          <button onclick="sendProjectChatMessage()" id="chat-send-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">Send</button>
         </div>
       </div>
 
