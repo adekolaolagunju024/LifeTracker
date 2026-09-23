@@ -374,6 +374,20 @@ function setGoogleDrive(userId, patch) {
   return getGoogleDrive(userId);
 }
 
+// ── SEARCH (topbar global search) ───────────────────────────────
+function searchAll(userId, q) {
+  const like = '%' + q.toLowerCase() + '%';
+  const projects = db.prepare(`
+    SELECT * FROM projects WHERE userId = ? AND deletedAt IS NULL AND LOWER(title) LIKE ?
+    ORDER BY createdAt DESC LIMIT 8
+  `).all(userId, like);
+  const tasks = db.prepare(`
+    SELECT * FROM tasks WHERE userId = ? AND deletedAt IS NULL AND LOWER(title) LIKE ?
+    ORDER BY createdAt DESC LIMIT 8
+  `).all(userId, like).map(t => ({ ...t, cost: t.cost || 0 }));
+  return { projects, tasks };
+}
+
 // ── FULL SNAPSHOT (for exports/backups) ─────────────────────────
 function getFullSnapshot(userId) {
   return {
@@ -393,5 +407,6 @@ module.exports = {
   listTrash, restoreProject, restoreTask, purgeProjectForever, purgeTaskForever,
   getWealth, updateWealthEntries, addWealthTarget, updateWealthTarget, deleteWealthTarget, addMonthlyLogEntry, deleteMonthlyLogEntry,
   getGoogleDrive, setGoogleDrive,
+  searchAll,
   getFullSnapshot,
 };

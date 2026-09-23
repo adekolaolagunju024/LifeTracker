@@ -5,6 +5,7 @@ A general-purpose personal goal tracker — Career and Wealth are just two of th
 ## Features
 
 - **Accounts** — email/password registration and login, sessions scoped per user (`express-session`), an optional "Sign in with Google" (finds-or-creates an account by email), a "Keep me signed in" toggle (persistent 30-day session vs. a session-only cookie cleared when the browser closes), browser-native password-save support (real `<form>` submits + the Credential Management API), a "Forgot password?" flow (no email service required — the reset link is logged to the server console rather than emailed, so it's the account owner reading their own logs), and self-service permanent account deletion from Settings (password-confirmed; every project/task/wealth row cascades with it)
+- **Global search** — a search box in the topbar, on every page, live-searches project and task titles as you type (debounced, 2+ characters) and jumps straight to whichever result you pick
 - **Recurring tasks** — a task can repeat Daily/Weekly/Monthly; marking one Completed automatically creates the next occurrence with dates shifted forward
 - **Onboarding wizard** — name, wealth targets, and first project on first login
 - **Projects & sub-folders** — one level of nested sub-projects (e.g. "UK Career Goals" → "Cloud Engineering Goals"), each individually editable

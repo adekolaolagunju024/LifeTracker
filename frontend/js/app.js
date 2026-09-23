@@ -144,6 +144,57 @@ function closeGanttExportMenu() {
   document.getElementById('gantt-export-menu').classList.add('hidden');
 }
 
+// Topbar global search — debounced live search across projects and tasks
+// by title. Sits outside any single page's render function since the
+// topbar is shared across every page.
+let globalSearchDebounce = null;
+function onGlobalSearchInput(value) {
+  const q = value.trim();
+  const resultsEl = document.getElementById('global-search-results');
+  if (globalSearchDebounce) clearTimeout(globalSearchDebounce);
+  if (q.length < 2) { resultsEl.classList.add('hidden'); resultsEl.innerHTML = ''; return; }
+  globalSearchDebounce = setTimeout(() => runGlobalSearch(q), 200);
+}
+
+async function runGlobalSearch(q) {
+  const resultsEl = document.getElementById('global-search-results');
+  try {
+    const res = await fetch('/api/search?q=' + encodeURIComponent(q));
+    const { projects, tasks } = await res.json();
+    // The input may have changed (or been cleared) while this was in
+    // flight — never clobber a newer/empty query with a stale response.
+    if (document.getElementById('global-search-input').value.trim() !== q) return;
+
+    if (!projects.length && !tasks.length) {
+      resultsEl.innerHTML = `<p class="px-4 py-3 text-xs text-gray-400 text-center">No matches for "${esc(q)}"</p>`;
+      resultsEl.classList.remove('hidden');
+      return;
+    }
+    const projHTML = projects.map(p => `
+      <button onclick="closeGlobalSearch(); showPage('project-detail','${p.id}')" class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left">
+        <span class="flex-shrink-0">${esc(p.icon || '📁')}</span><span class="truncate flex-1">${esc(p.title)}</span><span class="text-[10px] text-gray-400 uppercase flex-shrink-0">Project</span>
+      </button>`).join('');
+    const taskHTML = tasks.map(t => `
+      <button onclick="closeGlobalSearch(); openTaskDetail('${t.id}')" class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left">
+        <span class="flex-shrink-0">📄</span><span class="truncate flex-1">${esc(t.title)}</span><span class="text-[10px] text-gray-400 uppercase flex-shrink-0">Task</span>
+      </button>`).join('');
+    resultsEl.innerHTML = projHTML + taskHTML;
+    resultsEl.classList.remove('hidden');
+  } catch (e) { console.error('Search error:', e); }
+}
+
+// Used after picking a result — clears the query too, so reopening the
+// search starts fresh rather than re-showing the same results.
+function closeGlobalSearch() {
+  hideGlobalSearchResults();
+  document.getElementById('global-search-input').value = '';
+}
+// Used for dismissal (outside click, Escape) — just collapses the dropdown,
+// keeping whatever was typed so refocusing the input shows it again.
+function hideGlobalSearchResults() {
+  document.getElementById('global-search-results').classList.add('hidden');
+}
+
 document.addEventListener('click', (e) => {
   const menu = document.getElementById('file-menu');
   const btn  = document.getElementById('file-menu-btn');
@@ -154,8 +205,12 @@ document.addEventListener('click', (e) => {
   if (exportMenu && !exportMenu.classList.contains('hidden') && !exportMenu.contains(e.target)) {
     closeGanttExportMenu();
   }
+  const searchWrap = document.getElementById('global-search-wrap');
+  if (searchWrap && !searchWrap.contains(e.target)) {
+    hideGlobalSearchResults();
+  }
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeFileMenu(); closeGanttExportMenu(); } });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeFileMenu(); closeGanttExportMenu(); hideGlobalSearchResults(); } });
 
 // ── NAVIGATION ─────────────────────────────────────────────────
 function showPage(id, projectId = null) {
