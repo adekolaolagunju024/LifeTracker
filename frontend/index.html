@@ -151,7 +151,7 @@
     .gantt-exporting #gantt-rows-scroll { overflow: visible !important; max-height: none !important; }
     .gantt-exporting .gantt-sticky { position: static !important; box-shadow: none !important; }
 
-    /* Mobile: the 5 frozen columns (530px) alone are wider than most phone
+    /* Mobile: the 5 frozen columns (560px) alone are wider than most phone
        screens, so the actual timeline bars — the point of a Gantt chart —
        were scrolled out of reach. Drop Start/Due/Duration (visible in the
        task's own edit panel anyway) and narrow what's left so the timeline
@@ -723,24 +723,18 @@
         </div>
       </div>
 
-      <!-- Urgent Tasks -->
-      <div class="flex items-center gap-2 mb-3">
-        <div class="w-1 h-4 bg-teal rounded-full"></div>
-        <h3 class="text-sm font-bold text-navy-2">⚡ Urgent — High Priority In Progress</h3>
-      </div>
-      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
-        <div class="overflow-x-auto">
-        <table class="w-full">
-          <thead><tr class="bg-navy text-white text-xs">
-            <th class="px-4 py-3 text-left font-semibold"></th>
-            <th class="px-4 py-3 text-left font-semibold">Task</th>
-            <th class="px-4 py-3 text-left font-semibold">Project</th>
-            <th class="px-4 py-3 text-left font-semibold">Due</th>
-            <th class="px-4 py-3 text-left font-semibold">Status</th>
-          </tr></thead>
-          <tbody id="urgent-tasks"></tbody>
-        </table>
+      <!-- Needs Attention — a one-line pointer into Actions, not a second
+           copy of its list: Actions is a primary top-level nav item (one
+           click away, same depth as Dashboard), so duplicating its full
+           Overdue/High-priority table here just meant two places to scan
+           for the same thing, with this one capped, read-only, and unable
+           to mark a task done. -->
+      <div class="bg-white rounded-xl border border-gray-200 p-5 flex items-center justify-between gap-4 flex-wrap">
+        <div class="min-w-0">
+          <p class="text-sm font-bold text-navy">⚡ Needs Attention</p>
+          <p class="text-xs text-gray-400 mt-0.5" id="dash-attention-text">Loading…</p>
         </div>
+        <button onclick="showPage('actions')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">Open Actions →</button>
       </div>
     </div>
 
@@ -840,8 +834,8 @@
     <!-- ─── GANTT ─── -->
     <div class="page p-6" id="page-gantt">
       <div class="mb-6">
-        <h2 class="text-2xl font-black text-navy">Gantt Chart</h2>
-        <p class="text-gray-500 text-sm mt-1">Visual timeline of all tasks across every project.</p>
+        <h2 class="text-2xl font-black text-navy" id="gantt-page-heading">Gantt Chart</h2>
+        <p class="text-gray-500 text-sm mt-1" id="gantt-page-subtitle">Visual timeline of all tasks across every project.</p>
       </div>
       <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div class="flex flex-wrap gap-2 items-center">
@@ -883,7 +877,7 @@
              scroll; a separate non-scrolling header sidesteps that entirely). -->
         <div class="overflow-hidden" id="gantt-header-scroll">
           <div style="min-width:900px" id="gantt-timeline-wrapper">
-            <div class="grid gantt-grid-row border-b border-gray-200" style="grid-template-columns:200px 90px 85px 85px 70px 1fr">
+            <div class="grid gantt-grid-row border-b border-gray-200" style="grid-template-columns:200px 90px 100px 100px 70px 1fr">
               <div class="gantt-sticky gantt-sticky-1 px-4 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Task / Project</div>
               <div class="gantt-sticky gantt-sticky-2 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Status</div>
               <div class="gantt-sticky gantt-sticky-3 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Start</div>

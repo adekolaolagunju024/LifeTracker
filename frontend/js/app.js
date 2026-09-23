@@ -304,20 +304,14 @@ async function renderDashboard() {
     document.getElementById('project-stats-table-wrap').classList.toggle('hidden', dashView !== 'table');
     document.querySelectorAll('.dash-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === dashView));
 
-    // Urgent tasks
-    const urgent = tasks.filter(t => t.status === 'In Progress' && t.priority === 'High').slice(0, 6);
-    document.getElementById('urgent-tasks').innerHTML = urgent.length
-      ? urgent.map(t => {
-          const proj = allProjects.find(p => p.id === t.projectId);
-          return `<tr class="border-b border-gray-100 hover:bg-gray-50">
-            <td class="px-4 py-3 text-lg">${proj?.icon || '📌'}</td>
-            <td class="px-4 py-3 text-sm font-medium cursor-pointer hover:text-teal" onclick="openTaskDetail('${t.id}')">${esc(t.title)}</td>
-            <td class="px-4 py-3 text-xs text-gray-500">${proj?.title || ''}</td>
-            <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">${t.endDate || '—'}</td>
-            <td class="px-4 py-3">${statusBadge(t.status)}</td>
-          </tr>`;
-        }).join('')
-      : `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400 text-sm">No urgent tasks right now 🎉</td></tr>`;
+    // Needs Attention teaser — same Overdue/High-priority definitions as the
+    // Actions page, condensed to one line rather than a duplicate list.
+    const overdueCount = tasks.filter(t => t.status !== 'Completed' && t.endDate && t.endDate.slice(0, 10) < todayKey).length;
+    const highPriorityCount = tasks.filter(t => t.status === 'In Progress' && t.priority === 'High').length;
+    const parts = [];
+    if (overdueCount)       parts.push(`🔴 ${overdueCount} overdue`);
+    if (highPriorityCount)  parts.push(`⭐ ${highPriorityCount} high-priority in progress`);
+    document.getElementById('dash-attention-text').textContent = parts.length ? parts.join(' · ') : 'All caught up 🎉';
 
   } catch (e) { console.error('Dashboard error:', e); }
 }
@@ -612,7 +606,10 @@ function clearFilters(projectId) {
 // ── GANTT ───────────────────────────────────────────────────────
 let ganttCollapsed = new Set();
 let ganttGroupIds = []; // every group id currently rendered — kept up to date by renderGantt(), used by Collapse All
-const GANTT_GRID_COLS = '200px 90px 85px 85px 70px 1fr';
+// Start/Due are 100px, not 85px, so a native date input can show the full
+// "DD/MM/YYYY" — at 85px the year got clipped to 2 digits (e.g. "16/08/20"
+// instead of "16/08/2026") by the column's overflow-hidden.
+const GANTT_GRID_COLS = '200px 90px 100px 100px 70px 1fr';
 
 function toggleGanttGroup(groupId) {
   if (ganttCollapsed.has(groupId)) ganttCollapsed.delete(groupId);
@@ -1008,6 +1005,12 @@ function applyGanttPageView(mode) {
   // Zoom level and Print/Export only make sense for the timeline.
   document.getElementById('gantt-view-toggle').classList.toggle('hidden', mode !== 'timeline');
   document.getElementById('gantt-export-actions').classList.toggle('hidden', mode !== 'timeline');
+
+  document.getElementById('gantt-page-heading').textContent = mode === 'kanban' ? 'Kanban Board' : 'Gantt Chart';
+  document.getElementById('gantt-page-subtitle').textContent = mode === 'kanban'
+    ? 'Drag a card between columns to change its status.'
+    : 'Visual timeline of all tasks across every project.';
+  document.getElementById('topbar-title').textContent = mode === 'kanban' ? 'Kanban Board' : 'Gantt Chart';
 }
 
 const PRIORITY_RANK = { High: 0, Medium: 1, Low: 2 };
@@ -1082,6 +1085,7 @@ function renderKanbanBoard(tasks, projectById) {
     const cards = colTasks.map(t => {
       const proj = projectById[t.projectId];
       const borderColor = PRIORITY_BORDER[t.priority] || '#D1D5DB';
+      const isOverdue = status !== 'Completed' && t.endDate && t.endDate.slice(0, 10) < localDateKey(new Date());
       return `
         <div class="kanban-card group bg-white rounded-lg border border-gray-200 p-3 mb-2" style="border-left:3px solid ${borderColor}"
           data-task-id="${t.id}" data-status="${status}"
@@ -1096,7 +1100,7 @@ function renderKanbanBoard(tasks, projectById) {
           </div>
           <div class="flex items-center justify-between text-xs text-gray-400">
             <span class="truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}</span>
-            ${t.endDate ? `<span class="flex-shrink-0 ml-2">${formatDateShort(t.endDate)}</span>` : ''}
+            ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
           </div>
         </div>`;
     }).join('') || `<p class="text-xs text-gray-400 text-center py-6">No tasks</p>`;
