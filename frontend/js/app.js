@@ -238,6 +238,7 @@ function showPage(id, projectId = null) {
     dashboard: 'Dashboard', projects: 'All Projects',
     gantt: 'Gantt Chart',   wealth: 'Wealth Tracker',
     actions: 'Actions',     settings: 'Settings',
+    calendar: 'Calendar',
   };
   document.getElementById('topbar-title').textContent =
     projectId ? '' : (titles[id] || id);
@@ -249,6 +250,7 @@ function showPage(id, projectId = null) {
   if (id === 'wealth')         renderWealth();
   if (id === 'actions')        renderActions();
   if (id === 'settings')       renderSettings();
+  if (id === 'calendar')       renderCalendar();
 
   updateSidebar();
 }
@@ -338,10 +340,10 @@ async function renderDashboard() {
       const overdueBadge = overdue > 0 ? `<span class="flex-shrink-0 bg-red-50 text-red-600 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">🔴 ${overdue} overdue</span>` : '';
 
       cardsHTML += `
-        <div class="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:shadow-md transition-all"
+        <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-4 cursor-pointer"
           onclick="showPage('project-detail','${proj.id}')">
           <div class="flex items-center gap-3 mb-3">
-            <span class="text-2xl">${proj.icon}</span>
+            <span class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background:${proj.color}1A">${proj.icon}</span>
             <div class="flex-1 min-w-0">
               <p class="font-bold text-sm text-navy truncate">${esc(proj.title)}</p>
               <p class="text-xs text-gray-400">${subLine}</p>
@@ -407,10 +409,10 @@ async function renderProjects() {
       }
 
       return `
-        <div class="bg-white rounded-xl border border-gray-200 p-5 project-card"
+        <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-5 project-card"
           style="border-top: 4px solid ${proj.color}">
           <div class="flex justify-between items-start mb-3">
-            <span class="text-3xl">${proj.icon}</span>
+            <span class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style="background:${proj.color}1A">${proj.icon}</span>
             <div class="project-card-actions flex gap-1 opacity-0 transition-opacity">
               <button onclick="event.stopPropagation();editProject('${proj.id}')"
                 class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm">✏️</button>
@@ -487,10 +489,10 @@ async function renderProjectDetail(projectId) {
         const pdone = pts.filter(t => t.status === 'Completed').length;
         const pp = pct(pdone, pts.length);
         return `
-          <div class="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer hover:shadow-md transition-all project-card"
+          <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-4 cursor-pointer project-card"
             style="border-top: 3px solid ${sub.color}" onclick="showPage('project-detail','${sub.id}')">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-2xl">${sub.icon}</span>
+              <span class="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style="background:${sub.color}1A">${sub.icon}</span>
               <div class="project-card-actions flex gap-1 opacity-0 transition-opacity">
                 <button onclick="event.stopPropagation();editProject('${sub.id}')" class="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 text-xs">✏️</button>
                 <button onclick="event.stopPropagation();deleteProjectConfirm('${sub.id}')" class="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 text-xs">🗑️</button>
@@ -1895,6 +1897,124 @@ async function addSuggestedTask(i) {
     showToast('✅ Added: ' + s.title);
     renderActions();
   } catch (e) { showToast('❌ Failed to add task', 'error'); }
+}
+
+// ── CALENDAR ─────────────────────────────────────────────────────
+// A month grid of every task by due date — the one view the app didn't
+// have (Gantt/Kanban/table all exist, but not "what's due this Tuesday").
+const CALENDAR_MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function changeCalendarMonth(delta) {
+  const d = APP.calendarDate || new Date();
+  APP.calendarDate = new Date(d.getFullYear(), d.getMonth() + delta, 1);
+  APP.calendarExpandedDays = new Set();
+  renderCalendar();
+}
+
+function goToCalendarToday() {
+  APP.calendarDate = new Date();
+  APP.calendarExpandedDays = new Set();
+  renderCalendar();
+}
+
+function setCalendarProjectFilter(id) {
+  APP.calendarProjectFilter = id;
+  try { localStorage.setItem('calendarProjectFilter', id); } catch { /* private mode etc */ }
+  renderCalendar();
+}
+
+function expandCalendarDay(dateKey) {
+  APP.calendarExpandedDays.add(dateKey);
+  renderCalendar();
+}
+
+// Opens the usual Add Task modal with the clicked day pre-filled as the
+// due date, rather than building a separate calendar-specific form.
+async function openAddTaskWithDueDate(dateKey) {
+  await openAddTask(APP.calendarProjectFilter || undefined);
+  document.getElementById('task-end').value = dateKey;
+}
+
+async function renderCalendar() {
+  try {
+    if (!APP.calendarDate) APP.calendarDate = new Date();
+    if (APP.calendarProjectFilter === undefined) {
+      try { APP.calendarProjectFilter = localStorage.getItem('calendarProjectFilter') || ''; } catch { APP.calendarProjectFilter = ''; }
+    }
+    if (!APP.calendarExpandedDays) APP.calendarExpandedDays = new Set();
+
+    const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
+
+    // Project filter dropdown — same grouped-by-parent pattern as Gantt/task modal
+    const filterSel = document.getElementById('calendar-project-filter');
+    const topLevel = projects.filter(p => !p.parentId);
+    const childrenOf = pid => projects.filter(p => p.parentId === pid);
+    filterSel.innerHTML = '<option value="">All Projects</option>' + topLevel.map(top => {
+      const kids = childrenOf(top.id);
+      const topOption = `<option value="${top.id}" ${APP.calendarProjectFilter === top.id ? 'selected' : ''}>${top.icon} ${esc(top.title)}</option>`;
+      if (!kids.length) return topOption;
+      const kidOptions = kids.map(k => `<option value="${k.id}" ${APP.calendarProjectFilter === k.id ? 'selected' : ''}>${k.icon} ${esc(k.title)}</option>`).join('');
+      return `<optgroup label="${esc(top.title)}">${topOption}${kidOptions}</optgroup>`;
+    }).join('');
+
+    const allowedIds = APP.calendarProjectFilter
+      ? new Set([APP.calendarProjectFilter, ...childrenOf(APP.calendarProjectFilter).map(p => p.id)])
+      : null;
+
+    const byDate = {};
+    tasks.filter(t => t.endDate && (!allowedIds || allowedIds.has(t.projectId))).forEach(t => {
+      const key = t.endDate.slice(0, 10);
+      (byDate[key] = byDate[key] || []).push(t);
+    });
+
+    const year  = APP.calendarDate.getFullYear();
+    const month = APP.calendarDate.getMonth();
+    document.getElementById('calendar-month-label').textContent = `${CALENDAR_MONTH_NAMES[month]} ${year}`;
+
+    const startWeekday     = new Date(year, month, 1).getDay(); // 0 = Sunday
+    const daysInMonth      = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth  = new Date(year, month, 0).getDate();
+    const pad = n => String(n).padStart(2, '0');
+
+    const cells = [];
+    for (let i = startWeekday - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, dateKey: null });
+    for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, dateKey: `${year}-${pad(month + 1)}-${pad(d)}` });
+    // Trailing/padding cells (from next month) round the grid out to full
+    // weeks, and always to 6 rows so the page doesn't jump height between
+    // a 4-week and 6-week month.
+    while (cells.length < 42) cells.push({ day: cells.length - (startWeekday + daysInMonth) + 1, dateKey: null });
+
+    const todayKey = localDateKey(new Date());
+    const CAP = 3;
+
+    document.getElementById('calendar-grid').innerHTML = cells.map(cell => {
+      const otherMonth = !cell.dateKey;
+      const isToday = cell.dateKey === todayKey;
+      const dayTasks = cell.dateKey ? (byDate[cell.dateKey] || []) : [];
+      const expanded = cell.dateKey && APP.calendarExpandedDays.has(cell.dateKey);
+      const visible = expanded ? dayTasks : dayTasks.slice(0, CAP);
+      const hiddenCount = dayTasks.length - visible.length;
+
+      const pills = visible.map(t => {
+        const overdue = t.status !== 'Completed' && cell.dateKey < todayKey;
+        const color = PRIORITY_BORDER[t.priority] || '#D1D5DB';
+        return `<div onclick="event.stopPropagation(); openTaskDetail('${t.id}')" title="${esc(t.title)}"
+          class="text-[10px] font-semibold px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-75 ${t.status === 'Completed' ? 'line-through opacity-50' : ''}"
+          style="background:${color}22;color:${overdue ? '#DC2626' : color}">${overdue ? '🔴 ' : ''}${esc(t.title)}</div>`;
+      }).join('');
+      const moreLink = hiddenCount > 0
+        ? `<button onclick="event.stopPropagation(); expandCalendarDay('${cell.dateKey}')" class="text-[10px] text-teal font-semibold hover:underline">+${hiddenCount} more</button>`
+        : '';
+
+      return `
+        <div class="border-b border-r border-gray-100 p-1.5 min-h-[92px] ${otherMonth ? 'bg-gray-50/60' : ''} ${cell.dateKey ? 'cursor-pointer hover:bg-teal/5' : ''}"
+          ${cell.dateKey ? `onclick="openAddTaskWithDueDate('${cell.dateKey}')" title="Add a task due this day"` : ''}>
+          <p class="text-xs font-semibold mb-1 ${otherMonth ? 'text-gray-300' : isToday ? 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-teal text-white' : 'text-gray-500'}">${cell.day}</p>
+          <div class="space-y-0.5">${pills}${moreLink}</div>
+        </div>`;
+    }).join('');
+
+  } catch (e) { console.error('Calendar error:', e); }
 }
 
 // ── SETTINGS ────────────────────────────────────────────────────
