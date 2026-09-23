@@ -169,7 +169,7 @@
       #page-gantt { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
       #gantt-header-scroll, #gantt-rows-scroll { overflow: visible !important; max-height: none !important; }
       .gantt-sticky { position: static !important; box-shadow: none !important; }
-      #gantt-project-filter, #gantt-view-toggle, .gantt-view-btn, [onclick^="printGanttChart"], [onclick^="exportGanttImage"] { display: none !important; }
+      #gantt-project-filter, #gantt-view-toggle, .gantt-view-btn, #gantt-export-actions { display: none !important; }
       @page { size: landscape; margin: 12mm; }
     }
     .spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -0.15em; }
@@ -841,7 +841,6 @@
         <div class="flex flex-wrap gap-2 items-center">
           <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">+ Add Project</button>
           <button onclick="toggleAllGantt()" id="gantt-toggle-all-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">Collapse All</button>
-          <div class="flex flex-wrap gap-2" id="gantt-project-badges"></div>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
           <select id="gantt-project-filter" onchange="setGanttProjectFilter(this.value)"
@@ -859,15 +858,28 @@
             <button onclick="setGanttViewMode('year')" data-mode="year" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Year</button>
           </div>
           <div class="flex gap-2" id="gantt-export-actions">
-            <button onclick="printGanttChart()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">🖨️ Print / PDF</button>
-            <button onclick="exportGanttImage()" id="gantt-export-img-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">🖼️ Export Image</button>
+            <button onclick="toggleGanttLegend()" id="gantt-legend-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">ⓘ Legend</button>
+            <div class="relative">
+              <button onclick="toggleGanttExportMenu(event)" id="gantt-export-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">⬇ Export ▾</button>
+              <div class="hidden absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50 whitespace-nowrap" id="gantt-export-menu">
+                <button onclick="closeGanttExportMenu(); printGanttChart()" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">🖨️ Print / PDF</button>
+                <button onclick="closeGanttExportMenu(); exportGanttImage()" id="gantt-export-img-btn" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">🖼️ Export Image</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- ═══ TIMELINE (Gantt) VIEW ═══ -->
       <div id="gantt-timeline-view">
-      <div id="gantt-legend" class="mb-3"></div>
+      <!-- Project-start badges (🚩) and the color/priority legend are
+           reference info, not controls — collapsed by default so they
+           don't compete with the chart itself; "ⓘ Legend" above expands
+           this. -->
+      <div class="hidden mb-3" id="gantt-legend">
+        <div class="flex flex-wrap gap-2 mb-2" id="gantt-project-badges"></div>
+        <div id="gantt-legend-content"></div>
+      </div>
       <p class="md:hidden text-[11px] text-gray-400 mb-2">↔ Swipe the chart to see the full timeline</p>
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" id="gantt-chart-card">
         <!-- Header: never scrolls vertically; its horizontal scrollLeft is kept

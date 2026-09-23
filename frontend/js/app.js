@@ -125,14 +125,37 @@ function closeFileMenu() {
   document.getElementById('file-menu').classList.add('hidden');
 }
 
+// Gantt toolbar: legend is collapsed by default (remembered next time) so
+// reference info about colors/markers doesn't compete with the chart —
+// "too busy" otherwise, especially with several projects each adding a
+// color swatch. Export menu is a plain click-to-open dropdown, same
+// pattern as the sidebar's File menu, merging what used to be two
+// separate always-visible buttons (Print/PDF, Export Image) into one.
+function toggleGanttLegend() {
+  const el = document.getElementById('gantt-legend');
+  const open = el.classList.toggle('hidden') === false;
+  try { localStorage.setItem('ganttLegendOpen', open ? '1' : '0'); } catch { /* private mode etc */ }
+}
+function toggleGanttExportMenu(e) {
+  e.stopPropagation();
+  document.getElementById('gantt-export-menu').classList.toggle('hidden');
+}
+function closeGanttExportMenu() {
+  document.getElementById('gantt-export-menu').classList.add('hidden');
+}
+
 document.addEventListener('click', (e) => {
   const menu = document.getElementById('file-menu');
   const btn  = document.getElementById('file-menu-btn');
   if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && !btn.contains(e.target)) {
     closeFileMenu();
   }
+  const exportMenu = document.getElementById('gantt-export-menu');
+  if (exportMenu && !exportMenu.classList.contains('hidden') && !exportMenu.contains(e.target)) {
+    closeGanttExportMenu();
+  }
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeFileMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeFileMenu(); closeGanttExportMenu(); } });
 
 // ── NAVIGATION ─────────────────────────────────────────────────
 function showPage(id, projectId = null) {
@@ -649,7 +672,10 @@ function printGanttChart() {
 }
 
 async function exportGanttImage() {
-  const btn = document.getElementById('gantt-export-img-btn');
+  // The menu item that was clicked lives inside the dropdown, which closes
+  // right away — show the loading state on the always-visible toolbar
+  // button instead, so there's feedback during the ~10-15s render.
+  const btn = document.getElementById('gantt-export-btn');
   const originalLabel = btn.textContent;
   btn.disabled = true;
   btn.innerHTML = `<span class="spinner"></span> Rendering… (~10-15s)`;
@@ -731,6 +757,10 @@ async function renderGantt() {
     let pageView = 'timeline';
     try { pageView = localStorage.getItem('ganttPageView') || 'timeline'; } catch { /* private mode etc */ }
     applyGanttPageView(pageView);
+
+    let legendOpen = false;
+    try { legendOpen = localStorage.getItem('ganttLegendOpen') === '1'; } catch { /* private mode etc */ }
+    document.getElementById('gantt-legend').classList.toggle('hidden', !legendOpen);
 
     document.querySelectorAll('.gantt-view-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === APP.ganttViewMode));
 
@@ -970,7 +1000,7 @@ async function renderGantt() {
       .map(p => `<span class="flex items-center gap-1.5"><span class="inline-block w-2.5 h-2.5 rounded-sm" style="background:${p.color}"></span>${esc(p.title)}</span>`)
       .join('');
 
-    document.getElementById('gantt-legend').innerHTML = `
+    document.getElementById('gantt-legend-content').innerHTML = `
       <div class="flex gap-4 text-xs text-gray-500 flex-wrap mb-1.5">${groupLegend}</div>
       <div class="flex gap-4 text-xs text-gray-500 flex-wrap">
         <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-2 rounded-sm border-2" style="border-color:${PRIORITY_BORDER.High}"></span>High priority</span>
