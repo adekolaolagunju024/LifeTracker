@@ -818,11 +818,31 @@
           class="bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold px-4 py-2 rounded-lg">Clear</button>
       </div>
 
+      <!-- Bulk actions bar — only shown once 1+ task checkboxes are ticked -->
+      <div class="hidden items-center gap-3 flex-wrap bg-navy text-white rounded-xl px-4 py-3 mb-4" id="bulk-actions-bar">
+        <span class="text-xs font-semibold" id="bulk-actions-count">0 selected</span>
+        <select id="bulk-status" onchange="if(this.value){bulkSetStatus(this.value);this.value='';}" class="border border-white/20 bg-white/10 rounded-lg px-2 py-1.5 text-xs font-semibold focus:outline-none">
+          <option value="">Set Status…</option>
+          <option value="Not Started">Not Started</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Completed">Completed</option>
+        </select>
+        <select id="bulk-priority" onchange="if(this.value){bulkSetPriority(this.value);this.value='';}" class="border border-white/20 bg-white/10 rounded-lg px-2 py-1.5 text-xs font-semibold focus:outline-none">
+          <option value="">Set Priority…</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+        <button onclick="bulkDeleteConfirm()" class="bg-red-500/20 hover:bg-red-500/30 text-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg">🗑️ Delete Selected</button>
+        <button onclick="clearBulkSelection()" class="ml-auto text-white/60 hover:text-white text-xs font-semibold px-3 py-1.5">Clear selection</button>
+      </div>
+
       <!-- Task Table -->
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
         <table class="w-full">
           <thead><tr class="bg-navy text-white text-xs">
+            <th class="px-4 py-3 text-left font-semibold w-8"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAllTasks(this.checked)"></th>
             <th class="px-4 py-3 text-left font-semibold">Task</th>
             <th class="px-4 py-3 text-left font-semibold">Status</th>
             <th class="px-4 py-3 text-left font-semibold">Priority</th>

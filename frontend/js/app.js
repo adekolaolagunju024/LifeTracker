@@ -571,9 +571,13 @@ async function renderTaskTable(projectId) {
         <p class="text-2xl font-black font-mono text-yellow-600 mt-1">£${cost.toLocaleString()}</p>
       </div>`;
 
+    document.getElementById('bulk-select-all').checked = false;
+    clearBulkSelection();
+
     document.getElementById('task-table-body').innerHTML = tasks.length
       ? tasks.map(t => `
           <tr class="border-b border-gray-100 hover:bg-gray-50">
+            <td class="px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()"></td>
             <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}</td>
             <td class="px-4 py-3">
               <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}"
@@ -608,13 +612,74 @@ async function renderTaskTable(projectId) {
               </div>
             </td>
           </tr>`).join('')
-      : `<tr><td colspan="7" class="px-4 py-10 text-center text-gray-400 text-sm">
+      : `<tr><td colspan="8" class="px-4 py-10 text-center text-gray-400 text-sm">
           No tasks match your filters.
           <button onclick="clearFilters('${projectId}')" class="text-teal underline ml-1">Clear filters</button>
           or <button onclick="openAddTask('${projectId}')" class="text-teal underline">add a task</button>.
         </td></tr>`;
 
   } catch (e) { console.error('Task table error:', e); }
+}
+
+// ── BULK TASK ACTIONS (project detail table) ────────────────────
+function getSelectedTaskIds() {
+  return [...document.querySelectorAll('.bulk-task-checkbox:checked')].map(cb => cb.dataset.taskId);
+}
+
+function toggleSelectAllTasks(checked) {
+  document.querySelectorAll('.bulk-task-checkbox').forEach(cb => { cb.checked = checked; });
+  updateBulkActionsBar();
+}
+
+function updateBulkActionsBar() {
+  const ids = getSelectedTaskIds();
+  const bar = document.getElementById('bulk-actions-bar');
+  bar.classList.toggle('hidden', ids.length === 0);
+  bar.classList.toggle('flex', ids.length > 0);
+  document.getElementById('bulk-actions-count').textContent = `${ids.length} selected`;
+  const allCbs = document.querySelectorAll('.bulk-task-checkbox');
+  document.getElementById('bulk-select-all').checked = allCbs.length > 0 && ids.length === allCbs.length;
+}
+
+function clearBulkSelection() {
+  document.querySelectorAll('.bulk-task-checkbox').forEach(cb => { cb.checked = false; });
+  updateBulkActionsBar();
+}
+
+async function bulkSetStatus(status) {
+  const ids = getSelectedTaskIds();
+  if (!ids.length) return;
+  try {
+    await Promise.all(ids.map(id => API.updateTask(id, { status })));
+    showToast(`✅ Updated ${ids.length} task${ids.length === 1 ? '' : 's'} to ${status}`);
+    renderTaskTable(APP.currentProjectId);
+    if (APP.currentPage === 'gantt') renderGantt();
+  } catch (e) { showToast('❌ ' + (e.message || 'Bulk update failed'), 'error'); }
+}
+
+async function bulkSetPriority(priority) {
+  const ids = getSelectedTaskIds();
+  if (!ids.length) return;
+  try {
+    await Promise.all(ids.map(id => API.updateTask(id, { priority })));
+    showToast(`✅ Set ${ids.length} task${ids.length === 1 ? '' : 's'} to ${priority} priority`);
+    renderTaskTable(APP.currentProjectId);
+    if (APP.currentPage === 'gantt') renderGantt();
+  } catch (e) { showToast('❌ ' + (e.message || 'Bulk update failed'), 'error'); }
+}
+
+function bulkDeleteConfirm() {
+  const ids = getSelectedTaskIds();
+  if (!ids.length) return;
+  confirmAction(`Move ${ids.length} task${ids.length === 1 ? '' : 's'} to Trash? You can restore them from Settings within 30 days.`, async () => {
+    try {
+      await Promise.all(ids.map(id => API.deleteTask(id)));
+      showToast(`🗑️ Moved ${ids.length} task${ids.length === 1 ? '' : 's'} to Trash`);
+      renderTaskTable(APP.currentProjectId);
+      if (APP.currentPage === 'gantt') renderGantt();
+      updateSidebar();
+    } catch (e) { showToast('❌ ' + (e.message || 'Bulk delete failed'), 'error'); }
+  });
 }
 
 async function updateTaskStatus(id, status, projectId) {
