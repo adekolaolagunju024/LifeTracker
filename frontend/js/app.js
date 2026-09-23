@@ -578,7 +578,7 @@ async function renderTaskTable(projectId) {
       ? tasks.map(t => `
           <tr class="border-b border-gray-100 hover:bg-gray-50">
             <td class="px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()"></td>
-            <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}</td>
+            <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}</td>
             <td class="px-4 py-3">
               <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}"
                 onchange="updateTaskStatus('${t.id}', this.value, '${projectId}')">
@@ -1249,7 +1249,7 @@ function renderKanbanBoard(tasks, projectById) {
             </div>
           </div>
           <div class="flex items-center justify-between text-xs text-gray-400">
-            <span class="truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}</span>
+            <span class="truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${t.checklistTotal ? ` · ☑️ ${t.checklistDone}/${t.checklistTotal}` : ''}</span>
             ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
           </div>
         </div>`;
@@ -2831,6 +2831,7 @@ async function openAddTask(projectId) {
   document.getElementById('task-cost').value       = '';
   document.getElementById('task-notes').value      = '';
   document.getElementById('task-recurrence').value = 'none';
+  document.getElementById('task-checklist-section').classList.add('hidden');
   await populateProjectSelect(projectId);
   openModal('modal-task');
 }
@@ -2847,8 +2848,56 @@ async function editTask(id) {
   document.getElementById('task-cost').value       = t.cost || '';
   document.getElementById('task-notes').value      = t.notes || '';
   document.getElementById('task-recurrence').value = t.recurrence || 'none';
+  document.getElementById('task-checklist-section').classList.remove('hidden');
+  renderTaskChecklist(id);
   await populateProjectSelect(t.projectId);
   openModal('modal-task');
+}
+
+// ── CHECKLIST (subtasks within a task) ──────────────────────────
+async function renderTaskChecklist(taskId) {
+  const wrap = document.getElementById('task-checklist-items');
+  try {
+    const items = await API.getChecklist(taskId);
+    const done = items.filter(i => i.completed).length;
+    document.getElementById('task-checklist-count').textContent = items.length ? `(${done}/${items.length})` : '';
+    wrap.innerHTML = items.map(i => `
+      <div class="flex items-center gap-2 group">
+        <input type="checkbox" ${i.completed ? 'checked' : ''} onchange="toggleTaskChecklistItem('${i.id}', this.checked, '${taskId}')">
+        <span class="flex-1 text-sm ${i.completed ? 'line-through text-gray-400' : 'text-navy'}">${esc(i.title)}</span>
+        <button onclick="removeTaskChecklistItem('${i.id}', '${taskId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100 px-1">🗑️</button>
+      </div>`).join('');
+    refreshTaskListsAfterChecklistChange();
+  } catch (e) { console.error('Checklist error:', e); }
+}
+
+async function addTaskChecklistItem() {
+  const taskId = document.getElementById('task-id').value;
+  const input = document.getElementById('task-checklist-input');
+  const title = input.value.trim();
+  if (!taskId || !title) return;
+  await API.addChecklistItem(taskId, title);
+  input.value = '';
+  renderTaskChecklist(taskId);
+}
+
+async function toggleTaskChecklistItem(id, completed, taskId) {
+  await API.updateChecklistItem(id, { completed });
+  renderTaskChecklist(taskId);
+}
+
+async function removeTaskChecklistItem(id, taskId) {
+  await API.deleteChecklistItem(id);
+  renderTaskChecklist(taskId);
+}
+
+// The checklist badge shown on task rows/cards is only as fresh as the
+// last full render — refresh whichever list is currently on screen after
+// a checklist edit so the "n/m" count doesn't go stale while the modal's
+// still open.
+function refreshTaskListsAfterChecklistChange() {
+  if (APP.currentPage === 'project-detail') renderTaskTable(APP.currentProjectId);
+  if (APP.currentPage === 'gantt') renderGantt();
 }
 
 let _projectStartDates = {};

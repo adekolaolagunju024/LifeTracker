@@ -141,20 +141,28 @@ function deleteProjectById(userId, id) {
 }
 
 // ── TASKS ────────────────────────────────────────────────────────
+// checklistTotal/checklistDone are subquery counts, not real columns — lets
+// the task table/Kanban card show a "n/m" checklist badge without an extra
+// round trip per task.
+const CHECKLIST_COUNT_COLUMNS = `
+  (SELECT COUNT(*) FROM checklist_items WHERE taskId = t.id) AS checklistTotal,
+  (SELECT COUNT(*) FROM checklist_items WHERE taskId = t.id AND completed = 1) AS checklistDone
+`;
+
 function listTasks(userId, filters = {}) {
-  let sql = 'SELECT * FROM tasks WHERE userId = ? AND deletedAt IS NULL';
+  let sql = `SELECT t.*, ${CHECKLIST_COUNT_COLUMNS} FROM tasks t WHERE t.userId = ? AND t.deletedAt IS NULL`;
   const params = [userId];
-  if (filters.projectId) { sql += ' AND projectId = ?'; params.push(filters.projectId); }
-  if (filters.status)    { sql += ' AND status = ?';    params.push(filters.status); }
-  if (filters.priority)  { sql += ' AND priority = ?';  params.push(filters.priority); }
-  if (filters.category)  { sql += ' AND category = ?';  params.push(filters.category); }
-  if (filters.search)    { sql += ' AND LOWER(title) LIKE ?'; params.push('%' + filters.search.toLowerCase() + '%'); }
-  sql += ' ORDER BY sortOrder ASC, createdAt ASC';
+  if (filters.projectId) { sql += ' AND t.projectId = ?'; params.push(filters.projectId); }
+  if (filters.status)    { sql += ' AND t.status = ?';    params.push(filters.status); }
+  if (filters.priority)  { sql += ' AND t.priority = ?';  params.push(filters.priority); }
+  if (filters.category)  { sql += ' AND t.category = ?';  params.push(filters.category); }
+  if (filters.search)    { sql += ' AND LOWER(t.title) LIKE ?'; params.push('%' + filters.search.toLowerCase() + '%'); }
+  sql += ' ORDER BY t.sortOrder ASC, t.createdAt ASC';
   return db.prepare(sql).all(...params).map(t => ({ ...t, cost: t.cost || 0 }));
 }
 
 function getTaskById(userId, id) {
-  return db.prepare('SELECT * FROM tasks WHERE id = ? AND userId = ? AND deletedAt IS NULL').get(id, userId);
+  return db.prepare(`SELECT t.*, ${CHECKLIST_COUNT_COLUMNS} FROM tasks t WHERE t.id = ? AND t.userId = ? AND t.deletedAt IS NULL`).get(id, userId);
 }
 
 // A task can't start before the project it belongs to does — only checked
@@ -302,6 +310,45 @@ function purgeTaskForever(userId, id) {
   db.prepare('DELETE FROM tasks WHERE id = ? AND userId = ? AND deletedAt IS NOT NULL').run(id, userId);
 }
 
+// ── CHECKLIST ITEMS (lightweight subtasks within a task) ─────────
+function listChecklistItems(userId, taskId) {
+  if (!getTaskById(userId, taskId)) return null;
+  return db.prepare('SELECT * FROM checklist_items WHERE taskId = ? ORDER BY sortOrder ASC').all(taskId);
+}
+
+function addChecklistItem(userId, taskId, title) {
+  if (!getTaskById(userId, taskId)) return null;
+  const { maxOrder } = db.prepare('SELECT MAX(sortOrder) AS maxOrder FROM checklist_items WHERE taskId = ?').get(taskId);
+  const item = { id: uuid(), taskId, title, completed: 0, sortOrder: (maxOrder ?? -1) + 1 };
+  db.prepare('INSERT INTO checklist_items (id, taskId, title, completed, sortOrder) VALUES (?,?,?,?,?)')
+    .run(item.id, item.taskId, item.title, item.completed, item.sortOrder);
+  return item;
+}
+
+// A checklist item's own row doesn't carry userId — authorize an
+// update/delete by item id alone by looking up which task it belongs to
+// and checking that task against the requesting user.
+function getChecklistItemTaskId(id) {
+  const row = db.prepare('SELECT taskId FROM checklist_items WHERE id = ?').get(id);
+  return row ? row.taskId : null;
+}
+
+function updateChecklistItem(userId, id, patch) {
+  const taskId = getChecklistItemTaskId(id);
+  if (!taskId || !getTaskById(userId, taskId)) return null;
+  const current = db.prepare('SELECT * FROM checklist_items WHERE id = ?').get(id);
+  const next = { ...current, ...patch };
+  db.prepare('UPDATE checklist_items SET title = ?, completed = ? WHERE id = ?').run(next.title, next.completed ? 1 : 0, id);
+  return db.prepare('SELECT * FROM checklist_items WHERE id = ?').get(id);
+}
+
+function deleteChecklistItem(userId, id) {
+  const taskId = getChecklistItemTaskId(id);
+  if (!taskId || !getTaskById(userId, taskId)) return false;
+  db.prepare('DELETE FROM checklist_items WHERE id = ?').run(id);
+  return true;
+}
+
 // ── WEALTH ───────────────────────────────────────────────────────
 function getWealth(userId) {
   const targets = db.prepare('SELECT * FROM wealth_targets WHERE userId = ?').all(userId);
@@ -405,6 +452,7 @@ module.exports = {
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, reorderTasks,
   listTrash, restoreProject, restoreTask, purgeProjectForever, purgeTaskForever,
+  listChecklistItems, addChecklistItem, updateChecklistItem, deleteChecklistItem,
   getWealth, updateWealthEntries, addWealthTarget, updateWealthTarget, deleteWealthTarget, addMonthlyLogEntry, deleteMonthlyLogEntry,
   getGoogleDrive, setGoogleDrive,
   searchAll,

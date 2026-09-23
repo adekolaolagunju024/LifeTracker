@@ -97,6 +97,12 @@ const API = {
   // ── DATA IMPORT ──
   importData: (data) => request('POST', '/data/import', data),
 
+  // ── CHECKLIST (subtasks) ──
+  getChecklist:         (taskId)      => request('GET',    `/checklist/${taskId}`),
+  addChecklistItem:     (taskId, title) => request('POST', `/checklist/${taskId}`, { title }),
+  updateChecklistItem:  (id, patch)    => request('PUT',    `/checklist/item/${id}`, patch),
+  deleteChecklistItem:  (id)           => request('DELETE', `/checklist/item/${id}`),
+
   // ── TRASH ──
   getTrash:            ()   => request('GET',    '/trash'),
   restoreProject:      (id) => request('POST',   `/trash/projects/${id}/restore`),

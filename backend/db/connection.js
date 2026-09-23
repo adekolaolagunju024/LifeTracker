@@ -87,6 +87,14 @@ db.exec(`
     notes TEXT DEFAULT ''
   );
 
+  CREATE TABLE IF NOT EXISTS checklist_items (
+    id TEXT PRIMARY KEY,
+    taskId TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0,
+    sortOrder INTEGER DEFAULT 0
+  );
+
   CREATE TABLE IF NOT EXISTS integrations (
     userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     googleDriveConnected INTEGER NOT NULL DEFAULT 0,
