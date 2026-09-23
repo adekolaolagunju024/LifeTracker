@@ -670,6 +670,14 @@
       <button onclick="dismissDigestBanner()" class="text-amber-500 hover:text-amber-700 text-lg leading-none px-1 flex-shrink-0" aria-label="Dismiss">&times;</button>
     </div>
 
+    <!-- Pending project invites — checked on load, not dismissible (an
+         invite needs an actual accept/decline, not just "hide this") -->
+    <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-teal/10 border border-teal/30 rounded-xl px-4 py-3 flex items-center gap-3" id="invites-banner">
+      <span class="text-lg leading-none">📨</span>
+      <div class="flex-1 min-w-0 text-sm text-navy" id="invites-banner-text"></div>
+      <button onclick="openInvitesModal()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0">Review</button>
+    </div>
+
     <!-- ─── DASHBOARD ─── -->
     <div class="page active p-6" id="page-dashboard">
       <div class="mb-6">
@@ -782,8 +790,9 @@
         <div class="flex gap-2 ml-auto flex-wrap">
           <button onclick="openAddSubfolder(APP.currentProjectId)" id="btn-new-subfolder" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">+ New Sub-folder</button>
           <button onclick="openAddTask(APP.currentProjectId)" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">+ Add Task</button>
+          <button onclick="openShareProject(APP.currentProjectId)" id="btn-share-project" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">👥 <span id="btn-share-label">Share</span></button>
           <button onclick="editProject(APP.currentProjectId)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">✏️ Edit</button>
-          <button onclick="deleteProjectConfirm(APP.currentProjectId)" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">🗑️ Delete</button>
+          <button onclick="deleteProjectConfirm(APP.currentProjectId)" id="btn-delete-project" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">🗑️ Delete</button>
         </div>
       </div>
 
@@ -859,6 +868,7 @@
             <th class="px-4 py-3 text-left font-semibold">Task</th>
             <th class="px-4 py-3 text-left font-semibold">Status</th>
             <th class="px-4 py-3 text-left font-semibold">Priority</th>
+            <th class="px-4 py-3 text-left font-semibold">Assignee</th>
             <th class="px-4 py-3 text-left font-semibold">Start</th>
             <th class="px-4 py-3 text-left font-semibold">Due</th>
             <th class="px-4 py-3 text-left font-semibold">Cost</th>
@@ -1413,6 +1423,12 @@
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         </div>
         <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Assigned To</label>
+          <select id="task-assignee" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+            <option value="">Unassigned</option>
+          </select>
+        </div>
+        <div>
           <label class="block text-xs font-semibold text-gray-600 mb-1">Repeat</label>
           <select id="task-recurrence" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
             <option value="none">Doesn't repeat</option>
@@ -1561,17 +1577,74 @@
         <p class="text-xs font-semibold text-gray-400 mb-0.5">Due Date</p>
         <p class="font-medium text-navy" id="td-end">—</p>
       </div>
+      <div>
+        <p class="text-xs font-semibold text-gray-400 mb-0.5">Assigned To</p>
+        <p class="font-medium text-navy" id="td-assignee">Unassigned</p>
+      </div>
+    </div>
+
+    <div class="border-t border-gray-100 pt-4 mb-5">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Notes</p>
+      <p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed" id="td-notes">No notes for this task yet.</p>
     </div>
 
     <div class="border-t border-gray-100 pt-4">
-      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Notes</p>
-      <p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed" id="td-notes">No notes for this task yet.</p>
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Comments</p>
+      <div id="td-comments" class="space-y-3 mb-3"></div>
+      <div class="flex gap-2">
+        <input type="text" id="td-comment-input" placeholder="Add a comment…" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitTaskComment();}"
+          class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        <button onclick="submitTaskComment()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0">Post</button>
+      </div>
     </div>
   </div>
   <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 flex-wrap">
     <button onclick="closeTaskDetail()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Close</button>
     <button onclick="addTaskToGoogleCalendar(APP_currentDetailTaskId)" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-semibold px-4 py-2 rounded-lg">📅 Add to Google Calendar</button>
     <button onclick="editTaskFromDetail()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">✏️ Edit Task</button>
+  </div>
+</div>
+
+<!-- SHARE PROJECT MODAL -->
+<div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-share">
+  <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+      <h3 class="text-base font-bold text-navy">👥 Share <span id="share-project-title" class="text-gray-400 font-normal"></span></h3>
+      <button onclick="closeModal('modal-share')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+    </div>
+    <div class="p-6 overflow-y-auto flex-1">
+      <div class="mb-5" id="share-invite-section">
+        <label class="block text-xs font-semibold text-gray-600 mb-1">Invite by email</label>
+        <p class="text-xs text-gray-400 mb-2">They need their own Waypoint account already — invite them like sharing a Google Sheet.</p>
+        <div class="flex gap-2">
+          <input type="email" id="share-email-input" placeholder="teammate@example.com" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitInviteCollaborator();}"
+            class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          <button onclick="submitInviteCollaborator()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg flex-shrink-0">Invite</button>
+        </div>
+        <p class="text-xs text-red-600 hidden mt-2" id="share-error"></p>
+      </div>
+      <label class="block text-xs font-semibold text-gray-600 mb-2">People with access</label>
+      <div id="share-collaborators-list" class="space-y-2"></div>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+      <button onclick="closeModal('modal-share')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- PENDING INVITES MODAL -->
+<div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-invites">
+  <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+      <h3 class="text-base font-bold text-navy">📨 Project Invitations</h3>
+      <button onclick="closeModal('modal-invites')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+    </div>
+    <div class="p-6 overflow-y-auto flex-1">
+      <div id="invites-list" class="space-y-3"></div>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+      <button onclick="closeModal('modal-invites')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Close</button>
+    </div>
   </div>
 </div>
 

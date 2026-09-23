@@ -31,7 +31,7 @@ router.get('/status', (req, res) => {
 router.get('/me', (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
   const user = db.getUserById(req.session.userId);
-  res.json({ email: user.email });
+  res.json({ id: user.id, email: user.email });
 });
 
 // POST /api/auth/register

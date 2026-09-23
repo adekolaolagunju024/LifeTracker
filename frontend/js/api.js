@@ -116,4 +116,17 @@ const API = {
   restoreTask:         (id) => request('POST',   `/trash/tasks/${id}/restore`),
   purgeProjectForever: (id) => request('DELETE', `/trash/projects/${id}`),
   purgeTaskForever:    (id) => request('DELETE', `/trash/tasks/${id}`),
+
+  // ── COLLABORATION (project sharing, invites) ──
+  getPendingInvites:    ()             => request('GET',    '/projects/invites'),
+  acceptInvite:         (inviteId)     => request('POST',   `/projects/invites/${inviteId}/accept`),
+  declineInvite:        (inviteId)     => request('POST',   `/projects/invites/${inviteId}/decline`),
+  getCollaborators:     (projectId)    => request('GET',    `/projects/${projectId}/collaborators`),
+  inviteCollaborator:   (projectId, email) => request('POST', `/projects/${projectId}/collaborators`, { email }),
+  removeCollaborator:   (projectId, userId) => request('DELETE', `/projects/${projectId}/collaborators/${userId}`),
+
+  // ── TASK COMMENTS ──
+  getComments:    (taskId)       => request('GET',    `/tasks/${taskId}/comments`),
+  addComment:     (taskId, text) => request('POST',   `/tasks/${taskId}/comments`, { text }),
+  deleteComment:  (commentId)    => request('DELETE', `/tasks/comments/${commentId}`),
 };

@@ -92,6 +92,19 @@ function statusBadge(s) {
   return `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${map[s] || 'bg-gray-100 text-gray-500'}">${esc(s)}</span>`;
 }
 
+// A small initial-in-circle badge + first name — used anywhere a task row
+// needs to show who it's assigned to without the space a full avatar image
+// would need (there are no uploaded avatars, just initials).
+function assigneeAvatar(name) {
+  if (!name) return `<span class="text-xs text-gray-300">—</span>`;
+  const initial = name.trim().charAt(0).toUpperCase();
+  const firstName = name.trim().split(' ')[0];
+  return `<span class="inline-flex items-center gap-1.5" title="${esc(name)}">
+    <span class="w-5 h-5 rounded-full bg-teal/15 text-teal text-[10px] font-bold flex items-center justify-center flex-shrink-0">${esc(initial)}</span>
+    <span class="text-xs text-gray-600 truncate">${esc(firstName)}</span>
+  </span>`;
+}
+
 function priorityBadge(p) {
   const map = {
     'High':   'bg-red-100 text-red-700',
@@ -466,6 +479,12 @@ async function renderProjectDetail(projectId) {
     // Sub-folders can't themselves have sub-folders (one level of nesting only)
     document.getElementById('btn-new-subfolder').classList.toggle('hidden', !!proj.parentId);
 
+    // Deleting a project (and managing who's on it, inside the Share
+    // modal) is owner-only — a collaborator who could delete it could
+    // lock everyone else out.
+    document.getElementById('btn-delete-project').classList.toggle('hidden', proj.role !== 'owner');
+    document.getElementById('btn-share-label').textContent = proj.role === 'owner' ? 'Share' : 'People';
+
     // Breadcrumb — only shown for a sub-folder (a project with a parent)
     const crumb = document.getElementById('detail-breadcrumb');
     if (proj.parentId) {
@@ -584,6 +603,7 @@ async function renderTaskTable(projectId) {
                   `<option ${t.priority === p ? 'selected' : ''}>${p}</option>`).join('')}
               </select>
             </td>
+            <td class="px-4 py-3">${assigneeAvatar(t.assigneeName)}</td>
             <td class="px-4 py-3">
               <input type="date" value="${t.startDate || ''}" min="${minStart}" class="rounded-lg px-2 py-1 text-xs border border-gray-200 focus:outline-none focus:border-teal w-full"
                 onchange="updateTaskStartDate('${t.id}', this.value, '${projectId}')">
@@ -603,7 +623,7 @@ async function renderTaskTable(projectId) {
               </div>
             </td>
           </tr>`).join('')
-      : `<tr><td colspan="8" class="px-4 py-10 text-center text-gray-400 text-sm">
+      : `<tr><td colspan="9" class="px-4 py-10 text-center text-gray-400 text-sm">
           No tasks match your filters.
           <button onclick="clearFilters('${projectId}')" class="text-teal underline ml-1">Clear filters</button>
           or <button onclick="openAddTask('${projectId}')" class="text-teal underline">add a task</button>.
@@ -1245,6 +1265,7 @@ function renderKanbanBoard(tasks, projectById) {
             <span class="truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${t.checklistTotal ? ` · ☑️ ${t.checklistDone}/${t.checklistTotal}` : ''}</span>
             ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
           </div>
+          ${t.assigneeName ? `<div class="mt-1.5">${assigneeAvatar(t.assigneeName)}</div>` : ''}
         </div>`;
     }).join('') || `<p class="text-xs text-gray-400 text-center py-6">No tasks</p>`;
 
@@ -2442,9 +2463,60 @@ async function startGoogleLogin() {
 }
 
 async function afterAuth() {
+  try { APP.currentUserId = (await API.getMe()).id; } catch (e) { console.error('getMe error:', e); }
   const showingOnboarding = await checkOnboarding();
   if (!showingOnboarding) await showPage('dashboard');
   checkDailyDigest();
+  checkPendingInvites();
+}
+
+// Pending project-share invites — checked once per login (not re-dismissed
+// per day like the digest banner, since an invite needs an actual
+// accept/decline, not just "seen it").
+async function checkPendingInvites() {
+  try {
+    const invites = await API.getPendingInvites();
+    if (!invites.length) { document.getElementById('invites-banner').classList.add('hidden'); return; }
+    document.getElementById('invites-banner-text').innerHTML =
+      `<strong>${invites.length}</strong> project invitation${invites.length === 1 ? '' : 's'} waiting on you.`;
+    document.getElementById('invites-banner').classList.remove('hidden');
+  } catch (e) { console.error('Invites check error:', e); }
+}
+
+function openInvitesModal() {
+  openModal('modal-invites');
+  renderInvitesModal();
+}
+
+async function renderInvitesModal() {
+  const wrap = document.getElementById('invites-list');
+  try {
+    const invites = await API.getPendingInvites();
+    wrap.innerHTML = invites.length
+      ? invites.map(inv => `
+          <div class="flex items-center gap-3 border border-gray-200 rounded-lg p-3">
+            <span class="text-xl flex-shrink-0">${esc(inv.projectIcon || '📁')}</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-navy truncate">${esc(inv.projectTitle)}</p>
+              <p class="text-xs text-gray-400 truncate">Invited by ${esc(inv.ownerName)}</p>
+            </div>
+            <button onclick="respondToInvite('${inv.id}', true)" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0">Accept</button>
+            <button onclick="respondToInvite('${inv.id}', false)" class="bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0">Decline</button>
+          </div>`).join('')
+      : `<p class="text-center text-gray-400 text-sm py-6">No pending invitations</p>`;
+  } catch (e) { console.error('Invites modal error:', e); }
+}
+
+async function respondToInvite(inviteId, accept) {
+  try {
+    if (accept) { await API.acceptInvite(inviteId); showToast('✅ Joined the project'); }
+    else { await API.declineInvite(inviteId); showToast('Invitation declined'); }
+    renderInvitesModal();
+    checkPendingInvites();
+    updateSidebar();
+    if (APP.currentPage === 'dashboard') renderDashboard();
+    if (APP.currentPage === 'projects') renderProjects();
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to respond'), 'error'); }
 }
 
 // Proactive nudge: a dismissible banner on open if anything's overdue or due
@@ -2747,10 +2819,53 @@ async function openTaskDetail(id) {
     document.getElementById('td-start').textContent     = t.startDate || '—';
     document.getElementById('td-end').textContent       = t.endDate || '—';
     document.getElementById('td-notes').textContent     = t.notes && t.notes.trim() ? t.notes : 'No notes for this task yet.';
+    document.getElementById('td-assignee').textContent  = t.assigneeName || 'Unassigned';
 
     document.getElementById('task-detail-backdrop').classList.remove('hidden');
     document.getElementById('task-detail-panel').classList.remove('translate-x-full');
+    renderTaskComments(id);
   } catch (e) { console.error('Task detail error:', e); }
+}
+
+// ── TASK COMMENTS (side panel) ────────────────────────────────────
+async function renderTaskComments(taskId) {
+  const wrap = document.getElementById('td-comments');
+  try {
+    const comments = await API.getComments(taskId);
+    wrap.innerHTML = comments.length
+      ? comments.map(c => `
+          <div class="group">
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-xs font-semibold text-navy">${esc(c.authorName)}</p>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="text-[10px] text-gray-400">${new Date(c.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                ${c.userId === APP.currentUserId ? `<button onclick="deleteCommentConfirm('${c.id}','${taskId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">🗑️</button>` : ''}
+              </div>
+            </div>
+            <p class="text-sm text-gray-700 whitespace-pre-wrap">${esc(c.text)}</p>
+          </div>`).join('')
+      : `<p class="text-xs text-gray-400">No comments yet.</p>`;
+  } catch (e) { console.error('Comments error:', e); }
+}
+
+async function submitTaskComment() {
+  const input = document.getElementById('td-comment-input');
+  const text = input.value.trim();
+  if (!text || !APP_currentDetailTaskId) return;
+  try {
+    await API.addComment(APP_currentDetailTaskId, text);
+    input.value = '';
+    renderTaskComments(APP_currentDetailTaskId);
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to post comment'), 'error'); }
+}
+
+function deleteCommentConfirm(commentId, taskId) {
+  confirmAction('Delete this comment?', async () => {
+    try {
+      await API.deleteComment(commentId);
+      renderTaskComments(taskId);
+    } catch (e) { showToast('❌ ' + (e.message || 'Failed to delete'), 'error'); }
+  });
 }
 
 function closeTaskDetail() {
@@ -3111,6 +3226,73 @@ async function deleteProjectConfirm(id) {
   });
 }
 
+// ── PROJECT SHARING (Google-Sheets-style collaborators) ───────────
+async function openShareProject(projectId) {
+  const p = await API.getProject(projectId);
+  document.getElementById('share-project-title').textContent = '— ' + p.title;
+  document.getElementById('share-email-input').value = '';
+  document.getElementById('share-error').classList.add('hidden');
+  // Only the owner can invite/remove people — a member sees a read-only list.
+  document.getElementById('share-invite-section').classList.toggle('hidden', p.role !== 'owner');
+  openModal('modal-share');
+  renderShareCollaborators(projectId);
+}
+
+function presenceDot(lastActiveAt) {
+  const active = lastActiveAt && (Date.now() - new Date(lastActiveAt).getTime()) < 5 * 60 * 1000;
+  return `<span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${active ? '#22C55E' : '#D1D5DB'}" title="${active ? 'Active now' : 'Away'}"></span>`;
+}
+
+async function renderShareCollaborators(projectId) {
+  const wrap = document.getElementById('share-collaborators-list');
+  try {
+    const [people, project] = await Promise.all([API.getCollaborators(projectId), API.getProject(projectId)]);
+    const isOwner = project.role === 'owner';
+    wrap.innerHTML = people.map(person => {
+      const isMe = person.userId === APP.currentUserId;
+      const canRemove = isOwner && person.role !== 'owner';
+      const status = person.role === 'owner' ? 'Owner' : (person.joinedAt ? 'Member' : 'Invited — pending');
+      return `
+        <div class="flex items-center gap-3 py-2">
+          ${presenceDot(person.lastActiveAt)}
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-navy truncate">${esc(person.name)}${isMe ? ' (you)' : ''}</p>
+            <p class="text-xs text-gray-400 truncate">${esc(person.email)} · ${status}</p>
+          </div>
+          ${canRemove ? `<button onclick="removeCollaboratorConfirm('${projectId}','${person.userId}','${esc(person.name)}')" class="text-gray-300 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Remove">🗑️</button>` : ''}
+        </div>`;
+    }).join('');
+  } catch (e) { console.error('Collaborators error:', e); }
+}
+
+async function submitInviteCollaborator() {
+  const input = document.getElementById('share-email-input');
+  const errorEl = document.getElementById('share-error');
+  errorEl.classList.add('hidden');
+  const email = input.value.trim();
+  if (!email) return;
+  const projectId = APP.currentProjectId;
+  try {
+    await API.inviteCollaborator(projectId, email);
+    input.value = '';
+    showToast('✅ Invited ' + email);
+    renderShareCollaborators(projectId);
+  } catch (e) {
+    errorEl.textContent = e.message || 'Failed to invite';
+    errorEl.classList.remove('hidden');
+  }
+}
+
+function removeCollaboratorConfirm(projectId, userId, name) {
+  confirmAction(`Remove ${name} from this project? They'll lose access immediately.`, async () => {
+    try {
+      await API.removeCollaborator(projectId, userId);
+      showToast('Removed ' + name);
+      renderShareCollaborators(projectId);
+    } catch (e) { showToast('❌ ' + (e.message || 'Failed to remove'), 'error'); }
+  });
+}
+
 // TASK MODAL
 async function openAddTask(projectId) {
   document.getElementById('modal-task-title').textContent = 'New Task';
@@ -3127,6 +3309,7 @@ async function openAddTask(projectId) {
   APP.taskModalTagIds = [];
   await renderTaskTagPicker();
   await populateProjectSelect(projectId);
+  await populateAssigneeSelect(projectId, '');
   openModal('modal-task');
 }
 
@@ -3147,6 +3330,7 @@ async function editTask(id) {
   APP.taskModalTagIds = (t.tags || []).map(tag => tag.id);
   await renderTaskTagPicker();
   await populateProjectSelect(t.projectId);
+  await populateAssigneeSelect(t.projectId, t.assigneeId || '');
   openModal('modal-task');
 }
 
@@ -3238,6 +3422,26 @@ let _projectStartDates = {};
 function onTaskProjectChange() {
   const projectId = document.getElementById('task-project').value;
   document.getElementById('task-start').min = _projectStartDates[projectId] || '';
+  // Switching projects changes who can be assigned — a different project
+  // may have a different (or no) set of collaborators.
+  populateAssigneeSelect(projectId, '');
+}
+
+// Whoever has access to the project — owner plus accepted collaborators —
+// is a valid assignee. Re-populated whenever the selected project changes.
+async function populateAssigneeSelect(projectId, selectedId) {
+  const sel = document.getElementById('task-assignee');
+  if (!projectId) { sel.innerHTML = '<option value="">Unassigned</option>'; return; }
+  try {
+    const people = await API.getCollaborators(projectId);
+    sel.innerHTML = '<option value="">Unassigned</option>' + people
+      .filter(p => p.joinedAt) // exclude a pending (not-yet-accepted) invite
+      .map(p => `<option value="${p.userId}" ${p.userId === selectedId ? 'selected' : ''}>${esc(p.name)}${p.userId === APP.currentUserId ? ' (you)' : ''}</option>`)
+      .join('');
+  } catch (e) {
+    console.error('Assignee list error:', e);
+    sel.innerHTML = '<option value="">Unassigned</option>';
+  }
 }
 
 // Projects can have one level of sub-folders — group the dropdown by
@@ -3275,6 +3479,7 @@ async function saveTask() {
     cost:      parseFloat(document.getElementById('task-cost').value) || 0,
     notes:     document.getElementById('task-notes').value.trim(),
     recurrence: document.getElementById('task-recurrence').value,
+    assigneeId: document.getElementById('task-assignee').value || null,
   };
   if (!data.title)     { showToast('Task title is required', 'error'); return; }
   if (!data.projectId) { showToast('Please select a project', 'error'); return; }

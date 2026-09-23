@@ -1,10 +1,11 @@
 # Waypoint
 
-A general-purpose personal goal tracker — Career and Wealth are just two of the built-in project types; use it for any goal, in any area of life. Multi-user, self-hosted, no external dependencies required to run locally.
+A general-purpose personal goal tracker — Career and Wealth are just two of the built-in project types; use it for any goal, in any area of life. Multi-user and collaborative, self-hosted, no external dependencies required to run locally.
 
 ## Features
 
 - **Accounts** — email/password registration and login, sessions scoped per user (`express-session`), an optional "Sign in with Google" (finds-or-creates an account by email), a "Keep me signed in" toggle (persistent 30-day session vs. a session-only cookie cleared when the browser closes), browser-native password-save support (real `<form>` submits + the Credential Management API), a "Forgot password?" flow (no email service required — the reset link is logged to the server console rather than emailed, so it's the account owner reading their own logs), and self-service permanent account deletion from Settings (password-confirmed; every project/task/wealth row cascades with it)
+- **Project sharing & collaboration** — Google-Sheets-style: a project's owner invites another existing account by email (👥 Share, on any project) rather than joining a company-wide workspace. Once accepted, the invited member gets full working access — create/edit/delete tasks, edit project details — same as the owner, short of deleting the project or managing who's on it (owner-only). Sharing a top-level project shares its sub-folders too. Tasks can be **assigned** to anyone with access (an initial-avatar badge shows on the task table row and Kanban card, and in the task detail panel), and carry a **comment thread** for async updates between collaborators. The Share panel shows each collaborator with a live-ish presence dot (green if active in the last 5 minutes, from a lightweight heartbeat — not a live socket connection). A pending invite shows as a banner + inbox on the invitee's next login, with Accept/Decline
 - **Global search** — a search box in the topbar, on every page, live-searches project and task titles as you type (debounced, 2+ characters) and jumps straight to whichever result you pick
 - **Recurring tasks** — a task can repeat Daily/Weekly/Monthly; marking one Completed automatically creates the next occurrence with dates shifted forward
 - **Onboarding wizard** — name, wealth targets, and first project on first login

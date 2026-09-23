@@ -63,4 +63,31 @@ router.put('/:id/tags', (req, res) => {
   res.json(tags);
 });
 
+// GET /api/tasks/:id/comments
+router.get('/:id/comments', (req, res) => {
+  const comments = db.listComments(req.session.userId, req.params.id);
+  if (comments === null) return res.status(404).json({ error: 'Task not found' });
+  res.json(comments);
+});
+
+// POST /api/tasks/:id/comments — { text }
+router.post('/:id/comments', (req, res) => {
+  try {
+    const comment = db.addComment(req.session.userId, req.params.id, req.body.text);
+    if (!comment) return res.status(404).json({ error: 'Task not found' });
+    res.status(201).json(comment);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// DELETE /api/tasks/comments/:commentId — registered with a distinct
+// prefix (not /:id/comments/:commentId) so there's no ambiguity with the
+// routes above.
+router.delete('/comments/:commentId', (req, res) => {
+  const ok = db.deleteComment(req.session.userId, req.params.commentId);
+  if (!ok) return res.status(404).json({ error: 'Comment not found' });
+  res.json({ success: true });
+});
+
 module.exports = router;

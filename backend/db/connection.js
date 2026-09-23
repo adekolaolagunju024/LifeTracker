@@ -116,6 +116,28 @@ db.exec(`
     googleDriveFolderName TEXT NOT NULL DEFAULT 'Waypoint Backups',
     googleDriveLastBackupAt TEXT
   );
+
+  -- Google-Sheets-style project sharing between existing individual
+  -- accounts: the project keeps its original owner (projects.userId
+  -- unchanged), and this grants specific other users access to it.
+  -- joinedAt is NULL until the invite is accepted.
+  CREATE TABLE IF NOT EXISTS project_collaborators (
+    id TEXT PRIMARY KEY,
+    projectId TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL DEFAULT 'member',
+    invitedAt TEXT NOT NULL,
+    joinedAt TEXT,
+    UNIQUE(projectId, userId)
+  );
+
+  CREATE TABLE IF NOT EXISTS task_comments (
+    id TEXT PRIMARY KEY,
+    taskId TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+  );
 `);
 
 // Lightweight migration for databases created before a column existed.
@@ -139,6 +161,12 @@ addColumnIfMissing('profile', "lastDigestSentDate TEXT");
 // anything that's been in Trash more than 30 days.
 addColumnIfMissing('projects', "deletedAt TEXT");
 addColumnIfMissing('tasks', "deletedAt TEXT");
+// Collaboration: who a task is assigned to (any project owner or accepted
+// collaborator), and a lightweight "last seen" heartbeat per user — a
+// timestamp updated while the app is open, not a live socket connection —
+// used to show a collaborator as active/away on a shared project.
+addColumnIfMissing('tasks', "assigneeId TEXT REFERENCES users(id) ON DELETE SET NULL");
+addColumnIfMissing('users', "lastActiveAt TEXT");
 
 // The manually-maintained "actions" checklist was replaced by a live feed
 // computed from tasks (overdue / due this week / high priority) — drop the
