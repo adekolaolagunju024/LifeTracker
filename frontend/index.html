@@ -667,6 +667,17 @@
         <p class="text-gray-500 text-sm mt-1">Here's your live snapshot across every goal you're tracking.</p>
       </div>
 
+      <!-- The AI chat used to be one click deeper, inside "Create with AI"
+           on All Projects — this puts it on the very first screen someone
+           sees after logging in instead. -->
+      <div class="bg-gradient-to-br from-navy to-navy-2 rounded-xl p-4 mb-6 flex items-center justify-between gap-3 flex-wrap text-white">
+        <div class="min-w-0">
+          <p class="text-sm font-bold">💬 Chat with AI to plan a new goal</p>
+          <p class="text-xs text-white/50 mt-0.5">Describe what you want to achieve — it'll ask a question or two, then propose a project with tasks for you to review</p>
+        </div>
+        <button onclick="openImportProject('chat')" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">Start Chatting →</button>
+      </div>
+
       <!-- KPI Cards -->
       <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6" id="kpi-grid">
         <div class="bg-white rounded-xl p-5 border border-gray-200">
@@ -752,7 +763,7 @@
       </div>
       <div class="mb-5 flex gap-3">
         <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
-        <button onclick="openImportProject()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all">✨ Create with AI</button>
+        <button onclick="openImportProject()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all">✨ Chat with AI</button>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5" id="projects-grid"></div>
     </div>

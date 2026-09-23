@@ -2522,7 +2522,10 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 
 // PROJECT MODAL
 // ── IMPORT PROJECT FROM FILE (AI) ─────────────────────────────────
-function openImportProject() {
+// Chat is the flagship way in — defaults to it rather than the file-upload
+// tab, which used to be the default and buried chat as a secondary option
+// one extra click away.
+function openImportProject(method = 'chat') {
   document.getElementById('import-file-input').value = '';
   document.getElementById('import-error').classList.add('hidden');
   document.getElementById('import-step-upload').classList.remove('hidden');
@@ -2532,7 +2535,7 @@ function openImportProject() {
   document.getElementById('import-preview-actions').classList.add('hidden');
   document.getElementById('import-preview-actions').classList.remove('flex');
   resetProjectChat();
-  setImportMethod('file');
+  setImportMethod(method);
   openModal('modal-import');
 }
 
