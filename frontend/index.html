@@ -572,10 +572,16 @@
   <!-- ═══ SIDEBAR ═══ -->
   <nav class="w-64 min-h-screen bg-navy fixed top-0 left-0 flex flex-col z-50 overflow-y-auto" id="sidebar">
 
-    <!-- Logo -->
-    <div class="px-5 py-5 border-b border-white/10">
-      <h1 class="text-white font-black text-sm tracking-tight" id="sidebar-name">Waypoint</h1>
-      <p class="text-white/35 text-xs mt-1" id="sidebar-tagline">Every Goal, One Path</p>
+    <!-- App brand — a wordmark, distinct from the user identity block
+         below it. This spot used to only show sidebar-name/-tagline,
+         which JS overwrites with the signed-in user's own profile name —
+         so there was actually no app branding visible anywhere. -->
+    <div class="px-5 pt-5 pb-3">
+      <h1 class="font-black text-xl tracking-tight"><span class="text-white">Way</span><span class="text-teal">point</span></h1>
+    </div>
+    <div class="px-5 pb-4 border-b border-white/10">
+      <p class="text-white/70 text-xs font-semibold truncate" id="sidebar-name">there</p>
+      <p class="text-white/35 text-xs mt-0.5 truncate" id="sidebar-tagline">Every Goal, One Path</p>
     </div>
 
     <!-- Nav -->
@@ -684,7 +690,7 @@
             <p class="text-xs text-gray-500 mt-0.5">Describe what you want to achieve — it'll ask a question or two, then propose a project with tasks for you to review</p>
           </div>
         </div>
-        <button onclick="openImportProject('chat')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">Start Chatting →</button>
+        <button onclick="openImportProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">Start Chatting →</button>
       </div>
 
       <!-- One combined stats hero (counts + overall progress) instead of 3
@@ -1308,22 +1314,26 @@
       <button onclick="closeModal('modal-import')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
     </div>
 
-    <!-- Step 1: choose a method -->
+    <!-- Step 1: chat, with an optional file attached to any message —
+         one merged flow (like Claude's own chat) instead of a separate
+         "upload a file" tab that skipped the conversation entirely. -->
     <div id="import-step-upload" class="p-6 overflow-y-auto flex-1">
-      <div id="import-method-chat">
-        <p class="text-sm text-gray-500 mb-3">Not sure how to break a goal into tasks? Chat it through with Claude — answer a couple of questions and it'll propose a project with a sequenced set of tasks and realistic dates when it's ready. Already have a plan? Tap <strong>+</strong> to upload an Excel sheet, PDF, or image and Claude will read it. Nothing is created until you review and confirm.</p>
-        <div id="chat-messages" class="border border-gray-200 rounded-lg p-3 mb-3 space-y-2 overflow-y-auto flex flex-col" style="max-height:260px; min-height:160px;"></div>
-        <div class="flex gap-2 items-center border border-gray-200 rounded-lg pl-1.5 pr-1.5 py-1.5 focus-within:border-teal">
-          <input type="file" id="import-file-input" accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg" class="hidden" onchange="analyzeImportFile()">
-          <button type="button" onclick="document.getElementById('import-file-input').click()" id="chat-upload-btn" title="Upload a file (Excel, PDF, or image)" aria-label="Upload a file"
-            class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-xl leading-none font-light">+</button>
-          <input type="text" id="chat-input" placeholder="Type a message…" onkeydown="if(event.key==='Enter'){event.preventDefault(); sendProjectChatMessage();}"
-            class="flex-1 min-w-0 bg-transparent px-1 py-1 text-sm focus:outline-none">
-          <button onclick="sendProjectChatMessage()" id="chat-send-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">Send</button>
-        </div>
+      <p class="text-sm text-gray-500 mb-3">Describe your goal, or attach a plan/checklist/spreadsheet/image (📎) and ask about it. Claude asks a question or two if it needs to, then proposes a project with tasks — nothing is created until you review and confirm.</p>
+      <div id="chat-messages" class="border border-gray-200 rounded-lg p-3 mb-3 space-y-2 overflow-y-auto flex flex-col" style="max-height:320px; min-height:200px;"></div>
+      <div class="hidden items-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2" id="chat-attachment-chip">
+        <span class="text-base flex-shrink-0">📎</span>
+        <span class="text-xs text-gray-600 truncate flex-1" id="chat-attachment-name"></span>
+        <button onclick="clearChatAttachment()" class="text-gray-400 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Remove attachment">✕</button>
       </div>
-
-      <p class="text-xs text-red-600 hidden" id="import-error"></p>
+      <div class="flex gap-2 items-center">
+        <input type="file" id="chat-file-input" accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg" class="hidden" onchange="onChatFileSelected(this.files[0])">
+        <button onclick="document.getElementById('chat-file-input').click()" title="Attach a file"
+          class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-9 h-9 flex-shrink-0 rounded-lg flex items-center justify-center text-base">📎</button>
+        <input type="text" id="chat-input" placeholder="Type a message…" onkeydown="if(event.key==='Enter'){event.preventDefault(); sendProjectChatMessage();}"
+          class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        <button onclick="sendProjectChatMessage()" id="chat-send-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">Send</button>
+      </div>
+      <p class="text-xs text-red-600 hidden mt-2" id="import-error"></p>
     </div>
     <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100" id="import-upload-actions">
       <button onclick="closeModal('modal-import')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>

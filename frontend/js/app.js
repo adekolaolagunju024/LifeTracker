@@ -2803,11 +2803,15 @@ function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 // PROJECT MODAL
-// ── IMPORT PROJECT FROM FILE (AI) ─────────────────────────────────
-// Chat is the only way in — file upload lives on the "+" button inside the
-// chat box, like attaching a file in a messaging app.
+// ── CREATE PROJECT VIA AI CHAT (with an optional attached file) ────
+// One merged flow — like Claude's own chat — instead of a separate
+// "upload a file" tab that skipped the conversation entirely. The
+// frontend keeps the whole history in APP.projectChat and resends it
+// every turn (the /project-chat endpoint is stateless); Claude either
+// replies with a normal chat message to keep asking questions, or calls
+// propose_project once it has enough, whether that came from the
+// conversation, an attached file, or both.
 function openImportProject() {
-  document.getElementById('import-file-input').value = '';
   document.getElementById('import-error').classList.add('hidden');
   document.getElementById('import-step-upload').classList.remove('hidden');
   document.getElementById('import-upload-actions').classList.remove('hidden');
@@ -2820,54 +2824,13 @@ function openImportProject() {
   document.getElementById('chat-input').focus();
 }
 
-// Triggered by picking a file from the chat's "+" button. Shows the file as
-// a sent message, then runs it through the same import endpoint as before.
-async function analyzeImportFile() {
-  const fileInput = document.getElementById('import-file-input');
-  const file = fileInput.files[0];
-  if (!file) return;
-  fileInput.value = '';
-  document.getElementById('import-error').classList.add('hidden');
-
-  addChatBubble('user', '📎 ' + file.name);
-  const typingEl = addChatBubble('assistant', 'Reading your file… (~15-20s)', true);
-  setChatBusy(true);
-
-  const formData = new FormData();
-  formData.append('file', file);
-  try {
-    const res = await fetch('/api/ai/import-project', { method: 'POST', body: formData });
-    const body = await res.json();
-    typingEl.remove();
-    if (!res.ok) throw new Error(body.error || 'Failed to read that file');
-    addChatBubble('assistant', "Here's what I found in your file — review and edit it below ⬇");
-    showImportPreview(body);
-  } catch (e) {
-    typingEl.remove();
-    addChatBubble('assistant', '⚠️ ' + (e.message || 'Failed to read that file'));
-  } finally {
-    setChatBusy(false);
-  }
-}
-
-function setChatBusy(busy) {
-  ['chat-input', 'chat-send-btn', 'chat-upload-btn'].forEach(id => { document.getElementById(id).disabled = busy; });
-  if (!busy) document.getElementById('chat-input').focus();
-}
-
-// ── CREATE PROJECT VIA AI CHAT ────────────────────────────────────
-// A real multi-turn conversation: the frontend keeps the whole history in
-// APP.projectChat and resends it every turn (the /project-chat endpoint is
-// stateless). Claude either replies with a normal chat message to keep
-// asking questions, or calls propose_project once it has enough — which
-// hands off to the exact same review/edit/create step as the file-upload
-// and (former) single-shot goal flows.
 function resetProjectChat() {
   APP.projectChat = [];
+  clearChatAttachment();
   const wrap = document.getElementById('chat-messages');
   wrap.innerHTML = '';
   document.getElementById('chat-input').value = '';
-  addChatBubble('assistant', "Hi! What goal are you working towards? Tell me a bit about it and I'll help shape it into a project.");
+  addChatBubble('assistant', "Hi! What goal are you working towards? Tell me a bit about it, or attach a plan/checklist/spreadsheet/image (📎) — I'll help shape it into a project.");
 }
 
 function addChatBubble(role, text, pending) {
@@ -2882,16 +2845,72 @@ function addChatBubble(role, text, pending) {
   return el;
 }
 
+const CHAT_ATTACHMENT_MIME_FALLBACK = {
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.xls':  'application/vnd.ms-excel',
+  '.pdf':  'application/pdf',
+  '.png':  'image/png',
+  '.jpg':  'image/jpeg',
+  '.jpeg': 'image/jpeg',
+};
+
+// Reads the file entirely client-side (FileReader, base64) rather than a
+// multipart upload — it travels inside the same JSON body as the chat
+// message so it can sit in APP.projectChat's history like any other turn.
+async function onChatFileSelected(file) {
+  if (!file) return;
+  const errorEl = document.getElementById('import-error');
+  errorEl.classList.add('hidden');
+  const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+  if (!CHAT_ATTACHMENT_MIME_FALLBACK[ext]) {
+    errorEl.textContent = 'Unsupported file type. Attach a .xlsx, .pdf, .png, or .jpg.';
+    errorEl.classList.remove('hidden');
+    document.getElementById('chat-file-input').value = '';
+    return;
+  }
+  if (file.size > 15 * 1024 * 1024) {
+    errorEl.textContent = 'That file is too large (max 15MB).';
+    errorEl.classList.remove('hidden');
+    document.getElementById('chat-file-input').value = '';
+    return;
+  }
+
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Could not read that file'));
+    reader.readAsDataURL(file);
+  });
+  APP.chatPendingAttachment = { name: file.name, mimetype: file.type || CHAT_ATTACHMENT_MIME_FALLBACK[ext], dataBase64: dataUrl.split(',')[1] };
+
+  document.getElementById('chat-attachment-name').textContent = file.name;
+  document.getElementById('chat-attachment-chip').classList.remove('hidden');
+  document.getElementById('chat-attachment-chip').classList.add('flex');
+}
+
+function clearChatAttachment() {
+  APP.chatPendingAttachment = null;
+  document.getElementById('chat-file-input').value = '';
+  document.getElementById('chat-attachment-chip').classList.add('hidden');
+  document.getElementById('chat-attachment-chip').classList.remove('flex');
+}
+
 async function sendProjectChatMessage() {
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
-  if (!text) return;
+  const attachment = APP.chatPendingAttachment;
+  if (!text && !attachment) return;
 
-  APP.projectChat.push({ role: 'user', content: text });
-  addChatBubble('user', text);
+  const sendBtn = document.getElementById('chat-send-btn');
+  const userMsg = { role: 'user', content: text };
+  if (attachment) userMsg.attachment = attachment;
+  APP.projectChat.push(userMsg);
+  addChatBubble('user', (attachment ? '📎 ' + attachment.name + (text ? '\n' : '') : '') + text);
   input.value = '';
-  setChatBusy(true);
-  const typingEl = addChatBubble('assistant', 'Thinking…', true);
+  clearChatAttachment();
+  input.disabled = true;
+  sendBtn.disabled = true;
+  const typingEl = addChatBubble('assistant', attachment ? 'Reading the attachment…' : 'Thinking…', true);
 
   try {
     const res = await fetch('/api/ai/project-chat', {
@@ -2914,7 +2933,9 @@ async function sendProjectChatMessage() {
     typingEl.remove();
     addChatBubble('assistant', '⚠️ ' + (e.message || 'Something went wrong — try again'));
   } finally {
-    setChatBusy(false);
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
   }
 }
 
