@@ -286,11 +286,6 @@ function tasksInProjectTree(projectId, allProjects, allTasks) {
 }
 
 // ── DASHBOARD ──────────────────────────────────────────────────
-function setDashboardProjectView(mode) {
-  try { localStorage.setItem('dashboardProjectView', mode); } catch { /* private mode etc */ }
-  renderDashboard();
-}
-
 async function renderDashboard() {
   try {
     const [tasks, allProjects, profile, wealth] = await Promise.all([
@@ -327,10 +322,13 @@ async function renderDashboard() {
     document.getElementById('hero-goals-prog').style.width   = goalsPct + '%';
     document.getElementById('hero-goals-detail').textContent = `across ${projects.length} project${projects.length === 1 ? '' : 's'}`;
 
-    // Project stat cards / table — same underlying per-project stats, two renderings
+    // Project cards — a glance at the first few, not a full management
+    // table (that's what All Projects is for); capped so this stays a
+    // quick overview even for an account with a dozen projects.
     const todayKey = localDateKey(new Date());
-    let cardsHTML = '', tableRowsHTML = '';
-    projects.forEach(proj => {
+    const DASHBOARD_PROJECT_LIMIT = 4;
+    let cardsHTML = '';
+    projects.slice(0, DASHBOARD_PROJECT_LIMIT).forEach(proj => {
       const isWealth = proj.type === 'wealth';
       const pts      = tasksInProjectTree(proj.id, allProjects, tasks);
       const pdone    = pts.filter(t => t.status === 'Completed').length;
@@ -356,31 +354,9 @@ async function renderDashboard() {
           </div>
           <p class="text-xs text-gray-400 mt-1.5 text-right">${pp}% complete</p>
         </div>`;
-
-      tableRowsHTML += `
-        <tr class="border-b border-gray-100 hover:bg-gray-50 cursor-pointer" onclick="showPage('project-detail','${proj.id}')">
-          <td class="px-4 py-3 text-sm font-semibold text-navy whitespace-nowrap"><span class="mr-1.5">${proj.icon}</span>${esc(proj.title)}</td>
-          <td class="px-4 py-3 text-xs text-gray-500">${pts.length}</td>
-          <td class="px-4 py-3 text-xs text-gray-500">${pdone}</td>
-          <td class="px-4 py-3 text-xs font-semibold ${overdue > 0 ? 'text-red-600' : 'text-gray-300'}">${overdue || '—'}</td>
-          <td class="px-4 py-3">
-            <div class="flex items-center gap-2">
-              <div class="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden flex-shrink-0"><div class="h-full rounded-full" style="width:${pp}%;background:${proj.color}"></div></div>
-              <span class="text-xs text-gray-400 font-mono">${pp}%</span>
-            </div>
-          </td>
-        </tr>`;
     });
     const emptyMsg = `<p class="text-center text-gray-400 text-sm py-8 col-span-full">No projects yet — <button onclick="openAddProject()" class="text-teal underline">create one</button>.</p>`;
     document.getElementById('project-stats').innerHTML = cardsHTML || emptyMsg;
-    document.getElementById('project-stats-table-body').innerHTML = tableRowsHTML
-      || `<tr><td colspan="5" class="px-4 py-8 text-center text-gray-400 text-sm">No projects yet.</td></tr>`;
-
-    let dashView = 'cards';
-    try { dashView = localStorage.getItem('dashboardProjectView') || 'cards'; } catch { /* private mode etc */ }
-    document.getElementById('project-stats').classList.toggle('hidden', dashView !== 'cards');
-    document.getElementById('project-stats-table-wrap').classList.toggle('hidden', dashView !== 'table');
-    document.querySelectorAll('.dash-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === dashView));
 
     // Needs Attention teaser — same Overdue/High-priority definitions as the
     // Actions page, condensed to one line rather than a duplicate list.

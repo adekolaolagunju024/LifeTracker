@@ -118,9 +118,6 @@
        behind a nav/section icon, used in the sidebar and Settings. */
     .icon-badge { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; font-size: 15px; flex-shrink: 0; }
     .icon-badge-sm { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 7px; font-size: 12px; flex-shrink: 0; }
-    .dash-view-btn { color: #6B7280; }
-    .dash-view-btn.active { background: #fff; color: #0A7E8C; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-    .dark .dash-view-btn.active { background: #1E293B; }
     .import-method-btn { color: #6B7280; }
     .import-method-btn.active { background: #fff; color: #0A7E8C; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
     .dark .import-method-btn.active { background: #1E293B; }
@@ -669,76 +666,62 @@
 
       <!-- The AI chat used to be one click deeper, inside "Create with AI"
            on All Projects — this puts it on the very first screen someone
-           sees after logging in instead. -->
-      <div class="bg-gradient-to-br from-navy to-navy-2 rounded-xl p-4 mb-6 flex items-center justify-between gap-3 flex-wrap text-white">
-        <div class="min-w-0">
-          <p class="text-sm font-bold">💬 Chat with AI to plan a new goal</p>
-          <p class="text-xs text-white/50 mt-0.5">Describe what you want to achieve — it'll ask a question or two, then propose a project with tasks for you to review</p>
+           sees after logging in instead. Styled distinctly from the navy
+           stats hero below (teal-tinted, not another navy block) so the
+           two don't visually blur into "another big dark box". -->
+      <div class="bg-teal/5 border border-teal/20 rounded-xl p-4 mb-6 flex items-center justify-between gap-3 flex-wrap">
+        <div class="min-w-0 flex items-center gap-3">
+          <span class="text-2xl flex-shrink-0">💬</span>
+          <div class="min-w-0">
+            <p class="text-sm font-bold text-navy">Chat with AI to plan a new goal</p>
+            <p class="text-xs text-gray-500 mt-0.5">Describe what you want to achieve — it'll ask a question or two, then propose a project with tasks for you to review</p>
+          </div>
         </div>
-        <button onclick="openImportProject('chat')" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">Start Chatting →</button>
+        <button onclick="openImportProject('chat')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">Start Chatting →</button>
       </div>
 
-      <!-- KPI Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6" id="kpi-grid">
-        <div class="bg-white rounded-xl p-5 border border-gray-200">
-          <p class="text-xs font-semibold text-gray-400">Total Tasks</p>
-          <p class="text-3xl font-black font-mono text-teal mt-1" id="kpi-total">0</p>
-          <p class="text-xs text-gray-400 mt-1">across all projects</p>
+      <!-- One combined stats hero (counts + overall progress) instead of 3
+           small KPI cards plus a separate progress card doing overlapping
+           jobs — same numbers, one visual anchor instead of four. -->
+      <div class="bg-gradient-to-br from-navy to-navy-2 rounded-2xl p-6 text-white mb-6">
+        <div class="grid grid-cols-3 gap-4 mb-5">
+          <div>
+            <p class="text-xs font-semibold text-white/40 uppercase tracking-widest">Total Tasks</p>
+            <p class="text-3xl font-black font-mono mt-1" id="kpi-total">0</p>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-white/40 uppercase tracking-widest">Completed</p>
+            <p class="text-3xl font-black font-mono text-teal mt-1" id="kpi-done">0</p>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-white/40 uppercase tracking-widest">In Progress</p>
+            <p class="text-3xl font-black font-mono text-brand-orange mt-1" id="kpi-inprog">0</p>
+          </div>
         </div>
-        <div class="bg-white rounded-xl p-5 border border-gray-200">
-          <p class="text-xs font-semibold text-gray-400">Completed</p>
-          <p class="text-3xl font-black font-mono text-brand-green mt-1" id="kpi-done">0</p>
-          <p class="text-xs text-gray-400 mt-1">keep going!</p>
-        </div>
-        <div class="bg-white rounded-xl p-5 border border-gray-200">
-          <p class="text-xs font-semibold text-gray-400">In Progress</p>
-          <p class="text-3xl font-black font-mono text-brand-orange mt-1" id="kpi-inprog">0</p>
-          <p class="text-xs text-gray-400 mt-1">active now</p>
-        </div>
-      </div>
-
-      <!-- Goals Progress hero — overall task completion across every project, whatever its type -->
-      <div class="grid grid-cols-1 gap-4 mb-6" id="hero-grid">
-        <div class="bg-gradient-to-br from-navy to-navy-2 rounded-2xl p-6 text-white" id="hero-goals-card">
-          <p class="text-xs font-semibold text-white/40 uppercase tracking-widest">Goals Progress</p>
-          <p class="text-5xl font-black font-mono text-teal mt-2" id="hero-goals-pct">0%</p>
-          <p class="text-xs text-white/40 mt-1" id="hero-goals-sub">0 of 0 tasks complete</p>
-          <div class="h-2 bg-white/10 rounded-full mt-4 overflow-hidden">
+        <div class="border-t border-white/10 pt-4">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-semibold text-white/40 uppercase tracking-widest">Goals Progress</p>
+            <p class="text-sm font-black font-mono text-teal" id="hero-goals-pct">0%</p>
+          </div>
+          <div class="h-2 bg-white/10 rounded-full overflow-hidden">
             <div class="goals-bar-fill h-full rounded-full transition-all duration-500" id="hero-goals-prog" style="width:0%"></div>
           </div>
-          <p class="text-xs text-white/30 mt-2" id="hero-goals-detail">across 0 projects</p>
+          <p class="text-xs text-white/30 mt-2"><span id="hero-goals-sub">0 of 0 tasks complete</span> · <span id="hero-goals-detail">across 0 projects</span></p>
         </div>
       </div>
 
-      <!-- Projects at a Glance -->
+      <!-- Projects at a Glance — a glance, not a management surface: no
+           view toggle or "+ New Project" here (that action lives on All
+           Projects and Gantt, its two natural homes), just the top few
+           projects and a link to the full page. -->
       <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div class="flex items-center gap-2">
           <div class="w-1 h-4 bg-teal rounded-full"></div>
           <h3 class="text-sm font-bold text-navy-2">Projects at a Glance</h3>
         </div>
-        <div class="flex items-center gap-2">
-          <div class="flex gap-1 bg-gray-100 rounded-lg p-1">
-            <button onclick="setDashboardProjectView('cards')" data-view="cards" class="dash-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">▦ Cards</button>
-            <button onclick="setDashboardProjectView('table')" data-view="table" class="dash-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">☰ Table</button>
-          </div>
-          <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
-        </div>
+        <button onclick="showPage('projects')" class="text-teal hover:underline text-xs font-semibold">View All Projects →</button>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="project-stats"></div>
-      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6 hidden" id="project-stats-table-wrap">
-        <div class="overflow-x-auto">
-        <table class="w-full">
-          <thead><tr class="bg-navy text-white text-xs">
-            <th class="px-4 py-3 text-left font-semibold">Project</th>
-            <th class="px-4 py-3 text-left font-semibold">Tasks</th>
-            <th class="px-4 py-3 text-left font-semibold">Done</th>
-            <th class="px-4 py-3 text-left font-semibold">Overdue</th>
-            <th class="px-4 py-3 text-left font-semibold">Progress</th>
-          </tr></thead>
-          <tbody id="project-stats-table-body"></tbody>
-        </table>
-        </div>
-      </div>
 
       <!-- Needs Attention — a one-line pointer into Actions, not a second
            copy of its list: Actions is a primary top-level nav item (one
@@ -757,13 +740,15 @@
 
     <!-- ─── ALL PROJECTS ─── -->
     <div class="page p-6" id="page-projects">
-      <div class="mb-6">
-        <h2 class="text-2xl font-black text-navy">Projects</h2>
-        <p class="text-gray-500 text-sm mt-1">Each project is a collection of related goals and tasks.</p>
-      </div>
-      <div class="mb-5 flex gap-3">
-        <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
-        <button onclick="openImportProject()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all">✨ Chat with AI</button>
+      <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+        <div>
+          <h2 class="text-2xl font-black text-navy">Projects</h2>
+          <p class="text-gray-500 text-sm mt-1">Each project is a collection of related goals and tasks.</p>
+        </div>
+        <div class="flex gap-3 flex-shrink-0">
+          <button onclick="openImportProject()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all">✨ Chat with AI</button>
+          <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
+        </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5" id="projects-grid"></div>
     </div>
