@@ -1,12 +1,10 @@
 const express = require('express');
 const router  = express.Router();
-const multer  = require('multer');
 const ExcelJS = require('exceljs');
 const Anthropic = require('@anthropic-ai/sdk');
 const db = require('../db/db');
 
 const MODEL = 'claude-haiku-4-5-20251001';
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
 // GET /api/ai/status — lets the frontend show "not configured" without
 // triggering a real (billable) call, same pattern as Google Drive backup.
@@ -135,7 +133,7 @@ async function excelToText(buffer) {
 
 const IMPORT_TOOL = {
   name: 'propose_project',
-  description: 'Return a proposed project and its tasks extracted from the uploaded file',
+  description: 'Return a proposed project and its tasks, once the conversation (and any attached file) has enough to finalize',
   input_schema: {
     type: 'object',
     properties: {
@@ -163,142 +161,64 @@ const IMPORT_TOOL = {
   },
 };
 
-const IMPORT_SYSTEM_PROMPT = today => `You extract a project plan from a document a user uploaded (spreadsheet text, a PDF, or an image of a plan/list). Today's date is ${today}. Identify a sensible project title and every concrete task, goal, or action item in it. If dates are written as just a month/year, use the 1st of that month. Never invent tasks that aren't actually in the source. Call the propose_project tool with the result.`;
-
-// POST /api/ai/import-project — upload a .xlsx/.pdf/.png/.jpg and get back a
-// proposed project + task list for the user to review before anything is
-// actually created (creation itself reuses the normal project/task APIs).
-// multer is invoked manually (rather than as route middleware) so an
-// upload error — e.g. the 15MB limit — comes back as JSON instead of
-// falling through to Express's default HTML error page.
-router.post('/import-project', (req, res) => {
-  upload.single('file')(req, res, err => {
-    if (err) return res.status(400).json({ error: err.message || 'File upload failed' });
-    handleImportProject(req, res);
-  });
-});
-
-async function handleImportProject(req, res) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY to .env to enable it.' });
-  }
-  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-
-  const { mimetype, originalname, buffer } = req.file;
-  const today = new Date().toISOString().slice(0, 10);
-
-  try {
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    let content;
-
-    if (mimetype.includes('spreadsheet') || /\.xlsx?$/i.test(originalname)) {
-      const text = await excelToText(buffer);
-      if (!text.trim()) return res.status(400).json({ error: 'That spreadsheet looks empty' });
-      content = [{ type: 'text', text: `File: ${originalname}\n\n${text}\n\nExtract a project and its tasks, then call propose_project.` }];
-    } else if (mimetype === 'application/pdf') {
-      content = [
-        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: buffer.toString('base64') } },
-        { type: 'text', text: `File: ${originalname}\n\nExtract a project and its tasks from this document, then call propose_project.` },
-      ];
-    } else if (mimetype.startsWith('image/')) {
-      content = [
-        { type: 'image', source: { type: 'base64', media_type: mimetype, data: buffer.toString('base64') } },
-        { type: 'text', text: `File: ${originalname}\n\nExtract a project and its tasks from this image, then call propose_project.` },
-      ];
-    } else {
-      return res.status(400).json({ error: 'Unsupported file type. Upload a .xlsx, .pdf, .png, or .jpg.' });
-    }
-
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 4000,
-      system: IMPORT_SYSTEM_PROMPT(today),
-      messages: [{ role: 'user', content }],
-      tools: [IMPORT_TOOL],
-      tool_choice: { type: 'tool', name: 'propose_project' },
-    });
-
-    const toolUse = response.content.find(c => c.type === 'tool_use');
-    if (!toolUse) throw new Error('AI could not read a project out of that file');
-    res.json(toolUse.input);
-  } catch (e) {
-    console.error('AI import-project error:', e);
-    const apiMessage = e?.error?.error?.message || e?.message || 'Unknown error';
-    res.status(502).json({ error: apiMessage });
-  }
-}
-
-const BREAKDOWN_SYSTEM_PROMPT = today => `You help someone who has a goal but doesn't know how to break it down into concrete steps. Today's date is ${today}. Given a plain-language goal description (and optionally a target timeframe), propose a project and a sequence of concrete, actionable tasks that would realistically achieve it.
-
-Sequence the tasks logically (e.g. research/setup before execution, execution before review), and give each one a realistic startDate and endDate so the whole set is spread sensibly across the available time — don't pile every task onto the same day, and don't make one task span the entire timeframe. If no timeframe is given, use your own judgment for a sensible overall duration for a goal like this and say so implicitly through the dates you choose. Aim for 5-12 tasks — enough to be a genuine plan, not so many it's overwhelming. Call the propose_project tool with the result.`;
-
-// POST /api/ai/breakdown-goal — same output shape as import-project, but
-// starting from a plain-text goal description instead of an uploaded file,
-// for someone who doesn't have a source document and just needs a
-// starting plan. Shares the review-before-creating step (and the actual
-// project/task creation) with the file-import flow on the frontend.
-router.post('/breakdown-goal', async (req, res) => {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY to .env to enable it.' });
-  }
-  const goal = String(req.body.goal || '').trim();
-  const timeframe = String(req.body.timeframe || '').trim();
-  if (!goal) return res.status(400).json({ error: 'Describe your goal first' });
-
-  const today = new Date().toISOString().slice(0, 10);
-  const userText = `My goal: ${goal}${timeframe ? `\nTarget timeframe: ${timeframe}` : ''}\n\nBreak this down into a project and a sequenced list of tasks with realistic dates, then call propose_project.`;
-
-  try {
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 4000,
-      system: BREAKDOWN_SYSTEM_PROMPT(today),
-      messages: [{ role: 'user', content: userText }],
-      tools: [IMPORT_TOOL],
-      tool_choice: { type: 'tool', name: 'propose_project' },
-    });
-
-    const toolUse = response.content.find(c => c.type === 'tool_use');
-    if (!toolUse) throw new Error('AI could not break that goal down');
-    res.json(toolUse.input);
-  } catch (e) {
-    console.error('AI breakdown-goal error:', e);
-    const apiMessage = e?.error?.error?.message || e?.message || 'Unknown error';
-    res.status(502).json({ error: apiMessage });
-  }
-});
-
 const CHAT_SYSTEM_PROMPT = today => `You are a friendly planning assistant helping someone turn a goal into a concrete project with tasks, through natural back-and-forth conversation. Today's date is ${today}.
 
-Ask short, specific clarifying questions when they'd genuinely sharpen the plan — timeframe, scope, current progress, constraints. Don't interrogate: one or two questions is usually enough, and if the goal is already clear and specific, you can skip straight to proposing.
+The user may attach a file to a message — a spreadsheet, PDF, or image of a plan/checklist. Treat its content as real context for the goal, the same as if they'd typed it: pull out any concrete tasks/dates already in it rather than inventing your own when the file already answers that.
+
+Ask short, specific clarifying questions when they'd genuinely sharpen the plan — timeframe, scope, current progress, constraints. Don't interrogate: one or two questions is usually enough, and if the goal (or an attached file) is already clear and specific, you can skip straight to proposing.
 
 Once you have enough to propose a solid, sequenced plan AND the user seems ready (they've answered your questions, or said something like "go ahead", "that's enough", "just do it"), call the propose_project tool with realistic startDate/endDate on every task — don't pile everything on one day. Otherwise, just send a normal short conversational reply (a sentence or two, plus your question) and do not call the tool yet.`;
 
-// POST /api/ai/project-chat — a multi-turn version of breakdown-goal: the
-// frontend keeps the whole conversation client-side (this endpoint is
-// stateless) and resends it every turn. Claude either replies with plain
-// text to keep the conversation going, or calls propose_project once it
-// has enough to finalize — same tool/shape as import-project and
-// breakdown-goal, so the frontend's review-before-creating step is shared.
+// Converts one message's file attachment (sent as base64 inside the JSON
+// body, not multipart — see the raised express.json limit in server.js)
+// into Anthropic content blocks. A spreadsheet can't be sent as a native
+// document/image block, so it's read into plain text instead, same as the
+// old standalone file-import endpoint used to do.
+async function attachmentToContentBlocks({ name, mimetype, dataBase64 }) {
+  if (mimetype.includes('spreadsheet') || /\.xlsx?$/i.test(name || '')) {
+    const text = await excelToText(Buffer.from(dataBase64, 'base64'));
+    if (!text.trim()) throw new Error('That spreadsheet looks empty');
+    return [{ type: 'text', text: `Attached file (${name}):\n\n${text}` }];
+  }
+  if (mimetype === 'application/pdf') {
+    return [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: dataBase64 } }];
+  }
+  if (mimetype.startsWith('image/')) {
+    return [{ type: 'image', source: { type: 'base64', media_type: mimetype, data: dataBase64 } }];
+  }
+  throw new Error('Unsupported file type. Attach a .xlsx, .pdf, .png, or .jpg.');
+}
+
+// POST /api/ai/project-chat — the frontend keeps the whole conversation
+// client-side (this endpoint is stateless) and resends it every turn,
+// including any earlier message's attachment (still needed so Claude keeps
+// that context across later turns). Claude either replies with plain text
+// to keep the conversation going, or calls propose_project once it has
+// enough to finalize.
 router.post('/project-chat', async (req, res) => {
   if (!process.env.ANTHROPIC_API_KEY) {
     return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY to .env to enable it.' });
   }
 
   const incoming = Array.isArray(req.body.messages) ? req.body.messages : [];
-  const messages = incoming
-    .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
-    .map(m => ({ role: m.role, content: m.content.trim() }))
+  const cleaned = incoming
+    .filter(m => m && (m.role === 'user' || m.role === 'assistant') && (typeof m.content === 'string' || m.attachment))
     .slice(-30);
 
-  if (!messages.length || messages[0].role !== 'user') {
+  if (!cleaned.length || cleaned[0].role !== 'user') {
     return res.status(400).json({ error: 'No conversation to respond to' });
   }
 
   const today = new Date().toISOString().slice(0, 10);
 
   try {
+    const messages = await Promise.all(cleaned.map(async m => {
+      const text = String(m.content || '').trim();
+      if (!m.attachment) return { role: m.role, content: text };
+      const blocks = await attachmentToContentBlocks(m.attachment);
+      return { role: m.role, content: [...blocks, { type: 'text', text: text || '(see attached file)' }] };
+    }));
+
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await client.messages.create({
       model: MODEL,

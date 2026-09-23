@@ -28,7 +28,11 @@ if (!process.env.SESSION_SECRET) {
 
 // ── MIDDLEWARE ──
 app.use(cors());
-app.use(express.json());
+// Default (100kb) is far too small for the AI chat's file attachments,
+// which travel as base64 inside the JSON body rather than multipart —
+// base64 inflates a file by ~33%, so this covers the same ~15MB ceiling
+// multer enforces on the plain file-upload endpoint.
+app.use(express.json({ limit: '20mb' }));
 app.use(session({
   store: new SqliteStore({ client: db, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
   secret: process.env.SESSION_SECRET || 'waypoint-dev-secret-change-me',
