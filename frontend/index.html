@@ -124,9 +124,6 @@
        behind a nav/section icon, used in the sidebar and Settings. */
     .icon-badge { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; font-size: 15px; flex-shrink: 0; }
     .icon-badge-sm { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 7px; font-size: 12px; flex-shrink: 0; }
-    .import-method-btn { color: #6B7280; }
-    .import-method-btn.active { background: #fff; color: #0A7E8C; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-    .dark .import-method-btn.active { background: #1E293B; }
     .gantt-summary-cap { position: absolute; top: 50%; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; margin-top: -2px; transform: translateX(-50%); z-index: 3; }
     .gantt-cat-row { background: #F8FAFC; }
     .gantt-row-alt { background: #FAFAFA; }
@@ -1313,23 +1310,15 @@
 
     <!-- Step 1: choose a method -->
     <div id="import-step-upload" class="p-6 overflow-y-auto flex-1">
-      <div class="flex gap-1 bg-gray-100 rounded-lg p-1 mb-4" id="import-method-toggle">
-        <button onclick="setImportMethod('file')" data-method="file" class="import-method-btn flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-all">📄 Upload a file</button>
-        <button onclick="setImportMethod('chat')" data-method="chat" class="import-method-btn flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-all">💬 Chat with AI</button>
-      </div>
-
-      <div id="import-method-file">
-        <p class="text-sm text-gray-500 mb-4">Upload an Excel sheet, PDF, or image of a plan/checklist. AI will read it and propose a project with tasks — nothing is created until you review and confirm. Takes ~15-20s and uses your Anthropic API credits.</p>
-        <input type="file" id="import-file-input" accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3">
-      </div>
-
-      <div id="import-method-chat" class="hidden">
-        <p class="text-sm text-gray-500 mb-3">Not sure how to break a goal into tasks? Chat it through with Claude — answer a couple of questions and it'll propose a project with a sequenced set of tasks and realistic dates when it's ready. Nothing is created until you review and confirm.</p>
+      <div id="import-method-chat">
+        <p class="text-sm text-gray-500 mb-3">Not sure how to break a goal into tasks? Chat it through with Claude — answer a couple of questions and it'll propose a project with a sequenced set of tasks and realistic dates when it's ready. Already have a plan? Tap <strong>+</strong> to upload an Excel sheet, PDF, or image and Claude will read it. Nothing is created until you review and confirm.</p>
         <div id="chat-messages" class="border border-gray-200 rounded-lg p-3 mb-3 space-y-2 overflow-y-auto flex flex-col" style="max-height:260px; min-height:160px;"></div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 items-center border border-gray-200 rounded-lg pl-1.5 pr-1.5 py-1.5 focus-within:border-teal">
+          <input type="file" id="import-file-input" accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg" class="hidden" onchange="analyzeImportFile()">
+          <button type="button" onclick="document.getElementById('import-file-input').click()" id="chat-upload-btn" title="Upload a file (Excel, PDF, or image)" aria-label="Upload a file"
+            class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-xl leading-none font-light">+</button>
           <input type="text" id="chat-input" placeholder="Type a message…" onkeydown="if(event.key==='Enter'){event.preventDefault(); sendProjectChatMessage();}"
-            class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+            class="flex-1 min-w-0 bg-transparent px-1 py-1 text-sm focus:outline-none">
           <button onclick="sendProjectChatMessage()" id="chat-send-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">Send</button>
         </div>
       </div>
@@ -1338,7 +1327,6 @@
     </div>
     <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100" id="import-upload-actions">
       <button onclick="closeModal('modal-import')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
-      <button onclick="analyzeImportFile()" id="import-analyze-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Analyze File</button>
     </div>
 
     <!-- Step 2: review + edit proposed project -->

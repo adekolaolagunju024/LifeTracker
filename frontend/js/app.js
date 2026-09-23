@@ -2804,10 +2804,9 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 
 // PROJECT MODAL
 // ── IMPORT PROJECT FROM FILE (AI) ─────────────────────────────────
-// Chat is the flagship way in — defaults to it rather than the file-upload
-// tab, which used to be the default and buried chat as a secondary option
-// one extra click away.
-function openImportProject(method = 'chat') {
+// Chat is the only way in — file upload lives on the "+" button inside the
+// chat box, like attaching a file in a messaging app.
+function openImportProject() {
   document.getElementById('import-file-input').value = '';
   document.getElementById('import-error').classList.add('hidden');
   document.getElementById('import-step-upload').classList.remove('hidden');
@@ -2817,31 +2816,43 @@ function openImportProject(method = 'chat') {
   document.getElementById('import-preview-actions').classList.add('hidden');
   document.getElementById('import-preview-actions').classList.remove('flex');
   resetProjectChat();
-  setImportMethod(method);
   openModal('modal-import');
+  document.getElementById('chat-input').focus();
 }
 
-function setImportMethod(method) {
-  document.querySelectorAll('.import-method-btn').forEach(b => b.classList.toggle('active', b.dataset.method === method));
-  document.getElementById('import-method-file').classList.toggle('hidden', method !== 'file');
-  document.getElementById('import-method-chat').classList.toggle('hidden', method !== 'chat');
-  document.getElementById('import-analyze-btn').classList.toggle('hidden', method === 'chat');
-  document.getElementById('import-analyze-btn').textContent = 'Analyze File';
-  document.getElementById('import-analyze-btn').dataset.method = method;
-  document.getElementById('import-error').classList.add('hidden');
-  if (method === 'chat') document.getElementById('chat-input').focus();
-}
-
+// Triggered by picking a file from the chat's "+" button. Shows the file as
+// a sent message, then runs it through the same import endpoint as before.
 async function analyzeImportFile() {
   const fileInput = document.getElementById('import-file-input');
-  const errorEl = document.getElementById('import-error');
-  errorEl.classList.add('hidden');
   const file = fileInput.files[0];
-  if (!file) { errorEl.textContent = 'Choose a file first'; errorEl.classList.remove('hidden'); return; }
+  if (!file) return;
+  fileInput.value = '';
+  document.getElementById('import-error').classList.add('hidden');
+
+  addChatBubble('user', '📎 ' + file.name);
+  const typingEl = addChatBubble('assistant', 'Reading your file… (~15-20s)', true);
+  setChatBusy(true);
 
   const formData = new FormData();
   formData.append('file', file);
-  await runProjectProposal(() => fetch('/api/ai/import-project', { method: 'POST', body: formData }), 'Reading file with Claude… (~15-20s)', 'Failed to read that file');
+  try {
+    const res = await fetch('/api/ai/import-project', { method: 'POST', body: formData });
+    const body = await res.json();
+    typingEl.remove();
+    if (!res.ok) throw new Error(body.error || 'Failed to read that file');
+    addChatBubble('assistant', "Here's what I found in your file — review and edit it below ⬇");
+    showImportPreview(body);
+  } catch (e) {
+    typingEl.remove();
+    addChatBubble('assistant', '⚠️ ' + (e.message || 'Failed to read that file'));
+  } finally {
+    setChatBusy(false);
+  }
+}
+
+function setChatBusy(busy) {
+  ['chat-input', 'chat-send-btn', 'chat-upload-btn'].forEach(id => { document.getElementById(id).disabled = busy; });
+  if (!busy) document.getElementById('chat-input').focus();
 }
 
 // ── CREATE PROJECT VIA AI CHAT ────────────────────────────────────
@@ -2876,12 +2887,10 @@ async function sendProjectChatMessage() {
   const text = input.value.trim();
   if (!text) return;
 
-  const sendBtn = document.getElementById('chat-send-btn');
   APP.projectChat.push({ role: 'user', content: text });
   addChatBubble('user', text);
   input.value = '';
-  input.disabled = true;
-  sendBtn.disabled = true;
+  setChatBusy(true);
   const typingEl = addChatBubble('assistant', 'Thinking…', true);
 
   try {
@@ -2905,9 +2914,7 @@ async function sendProjectChatMessage() {
     typingEl.remove();
     addChatBubble('assistant', '⚠️ ' + (e.message || 'Something went wrong — try again'));
   } finally {
-    input.disabled = false;
-    sendBtn.disabled = false;
-    input.focus();
+    setChatBusy(false);
   }
 }
 
@@ -2923,27 +2930,6 @@ function showImportPreview(body) {
   document.getElementById('import-step-preview').classList.remove('hidden');
   document.getElementById('import-preview-actions').classList.remove('hidden');
   document.getElementById('import-preview-actions').classList.add('flex');
-}
-
-async function runProjectProposal(doFetch, loadingLabel, failMessage) {
-  const errorEl = document.getElementById('import-error');
-  const btn = document.getElementById('import-analyze-btn');
-  const originalLabel = btn.textContent;
-  btn.disabled = true;
-  btn.innerHTML = `<span class="spinner"></span> ${loadingLabel}`;
-
-  try {
-    const res = await doFetch();
-    const body = await res.json();
-    if (!res.ok) throw new Error(body.error || failMessage);
-    showImportPreview(body);
-  } catch (e) {
-    errorEl.textContent = e.message || failMessage;
-    errorEl.classList.remove('hidden');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalLabel;
-  }
 }
 
 const IMPORT_PRIORITIES = ['High', 'Medium', 'Low'];
