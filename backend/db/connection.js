@@ -87,6 +87,19 @@ db.exec(`
     notes TEXT DEFAULT ''
   );
 
+  CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    label TEXT NOT NULL,
+    color TEXT DEFAULT '#6B7280'
+  );
+
+  CREATE TABLE IF NOT EXISTS task_tags (
+    taskId TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    tagId TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (taskId, tagId)
+  );
+
   CREATE TABLE IF NOT EXISTS checklist_items (
     id TEXT PRIMARY KEY,
     taskId TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,

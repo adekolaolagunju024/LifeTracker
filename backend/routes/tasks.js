@@ -56,4 +56,11 @@ router.delete('/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// PUT /api/tasks/:id/tags — { tagIds: [...] }, replaces the task's whole tag set
+router.put('/:id/tags', (req, res) => {
+  const tags = db.setTaskTags(req.session.userId, req.params.id, req.body.tagIds);
+  if (tags === null) return res.status(404).json({ error: 'Task not found' });
+  res.json(tags);
+});
+
 module.exports = router;

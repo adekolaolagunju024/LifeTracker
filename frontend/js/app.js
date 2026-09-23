@@ -216,7 +216,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeFil
 function showPage(id, projectId = null) {
   APP.currentPage      = id;
   APP.currentProjectId = projectId;
-  APP.filters          = { status: '', priority: '', search: '' };
+  APP.filters          = { status: '', priority: '', search: '', tag: '' };
   closeMobileSidebar();
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -538,7 +538,8 @@ async function renderProjectDetail(projectId) {
 
 async function renderTaskTable(projectId) {
   try {
-    const [tasks, project] = await Promise.all([
+    const [allTags, rawTasks, project] = await Promise.all([
+      API.getTags(),
       API.getTasks({
         projectId,
         status:   APP.filters.status   || undefined,
@@ -548,6 +549,15 @@ async function renderTaskTable(projectId) {
       API.getProject(projectId),
     ]);
     const minStart = project.startDate || '';
+
+    const tagFilterSel = document.getElementById('filter-tag');
+    tagFilterSel.innerHTML = '<option value="">All Tags</option>' +
+      allTags.map(tg => `<option value="${tg.id}" ${APP.filters.tag === tg.id ? 'selected' : ''}>${esc(tg.label)}</option>`).join('');
+
+    // Tag isn't a query-string filter on the API (no clean way to pass a
+    // tag id list through GET params the way status/priority do) — filter
+    // client-side on the tags array the API already returns per task.
+    const tasks = APP.filters.tag ? rawTasks.filter(t => (t.tags || []).some(tg => tg.id === APP.filters.tag)) : rawTasks;
 
     const done = tasks.filter(t => t.status === 'Completed').length;
     const inp  = tasks.filter(t => t.status === 'In Progress').length;
@@ -578,7 +588,10 @@ async function renderTaskTable(projectId) {
       ? tasks.map(t => `
           <tr class="border-b border-gray-100 hover:bg-gray-50">
             <td class="px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()"></td>
-            <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}</td>
+            <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">
+              <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}</div>
+              ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
+            </td>
             <td class="px-4 py-3">
               <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}"
                 onchange="updateTaskStatus('${t.id}', this.value, '${projectId}')">
@@ -736,12 +749,13 @@ function applyFilters(projectId) {
   APP.filters.status   = document.getElementById('filter-status').value;
   APP.filters.priority = document.getElementById('filter-priority').value;
   APP.filters.search   = document.getElementById('filter-search').value;
+  APP.filters.tag      = document.getElementById('filter-tag').value;
   renderTaskTable(projectId);
 }
 
 function clearFilters(projectId) {
-  APP.filters = { status: '', priority: '', search: '' };
-  ['filter-status','filter-priority','filter-search']
+  APP.filters = { status: '', priority: '', search: '', tag: '' };
+  ['filter-status','filter-priority','filter-search','filter-tag']
     .forEach(id => { document.getElementById(id).value = ''; });
   renderTaskTable(projectId);
 }
@@ -1248,6 +1262,7 @@ function renderKanbanBoard(tasks, projectById) {
               <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="text-gray-400 hover:text-red-500 text-xs" title="Delete task">🗑️</button>
             </div>
           </div>
+          ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mb-1.5">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
           <div class="flex items-center justify-between text-xs text-gray-400">
             <span class="truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${t.checklistTotal ? ` · ☑️ ${t.checklistDone}/${t.checklistTotal}` : ''}</span>
             ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
@@ -2835,6 +2850,8 @@ async function openAddTask(projectId) {
   document.getElementById('task-notes').value      = '';
   document.getElementById('task-recurrence').value = 'none';
   document.getElementById('task-checklist-section').classList.add('hidden');
+  APP.taskModalTagIds = [];
+  await renderTaskTagPicker();
   await populateProjectSelect(projectId);
   openModal('modal-task');
 }
@@ -2853,8 +2870,47 @@ async function editTask(id) {
   document.getElementById('task-recurrence').value = t.recurrence || 'none';
   document.getElementById('task-checklist-section').classList.remove('hidden');
   renderTaskChecklist(id);
+  APP.taskModalTagIds = (t.tags || []).map(tag => tag.id);
+  await renderTaskTagPicker();
   await populateProjectSelect(t.projectId);
   openModal('modal-task');
+}
+
+// ── TAGS (task modal picker) ────────────────────────────────────
+async function renderTaskTagPicker() {
+  const wrap = document.getElementById('task-tag-picker');
+  try {
+    const tags = await API.getTags();
+    wrap.innerHTML = tags.length
+      ? tags.map(tag => {
+          const on = (APP.taskModalTagIds || []).includes(tag.id);
+          return `<button type="button" onclick="toggleTaskModalTag('${tag.id}')"
+            class="text-xs font-semibold px-2.5 py-1 rounded-full border transition-all"
+            style="${on ? `background:${tag.color};border-color:${tag.color};color:#fff` : `background:transparent;border-color:${tag.color};color:${tag.color}`}">${esc(tag.label)}</button>`;
+        }).join('')
+      : `<p class="text-xs text-gray-400">No tags yet — create one below</p>`;
+  } catch (e) { console.error('Tags error:', e); }
+}
+
+function toggleTaskModalTag(id) {
+  APP.taskModalTagIds = APP.taskModalTagIds || [];
+  const i = APP.taskModalTagIds.indexOf(id);
+  if (i === -1) APP.taskModalTagIds.push(id); else APP.taskModalTagIds.splice(i, 1);
+  renderTaskTagPicker();
+}
+
+async function createTagFromTaskModal() {
+  const labelEl = document.getElementById('task-new-tag-label');
+  const label = labelEl.value.trim();
+  if (!label) return;
+  const color = document.getElementById('task-new-tag-color').value;
+  try {
+    const tag = await API.addTag({ label, color });
+    labelEl.value = '';
+    APP.taskModalTagIds = APP.taskModalTagIds || [];
+    APP.taskModalTagIds.push(tag.id);
+    renderTaskTagPicker();
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to create tag'), 'error'); }
 }
 
 // ── CHECKLIST (subtasks within a task) ──────────────────────────
@@ -2949,15 +3005,18 @@ async function saveTask() {
   if (!data.title)     { showToast('Task title is required', 'error'); return; }
   if (!data.projectId) { showToast('Please select a project', 'error'); return; }
   try {
+    let taskId = id;
     if (id) {
       const wasCompleted = (await API.getTask(id)).status === 'Completed';
       await API.updateTask(id, data);
       const justRecurred = !wasCompleted && data.status === 'Completed' && data.recurrence !== 'none';
       showToast(justRecurred ? '✅ Task completed — next occurrence scheduled' : '✅ Task updated');
     } else {
-      await API.addTask(data);
+      const created = await API.addTask(data);
+      taskId = created.id;
       showToast('✅ Task added');
     }
+    await API.setTaskTags(taskId, APP.taskModalTagIds || []);
     closeModal('modal-task');
     if (APP.currentProjectId) renderTaskTable(APP.currentProjectId);
     if (APP.currentPage === 'gantt') renderGantt();

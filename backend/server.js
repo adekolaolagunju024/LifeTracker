@@ -66,6 +66,7 @@ app.use('/api/data',     require('./routes/data'));
 app.use('/api/trash',    require('./routes/trash'));
 app.use('/api/search',   require('./routes/search'));
 app.use('/api/checklist', require('./routes/checklist'));
+app.use('/api/tags',     require('./routes/tags'));
 
 // ── CATCH ALL — serve frontend ──
 app.get('*', (req, res) => {

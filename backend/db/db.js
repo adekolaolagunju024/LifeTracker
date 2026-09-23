@@ -158,11 +158,15 @@ function listTasks(userId, filters = {}) {
   if (filters.category)  { sql += ' AND t.category = ?';  params.push(filters.category); }
   if (filters.search)    { sql += ' AND LOWER(t.title) LIKE ?'; params.push('%' + filters.search.toLowerCase() + '%'); }
   sql += ' ORDER BY t.sortOrder ASC, t.createdAt ASC';
-  return db.prepare(sql).all(...params).map(t => ({ ...t, cost: t.cost || 0 }));
+  const tasks = db.prepare(sql).all(...params).map(t => ({ ...t, cost: t.cost || 0 }));
+  return attachTagsToTasks(tasks);
 }
 
 function getTaskById(userId, id) {
-  return db.prepare(`SELECT t.*, ${CHECKLIST_COUNT_COLUMNS} FROM tasks t WHERE t.id = ? AND t.userId = ? AND t.deletedAt IS NULL`).get(id, userId);
+  const task = db.prepare(`SELECT t.*, ${CHECKLIST_COUNT_COLUMNS} FROM tasks t WHERE t.id = ? AND t.userId = ? AND t.deletedAt IS NULL`).get(id, userId);
+  if (!task) return task;
+  task.tags = getTaskTags(id);
+  return task;
 }
 
 // A task can't start before the project it belongs to does — only checked
@@ -310,6 +314,75 @@ function purgeTaskForever(userId, id) {
   db.prepare('DELETE FROM tasks WHERE id = ? AND userId = ? AND deletedAt IS NOT NULL').run(id, userId);
 }
 
+// ── TAGS (custom labels, many-to-many with tasks) ────────────────
+function listTags(userId) {
+  return db.prepare('SELECT * FROM tags WHERE userId = ? ORDER BY label ASC').all(userId);
+}
+
+function createTag(userId, { label, color }) {
+  const tag = { id: uuid(), userId, label: String(label || '').trim(), color: color || '#6B7280' };
+  if (!tag.label) throw new Error('Tag name is required');
+  db.prepare('INSERT INTO tags (id, userId, label, color) VALUES (?,?,?,?)').run(tag.id, tag.userId, tag.label, tag.color);
+  return tag;
+}
+
+function updateTag(userId, id, { label, color }) {
+  const current = db.prepare('SELECT * FROM tags WHERE id = ? AND userId = ?').get(id, userId);
+  if (!current) return null;
+  const next = { ...current, label: label !== undefined ? String(label).trim() : current.label, color: color || current.color };
+  if (!next.label) throw new Error('Tag name is required');
+  db.prepare('UPDATE tags SET label = ?, color = ? WHERE id = ? AND userId = ?').run(next.label, next.color, id, userId);
+  return next;
+}
+
+// task_tags cascades via FK, so deleting a tag also detaches it from
+// every task that had it — no separate cleanup needed.
+function deleteTag(userId, id) {
+  db.prepare('DELETE FROM tags WHERE id = ? AND userId = ?').run(id, userId);
+}
+
+// Every tag currently attached to one task, ordered by label.
+function getTaskTags(taskId) {
+  return db.prepare(`
+    SELECT tg.id, tg.label, tg.color FROM task_tags tt JOIN tags tg ON tg.id = tt.tagId
+    WHERE tt.taskId = ? ORDER BY tg.label ASC
+  `).all(taskId);
+}
+
+// Attaches this task's tags to a whole batch of already-fetched tasks in
+// one extra query, instead of one query per task — used by listTasks.
+function attachTagsToTasks(tasks) {
+  if (!tasks.length) return tasks;
+  const placeholders = tasks.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT tt.taskId, tg.id, tg.label, tg.color FROM task_tags tt JOIN tags tg ON tg.id = tt.tagId
+    WHERE tt.taskId IN (${placeholders}) ORDER BY tg.label ASC
+  `).all(...tasks.map(t => t.id));
+  const byTask = {};
+  rows.forEach(r => { (byTask[r.taskId] = byTask[r.taskId] || []).push({ id: r.id, label: r.label, color: r.color }); });
+  tasks.forEach(t => { t.tags = byTask[t.id] || []; });
+  return tasks;
+}
+
+// Replaces a task's whole tag set with exactly the given list — simpler
+// "set" semantics than incremental attach/detach, matching a multi-select
+// checkbox picker in the UI that always submits the full current selection.
+function setTaskTags(userId, taskId, tagIds) {
+  if (!getTaskById(userId, taskId)) return null;
+  const ids = [...new Set((tagIds || []).filter(Boolean))];
+  // Only tags that actually belong to this user can be attached — silently
+  // drop anything else rather than erroring on a stale/foreign id.
+  const owned = ids.length
+    ? db.prepare(`SELECT id FROM tags WHERE userId = ? AND id IN (${ids.map(() => '?').join(',')})`).all(userId, ...ids).map(r => r.id)
+    : [];
+  db.transaction(() => {
+    db.prepare('DELETE FROM task_tags WHERE taskId = ?').run(taskId);
+    const insert = db.prepare('INSERT INTO task_tags (taskId, tagId) VALUES (?, ?)');
+    owned.forEach(tagId => insert.run(taskId, tagId));
+  })();
+  return getTaskTags(taskId);
+}
+
 // ── CHECKLIST ITEMS (lightweight subtasks within a task) ─────────
 function listChecklistItems(userId, taskId) {
   if (!getTaskById(userId, taskId)) return null;
@@ -453,6 +526,7 @@ module.exports = {
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, reorderTasks,
   listTrash, restoreProject, restoreTask, purgeProjectForever, purgeTaskForever,
   listChecklistItems, addChecklistItem, updateChecklistItem, deleteChecklistItem,
+  listTags, createTag, updateTag, deleteTag, setTaskTags, getTaskTags,
   getWealth, updateWealthEntries, addWealthTarget, updateWealthTarget, deleteWealthTarget, addMonthlyLogEntry, deleteMonthlyLogEntry,
   getGoogleDrive, setGoogleDrive,
   searchAll,

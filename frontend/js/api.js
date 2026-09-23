@@ -97,6 +97,13 @@ const API = {
   // ── DATA IMPORT ──
   importData: (data) => request('POST', '/data/import', data),
 
+  // ── TAGS ──
+  getTags:      ()          => request('GET',    '/tags'),
+  addTag:       (data)      => request('POST',   '/tags', data),
+  updateTag:    (id, data)  => request('PUT',    `/tags/${id}`, data),
+  deleteTag:    (id)        => request('DELETE', `/tags/${id}`),
+  setTaskTags:  (taskId, tagIds) => request('PUT', `/tasks/${taskId}/tags`, { tagIds }),
+
   // ── CHECKLIST (subtasks) ──
   getChecklist:         (taskId)      => request('GET',    `/checklist/${taskId}`),
   addChecklistItem:     (taskId, title) => request('POST', `/checklist/${taskId}`, { title }),
