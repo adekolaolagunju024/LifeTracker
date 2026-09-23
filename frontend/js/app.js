@@ -1900,13 +1900,28 @@ async function addSuggestedTask(i) {
 }
 
 // ── CALENDAR ─────────────────────────────────────────────────────
-// A month grid of every task by due date — the one view the app didn't
-// have (Gantt/Kanban/table all exist, but not "what's due this Tuesday").
+// Month/Week/Year views of every task by due date, with drag-to-reschedule
+// (same manual mouse+touch ghost-drag pattern as Kanban's drag-to-status,
+// dropping onto a day cell instead of a status column).
 const CALENDAR_MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const CALENDAR_MONTH_ABBR  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function changeCalendarMonth(delta) {
+function setCalendarViewMode(mode) {
+  APP.calendarViewMode = mode;
+  try { localStorage.setItem('calendarViewMode', mode); } catch { /* private mode etc */ }
+  APP.calendarExpandedDays = new Set();
+  renderCalendar();
+}
+
+function changeCalendarPeriod(delta) {
   const d = APP.calendarDate || new Date();
-  APP.calendarDate = new Date(d.getFullYear(), d.getMonth() + delta, 1);
+  if (APP.calendarViewMode === 'week') {
+    APP.calendarDate = new Date(d.getFullYear(), d.getMonth(), d.getDate() + delta * 7);
+  } else if (APP.calendarViewMode === 'year') {
+    APP.calendarDate = new Date(d.getFullYear() + delta, d.getMonth(), 1);
+  } else {
+    APP.calendarDate = new Date(d.getFullYear(), d.getMonth() + delta, 1);
+  }
   APP.calendarExpandedDays = new Set();
   renderCalendar();
 }
@@ -1928,6 +1943,13 @@ function expandCalendarDay(dateKey) {
   renderCalendar();
 }
 
+// Jumps into Month view centered on a specific date — used by Year view's
+// day cells, which are too small to show tasks directly.
+function jumpToCalendarMonth(dateKey) {
+  APP.calendarDate = new Date(dateKey);
+  setCalendarViewMode('month');
+}
+
 // Opens the usual Add Task modal with the clicked day pre-filled as the
 // due date, rather than building a separate calendar-specific form.
 async function openAddTaskWithDueDate(dateKey) {
@@ -1935,86 +1957,235 @@ async function openAddTaskWithDueDate(dateKey) {
   document.getElementById('task-end').value = dateKey;
 }
 
+function buildCalendarMonthCells(year, month) {
+  const pad = n => String(n).padStart(2, '0');
+  const startWeekday    = new Date(year, month, 1).getDay(); // 0 = Sunday
+  const daysInMonth     = new Date(year, month + 1, 0).getDate();
+  const daysInPrevMonth = new Date(year, month, 0).getDate();
+  const cells = [];
+  for (let i = startWeekday - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, dateKey: null });
+  for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, dateKey: `${year}-${pad(month + 1)}-${pad(d)}` });
+  // Trailing/padding cells round the grid out to full weeks, and always to
+  // 6 rows so the page doesn't jump height between a 4-week and 6-week month.
+  while (cells.length < 42) cells.push({ day: cells.length - (startWeekday + daysInMonth) + 1, dateKey: null });
+  return cells;
+}
+
+function buildCalendarWeekCells(anchorDate) {
+  const pad = n => String(n).padStart(2, '0');
+  const start = new Date(anchorDate);
+  start.setDate(start.getDate() - start.getDay());
+  const cells = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    cells.push({ day: d.getDate(), dateKey: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, monthAbbr: CALENDAR_MONTH_ABBR[d.getMonth()] });
+  }
+  return cells;
+}
+
+// Shared by Month and Week views — Year view's cells are too small for
+// this (no pills, no drag) and get their own compact renderer below.
+function renderCalendarDayCell(cell, byDate, todayKey, opts) {
+  const { cap, minHeight, showMonthAbbr } = opts;
+  const otherMonth = !cell.dateKey;
+  const isToday = cell.dateKey === todayKey;
+  const dayTasks = cell.dateKey ? (byDate[cell.dateKey] || []) : [];
+  const expanded = cell.dateKey && APP.calendarExpandedDays.has(cell.dateKey);
+  const visible = expanded ? dayTasks : dayTasks.slice(0, cap);
+  const hiddenCount = dayTasks.length - visible.length;
+
+  const pills = visible.map(t => {
+    const overdue = t.status !== 'Completed' && cell.dateKey < todayKey;
+    const color = PRIORITY_BORDER[t.priority] || '#D1D5DB';
+    return `<div onmousedown="calendarTaskMouseDown(event,'${t.id}','${cell.dateKey}')" ontouchstart="calendarTaskMouseDown(event,'${t.id}','${cell.dateKey}')"
+      onclick="event.stopPropagation(); openTaskDetail('${t.id}')" title="${esc(t.title)} — drag to reschedule"
+      class="text-[10px] font-semibold px-1.5 py-0.5 rounded truncate cursor-grab active:cursor-grabbing ${t.status === 'Completed' ? 'line-through opacity-50' : ''}"
+      style="background:${color}22;color:${overdue ? '#DC2626' : color}">${overdue ? '🔴 ' : ''}${esc(t.title)}</div>`;
+  }).join('');
+  const moreLink = hiddenCount > 0
+    ? `<button onclick="event.stopPropagation(); expandCalendarDay('${cell.dateKey}')" class="text-[10px] text-teal font-semibold hover:underline">+${hiddenCount} more</button>`
+    : '';
+  const dayLabel = showMonthAbbr ? `${cell.monthAbbr} ${cell.day}` : cell.day;
+
+  return `
+    <div class="calendar-day-cell border-b border-r border-gray-100 p-1.5 ${otherMonth ? 'bg-gray-50/60' : ''} ${cell.dateKey ? 'cursor-pointer hover:bg-teal/5' : ''}"
+      style="min-height:${minHeight}" data-date-key="${cell.dateKey || ''}"
+      ${cell.dateKey ? `onclick="openAddTaskWithDueDate('${cell.dateKey}')" title="Add a task due this day"` : ''}>
+      <p class="text-xs font-semibold mb-1 ${otherMonth ? 'text-gray-300' : isToday ? 'inline-flex items-center justify-center px-1.5 h-5 rounded-full bg-teal text-white' : 'text-gray-500'}">${dayLabel}</p>
+      <div class="space-y-0.5">${pills}${moreLink}</div>
+    </div>`;
+}
+
+// Compact read-only day cell for Year view's 12 mini-calendars — just a
+// number and a dot if anything's due, since there's no room for titles.
+function renderCalendarMiniCell(cell, byDate, todayKey) {
+  const otherMonth = !cell.dateKey;
+  const isToday = cell.dateKey === todayKey;
+  const dayTasks = cell.dateKey ? (byDate[cell.dateKey] || []) : [];
+  const hasOverdue = dayTasks.some(t => t.status !== 'Completed' && cell.dateKey < todayKey);
+  const dot = dayTasks.length ? `<span class="block w-1 h-1 rounded-full mx-auto mt-0.5" style="background:${hasOverdue ? '#DC2626' : '#0A7E8C'}"></span>` : '';
+  return `
+    <div class="text-center py-1 ${cell.dateKey ? 'cursor-pointer hover:bg-teal/10 rounded' : ''}"
+      ${cell.dateKey ? `onclick="jumpToCalendarMonth('${cell.dateKey}')" title="${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'} due"` : ''}>
+      <span class="text-[10px] ${otherMonth ? 'text-gray-300' : isToday ? 'font-bold text-teal' : 'text-gray-600'}">${cell.day}</span>
+      ${dot}
+    </div>`;
+}
+
+async function loadCalendarData() {
+  if (!APP.calendarDate) APP.calendarDate = new Date();
+  if (!APP.calendarViewMode) {
+    try { APP.calendarViewMode = localStorage.getItem('calendarViewMode') || 'month'; } catch { APP.calendarViewMode = 'month'; }
+  }
+  if (APP.calendarProjectFilter === undefined) {
+    try { APP.calendarProjectFilter = localStorage.getItem('calendarProjectFilter') || ''; } catch { APP.calendarProjectFilter = ''; }
+  }
+  if (!APP.calendarExpandedDays) APP.calendarExpandedDays = new Set();
+
+  const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
+
+  const filterSel = document.getElementById('calendar-project-filter');
+  const topLevel = projects.filter(p => !p.parentId);
+  const childrenOf = pid => projects.filter(p => p.parentId === pid);
+  filterSel.innerHTML = '<option value="">All Projects</option>' + topLevel.map(top => {
+    const kids = childrenOf(top.id);
+    const topOption = `<option value="${top.id}" ${APP.calendarProjectFilter === top.id ? 'selected' : ''}>${top.icon} ${esc(top.title)}</option>`;
+    if (!kids.length) return topOption;
+    const kidOptions = kids.map(k => `<option value="${k.id}" ${APP.calendarProjectFilter === k.id ? 'selected' : ''}>${k.icon} ${esc(k.title)}</option>`).join('');
+    return `<optgroup label="${esc(top.title)}">${topOption}${kidOptions}</optgroup>`;
+  }).join('');
+
+  const allowedIds = APP.calendarProjectFilter
+    ? new Set([APP.calendarProjectFilter, ...childrenOf(APP.calendarProjectFilter).map(p => p.id)])
+    : null;
+
+  const byDate = {};
+  tasks.filter(t => t.endDate && (!allowedIds || allowedIds.has(t.projectId))).forEach(t => {
+    const key = t.endDate.slice(0, 10);
+    (byDate[key] = byDate[key] || []).push(t);
+  });
+  return { byDate, todayKey: localDateKey(new Date()) };
+}
+
 async function renderCalendar() {
   try {
-    if (!APP.calendarDate) APP.calendarDate = new Date();
-    if (APP.calendarProjectFilter === undefined) {
-      try { APP.calendarProjectFilter = localStorage.getItem('calendarProjectFilter') || ''; } catch { APP.calendarProjectFilter = ''; }
-    }
-    if (!APP.calendarExpandedDays) APP.calendarExpandedDays = new Set();
+    const { byDate, todayKey } = await loadCalendarData();
+    document.querySelectorAll('.calendar-view-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === APP.calendarViewMode));
 
-    const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
+    const isYear = APP.calendarViewMode === 'year';
+    document.getElementById('calendar-weekday-header').classList.toggle('hidden', isYear);
+    document.getElementById('calendar-grid').classList.toggle('grid-cols-7', !isYear);
+    document.getElementById('calendar-subtitle').textContent = isYear
+      ? 'Every task with a due date. Click a day to jump into its month.'
+      : 'Every task with a due date. Drag a task onto another day to reschedule it.';
 
-    // Project filter dropdown — same grouped-by-parent pattern as Gantt/task modal
-    const filterSel = document.getElementById('calendar-project-filter');
-    const topLevel = projects.filter(p => !p.parentId);
-    const childrenOf = pid => projects.filter(p => p.parentId === pid);
-    filterSel.innerHTML = '<option value="">All Projects</option>' + topLevel.map(top => {
-      const kids = childrenOf(top.id);
-      const topOption = `<option value="${top.id}" ${APP.calendarProjectFilter === top.id ? 'selected' : ''}>${top.icon} ${esc(top.title)}</option>`;
-      if (!kids.length) return topOption;
-      const kidOptions = kids.map(k => `<option value="${k.id}" ${APP.calendarProjectFilter === k.id ? 'selected' : ''}>${k.icon} ${esc(k.title)}</option>`).join('');
-      return `<optgroup label="${esc(top.title)}">${topOption}${kidOptions}</optgroup>`;
-    }).join('');
+    if (APP.calendarViewMode === 'week') {
+      const cells = buildCalendarWeekCells(APP.calendarDate);
+      const first = cells[0], last = cells[6];
+      document.getElementById('calendar-month-label').textContent =
+        first.monthAbbr === last.monthAbbr ? `${first.monthAbbr} ${first.day}–${last.day}` : `${first.monthAbbr} ${first.day} – ${last.monthAbbr} ${last.day}`;
+      document.getElementById('calendar-grid').innerHTML = cells
+        .map(cell => renderCalendarDayCell(cell, byDate, todayKey, { cap: 8, minHeight: '220px', showMonthAbbr: true }))
+        .join('');
 
-    const allowedIds = APP.calendarProjectFilter
-      ? new Set([APP.calendarProjectFilter, ...childrenOf(APP.calendarProjectFilter).map(p => p.id)])
-      : null;
-
-    const byDate = {};
-    tasks.filter(t => t.endDate && (!allowedIds || allowedIds.has(t.projectId))).forEach(t => {
-      const key = t.endDate.slice(0, 10);
-      (byDate[key] = byDate[key] || []).push(t);
-    });
-
-    const year  = APP.calendarDate.getFullYear();
-    const month = APP.calendarDate.getMonth();
-    document.getElementById('calendar-month-label').textContent = `${CALENDAR_MONTH_NAMES[month]} ${year}`;
-
-    const startWeekday     = new Date(year, month, 1).getDay(); // 0 = Sunday
-    const daysInMonth      = new Date(year, month + 1, 0).getDate();
-    const daysInPrevMonth  = new Date(year, month, 0).getDate();
-    const pad = n => String(n).padStart(2, '0');
-
-    const cells = [];
-    for (let i = startWeekday - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, dateKey: null });
-    for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, dateKey: `${year}-${pad(month + 1)}-${pad(d)}` });
-    // Trailing/padding cells (from next month) round the grid out to full
-    // weeks, and always to 6 rows so the page doesn't jump height between
-    // a 4-week and 6-week month.
-    while (cells.length < 42) cells.push({ day: cells.length - (startWeekday + daysInMonth) + 1, dateKey: null });
-
-    const todayKey = localDateKey(new Date());
-    const CAP = 3;
-
-    document.getElementById('calendar-grid').innerHTML = cells.map(cell => {
-      const otherMonth = !cell.dateKey;
-      const isToday = cell.dateKey === todayKey;
-      const dayTasks = cell.dateKey ? (byDate[cell.dateKey] || []) : [];
-      const expanded = cell.dateKey && APP.calendarExpandedDays.has(cell.dateKey);
-      const visible = expanded ? dayTasks : dayTasks.slice(0, CAP);
-      const hiddenCount = dayTasks.length - visible.length;
-
-      const pills = visible.map(t => {
-        const overdue = t.status !== 'Completed' && cell.dateKey < todayKey;
-        const color = PRIORITY_BORDER[t.priority] || '#D1D5DB';
-        return `<div onclick="event.stopPropagation(); openTaskDetail('${t.id}')" title="${esc(t.title)}"
-          class="text-[10px] font-semibold px-1.5 py-0.5 rounded truncate cursor-pointer hover:opacity-75 ${t.status === 'Completed' ? 'line-through opacity-50' : ''}"
-          style="background:${color}22;color:${overdue ? '#DC2626' : color}">${overdue ? '🔴 ' : ''}${esc(t.title)}</div>`;
-      }).join('');
-      const moreLink = hiddenCount > 0
-        ? `<button onclick="event.stopPropagation(); expandCalendarDay('${cell.dateKey}')" class="text-[10px] text-teal font-semibold hover:underline">+${hiddenCount} more</button>`
-        : '';
-
-      return `
-        <div class="border-b border-r border-gray-100 p-1.5 min-h-[92px] ${otherMonth ? 'bg-gray-50/60' : ''} ${cell.dateKey ? 'cursor-pointer hover:bg-teal/5' : ''}"
-          ${cell.dateKey ? `onclick="openAddTaskWithDueDate('${cell.dateKey}')" title="Add a task due this day"` : ''}>
-          <p class="text-xs font-semibold mb-1 ${otherMonth ? 'text-gray-300' : isToday ? 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-teal text-white' : 'text-gray-500'}">${cell.day}</p>
-          <div class="space-y-0.5">${pills}${moreLink}</div>
+    } else if (APP.calendarViewMode === 'year') {
+      const year = APP.calendarDate.getFullYear();
+      document.getElementById('calendar-month-label').textContent = String(year);
+      document.getElementById('calendar-grid').innerHTML = `
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-4">
+          ${CALENDAR_MONTH_NAMES.map((name, m) => {
+            const cells = buildCalendarMonthCells(year, m);
+            return `
+              <div class="border border-gray-100 rounded-lg p-2">
+                <button onclick="jumpToCalendarMonth('${year}-${String(m + 1).padStart(2, '0')}-01')" class="text-xs font-bold text-navy hover:text-teal mb-1.5">${name}</button>
+                <div class="grid grid-cols-7 gap-0.5">${cells.map(c => renderCalendarMiniCell(c, byDate, todayKey)).join('')}</div>
+              </div>`;
+          }).join('')}
         </div>`;
-    }).join('');
 
+    } else {
+      const year = APP.calendarDate.getFullYear();
+      const month = APP.calendarDate.getMonth();
+      document.getElementById('calendar-month-label').textContent = `${CALENDAR_MONTH_NAMES[month]} ${year}`;
+      const cells = buildCalendarMonthCells(year, month);
+      document.getElementById('calendar-grid').innerHTML = cells
+        .map(cell => renderCalendarDayCell(cell, byDate, todayKey, { cap: 3, minHeight: '92px', showMonthAbbr: false }))
+        .join('');
+    }
   } catch (e) { console.error('Calendar error:', e); }
+}
+
+// ── CALENDAR DRAG-TO-RESCHEDULE ──────────────────────────────────
+// Same manual mouse+touch ghost-drag pattern as Kanban's drag-to-status —
+// dropping a task pill onto a different day cell updates its due date.
+let calendarDrag = null;
+
+function calendarTaskMouseDown(e, taskId, currentDateKey) {
+  e.preventDefault();
+  e.stopPropagation(); // don't also trigger the day cell's "add task" onclick
+  const pillEl = e.currentTarget;
+  const rect = pillEl.getBoundingClientRect();
+  const { x, y } = pointerXY(e);
+
+  const ghost = pillEl.cloneNode(true);
+  ghost.classList.add('calendar-task-ghost');
+  ghost.removeAttribute('onmousedown');
+  ghost.removeAttribute('ontouchstart');
+  ghost.removeAttribute('onclick');
+  ghost.style.position = 'fixed';
+  ghost.style.width = rect.width + 'px';
+  ghost.style.left = rect.left + 'px';
+  ghost.style.top = rect.top + 'px';
+  ghost.style.margin = '0';
+  document.body.appendChild(ghost);
+
+  calendarDrag = {
+    taskId, currentDateKey, ghost, dropDateKey: null,
+    grabDX: x - rect.left, grabDY: y - rect.top,
+  };
+  document.addEventListener('mousemove', calendarMouseMove);
+  document.addEventListener('mouseup', calendarMouseUp);
+  document.addEventListener('touchmove', calendarMouseMove, { passive: false });
+  document.addEventListener('touchend', calendarMouseUp);
+  document.addEventListener('touchcancel', calendarMouseUp);
+}
+
+function calendarMouseMove(e) {
+  const d = calendarDrag;
+  if (!d) return;
+  if (e.cancelable) e.preventDefault();
+  const { x, y } = pointerXY(e);
+  d.ghost.style.left = (x - d.grabDX) + 'px';
+  d.ghost.style.top = (y - d.grabDY) + 'px';
+
+  document.querySelectorAll('.calendar-day-dragover').forEach(c => c.classList.remove('calendar-day-dragover'));
+  const el = document.elementFromPoint(x, y);
+  const cell = el && el.closest('.calendar-day-cell');
+  d.dropDateKey = cell && cell.dataset.dateKey ? cell.dataset.dateKey : null;
+  if (cell && d.dropDateKey) cell.classList.add('calendar-day-dragover');
+}
+
+async function calendarMouseUp() {
+  document.removeEventListener('mousemove', calendarMouseMove);
+  document.removeEventListener('mouseup', calendarMouseUp);
+  document.removeEventListener('touchmove', calendarMouseMove);
+  document.removeEventListener('touchend', calendarMouseUp);
+  document.removeEventListener('touchcancel', calendarMouseUp);
+  const d = calendarDrag;
+  calendarDrag = null;
+  if (!d) return;
+
+  d.ghost.remove();
+  document.querySelectorAll('.calendar-day-dragover').forEach(c => c.classList.remove('calendar-day-dragover'));
+
+  if (d.dropDateKey && d.dropDateKey !== d.currentDateKey) {
+    try {
+      await API.updateTask(d.taskId, { endDate: d.dropDateKey });
+      showToast('✅ Rescheduled to ' + d.dropDateKey);
+    } catch (e) { showToast('❌ ' + (e.message || 'Failed to reschedule'), 'error'); }
+    renderCalendar();
+  }
 }
 
 // ── SETTINGS ────────────────────────────────────────────────────
