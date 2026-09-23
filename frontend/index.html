@@ -1318,7 +1318,7 @@
          one merged flow (like Claude's own chat) instead of a separate
          "upload a file" tab that skipped the conversation entirely. -->
     <div id="import-step-upload" class="p-6 overflow-y-auto flex-1">
-      <p class="text-sm text-gray-500 mb-3">Describe your goal, or attach a plan/checklist/spreadsheet/image (📎) and ask about it. Claude asks a question or two if it needs to, then proposes a project with tasks — nothing is created until you review and confirm.</p>
+      <p class="text-sm text-gray-500 mb-3">Describe your goal, or attach a plan/checklist/spreadsheet/image with <strong>+</strong> and ask about it. Claude asks a question or two if it needs to, then proposes a project with tasks — nothing is created until you review and confirm.</p>
       <div id="chat-messages" class="border border-gray-200 rounded-lg p-3 mb-3 space-y-2 overflow-y-auto flex flex-col" style="max-height:320px; min-height:200px;"></div>
       <div class="hidden items-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2" id="chat-attachment-chip">
         <span class="text-base flex-shrink-0">📎</span>
@@ -1327,8 +1327,8 @@
       </div>
       <div class="flex gap-2 items-center">
         <input type="file" id="chat-file-input" accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg" class="hidden" onchange="onChatFileSelected(this.files[0])">
-        <button onclick="document.getElementById('chat-file-input').click()" title="Attach a file"
-          class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-9 h-9 flex-shrink-0 rounded-lg flex items-center justify-center text-base">📎</button>
+        <button onclick="document.getElementById('chat-file-input').click()" title="Attach a file" aria-label="Attach a file"
+          class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-9 h-9 flex-shrink-0 rounded-lg flex items-center justify-center text-xl font-light leading-none">+</button>
         <input type="text" id="chat-input" placeholder="Type a message…" onkeydown="if(event.key==='Enter'){event.preventDefault(); sendProjectChatMessage();}"
           class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         <button onclick="sendProjectChatMessage()" id="chat-send-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">Send</button>
