@@ -63,6 +63,7 @@ app.use('/api/drive',    require('./routes/drive'));
 app.use('/api/ai',       require('./routes/ai'));
 app.use('/api/reports',  require('./routes/reports'));
 app.use('/api/data',     require('./routes/data'));
+app.use('/api/trash',    require('./routes/trash'));
 
 // ── CATCH ALL — serve frontend ──
 app.get('*', (req, res) => {

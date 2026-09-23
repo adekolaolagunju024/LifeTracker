@@ -1141,6 +1141,11 @@
         <p class="text-xs text-gray-400 mb-3">Re-run the welcome wizard (name, targets, first project, Google Drive).</p>
         <button onclick="rerunOnboarding()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🧭 Re-run Setup Wizard</button>
       </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#6B728022">🗑️</span> Trash</h3>
+        <p class="text-xs text-gray-400 mb-4">Deleted projects and tasks land here first — restore them, or delete forever. Anything left here is purged automatically after 30 days.</p>
+        <div id="trash-list"></div>
+      </div>
       <div class="bg-white rounded-xl border border-red-200 p-6">
         <h3 class="flex items-center gap-2.5 text-sm font-bold text-red-600 border-b border-red-100 pb-3 mb-5"><span class="icon-badge" style="background:#B0302022">⚠️</span> Danger Zone</h3>
         <p class="text-xs text-gray-400 mb-3">Permanently deletes your account and everything in it — every project, task, and wealth record. Export your data first if you want a copy; this cannot be undone.</p>

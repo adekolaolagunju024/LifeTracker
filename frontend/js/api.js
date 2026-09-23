@@ -96,4 +96,11 @@ const API = {
 
   // ── DATA IMPORT ──
   importData: (data) => request('POST', '/data/import', data),
+
+  // ── TRASH ──
+  getTrash:            ()   => request('GET',    '/trash'),
+  restoreProject:      (id) => request('POST',   `/trash/projects/${id}/restore`),
+  restoreTask:         (id) => request('POST',   `/trash/tasks/${id}/restore`),
+  purgeProjectForever: (id) => request('DELETE', `/trash/projects/${id}`),
+  purgeTaskForever:    (id) => request('DELETE', `/trash/tasks/${id}`),
 };

@@ -77,7 +77,7 @@ function setLastDigestSentDate(userId, dateStr) {
 
 // ── PROJECTS (a project may have a parentId, making it a sub-folder) ──
 function listProjects(userId, filters = {}) {
-  let sql = 'SELECT * FROM projects WHERE userId = ?';
+  let sql = 'SELECT * FROM projects WHERE userId = ? AND deletedAt IS NULL';
   const params = [userId];
   if (filters.parentId === 'null') {
     sql += ' AND parentId IS NULL';
@@ -90,7 +90,7 @@ function listProjects(userId, filters = {}) {
 }
 
 function getProjectById(userId, id) {
-  return db.prepare('SELECT * FROM projects WHERE id = ? AND userId = ?').get(id, userId);
+  return db.prepare('SELECT * FROM projects WHERE id = ? AND userId = ? AND deletedAt IS NULL').get(id, userId);
 }
 
 function createProject(userId, project) {
@@ -121,13 +121,28 @@ function updateProjectById(userId, id, patch) {
   return getProjectById(userId, id);
 }
 
+// Soft delete: stamps deletedAt instead of removing the row, so it shows up
+// in Trash and can be restored. FK ON DELETE CASCADE only fires on a real
+// DELETE, so a plain UPDATE here wouldn't touch sub-folders/tasks on its
+// own — cascade it by hand to the same one level of sub-folders the rest
+// of the app supports, plus every task belonging to the project or any of
+// those sub-folders.
 function deleteProjectById(userId, id) {
-  db.prepare('DELETE FROM projects WHERE id = ? AND userId = ?').run(id, userId); // sub-folders + tasks cascade via FK
+  const project = getProjectById(userId, id);
+  if (!project) return;
+  const now = new Date().toISOString();
+  const childIds = db.prepare('SELECT id FROM projects WHERE parentId = ? AND userId = ? AND deletedAt IS NULL').all(id, userId).map(r => r.id);
+  const allIds = [id, ...childIds];
+  const stmtProj  = db.prepare('UPDATE projects SET deletedAt = ? WHERE id = ? AND userId = ?');
+  const stmtTasks = db.prepare('UPDATE tasks SET deletedAt = ? WHERE projectId = ? AND userId = ? AND deletedAt IS NULL');
+  db.transaction(() => {
+    allIds.forEach(pid => { stmtProj.run(now, pid, userId); stmtTasks.run(now, pid, userId); });
+  })();
 }
 
 // ── TASKS ────────────────────────────────────────────────────────
 function listTasks(userId, filters = {}) {
-  let sql = 'SELECT * FROM tasks WHERE userId = ?';
+  let sql = 'SELECT * FROM tasks WHERE userId = ? AND deletedAt IS NULL';
   const params = [userId];
   if (filters.projectId) { sql += ' AND projectId = ?'; params.push(filters.projectId); }
   if (filters.status)    { sql += ' AND status = ?';    params.push(filters.status); }
@@ -139,7 +154,7 @@ function listTasks(userId, filters = {}) {
 }
 
 function getTaskById(userId, id) {
-  return db.prepare('SELECT * FROM tasks WHERE id = ? AND userId = ?').get(id, userId);
+  return db.prepare('SELECT * FROM tasks WHERE id = ? AND userId = ? AND deletedAt IS NULL').get(id, userId);
 }
 
 // A task can't start before the project it belongs to does — only checked
@@ -226,7 +241,65 @@ function updateTaskById(userId, id, patch) {
 }
 
 function deleteTaskById(userId, id) {
-  db.prepare('DELETE FROM tasks WHERE id = ? AND userId = ?').run(id, userId);
+  db.prepare('UPDATE tasks SET deletedAt = ? WHERE id = ? AND userId = ? AND deletedAt IS NULL').run(new Date().toISOString(), id, userId);
+}
+
+// ── TRASH ────────────────────────────────────────────────────────
+// Soft-deleted projects/tasks older than this are purged for good — swept
+// lazily on every listTrash() call rather than a separate cron job.
+const TRASH_RETENTION_DAYS = 30;
+
+function purgeOldTrash(userId) {
+  const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 86400000).toISOString();
+  // Projects first: their FK ON DELETE CASCADE takes any remaining trashed
+  // tasks under them with it, so the tasks sweep below only has to catch
+  // trashed tasks whose project is still active (or already gone).
+  db.prepare('DELETE FROM projects WHERE userId = ? AND deletedAt IS NOT NULL AND deletedAt < ?').run(userId, cutoff);
+  db.prepare('DELETE FROM tasks WHERE userId = ? AND deletedAt IS NOT NULL AND deletedAt < ?').run(userId, cutoff);
+}
+
+function listTrash(userId) {
+  purgeOldTrash(userId);
+  const projects = db.prepare('SELECT * FROM projects WHERE userId = ? AND deletedAt IS NOT NULL ORDER BY deletedAt DESC').all(userId);
+  const tasks = db.prepare('SELECT * FROM tasks WHERE userId = ? AND deletedAt IS NOT NULL ORDER BY deletedAt DESC').all(userId)
+    .map(t => ({ ...t, cost: t.cost || 0 }));
+  return { projects, tasks };
+}
+
+// Restoring a project brings back every task/sub-folder that was trashed
+// alongside it (see deleteProjectById's cascade) — a sub-folder trashed
+// independently, before its parent, is left alone.
+function restoreProject(userId, id) {
+  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND userId = ? AND deletedAt IS NOT NULL').get(id, userId);
+  if (!project) return null;
+  const childIds = db.prepare('SELECT id FROM projects WHERE parentId = ? AND userId = ? AND deletedAt IS NOT NULL').all(id, userId).map(r => r.id);
+  const allIds = [id, ...childIds];
+  const stmtProj  = db.prepare('UPDATE projects SET deletedAt = NULL WHERE id = ? AND userId = ?');
+  const stmtTasks = db.prepare('UPDATE tasks SET deletedAt = NULL WHERE projectId = ? AND userId = ?');
+  db.transaction(() => {
+    allIds.forEach(pid => { stmtProj.run(pid, userId); stmtTasks.run(pid, userId); });
+  })();
+  return getProjectById(userId, id);
+}
+
+// A task's own project might still be in the trash (it was deleted solo,
+// or its project was trashed after it) — restore that too, so the
+// restored task doesn't land on a project page that 404s.
+function restoreTask(userId, id) {
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND userId = ? AND deletedAt IS NOT NULL').get(id, userId);
+  if (!task) return null;
+  const project = db.prepare('SELECT * FROM projects WHERE id = ? AND userId = ?').get(task.projectId, userId);
+  if (project && project.deletedAt) restoreProject(userId, project.id);
+  db.prepare('UPDATE tasks SET deletedAt = NULL WHERE id = ? AND userId = ?').run(id, userId);
+  return getTaskById(userId, id);
+}
+
+function purgeProjectForever(userId, id) {
+  db.prepare('DELETE FROM projects WHERE id = ? AND userId = ? AND deletedAt IS NOT NULL').run(id, userId); // tasks cascade via FK
+}
+
+function purgeTaskForever(userId, id) {
+  db.prepare('DELETE FROM tasks WHERE id = ? AND userId = ? AND deletedAt IS NOT NULL').run(id, userId);
 }
 
 // ── WEALTH ───────────────────────────────────────────────────────
@@ -317,6 +390,7 @@ module.exports = {
   getProfile, updateProfile, listUsersForDigest, setLastDigestSentDate,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, reorderTasks,
+  listTrash, restoreProject, restoreTask, purgeProjectForever, purgeTaskForever,
   getWealth, updateWealthEntries, addWealthTarget, updateWealthTarget, deleteWealthTarget, addMonthlyLogEntry, deleteMonthlyLogEntry,
   getGoogleDrive, setGoogleDrive,
   getFullSnapshot,

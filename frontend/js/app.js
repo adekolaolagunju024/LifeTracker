@@ -1797,8 +1797,84 @@ async function renderSettings() {
     document.getElementById('set-date').value     = p.targetDate;
     setEmailDigestButton(p.emailDigestEnabled);
     renderSettingsDrive();
+    renderTrash();
     API.getMe().then(me => { document.getElementById('account-email').textContent = me.email; }).catch(() => {});
   } catch (e) { console.error('Settings error:', e); }
+}
+
+// ── TRASH ────────────────────────────────────────────────────────
+async function renderTrash() {
+  const list = document.getElementById('trash-list');
+  try {
+    const [{ projects, tasks }, activeProjects] = await Promise.all([API.getTrash(), API.getProjects()]);
+    if (!projects.length && !tasks.length) {
+      list.innerHTML = `<p class="text-center text-gray-400 text-sm py-6">Trash is empty</p>`;
+      return;
+    }
+    // A trashed task's own project might still be active (deleted solo) or
+    // also sitting in Trash (deleted together) — look it up either way so
+    // the row can show which project it came from.
+    const projectById = Object.fromEntries([...projects, ...activeProjects].map(p => [p.id, p]));
+
+    const daysLeft = deletedAt => Math.max(0, 30 - Math.floor((Date.now() - new Date(deletedAt)) / 86400000));
+    const row = (icon, title, sub, deletedAt, onRestore, onPurge) => `
+      <div class="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0">
+        <span class="text-lg flex-shrink-0">${icon}</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-navy truncate">${esc(title)}</p>
+          <p class="text-xs text-gray-400 truncate">${sub} · purges in ${daysLeft(deletedAt)} day${daysLeft(deletedAt) === 1 ? '' : 's'}</p>
+        </div>
+        <button onclick="${onRestore}" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0">Restore</button>
+        <button onclick="${onPurge}" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0">Delete Forever</button>
+      </div>`;
+
+    list.innerHTML =
+      projects.map(p => row(p.icon || '📁', p.title, p.parentId ? 'Sub-folder' : 'Project', p.deletedAt,
+        `restoreProjectFromTrash('${p.id}')`, `purgeProjectFromTrash('${p.id}','${esc(p.title)}')`)).join('') +
+      tasks.map(t => {
+        const proj = projectById[t.projectId];
+        const sub = 'Task' + (proj ? ' · ' + esc(proj.title) : '');
+        return row(proj?.icon || '📄', t.title, sub, t.deletedAt,
+          `restoreTaskFromTrash('${t.id}')`, `purgeTaskFromTrash('${t.id}','${esc(t.title)}')`);
+      }).join('');
+  } catch (e) {
+    console.error('Trash error:', e);
+    list.innerHTML = `<p class="text-center text-red-400 text-sm py-6">Failed to load Trash</p>`;
+  }
+}
+
+async function restoreProjectFromTrash(id) {
+  try {
+    await API.restoreProject(id);
+    showToast('✅ Restored');
+    renderTrash();
+    updateSidebar();
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to restore'), 'error'); }
+}
+
+async function restoreTaskFromTrash(id) {
+  try {
+    await API.restoreTask(id);
+    showToast('✅ Restored');
+    renderTrash();
+    updateSidebar();
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to restore'), 'error'); }
+}
+
+function purgeProjectFromTrash(id, title) {
+  confirmAction(`Permanently delete "${title}" and everything in it? This cannot be undone.`, async () => {
+    await API.purgeProjectForever(id);
+    showToast('🗑️ Permanently deleted');
+    renderTrash();
+  });
+}
+
+function purgeTaskFromTrash(id, title) {
+  confirmAction(`Permanently delete "${title}"? This cannot be undone.`, async () => {
+    await API.purgeTaskForever(id);
+    showToast('🗑️ Permanently deleted');
+    renderTrash();
+  });
 }
 
 async function saveSettings() {
@@ -2606,9 +2682,9 @@ async function saveProject() {
 async function deleteProjectConfirm(id) {
   const p = await API.getProject(id);
   const isSubfolder = !!p?.parentId;
-  confirmAction(`Delete "${p?.title}"? ${isSubfolder ? 'All its tasks' : 'All its sub-folders and tasks'} will also be deleted.`, async () => {
+  confirmAction(`Move "${p?.title}" to Trash? ${isSubfolder ? 'All its tasks' : 'All its sub-folders and tasks'} will go with it. You can restore it from Settings within 30 days.`, async () => {
     await API.deleteProject(id);
-    showToast('🗑️ ' + (isSubfolder ? 'Sub-folder' : 'Project') + ' deleted');
+    showToast('🗑️ ' + (isSubfolder ? 'Sub-folder' : 'Project') + ' moved to Trash');
     if (APP.currentProjectId === id) {
       // Was viewing the thing we just deleted — go up to its parent, or the flat list if it was top-level.
       if (isSubfolder) await showPage('project-detail', p.parentId);
@@ -2719,9 +2795,9 @@ async function saveTask() {
 
 async function deleteTaskConfirm(id, projectId) {
   const t = await API.getTask(id);
-  confirmAction(`Delete "${t?.title}"?`, async () => {
+  confirmAction(`Move "${t?.title}" to Trash? You can restore it from Settings within 30 days.`, async () => {
     await API.deleteTask(id);
-    showToast('🗑️ Task deleted');
+    showToast('🗑️ Task moved to Trash');
     renderTaskTable(projectId);
     if (APP.currentPage === 'gantt') renderGantt();
     updateSidebar();

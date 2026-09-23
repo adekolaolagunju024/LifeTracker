@@ -112,6 +112,12 @@ addColumnIfMissing('users', "resetToken TEXT");
 addColumnIfMissing('users', "resetTokenExpires TEXT");
 addColumnIfMissing('profile', "emailDigestEnabled INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing('profile', "lastDigestSentDate TEXT");
+// Soft delete: "deleting" a project or task just stamps deletedAt instead of
+// removing the row, so it can show up in Trash and be restored. Every read
+// query filters deletedAt IS NULL; a lazy purge (see db.js) hard-deletes
+// anything that's been in Trash more than 30 days.
+addColumnIfMissing('projects', "deletedAt TEXT");
+addColumnIfMissing('tasks', "deletedAt TEXT");
 
 // The manually-maintained "actions" checklist was replaced by a live feed
 // computed from tasks (overdue / due this week / high priority) — drop the
