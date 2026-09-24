@@ -81,7 +81,7 @@ router.get('/:id/comments', (req, res) => {
 // POST /api/tasks/:id/comments — { text }
 router.post('/:id/comments', (req, res) => {
   try {
-    const comment = db.addComment(req.session.userId, req.params.id, req.body.text);
+    const comment = db.addComment(req.session.userId, req.params.id, req.body.text, req.body.attachmentId);
     if (!comment) return res.status(404).json({ error: 'Task not found' });
     res.status(201).json(comment);
   } catch (e) {

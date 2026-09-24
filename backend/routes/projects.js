@@ -118,7 +118,7 @@ router.get('/:id/messages', (req, res) => {
 // POST /api/projects/:id/messages — { text }
 router.post('/:id/messages', (req, res) => {
   try {
-    const message = db.addProjectMessage(req.session.userId, req.params.id, req.body.text);
+    const message = db.addProjectMessage(req.session.userId, req.params.id, req.body.text, req.body.attachmentId);
     res.status(201).json(message);
   } catch (e) {
     res.status(400).json({ error: e.message });

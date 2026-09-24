@@ -72,6 +72,7 @@ app.use('/api/search',   require('./routes/search'));
 app.use('/api/checklist', require('./routes/checklist'));
 app.use('/api/tags',     require('./routes/tags'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/uploads',  require('./routes/uploads'));
 
 // ── CATCH ALL — serve frontend ──
 app.get('*', (req, res) => {

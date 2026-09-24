@@ -547,26 +547,58 @@ function markNotificationsRead(userId) {
   db.prepare('UPDATE users SET notificationsCheckedAt = ? WHERE id = ?').run(new Date().toISOString(), userId);
 }
 
+// ── ATTACHMENTS (media/files shared via chat or comments) ─────────
+// Stored on disk under backend/uploads/ (see routes/uploads.js); this row
+// is just the metadata + access scope. projectId is always the top-level
+// project id, same normalization as sharing itself.
+const ATTACHMENT_COLUMNS = `a.id AS attachmentId, a.originalName AS attachmentName, a.mimetype AS attachmentMimetype, a.size AS attachmentSize`;
+
+function createAttachment({ projectId, uploaderId, filename, originalName, mimetype, size }) {
+  const attachment = { id: uuid(), projectId: topLevelProjectId(projectId), uploaderId, filename, originalName, mimetype, size, createdAt: new Date().toISOString() };
+  db.prepare('INSERT INTO attachments (id, projectId, uploaderId, filename, originalName, mimetype, size, createdAt) VALUES (?,?,?,?,?,?,?,?)')
+    .run(attachment.id, attachment.projectId, attachment.uploaderId, attachment.filename, attachment.originalName, attachment.mimetype, attachment.size, attachment.createdAt);
+  return attachment;
+}
+
+function getAttachmentById(id) {
+  return db.prepare('SELECT * FROM attachments WHERE id = ?').get(id);
+}
+
+// An attachment must already belong to the same (top-level) project as
+// wherever it's about to be attached — otherwise someone could reference
+// another project's private upload by guessing/reusing its id.
+function assertAttachmentBelongsToProject(attachmentId, projectId) {
+  if (!attachmentId) return;
+  const attachment = getAttachmentById(attachmentId);
+  if (!attachment || attachment.projectId !== topLevelProjectId(projectId)) {
+    throw new Error('Attachment not found');
+  }
+}
+
 // ── TASK COMMENTS ──────────────────────────────────────────────────
 function listComments(userId, taskId) {
   if (!getTaskById(userId, taskId)) return null;
   return db.prepare(`
-    SELECT tc.id, tc.taskId, tc.userId, tc.text, tc.createdAt, p.name AS authorName
-    FROM task_comments tc JOIN profile p ON p.userId = tc.userId
+    SELECT tc.id, tc.taskId, tc.userId, tc.text, tc.createdAt, p.name AS authorName, ${ATTACHMENT_COLUMNS}
+    FROM task_comments tc
+    JOIN profile p ON p.userId = tc.userId
+    LEFT JOIN attachments a ON a.id = tc.attachmentId
     WHERE tc.taskId = ? ORDER BY tc.createdAt ASC
   `).all(taskId);
 }
 
-function addComment(userId, taskId, text) {
+function addComment(userId, taskId, text, attachmentId = null) {
   const task = getTaskById(userId, taskId);
   if (!task) return null;
   assertCanComment(userId, task.projectId);
   const clean = String(text || '').trim();
-  if (!clean) throw new Error('Comment text is required');
-  const comment = { id: uuid(), taskId, userId, text: clean, createdAt: new Date().toISOString() };
-  db.prepare('INSERT INTO task_comments (id, taskId, userId, text, createdAt) VALUES (?,?,?,?,?)')
-    .run(comment.id, comment.taskId, comment.userId, comment.text, comment.createdAt);
-  return { ...comment, authorName: getProfile(userId).name };
+  if (!clean && !attachmentId) throw new Error('Comment text is required');
+  assertAttachmentBelongsToProject(attachmentId, task.projectId);
+  const comment = { id: uuid(), taskId, userId, text: clean, attachmentId: attachmentId || null, createdAt: new Date().toISOString() };
+  db.prepare('INSERT INTO task_comments (id, taskId, userId, text, attachmentId, createdAt) VALUES (?,?,?,?,?,?)')
+    .run(comment.id, comment.taskId, comment.userId, comment.text, comment.attachmentId, comment.createdAt);
+  const attachment = attachmentId ? getAttachmentById(attachmentId) : null;
+  return { ...comment, authorName: getProfile(userId).name, attachmentName: attachment?.originalName, attachmentMimetype: attachment?.mimetype, attachmentSize: attachment?.size };
 }
 
 // The comment's own author, or the project owner, can delete it — a
@@ -589,21 +621,25 @@ function listProjectMessages(userId, projectId) {
   projectId = topLevelProjectId(projectId);
   if (!canAccessProject(userId, projectId)) return null;
   return db.prepare(`
-    SELECT pm.id, pm.projectId, pm.userId, pm.text, pm.createdAt, p.name AS authorName
-    FROM project_messages pm JOIN profile p ON p.userId = pm.userId
+    SELECT pm.id, pm.projectId, pm.userId, pm.text, pm.createdAt, p.name AS authorName, ${ATTACHMENT_COLUMNS}
+    FROM project_messages pm
+    JOIN profile p ON p.userId = pm.userId
+    LEFT JOIN attachments a ON a.id = pm.attachmentId
     WHERE pm.projectId = ? ORDER BY pm.createdAt ASC
   `).all(projectId);
 }
 
-function addProjectMessage(userId, projectId, text) {
+function addProjectMessage(userId, projectId, text, attachmentId = null) {
   projectId = topLevelProjectId(projectId);
   assertCanComment(userId, projectId);
   const clean = String(text || '').trim();
-  if (!clean) throw new Error('Message text is required');
-  const message = { id: uuid(), projectId, userId, text: clean, createdAt: new Date().toISOString() };
-  db.prepare('INSERT INTO project_messages (id, projectId, userId, text, createdAt) VALUES (?,?,?,?,?)')
-    .run(message.id, message.projectId, message.userId, message.text, message.createdAt);
-  return { ...message, authorName: getProfile(userId).name };
+  if (!clean && !attachmentId) throw new Error('Message text is required');
+  assertAttachmentBelongsToProject(attachmentId, projectId);
+  const message = { id: uuid(), projectId, userId, text: clean, attachmentId: attachmentId || null, createdAt: new Date().toISOString() };
+  db.prepare('INSERT INTO project_messages (id, projectId, userId, text, attachmentId, createdAt) VALUES (?,?,?,?,?,?)')
+    .run(message.id, message.projectId, message.userId, message.text, message.attachmentId, message.createdAt);
+  const attachment = attachmentId ? getAttachmentById(attachmentId) : null;
+  return { ...message, authorName: getProfile(userId).name, attachmentName: attachment?.originalName, attachmentMimetype: attachment?.mimetype, attachmentSize: attachment?.size };
 }
 
 // The message's own author, or the project owner, can delete it — same
@@ -898,6 +934,7 @@ module.exports = {
   listComments, addComment, deleteComment,
   listProjectMessages, addProjectMessage, deleteProjectMessage,
   getNotifications, markNotificationsRead,
+  createAttachment, getAttachmentById,
   listTrash, restoreProject, restoreTask, purgeProjectForever, purgeTaskForever,
   listChecklistItems, addChecklistItem, updateChecklistItem, deleteChecklistItem,
   listTags, createTag, updateTag, deleteTag, setTaskTags, getTaskTags,

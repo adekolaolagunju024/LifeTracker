@@ -128,13 +128,29 @@ const API = {
 
   // ── TASK COMMENTS ──
   getComments:    (taskId)       => request('GET',    `/tasks/${taskId}/comments`),
-  addComment:     (taskId, text) => request('POST',   `/tasks/${taskId}/comments`, { text }),
+  addComment:     (taskId, text, attachmentId) => request('POST', `/tasks/${taskId}/comments`, { text, attachmentId }),
   deleteComment:  (commentId)    => request('DELETE', `/tasks/comments/${commentId}`),
 
   // ── PROJECT CHAT (project-wide) ──
   getProjectMessages:   (projectId)       => request('GET',    `/projects/${projectId}/messages`),
-  addProjectMessage:    (projectId, text) => request('POST',   `/projects/${projectId}/messages`, { text }),
+  addProjectMessage:    (projectId, text, attachmentId) => request('POST', `/projects/${projectId}/messages`, { text, attachmentId }),
   deleteProjectMessage: (messageId)       => request('DELETE', `/projects/messages/${messageId}`),
+
+  // ── ATTACHMENTS (media/files in chat + comments) ──
+  uploadAttachment: async (projectId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('projectId', projectId);
+    const res = await fetch('/api/uploads', { method: 'POST', body: formData });
+    if (!res.ok) {
+      const text = await res.text();
+      let message = text;
+      try { message = JSON.parse(text).error || text; } catch {}
+      throw new Error(message);
+    }
+    return res.json();
+  },
+  attachmentUrl: (attachmentId) => `/api/uploads/${attachmentId}`,
 
   // ── NOTIFICATIONS ──
   getNotifications:      ()  => request('GET',  '/notifications'),

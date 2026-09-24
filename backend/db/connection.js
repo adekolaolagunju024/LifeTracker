@@ -149,6 +149,22 @@ db.exec(`
     text TEXT NOT NULL,
     createdAt TEXT NOT NULL
   );
+
+  -- Media/file attachments on a chat message or task comment. Stored on
+  -- disk (backend/uploads/), scoped to the TOP-LEVEL project id so access
+  -- checks work the same way sharing itself does (see topLevelProjectId).
+  -- filename is the random on-disk name; originalName is what the
+  -- uploader called it.
+  CREATE TABLE IF NOT EXISTS attachments (
+    id TEXT PRIMARY KEY,
+    projectId TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    uploaderId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    filename TEXT NOT NULL,
+    originalName TEXT NOT NULL,
+    mimetype TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    createdAt TEXT NOT NULL
+  );
 `);
 
 // Lightweight migration for databases created before a column existed.
@@ -191,6 +207,10 @@ addColumnIfMissing('tasks', "assigneeAssignedAt TEXT");
 // style viewer/commenter/editor — upgrade any pre-existing rows so nobody
 // loses access they already had.
 db.exec("UPDATE project_collaborators SET role = 'editor' WHERE role = 'member'");
+
+// Optional media/file attachment on a chat message or task comment.
+addColumnIfMissing('project_messages', "attachmentId TEXT REFERENCES attachments(id) ON DELETE SET NULL");
+addColumnIfMissing('task_comments', "attachmentId TEXT REFERENCES attachments(id) ON DELETE SET NULL");
 
 // The manually-maintained "actions" checklist was replaced by a live feed
 // computed from tasks (overdue / due this week / high priority) — drop the

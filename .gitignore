@@ -5,6 +5,7 @@ backend/db/*.sqlite
 backend/db/*.sqlite-journal
 backend/db/*.sqlite-wal
 backend/db/*.sqlite-shm
+backend/uploads/
 .env
 .DS_Store
 

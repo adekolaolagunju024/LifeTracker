@@ -138,6 +138,27 @@ function miniChecklistBadge(t) {
   if (!t.checklistTotal) return '';
   return `<span class="text-[9px] text-gray-400 flex-shrink-0">☑️ ${t.checklistDone}/${t.checklistTotal}</span>`;
 }
+// Delayed / On Track / Done — derived from status + due date, not a stored
+// field, so it's always consistent with the task/project's real data.
+function miniScheduleBadge(t) {
+  if (t.status === 'Completed') return `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-green-100 text-green-700">✅ Done</span>`;
+  if (!t.endDate) return '';
+  const delayed = t.endDate.slice(0, 10) < localDateKey(new Date());
+  return delayed
+    ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-red-100 text-red-700">🔴 Delayed</span>`
+    : `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-green-100 text-green-700">🟢 On Track</span>`;
+}
+// Same idea at the project level, for the Gantt group header row — a
+// project is "delayed" if it has any incomplete task past its due date.
+function miniProjectScheduleBadge(projectTasks) {
+  const todayKey = localDateKey(new Date());
+  const dated = projectTasks.filter(t => t.endDate);
+  if (!dated.length) return '';
+  const delayed = dated.some(t => t.status !== 'Completed' && t.endDate.slice(0, 10) < todayKey);
+  return delayed
+    ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-red-100 text-red-700">🔴 Delayed</span>`
+    : `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-green-100 text-green-700">🟢 On Track</span>`;
+}
 function miniTagBadges(tags) {
   if (!tags || !tags.length) return '';
   return tags.map(tag => `<span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('');
@@ -190,7 +211,7 @@ function closeGanttExportMenu() {
 // Which extra fields show on a task's Gantt row / Kanban card — everyone's
 // preference, persisted locally rather than per-project, same as
 // kanbanSort/kanbanPriorityFilter below.
-const CARD_FIELD_DEFAULTS = { assignee: true, priority: false, tags: true, checklist: true, cost: false };
+const CARD_FIELD_DEFAULTS = { assignee: true, priority: false, tags: true, checklist: true, cost: false, schedule: true };
 function getCardFields() {
   if (APP.cardFields === undefined) {
     try {
@@ -1217,6 +1238,7 @@ async function renderGantt() {
             <span class="text-gray-400 text-[10px] flex-shrink-0 transition-transform cursor-pointer" style="${isCollapsed ? '' : 'transform:rotate(90deg)'}" onclick="toggleGanttGroup('${groupId}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">▶</span>
             <span class="w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${color}"></span>
             <span class="truncate cursor-pointer hover:underline flex-1 min-w-0" style="color:${color}" onclick="editProject('${groupId}')" title="Edit this folder">${esc(groupProject?.icon || '')} ${esc(groupTitle)}</span>
+            ${cardFields.schedule ? miniProjectScheduleBadge(pts) : ''}
             ${canEditGroup ? `
             <button onclick="openAddTask('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-teal px-1" title="Add task to this project">➕</button>
             <button onclick="deleteProjectConfirm('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete this project">🗑️</button>` : ''}
@@ -1265,6 +1287,7 @@ async function renderGantt() {
               ${cardFields.tags ? miniTagBadges(t.tags) : ''}
               ${cardFields.checklist ? miniChecklistBadge(t) : ''}
               ${cardFields.cost ? miniCostBadge(t.cost) : ''}
+              ${cardFields.schedule ? miniScheduleBadge(t) : ''}
               ${cardFields.assignee ? assigneeInitialBadge(t.assigneeName) : ''}
               <button onclick="addTaskToGoogleCalendar('${t.id}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Add to Google Calendar">📅</button>
               ${canEditGroup ? `<button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">🗑️</button>` : ''}
@@ -1435,7 +1458,7 @@ function renderKanbanBoard(tasks, projectById) {
           </div>
           ${cardFields.tags && (t.tags || []).length ? `<div class="flex flex-wrap gap-1 mb-1.5">${miniTagBadges(t.tags)}</div>` : ''}
           <div class="flex items-center justify-between text-xs text-gray-400">
-            <span class="truncate flex items-center gap-1.5">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}</span>
+            <span class="truncate flex items-center gap-1.5">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}</span>
             ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
           </div>
         </div>`;
@@ -3054,11 +3077,30 @@ function handleResetTokenRedirect() {
 // ── TASK DETAIL SIDE PANEL ───────────────────────────────────────
 let APP_currentDetailTaskId = null;
 
+// Renders a comment/chat message's optional attachment — an inline
+// preview for images/video, a download chip for everything else.
+function renderAttachmentHTML(item) {
+  if (!item.attachmentId) return '';
+  const url = API.attachmentUrl(item.attachmentId);
+  const mt = item.attachmentMimetype || '';
+  const name = esc(item.attachmentName || 'Attachment');
+  if (mt.startsWith('image/')) {
+    return `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" class="max-w-full max-h-48 rounded-lg mt-1.5 border border-gray-200" alt="${name}"></a>`;
+  }
+  if (mt.startsWith('video/')) {
+    return `<video src="${url}" controls class="max-w-full max-h-48 rounded-lg mt-1.5 border border-gray-200"></video>`;
+  }
+  return `<a href="${url}" target="_blank" rel="noopener" class="flex items-center gap-2 mt-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-navy hover:bg-gray-100 w-fit max-w-full">
+    <span>📎</span><span class="truncate">${name}</span>
+  </a>`;
+}
+
 async function openTaskDetail(id) {
   try {
     const t = await API.getTask(id);
     const proj = t.projectId ? await API.getProject(t.projectId).catch(() => null) : null;
     APP_currentDetailTaskId = id;
+    APP.detailTaskProjectId = t.projectId;
 
     document.getElementById('td-project-icon').textContent  = proj ? proj.icon : '';
     document.getElementById('td-project-title').textContent = proj ? proj.title : '';
@@ -3100,18 +3142,42 @@ async function renderTaskComments(taskId) {
               </div>
             </div>
             <p class="text-sm text-gray-700 whitespace-pre-wrap">${esc(c.text)}</p>
+            ${renderAttachmentHTML(c)}
           </div>`).join('')
       : `<p class="text-xs text-gray-400">No comments yet.</p>`;
   } catch (e) { console.error('Comments error:', e); }
 }
 
+async function onCommentFileSelected(file) {
+  if (!file || !APP.detailTaskProjectId) return;
+  try {
+    const attachment = await API.uploadAttachment(APP.detailTaskProjectId, file);
+    APP.commentPendingAttachment = attachment;
+    document.getElementById('td-comment-attachment-name').textContent = attachment.originalName;
+    document.getElementById('td-comment-attachment-chip').classList.remove('hidden');
+    document.getElementById('td-comment-attachment-chip').classList.add('flex');
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'Failed to upload'), 'error');
+  } finally {
+    document.getElementById('td-comment-file-input').value = '';
+  }
+}
+
+function clearCommentAttachment() {
+  APP.commentPendingAttachment = null;
+  document.getElementById('td-comment-attachment-chip').classList.add('hidden');
+  document.getElementById('td-comment-attachment-chip').classList.remove('flex');
+}
+
 async function submitTaskComment() {
   const input = document.getElementById('td-comment-input');
   const text = input.value.trim();
-  if (!text || !APP_currentDetailTaskId) return;
+  const attachment = APP.commentPendingAttachment;
+  if ((!text && !attachment) || !APP_currentDetailTaskId) return;
   try {
-    await API.addComment(APP_currentDetailTaskId, text);
+    await API.addComment(APP_currentDetailTaskId, text, attachment ? attachment.id : null);
     input.value = '';
+    clearCommentAttachment();
     renderTaskComments(APP_currentDetailTaskId);
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to post comment'), 'error'); }
 }
@@ -3129,6 +3195,7 @@ function closeTaskDetail() {
   document.getElementById('task-detail-backdrop').classList.add('hidden');
   document.getElementById('task-detail-panel').classList.add('translate-x-full');
   APP_currentDetailTaskId = null;
+  clearCommentAttachment();
 }
 
 function editTaskFromDetail() {
@@ -3599,6 +3666,7 @@ function closeProjectChat() {
   document.getElementById('project-chat-panel').classList.add('translate-x-full');
   if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
   APP.chatProjectId = null;
+  clearTeamChatAttachment();
 }
 
 async function renderProjectChat(projectId) {
@@ -3622,6 +3690,7 @@ async function renderProjectChat(projectId) {
                 </div>
               </div>
               <p class="text-sm text-gray-700 whitespace-pre-wrap">${esc(m.text)}</p>
+              ${renderAttachmentHTML(m)}
             </div>`;
         }).join('')
       : `<p class="text-xs text-gray-400 text-center py-6">No messages yet — say hi 👋</p>`;
@@ -3629,14 +3698,37 @@ async function renderProjectChat(projectId) {
   } catch (e) { console.error('Chat load error:', e); }
 }
 
+async function onTeamChatFileSelected(file) {
+  if (!file || !APP.chatProjectId) return;
+  try {
+    const attachment = await API.uploadAttachment(APP.chatProjectId, file);
+    APP.teamChatPendingAttachment = attachment;
+    document.getElementById('team-chat-attachment-name').textContent = attachment.originalName;
+    document.getElementById('team-chat-attachment-chip').classList.remove('hidden');
+    document.getElementById('team-chat-attachment-chip').classList.add('flex');
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'Failed to upload'), 'error');
+  } finally {
+    document.getElementById('team-chat-file-input').value = '';
+  }
+}
+
+function clearTeamChatAttachment() {
+  APP.teamChatPendingAttachment = null;
+  document.getElementById('team-chat-attachment-chip').classList.add('hidden');
+  document.getElementById('team-chat-attachment-chip').classList.remove('flex');
+}
+
 async function submitProjectChatMessage() {
   const input = document.getElementById('team-chat-input');
   const text = input.value.trim();
+  const attachment = APP.teamChatPendingAttachment;
   const projectId = APP.chatProjectId;
-  if (!text || !projectId) return;
+  if ((!text && !attachment) || !projectId) return;
   try {
-    await API.addProjectMessage(projectId, text);
+    await API.addProjectMessage(projectId, text, attachment ? attachment.id : null);
     input.value = '';
+    clearTeamChatAttachment();
     await renderProjectChat(projectId);
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to send'), 'error'); }
 }
