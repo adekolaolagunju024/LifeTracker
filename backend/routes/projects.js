@@ -87,7 +87,8 @@ router.post('/:id/collaborators', (req, res) => {
 // DELETE /api/projects/:id/collaborators/:userId
 router.delete('/:id/collaborators/:userId', (req, res) => {
   try {
-    db.removeCollaborator(req.session.userId, req.params.id, req.params.userId);
+    const removed = db.removeCollaborator(req.session.userId, req.params.id, req.params.userId);
+    if (!removed) return res.status(404).json({ error: 'Not a collaborator on this project' });
     res.json({ success: true });
   } catch (e) {
     res.status(400).json({ error: e.message });

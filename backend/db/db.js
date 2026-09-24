@@ -111,11 +111,39 @@ function getProjectRole(userId, projectId) {
 }
 function canAccessProject(userId, projectId) { return getProjectRole(userId, projectId) !== null; }
 function isProjectOwner(userId, projectId) {
-  const row = db.prepare('SELECT userId FROM projects WHERE id = ? AND deletedAt IS NULL').get(projectId);
-  return !!row && row.userId === userId;
+  const row = db.prepare('SELECT userId, parentId FROM projects WHERE id = ? AND deletedAt IS NULL').get(projectId);
+  if (!row) return false;
+  if (row.userId === userId) return true;
+  // A sub-folder's own userId should already match its tree's real owner
+  // (see createProject), but fall back to checking the parent directly —
+  // defense in depth against stale data from before that was true.
+  if (row.parentId) {
+    const parent = db.prepare('SELECT userId FROM projects WHERE id = ? AND deletedAt IS NULL').get(row.parentId);
+    return !!parent && parent.userId === userId;
+  }
+  return false;
+}
+
+// A sub-folder's own id if it has no parent, otherwise its parent's id.
+// Sharing always operates on this — clicking "Share" from inside a
+// sub-folder invites someone to the whole tree, same as sharing from the
+// top-level project, rather than creating an orphaned invite that grants
+// access to just that one sub-folder with no navigable path to it (the
+// sidebar and All Projects only ever list top-level projects).
+function topLevelProjectId(projectId) {
+  const row = db.prepare('SELECT parentId FROM projects WHERE id = ? AND deletedAt IS NULL').get(projectId);
+  return row && row.parentId ? row.parentId : projectId;
 }
 
 // ── PROJECTS (a project may have a parentId, making it a sub-folder) ──
+// The name on the project's own userId — for a shared project this is
+// "who owns this", surfaced in the UI as "Shared by X" for anyone who
+// isn't that owner.
+function getOwnerName(ownerId) {
+  const row = db.prepare('SELECT name FROM profile WHERE userId = ?').get(ownerId);
+  return row ? row.name : null;
+}
+
 function listProjects(userId, filters = {}) {
   let sql = `SELECT * FROM projects WHERE deletedAt IS NULL AND id IN ${accessibleProjectIdsSQL()}`;
   const params = threeUserIds(userId);
@@ -126,26 +154,33 @@ function listProjects(userId, filters = {}) {
     params.push(filters.parentId);
   }
   sql += ' ORDER BY createdAt ASC';
-  return db.prepare(sql).all(...params).map(p => ({ ...p, role: getProjectRole(userId, p.id) }));
+  return db.prepare(sql).all(...params).map(p => ({ ...p, role: getProjectRole(userId, p.id), ownerName: getOwnerName(p.userId) }));
 }
 
 function getProjectById(userId, id) {
   const row = db.prepare(`SELECT * FROM projects WHERE id = ? AND deletedAt IS NULL AND id IN ${accessibleProjectIdsSQL()}`).get(id, ...threeUserIds(userId));
   if (!row) return null;
-  return { ...row, role: getProjectRole(userId, id) };
+  return { ...row, role: getProjectRole(userId, id), ownerName: getOwnerName(row.userId) };
 }
 
 function createProject(userId, project) {
   // Only one level of sub-folders is supported — a sub-folder can't itself
   // have sub-folders, so Gantt grouping and project stats (which only look
   // one level deep) never have to deal with deeper nesting.
+  let ownerId = userId;
   if (project.parentId) {
     const parent = getProjectById(userId, project.parentId);
     if (parent && parent.parentId) throw new Error("A sub-folder can't contain another sub-folder");
+    // A sub-folder always belongs to the same owner as the rest of its
+    // tree, regardless of which collaborator actually created it —
+    // otherwise a member creating a sub-folder under a shared project
+    // would become ITS owner, silently locking the real project owner
+    // (and every other collaborator) out of it.
+    if (parent) ownerId = parent.userId;
   }
   db.prepare(`
     INSERT INTO projects (id, userId, parentId, title, description, icon, color, startDate, type, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?)
-  `).run(project.id, userId, project.parentId || null, project.title, project.description || '', project.icon || '📁', project.color || '#0A7E8C', project.startDate || '', project.type || 'career', project.createdAt);
+  `).run(project.id, ownerId, project.parentId || null, project.title, project.description || '', project.icon || '📁', project.color || '#0A7E8C', project.startDate || '', project.type || 'career', project.createdAt);
   return getProjectById(userId, project.id);
 }
 
@@ -335,6 +370,7 @@ function deleteTaskById(userId, id) {
 // with access" list want the complete set in one call, not the owner
 // fetched separately.
 function listCollaborators(projectId) {
+  projectId = topLevelProjectId(projectId);
   const project = db.prepare('SELECT userId, createdAt FROM projects WHERE id = ?').get(projectId);
   if (!project) return [];
   const owner = db.prepare(`
@@ -358,6 +394,7 @@ function listCollaborators(projectId) {
 // yet" flow — every person in the target scenario (a team where each
 // member already runs the app individually) already has one.
 function inviteCollaborator(inviterUserId, projectId, email) {
+  projectId = topLevelProjectId(projectId);
   if (!isProjectOwner(inviterUserId, projectId)) throw new Error('Only the project owner can invite collaborators');
   const invitee = getUserByEmail(String(email || '').trim());
   if (!invitee) throw new Error('No Waypoint account found for that email');
@@ -398,8 +435,10 @@ function declineInvite(userId, inviteId) {
 // Owner-only. Any tasks already assigned to them keep that assignment —
 // reassign manually if needed, same as any other team departure.
 function removeCollaborator(ownerUserId, projectId, collaboratorUserId) {
+  projectId = topLevelProjectId(projectId);
   if (!isProjectOwner(ownerUserId, projectId)) throw new Error('Only the project owner can remove collaborators');
-  db.prepare('DELETE FROM project_collaborators WHERE projectId = ? AND userId = ?').run(projectId, collaboratorUserId);
+  const result = db.prepare('DELETE FROM project_collaborators WHERE projectId = ? AND userId = ?').run(projectId, collaboratorUserId);
+  return result.changes > 0;
 }
 
 // A lightweight "last seen" heartbeat, not a live socket connection — see

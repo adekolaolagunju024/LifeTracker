@@ -105,6 +105,15 @@ function assigneeAvatar(name) {
   </span>`;
 }
 
+// Just the initial circle, no name text — for space-constrained spots like
+// a Gantt row's frozen 200px title column, where the full assigneeAvatar
+// wouldn't fit. The name is still there on hover via title.
+function assigneeInitialBadge(name) {
+  if (!name) return '';
+  const initial = name.trim().charAt(0).toUpperCase();
+  return `<span class="w-4 h-4 rounded-full bg-teal/15 text-teal text-[9px] font-bold flex items-center justify-center flex-shrink-0" title="Assigned to ${esc(name)}">${esc(initial)}</span>`;
+}
+
 function priorityBadge(p) {
   const map = {
     'High':   'bg-red-100 text-red-700',
@@ -349,7 +358,8 @@ async function renderDashboard() {
       const pdone    = pts.filter(t => t.status === 'Completed').length;
       const overdue  = pts.filter(t => t.status !== 'Completed' && t.endDate && t.endDate.slice(0, 10) < todayKey).length;
       const pp       = isWealth ? p : pct(pdone, pts.length);
-      const subLine  = isWealth ? `${fmt(nw, cur)} of ${fmt(target, cur)}` : `${pts.length} tasks · ${pdone} done`;
+      const sharedSuffix = proj.role !== 'owner' && proj.ownerName ? ` · 👤 ${esc(proj.ownerName)}` : '';
+      const subLine  = (isWealth ? `${fmt(nw, cur)} of ${fmt(target, cur)}` : `${pts.length} tasks · ${pdone} done`) + sharedSuffix;
       const overdueBadge = overdue > 0 ? `<span class="flex-shrink-0 bg-red-50 text-red-600 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">🔴 ${overdue} overdue</span>` : '';
 
       cardsHTML += `
@@ -429,12 +439,15 @@ async function renderProjects() {
             <div class="project-card-actions flex gap-1 opacity-0 transition-opacity">
               <button onclick="event.stopPropagation();editProject('${proj.id}')"
                 class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm">✏️</button>
-              <button onclick="event.stopPropagation();deleteProjectConfirm('${proj.id}')"
-                class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm">🗑️</button>
+              ${proj.role === 'owner' ? `<button onclick="event.stopPropagation();deleteProjectConfirm('${proj.id}')"
+                class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm">🗑️</button>` : ''}
             </div>
           </div>
-          <h3 class="font-bold text-navy text-base mb-1 cursor-pointer hover:text-teal"
-            onclick="showPage('project-detail','${proj.id}')">${esc(proj.title)}</h3>
+          <div class="flex items-center gap-2 flex-wrap mb-1">
+            <h3 class="font-bold text-navy text-base cursor-pointer hover:text-teal"
+              onclick="showPage('project-detail','${proj.id}')">${esc(proj.title)}</h3>
+            ${proj.role !== 'owner' && proj.ownerName ? `<span class="text-[10px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full whitespace-nowrap">👤 ${esc(proj.ownerName)}</span>` : ''}
+          </div>
           <p class="text-gray-400 text-xs mb-4">${esc(proj.description || '')}</p>
           <div class="flex gap-2 mb-3 flex-wrap">${tagsHTML}</div>
           <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
@@ -484,6 +497,16 @@ async function renderProjectDetail(projectId) {
     // lock everyone else out.
     document.getElementById('btn-delete-project').classList.toggle('hidden', proj.role !== 'owner');
     document.getElementById('btn-share-label').textContent = proj.role === 'owner' ? 'Share' : 'People';
+
+    // "No way to know who sent it" — a shared project now says whose it is,
+    // right next to its name.
+    const sharedBadge = document.getElementById('detail-shared-badge');
+    if (proj.role !== 'owner' && proj.ownerName) {
+      sharedBadge.textContent = '👤 Shared by ' + proj.ownerName;
+      sharedBadge.classList.remove('hidden');
+    } else {
+      sharedBadge.classList.add('hidden');
+    }
 
     // Breadcrumb — only shown for a sub-folder (a project with a parent)
     const crumb = document.getElementById('detail-breadcrumb');
@@ -1098,6 +1121,7 @@ async function renderGantt() {
             <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-1 overflow-hidden">
               <span class="flex-shrink-0 hidden group-hover:inline cursor-grab text-gray-300 hover:text-gray-500 px-0.5" onmousedown="ganttRowMouseDown(event, '${t.id}', '${t.projectId}', '${groupId}')" title="Drag to reorder">⠿</span>
               <span class="flex-1 min-w-0 text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="editTask('${t.id}')" title="${esc(t.title)} (click to edit)">${esc(t.title)}</span>
+              ${assigneeInitialBadge(t.assigneeName)}
               <button onclick="addTaskToGoogleCalendar('${t.id}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Add to Google Calendar">📅</button>
               <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">🗑️</button>
             </div>
@@ -1255,9 +1279,12 @@ function renderKanbanBoard(tasks, projectById) {
           ontouchstart="kanbanCardMouseDown(event, '${t.id}', '${status}')">
           <div class="flex items-start justify-between gap-2 mb-1.5">
             <span class="text-sm font-semibold text-navy cursor-pointer hover:text-teal" onclick="editTask('${t.id}')">${esc(t.title)}</span>
-            <div class="flex-shrink-0 hidden group-hover:flex gap-1">
-              <button onclick="addTaskToGoogleCalendar('${t.id}')" class="text-gray-400 hover:text-gray-600 text-xs" title="Add to Google Calendar">📅</button>
-              <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="text-gray-400 hover:text-red-500 text-xs" title="Delete task">🗑️</button>
+            <div class="flex-shrink-0 flex items-center gap-1.5">
+              <span class="hidden group-hover:flex gap-1">
+                <button onclick="addTaskToGoogleCalendar('${t.id}')" class="text-gray-400 hover:text-gray-600 text-xs" title="Add to Google Calendar">📅</button>
+                <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="text-gray-400 hover:text-red-500 text-xs" title="Delete task">🗑️</button>
+              </span>
+              ${assigneeInitialBadge(t.assigneeName)}
             </div>
           </div>
           ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mb-1.5">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
@@ -1265,7 +1292,6 @@ function renderKanbanBoard(tasks, projectById) {
             <span class="truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${t.checklistTotal ? ` · ☑️ ${t.checklistDone}/${t.checklistTotal}` : ''}</span>
             ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
           </div>
-          ${t.assigneeName ? `<div class="mt-1.5">${assigneeAvatar(t.assigneeName)}</div>` : ''}
         </div>`;
     }).join('') || `<p class="text-xs text-gray-400 text-center py-6">No tasks</p>`;
 
