@@ -103,6 +103,9 @@
     .calendar-view-btn { color: #6B7280; }
     .calendar-view-btn.active { background: #fff; color: #0A7E8C; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
     .dark .calendar-view-btn.active { background: #1E293B; }
+    .projects-filter-tab { color: #6B7280; }
+    .projects-filter-tab.active { background: #fff; color: #0A7E8C; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+    .dark .projects-filter-tab.active { background: #1E293B; color: #5EEAD4; }
     .calendar-day-dragover { background: #E0F4F6 !important; }
     .dark .calendar-day-dragover { background: #0F3A40 !important; }
     .calendar-task-ghost { pointer-events: none; z-index: 999; cursor: grabbing; transform: rotate(2deg) scale(1.04); box-shadow: 0 16px 40px rgba(13,27,42,.25); opacity: .96; }
@@ -169,7 +172,7 @@
       #page-gantt { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
       #gantt-header-scroll, #gantt-rows-scroll { overflow: visible !important; max-height: none !important; }
       .gantt-sticky { position: static !important; box-shadow: none !important; }
-      #gantt-project-filter, #gantt-view-toggle, .gantt-view-btn, #gantt-export-actions { display: none !important; }
+      #gantt-project-filter, #gantt-view-toggle, .gantt-view-btn, #gantt-export-actions, #gantt-fields-btn, #gantt-fields-menu { display: none !important; }
       @page { size: landscape; margin: 12mm; }
     }
     .spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -0.15em; }
@@ -660,6 +663,18 @@
       </div>
       <div class="flex items-center gap-2 md:gap-3 flex-shrink-0">
         <span class="text-gray-400 text-xs font-mono hidden sm:inline" id="topbar-date"></span>
+        <div class="relative">
+          <button onclick="toggleNotifications(event)" aria-label="Notifications" class="relative bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="notif-bell-btn">
+            🔔
+            <span class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center leading-none" id="notif-badge-count">0</span>
+          </button>
+          <div class="hidden absolute right-0 top-full mt-2 bg-white rounded-xl shadow-xl border border-gray-200 z-50 w-80 max-w-[90vw] max-h-[70vh] overflow-y-auto" id="notif-dropdown">
+            <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <p class="text-sm font-bold text-navy">Notifications</p>
+            </div>
+            <div id="notif-list" class="divide-y divide-gray-50"></div>
+          </div>
+        </div>
         <button onclick="toggleTheme()" aria-label="Toggle dark mode" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="theme-toggle-btn"><span id="theme-toggle-icon">🌙</span></button>
       </div>
     </div>
@@ -772,6 +787,13 @@
           <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
         </div>
       </div>
+      <!-- Ownership filter — so it's obvious at a glance which projects are yours, shared with you, or shared by you -->
+      <div class="inline-flex gap-1 bg-gray-100 rounded-lg p-1 mb-5 flex-wrap" id="projects-filter-tabs">
+        <button onclick="setProjectsFilter('all')" data-filter="all" class="projects-filter-tab text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">All</button>
+        <button onclick="setProjectsFilter('mine')" data-filter="mine" class="projects-filter-tab text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">🔒 My Projects</button>
+        <button onclick="setProjectsFilter('shared-with-me')" data-filter="shared-with-me" class="projects-filter-tab text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">👤 Shared with Me</button>
+        <button onclick="setProjectsFilter('shared-by-me')" data-filter="shared-by-me" class="projects-filter-tab text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">👥 Shared by Me</button>
+      </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5" id="projects-grid"></div>
     </div>
 
@@ -788,14 +810,16 @@
           <div class="flex items-center gap-2 flex-wrap">
             <h2 class="text-xl font-black text-navy" id="detail-title">Project</h2>
             <span class="hidden text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full" id="detail-shared-badge"></span>
+            <span class="hidden text-xs font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full" id="detail-role-badge"></span>
           </div>
           <p class="text-gray-500 text-sm mt-1" id="detail-desc"></p>
         </div>
         <div class="flex gap-2 ml-auto flex-wrap">
           <button onclick="openAddSubfolder(APP.currentProjectId)" id="btn-new-subfolder" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">+ New Sub-folder</button>
-          <button onclick="openAddTask(APP.currentProjectId)" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">+ Add Task</button>
+          <button onclick="openAddTask(APP.currentProjectId)" id="btn-add-task-header" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">+ Add Task</button>
+          <button onclick="openProjectChat(APP.currentProjectId)" id="btn-project-chat" class="hidden bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">💬 Chat</button>
           <button onclick="openShareProject(APP.currentProjectId)" id="btn-share-project" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">👥 <span id="btn-share-label">Share</span></button>
-          <button onclick="editProject(APP.currentProjectId)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">✏️ Edit</button>
+          <button onclick="editProject(APP.currentProjectId)" id="btn-edit-project" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">✏️ Edit</button>
           <button onclick="deleteProjectConfirm(APP.currentProjectId)" id="btn-delete-project" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">🗑️ Delete</button>
         </div>
       </div>
@@ -868,7 +892,7 @@
         <div class="overflow-x-auto">
         <table class="w-full">
           <thead><tr class="bg-navy text-white text-xs">
-            <th class="px-4 py-3 text-left font-semibold w-8"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAllTasks(this.checked)"></th>
+            <th class="px-4 py-3 text-left font-semibold w-8" id="th-bulk-select"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAllTasks(this.checked)"></th>
             <th class="px-4 py-3 text-left font-semibold">Task</th>
             <th class="px-4 py-3 text-left font-semibold">Status</th>
             <th class="px-4 py-3 text-left font-semibold">Priority</th>
@@ -909,6 +933,17 @@
             <button onclick="setGanttViewMode('week')" data-mode="week" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Week</button>
             <button onclick="setGanttViewMode('month')" data-mode="month" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Month</button>
             <button onclick="setGanttViewMode('year')" data-mode="year" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Year</button>
+          </div>
+          <div class="relative">
+            <button onclick="toggleGanttFieldsMenu(event)" id="gantt-fields-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">🏷️ Fields ▾</button>
+            <div class="hidden absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-200 py-2 px-3 z-50 whitespace-nowrap" id="gantt-fields-menu">
+              <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 px-1">Show on cards</p>
+              <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-assignee" onchange="toggleCardField('assignee')"> Assignee</label>
+              <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-priority" onchange="toggleCardField('priority')"> Priority</label>
+              <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-tags" onchange="toggleCardField('tags')"> Tags</label>
+              <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-checklist" onchange="toggleCardField('checklist')"> Checklist</label>
+              <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-cost" onchange="toggleCardField('cost')"> Cost</label>
+            </div>
           </div>
           <div class="flex gap-2" id="gantt-export-actions">
             <button onclick="toggleGanttLegend()" id="gantt-legend-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">ⓘ Legend</button>
@@ -1595,17 +1630,41 @@
     <div class="border-t border-gray-100 pt-4">
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Comments</p>
       <div id="td-comments" class="space-y-3 mb-3"></div>
-      <div class="flex gap-2">
+      <div class="flex gap-2" id="td-comment-box">
         <input type="text" id="td-comment-input" placeholder="Add a comment…" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitTaskComment();}"
           class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         <button onclick="submitTaskComment()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0">Post</button>
       </div>
+      <p class="hidden text-xs text-gray-400" id="td-comment-viewonly">👁 View-only access — you can't comment on this project.</p>
     </div>
   </div>
   <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 flex-wrap">
     <button onclick="closeTaskDetail()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Close</button>
     <button onclick="addTaskToGoogleCalendar(APP_currentDetailTaskId)" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-semibold px-4 py-2 rounded-lg">📅 Add to Google Calendar</button>
-    <button onclick="editTaskFromDetail()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">✏️ Edit Task</button>
+    <button onclick="editTaskFromDetail()" id="btn-edit-task-detail" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">✏️ Edit Task</button>
+  </div>
+</div>
+
+<!-- PROJECT CHAT SIDE PANEL — a running, project-wide discussion (separate
+     from per-task comments), polled every few seconds while open so it
+     feels live without needing a socket connection. -->
+<div class="hidden fixed inset-0 bg-black/40 z-40" id="project-chat-backdrop" onclick="closeProjectChat()"></div>
+<div class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300 translate-x-full" id="project-chat-panel">
+  <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+    <div class="min-w-0">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Project Chat</p>
+      <p class="font-bold text-navy truncate" id="team-chat-project-title"></p>
+    </div>
+    <button onclick="closeProjectChat()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1 flex-shrink-0">✕</button>
+  </div>
+  <div class="p-6 overflow-y-auto flex-1" id="team-chat-messages"></div>
+  <div class="px-6 py-4 border-t border-gray-100">
+    <div class="flex gap-2" id="team-chat-input-box">
+      <input type="text" id="team-chat-input" placeholder="Message the team…" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitProjectChatMessage();}"
+        class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+      <button onclick="submitProjectChatMessage()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg flex-shrink-0">Send</button>
+    </div>
+    <p class="hidden text-xs text-gray-400" id="team-chat-viewonly">👁 View-only access — you can't post in this chat.</p>
   </div>
 </div>
 
@@ -1623,8 +1682,14 @@
         <div class="flex gap-2">
           <input type="email" id="share-email-input" placeholder="teammate@example.com" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitInviteCollaborator();}"
             class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          <select id="share-role-select" class="border border-gray-200 rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-teal flex-shrink-0">
+            <option value="viewer">Viewer</option>
+            <option value="commenter">Commenter</option>
+            <option value="editor" selected>Editor</option>
+          </select>
           <button onclick="submitInviteCollaborator()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg flex-shrink-0">Invite</button>
         </div>
+        <p class="text-xs text-gray-400 mt-2"><b>Viewer</b> can only look · <b>Commenter</b> can also comment/chat · <b>Editor</b> can create and edit tasks</p>
         <p class="text-xs text-red-600 hidden mt-2" id="share-error"></p>
       </div>
       <label class="block text-xs font-semibold text-gray-600 mb-2">People with access</label>

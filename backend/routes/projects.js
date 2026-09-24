@@ -74,11 +74,22 @@ router.get('/:id/collaborators', (req, res) => {
   res.json(db.listCollaborators(req.params.id));
 });
 
-// POST /api/projects/:id/collaborators — { email }
+// POST /api/projects/:id/collaborators — { email, role: 'viewer'|'commenter'|'editor' }
 router.post('/:id/collaborators', (req, res) => {
   try {
-    const invite = db.inviteCollaborator(req.session.userId, req.params.id, req.body.email);
+    const invite = db.inviteCollaborator(req.session.userId, req.params.id, req.body.email, req.body.role);
     res.status(201).json(invite);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// PUT /api/projects/:id/collaborators/:userId — { role } — owner-only
+router.put('/:id/collaborators/:userId', (req, res) => {
+  try {
+    const changed = db.updateCollaboratorRole(req.session.userId, req.params.id, req.params.userId, req.body.role);
+    if (!changed) return res.status(404).json({ error: 'Not a collaborator on this project' });
+    res.json({ success: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -93,6 +104,32 @@ router.delete('/:id/collaborators/:userId', (req, res) => {
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
+});
+
+// ── PROJECT CHAT (project-wide, polled for near-live updates) ──────
+
+// GET /api/projects/:id/messages
+router.get('/:id/messages', (req, res) => {
+  const messages = db.listProjectMessages(req.session.userId, req.params.id);
+  if (messages === null) return res.status(404).json({ error: 'Project not found' });
+  res.json(messages);
+});
+
+// POST /api/projects/:id/messages — { text }
+router.post('/:id/messages', (req, res) => {
+  try {
+    const message = db.addProjectMessage(req.session.userId, req.params.id, req.body.text);
+    res.status(201).json(message);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// DELETE /api/projects/messages/:messageId — author or project owner
+router.delete('/messages/:messageId', (req, res) => {
+  const removed = db.deleteProjectMessage(req.session.userId, req.params.messageId);
+  if (!removed) return res.status(404).json({ error: 'Message not found' });
+  res.json({ success: true });
 });
 
 module.exports = router;

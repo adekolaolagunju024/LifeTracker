@@ -138,6 +138,17 @@ db.exec(`
     text TEXT NOT NULL,
     createdAt TEXT NOT NULL
   );
+
+  -- Project-wide chat (separate from per-task comments) — a running
+  -- discussion for everyone with access to the project, polled by the
+  -- client every few seconds rather than pushed over a socket.
+  CREATE TABLE IF NOT EXISTS project_messages (
+    id TEXT PRIMARY KEY,
+    projectId TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+  );
 `);
 
 // Lightweight migration for databases created before a column existed.
@@ -167,6 +178,19 @@ addColumnIfMissing('tasks', "deletedAt TEXT");
 // used to show a collaborator as active/away on a shared project.
 addColumnIfMissing('tasks', "assigneeId TEXT REFERENCES users(id) ON DELETE SET NULL");
 addColumnIfMissing('users', "lastActiveAt TEXT");
+// Notifications: a single "last checked" timestamp per user is enough to
+// derive "what's new since you last looked" (chat/comment activity, newly
+// assigned tasks) without a per-item read/unread table — same lightweight
+// approach as the presence heartbeat above. Pending invites aren't gated
+// by this timestamp; they stay in the list until accepted/declined.
+addColumnIfMissing('users', "notificationsCheckedAt TEXT");
+addColumnIfMissing('tasks', "assigneeAssignedAt TEXT");
+
+// Collaborator roles used to be a single "member" (full edit access, same
+// as the owner short of deleting the project). Replaced with Google-Drive
+// style viewer/commenter/editor — upgrade any pre-existing rows so nobody
+// loses access they already had.
+db.exec("UPDATE project_collaborators SET role = 'editor' WHERE role = 'member'");
 
 // The manually-maintained "actions" checklist was replaced by a live feed
 // computed from tasks (overdue / due this week / high priority) — drop the

@@ -123,6 +123,26 @@ function priorityBadge(p) {
   return `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${map[p] || 'bg-gray-100 text-gray-500'}">${esc(p)}</span>`;
 }
 
+// Compact versions of the same info, for space-constrained spots (Gantt
+// rows, Kanban cards) where the optional card-fields toggle (see
+// getCardFields()) decides whether these show at all.
+function miniPriorityBadge(p) {
+  const map = { High: 'bg-red-100 text-red-700', Medium: 'bg-yellow-100 text-yellow-700', Low: 'bg-green-100 text-green-700' };
+  return `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${map[p] || 'bg-gray-100 text-gray-500'}">${esc(p)}</span>`;
+}
+function miniCostBadge(cost) {
+  if (!cost) return '';
+  return `<span class="text-[9px] font-mono font-semibold text-green-600 flex-shrink-0">£${Number(cost).toLocaleString()}</span>`;
+}
+function miniChecklistBadge(t) {
+  if (!t.checklistTotal) return '';
+  return `<span class="text-[9px] text-gray-400 flex-shrink-0">☑️ ${t.checklistDone}/${t.checklistTotal}</span>`;
+}
+function miniTagBadges(tags) {
+  if (!tags || !tags.length) return '';
+  return tags.map(tag => `<span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('');
+}
+
 // ── MOBILE SIDEBAR ───────────────────────────────────────────────
 function openMobileSidebar() {
   document.getElementById('sidebar').classList.add('mobile-open');
@@ -164,6 +184,42 @@ function toggleGanttExportMenu(e) {
 }
 function closeGanttExportMenu() {
   document.getElementById('gantt-export-menu').classList.add('hidden');
+}
+
+// ── OPTIONAL CARD FIELDS (Gantt rows + Kanban cards) ──────────────
+// Which extra fields show on a task's Gantt row / Kanban card — everyone's
+// preference, persisted locally rather than per-project, same as
+// kanbanSort/kanbanPriorityFilter below.
+const CARD_FIELD_DEFAULTS = { assignee: true, priority: false, tags: true, checklist: true, cost: false };
+function getCardFields() {
+  if (APP.cardFields === undefined) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('cardFields'));
+      APP.cardFields = saved && typeof saved === 'object' ? { ...CARD_FIELD_DEFAULTS, ...saved } : { ...CARD_FIELD_DEFAULTS };
+    } catch { APP.cardFields = { ...CARD_FIELD_DEFAULTS }; }
+  }
+  return APP.cardFields;
+}
+function toggleCardField(key) {
+  const fields = getCardFields();
+  fields[key] = !fields[key];
+  try { localStorage.setItem('cardFields', JSON.stringify(fields)); } catch { /* private mode etc */ }
+  renderGantt();
+}
+function syncFieldsMenuCheckboxes() {
+  const fields = getCardFields();
+  Object.keys(CARD_FIELD_DEFAULTS).forEach(key => {
+    const cb = document.getElementById('field-toggle-' + key);
+    if (cb) cb.checked = !!fields[key];
+  });
+}
+function toggleGanttFieldsMenu(e) {
+  e.stopPropagation();
+  syncFieldsMenuCheckboxes();
+  document.getElementById('gantt-fields-menu').classList.toggle('hidden');
+}
+function closeGanttFieldsMenu() {
+  document.getElementById('gantt-fields-menu').classList.add('hidden');
 }
 
 // Topbar global search — debounced live search across projects and tasks
@@ -227,12 +283,17 @@ document.addEventListener('click', (e) => {
   if (exportMenu && !exportMenu.classList.contains('hidden') && !exportMenu.contains(e.target)) {
     closeGanttExportMenu();
   }
+  const fieldsMenu = document.getElementById('gantt-fields-menu');
+  const fieldsBtn  = document.getElementById('gantt-fields-btn');
+  if (fieldsMenu && !fieldsMenu.classList.contains('hidden') && !fieldsMenu.contains(e.target) && !fieldsBtn.contains(e.target)) {
+    closeGanttFieldsMenu();
+  }
   const searchWrap = document.getElementById('global-search-wrap');
   if (searchWrap && !searchWrap.contains(e.target)) {
     hideGlobalSearchResults();
   }
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeFileMenu(); closeGanttExportMenu(); hideGlobalSearchResults(); } });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeFileMenu(); closeGanttExportMenu(); closeGanttFieldsMenu(); closeNotifications(); hideGlobalSearchResults(); } });
 
 // ── NAVIGATION ─────────────────────────────────────────────────
 // A lightweight back button — there's no real browser routing here (one
@@ -252,6 +313,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
   APP.currentProjectId = projectId;
   APP.filters          = { status: '', priority: '', search: '', tag: '' };
   closeMobileSidebar();
+  if (APP.chatProjectId) closeProjectChat(); // stop polling — don't leave chat open on a page we navigated away from
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -420,13 +482,39 @@ async function renderDashboard() {
 }
 
 // ── PROJECTS LIST ───────────────────────────────────────────────
+// 'all' | 'mine' (owned, not shared with anyone) | 'shared-with-me'
+// (someone else's project you've been invited onto) | 'shared-by-me'
+// (yours, with at least one collaborator who's joined).
+function setProjectsFilter(filter) {
+  APP.projectsFilter = filter;
+  renderProjects();
+}
+
 async function renderProjects() {
   try {
+    const filter = APP.projectsFilter || 'all';
+    document.querySelectorAll('#projects-filter-tabs .projects-filter-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+
     const [allProjects, tasks, wealth, profile] = await Promise.all([
       API.getProjects(), API.getTasks(), API.getWealth(), API.getProfile(),
     ]);
-    const projects = allProjects.filter(p => !p.parentId); // top-level only
+    let projects = allProjects.filter(p => !p.parentId); // top-level only
+    if (filter === 'mine')             projects = projects.filter(p => p.role === 'owner' && !p.collaboratorCount);
+    else if (filter === 'shared-with-me') projects = projects.filter(p => p.role !== 'owner');
+    else if (filter === 'shared-by-me')   projects = projects.filter(p => p.role === 'owner' && p.collaboratorCount > 0);
     const cur = profile.currency || '£';
+
+    if (!projects.length) {
+      const emptyByFilter = {
+        mine: 'No private projects — every project you own is currently shared.',
+        'shared-with-me': "No one's shared a project with you yet.",
+        'shared-by-me': "You haven't shared any of your projects yet — open one and hit 👥 Share.",
+      };
+      document.getElementById('projects-grid').innerHTML = `<p class="text-center text-gray-400 text-sm py-8 col-span-full">${emptyByFilter[filter] || 'No projects yet.'}</p>`;
+      return;
+    }
 
     document.getElementById('projects-grid').innerHTML = projects.map(proj => {
       const isWealth = proj.type === 'wealth';
@@ -471,6 +559,9 @@ async function renderProjects() {
             <h3 class="font-bold text-navy text-base cursor-pointer hover:text-teal"
               onclick="showPage('project-detail','${proj.id}')">${esc(proj.title)}</h3>
             ${proj.role !== 'owner' && proj.ownerName ? `<span class="text-[10px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full whitespace-nowrap">👤 ${esc(proj.ownerName)}</span>` : ''}
+            ${proj.role === 'owner' ? (proj.collaboratorCount > 0
+                ? `<span class="text-[10px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full whitespace-nowrap">👥 Shared with ${proj.collaboratorCount}</span>`
+                : `<span class="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full whitespace-nowrap">🔒 Private</span>`) : ''}
           </div>
           <p class="text-gray-400 text-xs mb-4">${esc(proj.description || '')}</p>
           <div class="flex gap-2 mb-3 flex-wrap">${tagsHTML}</div>
@@ -514,7 +605,13 @@ async function renderProjectDetail(projectId) {
     wealthBanner.classList.toggle('flex', proj.type === 'wealth');
 
     // Sub-folders can't themselves have sub-folders (one level of nesting only)
-    document.getElementById('btn-new-subfolder').classList.toggle('hidden', !!proj.parentId);
+    const canEdit = proj.role === 'owner' || proj.role === 'editor';
+    document.getElementById('btn-new-subfolder').classList.toggle('hidden', !!proj.parentId || !canEdit);
+    document.getElementById('btn-add-task-header').classList.toggle('hidden', !canEdit);
+    document.getElementById('btn-edit-project').classList.toggle('hidden', !canEdit);
+
+    // Chat only makes sense once there's someone else to talk to.
+    document.getElementById('btn-project-chat').classList.toggle('hidden', proj.role === 'owner' && !proj.collaboratorCount);
 
     // Deleting a project (and managing who's on it, inside the Share
     // modal) is owner-only — a collaborator who could delete it could
@@ -530,6 +627,16 @@ async function renderProjectDetail(projectId) {
       sharedBadge.classList.remove('hidden');
     } else {
       sharedBadge.classList.add('hidden');
+    }
+
+    // A collaborator (not the owner) sees their own access level, Google
+    // Drive style — viewer/commenter/editor.
+    const roleBadge = document.getElementById('detail-role-badge');
+    if (proj.role !== 'owner') {
+      roleBadge.textContent = ROLE_LABEL[proj.role] || proj.role;
+      roleBadge.classList.remove('hidden');
+    } else {
+      roleBadge.classList.add('hidden');
     }
 
     // Breadcrumb — only shown for a sub-folder (a project with a parent)
@@ -628,23 +735,28 @@ async function renderTaskTable(projectId) {
     document.getElementById('bulk-select-all').checked = false;
     clearBulkSelection();
 
+    // Viewer/commenter get a read-only table — no bulk-select column, no
+    // inline status/priority/date editing, no edit/delete icons.
+    const canEdit = project.role === 'owner' || project.role === 'editor';
+    document.getElementById('th-bulk-select').classList.toggle('hidden', !canEdit);
+
     document.getElementById('task-table-body').innerHTML = tasks.length
       ? tasks.map(t => `
           <tr class="border-b border-gray-100 hover:bg-gray-50">
-            <td class="px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()"></td>
+            ${canEdit ? `<td class="px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()"></td>` : ''}
             <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">
               <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}</div>
               ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
             </td>
             <td class="px-4 py-3">
-              <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}"
+              <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}" ${canEdit ? '' : 'disabled'}
                 onchange="updateTaskStatus('${t.id}', this.value, '${projectId}')">
                 ${['Not Started','In Progress','Completed'].map(s =>
                   `<option ${t.status === s ? 'selected' : ''}>${s}</option>`).join('')}
               </select>
             </td>
             <td class="px-4 py-3">
-              <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(priorityBorderColor(t.priority))}"
+              <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(priorityBorderColor(t.priority))}" ${canEdit ? '' : 'disabled'}
                 onchange="updateTaskPriority('${t.id}', this.value, '${projectId}')">
                 ${['High','Medium','Low'].map(p =>
                   `<option ${t.priority === p ? 'selected' : ''}>${p}</option>`).join('')}
@@ -652,7 +764,7 @@ async function renderTaskTable(projectId) {
             </td>
             <td class="px-4 py-3">${assigneeAvatar(t.assigneeName)}</td>
             <td class="px-4 py-3">
-              <input type="date" value="${t.startDate || ''}" min="${minStart}" class="rounded-lg px-2 py-1 text-xs border border-gray-200 focus:outline-none focus:border-teal w-full"
+              <input type="date" value="${t.startDate || ''}" min="${minStart}" class="rounded-lg px-2 py-1 text-xs border border-gray-200 focus:outline-none focus:border-teal w-full" ${canEdit ? '' : 'disabled'}
                 onchange="updateTaskStartDate('${t.id}', this.value, '${projectId}')">
             </td>
             <td class="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">${t.endDate || '—'}</td>
@@ -663,17 +775,18 @@ async function renderTaskTable(projectId) {
               <div class="flex gap-1">
                 <button onclick="addTaskToGoogleCalendar('${t.id}')" title="Add to Google Calendar"
                   class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">📅</button>
+                ${canEdit ? `
                 <button onclick="editTask('${t.id}')"
                   class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">✏️</button>
                 <button onclick="deleteTaskConfirm('${t.id}','${projectId}')"
-                  class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm opacity-60 hover:opacity-100">🗑️</button>
+                  class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm opacity-60 hover:opacity-100">🗑️</button>` : ''}
               </div>
             </td>
           </tr>`).join('')
       : `<tr><td colspan="9" class="px-4 py-10 text-center text-gray-400 text-sm">
           No tasks match your filters.
           <button onclick="clearFilters('${projectId}')" class="text-teal underline ml-1">Clear filters</button>
-          or <button onclick="openAddTask('${projectId}')" class="text-teal underline">add a task</button>.
+          ${canEdit ? `or <button onclick="openAddTask('${projectId}')" class="text-teal underline">add a task</button>.` : ''}
         </td></tr>`;
 
   } catch (e) { console.error('Task table error:', e); }
@@ -931,6 +1044,7 @@ async function renderGantt() {
   try {
     const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
     const projectById = Object.fromEntries(projects.map(p => [p.id, p]));
+    const cardFields = getCardFields();
     if (!APP.ganttViewMode) APP.ganttViewMode = 'month';
     if (APP.ganttProjectFilter === undefined) APP.ganttProjectFilter = '';
     let pageView = 'timeline';
@@ -1072,6 +1186,7 @@ async function renderGantt() {
     groupProjectIds.forEach(groupId => {
       const pts = byProject[groupId];
       const groupProject = projectById[groupId];
+      const canEditGroup = groupProject && (groupProject.role === 'owner' || groupProject.role === 'editor');
       const color = groupProject?.color || '#6B7280';
       const groupTitle = groupProject?.title || 'Unknown project';
       const done  = pts.filter(t => t.status === 'Completed').length;
@@ -1088,8 +1203,8 @@ async function renderGantt() {
         const dark = shadeColor(color, -40);
         summaryBar = `
           <div class="gantt-summary-bar" style="left:${gMin}%;width:${Math.max(0.6, gMax - gMin)}%;background:${dark}"
-            title="${esc(groupTitle)}: ${catStart} → ${catEnd} (drag to shift every task in this folder)"
-            onmousedown="ganttSummaryMouseDown(event,'${groupId}')"></div>
+            title="${esc(groupTitle)}: ${catStart} → ${catEnd}${canEditGroup ? ' (drag to shift every task in this folder)' : ''}"
+            ${canEditGroup ? `onmousedown="ganttSummaryMouseDown(event,'${groupId}')"` : ''}></div>
           <div class="gantt-summary-cap" style="left:${gMin}%;border-top:7px solid ${dark}"></div>
           <div class="gantt-summary-cap" style="left:${gMax}%;border-top:7px solid ${dark}"></div>`;
       }
@@ -1102,8 +1217,9 @@ async function renderGantt() {
             <span class="text-gray-400 text-[10px] flex-shrink-0 transition-transform cursor-pointer" style="${isCollapsed ? '' : 'transform:rotate(90deg)'}" onclick="toggleGanttGroup('${groupId}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">▶</span>
             <span class="w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${color}"></span>
             <span class="truncate cursor-pointer hover:underline flex-1 min-w-0" style="color:${color}" onclick="editProject('${groupId}')" title="Edit this folder">${esc(groupProject?.icon || '')} ${esc(groupTitle)}</span>
+            ${canEditGroup ? `
             <button onclick="openAddTask('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-teal px-1" title="Add task to this project">➕</button>
-            <button onclick="deleteProjectConfirm('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete this project">🗑️</button>
+            <button onclick="deleteProjectConfirm('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete this project">🗑️</button>` : ''}
           </div>
           <div class="gantt-sticky gantt-sticky-2 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 font-semibold">${done}/${pts.length}</div>
           <div class="gantt-sticky gantt-sticky-3 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDateShort(catStart)}</div>
@@ -1127,41 +1243,45 @@ async function renderGantt() {
           const barWidth = Math.max(0.8, Math.min(100 - barLeft, ((te - ts) / 86400000 / totalDays) * 100 + 0.5));
           marker = `
             <div class="gantt-bar" style="left:${barLeft}%;width:${barWidth}%;background:${fillColor};border:2px solid ${borderColor}"
-              title="${esc(t.title)} [${t.priority} priority]: ${t.startDate} → ${t.endDate} (drag to move, edges to resize, click to edit)"
-              onmousedown="ganttBarMouseDown(event,'${t.id}','move')">
-              <span class="gantt-resize-handle" style="left:0" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-left')"></span>
+              title="${esc(t.title)} [${t.priority} priority]: ${t.startDate} → ${t.endDate}${canEditGroup ? ' (drag to move, edges to resize, click to edit)' : ''}"
+              ${canEditGroup ? `onmousedown="ganttBarMouseDown(event,'${t.id}','move')"` : ''}>
+              ${canEditGroup ? `<span class="gantt-resize-handle" style="left:0" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-left')"></span>` : ''}
               <span class="gantt-bar-label">${esc(t.title)}</span>
-              <span class="gantt-resize-handle" style="right:0" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-right')"></span>
+              ${canEditGroup ? `<span class="gantt-resize-handle" style="right:0" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-right')"></span>` : ''}
             </div>`;
         } else if (te) {
           const pctPos = posPct(te);
           marker = `<div class="gantt-milestone" style="left:${pctPos}%;background:${fillColor};border:2px solid ${borderColor}"
-            title="${esc(t.title)} [${t.priority} priority]: due ${t.endDate} (drag to move, click to edit)"
-            onmousedown="ganttBarMouseDown(event,'${t.id}','milestone')"></div>`;
+            title="${esc(t.title)} [${t.priority} priority]: due ${t.endDate}${canEditGroup ? ' (drag to move, click to edit)' : ''}"
+            ${canEditGroup ? `onmousedown="ganttBarMouseDown(event,'${t.id}','milestone')"` : ''}></div>`;
         }
 
         rowsHTML += `
           <div class="grid gantt-grid-row group border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px" data-task-id="${t.id}" data-group="${groupId}">
             <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-1 overflow-hidden">
-              <span class="flex-shrink-0 hidden group-hover:inline cursor-grab text-gray-300 hover:text-gray-500 px-0.5" onmousedown="ganttRowMouseDown(event, '${t.id}', '${t.projectId}', '${groupId}')" title="Drag to reorder">⠿</span>
-              <span class="flex-1 min-w-0 text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="editTask('${t.id}')" title="${esc(t.title)} (click to edit)">${esc(t.title)}</span>
-              ${assigneeInitialBadge(t.assigneeName)}
+              ${canEditGroup ? `<span class="flex-shrink-0 hidden group-hover:inline cursor-grab text-gray-300 hover:text-gray-500 px-0.5" onmousedown="ganttRowMouseDown(event, '${t.id}', '${t.projectId}', '${groupId}')" title="Drag to reorder">⠿</span>` : ''}
+              <span class="flex-1 min-w-0 text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="${canEditGroup ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" title="${esc(t.title)} (click to ${canEditGroup ? 'edit' : 'view'})">${esc(t.title)}</span>
+              ${cardFields.priority ? miniPriorityBadge(t.priority) : ''}
+              ${cardFields.tags ? miniTagBadges(t.tags) : ''}
+              ${cardFields.checklist ? miniChecklistBadge(t) : ''}
+              ${cardFields.cost ? miniCostBadge(t.cost) : ''}
+              ${cardFields.assignee ? assigneeInitialBadge(t.assigneeName) : ''}
               <button onclick="addTaskToGoogleCalendar('${t.id}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Add to Google Calendar">📅</button>
-              <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">🗑️</button>
+              ${canEditGroup ? `<button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">🗑️</button>` : ''}
             </div>
             <div class="gantt-sticky gantt-sticky-2 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
-              <select class="w-full rounded px-1 py-1 text-[10px] font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}"
+              <select class="w-full rounded px-1 py-1 text-[10px] font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}" ${canEditGroup ? '' : 'disabled'}
                 onclick="event.stopPropagation()" onchange="updateGanttTaskStatus('${t.id}', this.value)">
                 ${['Not Started','In Progress','Completed'].map(s =>
                   `<option ${t.status === s ? 'selected' : ''}>${s}</option>`).join('')}
               </select>
             </div>
             <div class="gantt-sticky gantt-sticky-3 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
-              <input type="date" value="${t.startDate || ''}" min="${minStart}" class="w-full rounded px-1 py-1 text-[10px] border border-gray-200 focus:outline-none focus:border-teal"
+              <input type="date" value="${t.startDate || ''}" min="${minStart}" class="w-full rounded px-1 py-1 text-[10px] border border-gray-200 focus:outline-none focus:border-teal" ${canEditGroup ? '' : 'disabled'}
                 onchange="updateGanttTaskDate('${t.id}', 'startDate', this.value)">
             </div>
             <div class="gantt-sticky gantt-sticky-4 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
-              <input type="date" value="${t.endDate || ''}" class="w-full rounded px-1 py-1 text-[10px] border border-gray-200 focus:outline-none focus:border-teal"
+              <input type="date" value="${t.endDate || ''}" class="w-full rounded px-1 py-1 text-[10px] border border-gray-200 focus:outline-none focus:border-teal" ${canEditGroup ? '' : 'disabled'}
                 onchange="updateGanttTaskDate('${t.id}', 'endDate', this.value)">
             </div>
             <div class="gantt-sticky gantt-sticky-5 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDuration(t.startDate, t.endDate)}</div>
@@ -1276,6 +1396,7 @@ function setKanbanPriorityFilter(priority) {
 function renderKanbanBoard(tasks, projectById) {
   const board = document.getElementById('kanban-board');
   if (!board) return;
+  const cardFields = getCardFields();
 
   if (APP.kanbanSort === undefined) {
     try { APP.kanbanSort = localStorage.getItem('kanbanSort') || 'due'; } catch { APP.kanbanSort = 'due'; }
@@ -1294,26 +1415,27 @@ function renderKanbanBoard(tasks, projectById) {
     const colTasks = tasks.filter(t => t.status === status).sort(KANBAN_SORTS[APP.kanbanSort].fn);
     const cards = colTasks.map(t => {
       const proj = projectById[t.projectId];
+      const canEdit = proj && (proj.role === 'owner' || proj.role === 'editor');
       const borderColor = PRIORITY_BORDER[t.priority] || '#D1D5DB';
       const isOverdue = status !== 'Completed' && t.endDate && t.endDate.slice(0, 10) < localDateKey(new Date());
       return `
         <div class="kanban-card group bg-white rounded-lg border border-gray-200 p-3 mb-2" style="border-left:3px solid ${borderColor}"
           data-task-id="${t.id}" data-status="${status}"
-          onmousedown="kanbanCardMouseDown(event, '${t.id}', '${status}')"
-          ontouchstart="kanbanCardMouseDown(event, '${t.id}', '${status}')">
+          ${canEdit ? `onmousedown="kanbanCardMouseDown(event, '${t.id}', '${status}')" ontouchstart="kanbanCardMouseDown(event, '${t.id}', '${status}')"` : ''}>
           <div class="flex items-start justify-between gap-2 mb-1.5">
-            <span class="text-sm font-semibold text-navy cursor-pointer hover:text-teal" onclick="editTask('${t.id}')">${esc(t.title)}</span>
+            <span class="text-sm font-semibold text-navy cursor-pointer hover:text-teal" onclick="${canEdit ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}">${esc(t.title)}</span>
             <div class="flex-shrink-0 flex items-center gap-1.5">
               <span class="hidden group-hover:flex gap-1">
                 <button onclick="addTaskToGoogleCalendar('${t.id}')" class="text-gray-400 hover:text-gray-600 text-xs" title="Add to Google Calendar">📅</button>
-                <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="text-gray-400 hover:text-red-500 text-xs" title="Delete task">🗑️</button>
+                ${canEdit ? `<button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="text-gray-400 hover:text-red-500 text-xs" title="Delete task">🗑️</button>` : ''}
               </span>
-              ${assigneeInitialBadge(t.assigneeName)}
+              ${cardFields.priority ? miniPriorityBadge(t.priority) : ''}
+              ${cardFields.assignee ? assigneeInitialBadge(t.assigneeName) : ''}
             </div>
           </div>
-          ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mb-1.5">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
+          ${cardFields.tags && (t.tags || []).length ? `<div class="flex flex-wrap gap-1 mb-1.5">${miniTagBadges(t.tags)}</div>` : ''}
           <div class="flex items-center justify-between text-xs text-gray-400">
-            <span class="truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${t.checklistTotal ? ` · ☑️ ${t.checklistDone}/${t.checklistTotal}` : ''}</span>
+            <span class="truncate flex items-center gap-1.5">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}</span>
             ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
           </div>
         </div>`;
@@ -2518,6 +2640,8 @@ async function afterAuth() {
   if (!showingOnboarding) await showPage('dashboard');
   checkDailyDigest();
   checkPendingInvites();
+  refreshNotificationBadge();
+  setInterval(refreshNotificationBadge, 60000); // a periodic check, not a live socket — same pattern as presence
 }
 
 // Pending project-share invites — checked once per login (not re-dismissed
@@ -2532,6 +2656,81 @@ async function checkPendingInvites() {
     document.getElementById('invites-banner').classList.remove('hidden');
   } catch (e) { console.error('Invites check error:', e); }
 }
+
+// ── NOTIFICATION BELL (invites + assigned tasks + chat/comment activity) ──
+function notificationCount(data) {
+  return data.invites.length + data.assignedTasks.length + data.chatActivity.length + data.commentActivity.length;
+}
+
+async function refreshNotificationBadge() {
+  try {
+    const data = await API.getNotifications();
+    const count = notificationCount(data);
+    const badge = document.getElementById('notif-badge-count');
+    badge.textContent = count > 9 ? '9+' : String(count);
+    badge.classList.toggle('hidden', count === 0);
+  } catch (e) { console.error('Notifications badge error:', e); }
+}
+
+async function toggleNotifications(e) {
+  e.stopPropagation();
+  const dropdown = document.getElementById('notif-dropdown');
+  const opening = dropdown.classList.contains('hidden');
+  if (!opening) { closeNotifications(); return; }
+  dropdown.classList.remove('hidden');
+  try {
+    const data = await API.getNotifications();
+    renderNotificationsList(data);
+    // Marking read happens after we've captured what to show, so this
+    // open still displays everything that was new — only the NEXT open
+    // (or badge refresh) reflects the drop to zero.
+    await API.markNotificationsRead();
+    refreshNotificationBadge();
+  } catch (e) { console.error('Notifications error:', e); }
+}
+
+function closeNotifications() {
+  document.getElementById('notif-dropdown').classList.add('hidden');
+}
+
+function renderNotificationsList(data) {
+  const wrap = document.getElementById('notif-list');
+  const rows = [];
+
+  data.invites.forEach(inv => rows.push(`
+    <button onclick="closeNotifications(); openInvitesModal();" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
+      <span class="text-lg leading-none flex-shrink-0">📨</span>
+      <span class="text-sm text-navy min-w-0"><strong>${esc(inv.ownerName || 'Someone')}</strong> invited you to <strong>${esc(inv.projectTitle)}</strong></span>
+    </button>`));
+
+  data.assignedTasks.forEach(t => rows.push(`
+    <button onclick="closeNotifications(); openTaskDetail('${t.id}');" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
+      <span class="text-lg leading-none flex-shrink-0">✅</span>
+      <span class="text-sm text-navy min-w-0">You were assigned <strong>${esc(t.title)}</strong> in ${esc(t.projectIcon || '')} ${esc(t.projectTitle)}</span>
+    </button>`));
+
+  data.chatActivity.forEach(c => rows.push(`
+    <button onclick="closeNotifications(); showPage('project-detail','${c.projectId}'); openProjectChat('${c.projectId}');" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
+      <span class="text-lg leading-none flex-shrink-0">💬</span>
+      <span class="text-sm text-navy min-w-0">${c.count} new message${c.count === 1 ? '' : 's'} in ${esc(c.projectIcon || '')} <strong>${esc(c.projectTitle)}</strong> chat</span>
+    </button>`));
+
+  data.commentActivity.forEach(c => rows.push(`
+    <button onclick="closeNotifications(); showPage('project-detail','${c.projectId}'); openTaskDetail('${c.taskId}');" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
+      <span class="text-lg leading-none flex-shrink-0">🗨️</span>
+      <span class="text-sm text-navy min-w-0">${c.count} new comment${c.count === 1 ? '' : 's'} on <strong>${esc(c.taskTitle)}</strong></span>
+    </button>`));
+
+  wrap.innerHTML = rows.length ? rows.join('') : `<p class="text-sm text-gray-400 text-center py-8">You're all caught up 🎉</p>`;
+}
+
+document.addEventListener('click', (e) => {
+  const dropdown = document.getElementById('notif-dropdown');
+  const btn = document.getElementById('notif-bell-btn');
+  if (dropdown && !dropdown.classList.contains('hidden') && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+    closeNotifications();
+  }
+});
 
 function openInvitesModal() {
   openModal('modal-invites');
@@ -2870,6 +3069,14 @@ async function openTaskDetail(id) {
     document.getElementById('td-end').textContent       = t.endDate || '—';
     document.getElementById('td-notes').textContent     = t.notes && t.notes.trim() ? t.notes : 'No notes for this task yet.';
     document.getElementById('td-assignee').textContent  = t.assigneeName || 'Unassigned';
+
+    // Google-Drive style: editor/owner can edit the task, commenter can
+    // only comment, viewer can only look.
+    const canEdit    = proj && (proj.role === 'owner' || proj.role === 'editor');
+    const canComment = proj && (proj.role === 'owner' || proj.role === 'editor' || proj.role === 'commenter');
+    document.getElementById('btn-edit-task-detail').classList.toggle('hidden', !canEdit);
+    document.getElementById('td-comment-box').classList.toggle('hidden', !canComment);
+    document.getElementById('td-comment-viewonly').classList.toggle('hidden', canComment);
 
     document.getElementById('task-detail-backdrop').classList.remove('hidden');
     document.getElementById('task-detail-panel').classList.remove('translate-x-full');
@@ -3293,6 +3500,8 @@ function presenceDot(lastActiveAt) {
   return `<span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${active ? '#22C55E' : '#D1D5DB'}" title="${active ? 'Active now' : 'Away'}"></span>`;
 }
 
+const ROLE_LABEL = { viewer: '👁 Viewer', commenter: '💬 Commenter', editor: '✏️ Editor', owner: '👑 Owner' };
+
 async function renderShareCollaborators(projectId) {
   const wrap = document.getElementById('share-collaborators-list');
   try {
@@ -3300,19 +3509,39 @@ async function renderShareCollaborators(projectId) {
     const isOwner = project.role === 'owner';
     wrap.innerHTML = people.map(person => {
       const isMe = person.userId === APP.currentUserId;
-      const canRemove = isOwner && person.role !== 'owner';
-      const status = person.role === 'owner' ? 'Owner' : (person.joinedAt ? 'Member' : 'Invited — pending');
+      const canManage = isOwner && person.role !== 'owner';
+      const pending = person.role !== 'owner' && !person.joinedAt;
+      const roleControl = canManage
+        ? `<select onchange="changeCollaboratorRole('${projectId}','${person.userId}',this.value)" class="text-xs border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:border-teal flex-shrink-0">
+             <option value="viewer" ${person.role === 'viewer' ? 'selected' : ''}>Viewer</option>
+             <option value="commenter" ${person.role === 'commenter' ? 'selected' : ''}>Commenter</option>
+             <option value="editor" ${person.role === 'editor' ? 'selected' : ''}>Editor</option>
+           </select>`
+        : `<span class="text-xs font-semibold text-gray-500 flex-shrink-0">${ROLE_LABEL[person.role] || person.role}</span>`;
       return `
         <div class="flex items-center gap-3 py-2">
           ${presenceDot(person.lastActiveAt)}
           <div class="flex-1 min-w-0">
             <p class="text-sm font-semibold text-navy truncate">${esc(person.name)}${isMe ? ' (you)' : ''}</p>
-            <p class="text-xs text-gray-400 truncate">${esc(person.email)} · ${status}</p>
+            <p class="text-xs text-gray-400 truncate">${esc(person.email)}${pending ? ' · Invited — pending' : ''}</p>
           </div>
-          ${canRemove ? `<button onclick="removeCollaboratorConfirm('${projectId}','${person.userId}','${esc(person.name)}')" class="text-gray-300 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Remove">🗑️</button>` : ''}
+          ${roleControl}
+          ${canManage ? `<button onclick="removeCollaboratorConfirm('${projectId}','${person.userId}','${esc(person.name)}')" class="text-gray-300 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Remove">🗑️</button>` : ''}
         </div>`;
     }).join('');
   } catch (e) { console.error('Collaborators error:', e); }
+}
+
+async function changeCollaboratorRole(projectId, userId, role) {
+  try {
+    await API.updateCollaboratorRole(projectId, userId, role);
+    showToast('✅ Role updated');
+    renderShareCollaborators(projectId);
+    if (APP.currentProjectId === projectId) renderProjectDetail(projectId);
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'Failed to update role'), 'error');
+    renderShareCollaborators(projectId);
+  }
 }
 
 async function submitInviteCollaborator() {
@@ -3321,9 +3550,10 @@ async function submitInviteCollaborator() {
   errorEl.classList.add('hidden');
   const email = input.value.trim();
   if (!email) return;
+  const role = document.getElementById('share-role-select').value;
   const projectId = APP.currentProjectId;
   try {
-    await API.inviteCollaborator(projectId, email);
+    await API.inviteCollaborator(projectId, email, role);
     input.value = '';
     showToast('✅ Invited ' + email);
     renderShareCollaborators(projectId);
@@ -3340,6 +3570,83 @@ function removeCollaboratorConfirm(projectId, userId, name) {
       showToast('Removed ' + name);
       renderShareCollaborators(projectId);
     } catch (e) { showToast('❌ ' + (e.message || 'Failed to remove'), 'error'); }
+  });
+}
+
+// ── PROJECT CHAT (project-wide, polled for a "live" feel) ─────────
+const CHAT_POLL_MS = 4000;
+let chatPollTimer = null;
+
+async function openProjectChat(projectId) {
+  try {
+    const proj = await API.getProject(projectId);
+    document.getElementById('team-chat-project-title').textContent = proj.title;
+    const canComment = proj.role === 'owner' || proj.role === 'editor' || proj.role === 'commenter';
+    document.getElementById('team-chat-input-box').classList.toggle('hidden', !canComment);
+    document.getElementById('team-chat-viewonly').classList.toggle('hidden', canComment);
+    APP.chatProjectId = projectId;
+    APP.chatIsOwner = proj.role === 'owner';
+    document.getElementById('project-chat-backdrop').classList.remove('hidden');
+    document.getElementById('project-chat-panel').classList.remove('translate-x-full');
+    await renderProjectChat(projectId);
+    if (chatPollTimer) clearInterval(chatPollTimer);
+    chatPollTimer = setInterval(() => renderProjectChat(projectId), CHAT_POLL_MS);
+  } catch (e) { console.error('Project chat error:', e); }
+}
+
+function closeProjectChat() {
+  document.getElementById('project-chat-backdrop').classList.add('hidden');
+  document.getElementById('project-chat-panel').classList.add('translate-x-full');
+  if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
+  APP.chatProjectId = null;
+}
+
+async function renderProjectChat(projectId) {
+  const wrap = document.getElementById('team-chat-messages');
+  // Don't yank the scroll position/focus out from under someone mid-read —
+  // only auto-scroll to the bottom if they were already there.
+  const wasAtBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 40;
+  try {
+    const messages = await API.getProjectMessages(projectId);
+    wrap.innerHTML = messages.length
+      ? messages.map(m => {
+          const isMe = m.userId === APP.currentUserId;
+          const canDelete = isMe || APP.chatIsOwner;
+          return `
+            <div class="mb-3 group">
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-xs font-semibold text-navy">${esc(m.authorName)}${isMe ? ' (you)' : ''}</p>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <span class="text-[10px] text-gray-400">${new Date(m.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                  ${canDelete ? `<button onclick="deleteProjectChatMessageConfirm('${m.id}','${projectId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">🗑️</button>` : ''}
+                </div>
+              </div>
+              <p class="text-sm text-gray-700 whitespace-pre-wrap">${esc(m.text)}</p>
+            </div>`;
+        }).join('')
+      : `<p class="text-xs text-gray-400 text-center py-6">No messages yet — say hi 👋</p>`;
+    if (wasAtBottom) wrap.scrollTop = wrap.scrollHeight;
+  } catch (e) { console.error('Chat load error:', e); }
+}
+
+async function submitProjectChatMessage() {
+  const input = document.getElementById('team-chat-input');
+  const text = input.value.trim();
+  const projectId = APP.chatProjectId;
+  if (!text || !projectId) return;
+  try {
+    await API.addProjectMessage(projectId, text);
+    input.value = '';
+    await renderProjectChat(projectId);
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to send'), 'error'); }
+}
+
+function deleteProjectChatMessageConfirm(messageId, projectId) {
+  confirmAction('Delete this message?', async () => {
+    try {
+      await API.deleteProjectMessage(messageId);
+      renderProjectChat(projectId);
+    } catch (e) { showToast('❌ ' + (e.message || 'Failed to delete'), 'error'); }
   });
 }
 

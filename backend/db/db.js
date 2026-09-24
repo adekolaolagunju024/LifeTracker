@@ -92,11 +92,15 @@ function accessibleProjectIdsSQL() {
 }
 function threeUserIds(userId) { return [userId, userId, userId]; }
 
-// 'owner' | 'member' | null. Owner-only actions (delete the project, manage
-// collaborators) check this directly; everything else that's collaborative
-// by design (edit project details, create/edit/delete tasks) just needs
-// non-null — an accepted member has full working access, same as the
-// owner, short of deleting the project or managing who's on it.
+// 'owner' | 'editor' | 'commenter' | 'viewer' | null — Google-Drive style.
+// Owner-only actions (delete the project, manage collaborators, change
+// roles) check isProjectOwner directly. Everything else checks the role:
+// viewer can only read, commenter can additionally comment/chat, editor
+// has full working access (create/edit/delete tasks, edit project
+// details) same as the owner short of deleting the project or managing
+// who's on it.
+const COLLAB_ROLES = ['viewer', 'commenter', 'editor'];
+
 function getProjectRole(userId, projectId) {
   const project = db.prepare('SELECT userId, parentId FROM projects WHERE id = ? AND deletedAt IS NULL').get(projectId);
   if (!project) return null;
@@ -110,6 +114,24 @@ function getProjectRole(userId, projectId) {
   return null;
 }
 function canAccessProject(userId, projectId) { return getProjectRole(userId, projectId) !== null; }
+// Owner or editor — allowed to create/edit/delete tasks, checklist items,
+// tags-on-tasks, and edit the project's own details.
+function canEditProject(userId, projectId) {
+  const role = getProjectRole(userId, projectId);
+  return role === 'owner' || role === 'editor';
+}
+// Owner, editor, or commenter — allowed to post task comments / project
+// chat messages. A plain viewer can read but not post.
+function canCommentOnProject(userId, projectId) {
+  const role = getProjectRole(userId, projectId);
+  return role === 'owner' || role === 'editor' || role === 'commenter';
+}
+function assertCanEditProject(userId, projectId) {
+  if (!canEditProject(userId, projectId)) throw new Error('You have view-only access to this project');
+}
+function assertCanComment(userId, projectId) {
+  if (!canCommentOnProject(userId, projectId)) throw new Error('You have view-only access to this project');
+}
 function isProjectOwner(userId, projectId) {
   const row = db.prepare('SELECT userId, parentId FROM projects WHERE id = ? AND deletedAt IS NULL').get(projectId);
   if (!row) return false;
@@ -144,6 +166,16 @@ function getOwnerName(ownerId) {
   return row ? row.name : null;
 }
 
+// How many people have actually joined this project (its own tree —
+// sharing a sub-folder shares its parent, see topLevelProjectId), so the
+// owner's own project list can tell a private project from a shared one
+// at a glance rather than only showing "Shared by X" to the other side.
+function getCollaboratorCount(projectId) {
+  projectId = topLevelProjectId(projectId);
+  const { count } = db.prepare('SELECT COUNT(*) AS count FROM project_collaborators WHERE projectId = ? AND joinedAt IS NOT NULL').get(projectId);
+  return count;
+}
+
 function listProjects(userId, filters = {}) {
   let sql = `SELECT * FROM projects WHERE deletedAt IS NULL AND id IN ${accessibleProjectIdsSQL()}`;
   const params = threeUserIds(userId);
@@ -154,13 +186,13 @@ function listProjects(userId, filters = {}) {
     params.push(filters.parentId);
   }
   sql += ' ORDER BY createdAt ASC';
-  return db.prepare(sql).all(...params).map(p => ({ ...p, role: getProjectRole(userId, p.id), ownerName: getOwnerName(p.userId) }));
+  return db.prepare(sql).all(...params).map(p => ({ ...p, role: getProjectRole(userId, p.id), ownerName: getOwnerName(p.userId), collaboratorCount: getCollaboratorCount(p.id) }));
 }
 
 function getProjectById(userId, id) {
   const row = db.prepare(`SELECT * FROM projects WHERE id = ? AND deletedAt IS NULL AND id IN ${accessibleProjectIdsSQL()}`).get(id, ...threeUserIds(userId));
   if (!row) return null;
-  return { ...row, role: getProjectRole(userId, id), ownerName: getOwnerName(row.userId) };
+  return { ...row, role: getProjectRole(userId, id), ownerName: getOwnerName(row.userId), collaboratorCount: getCollaboratorCount(id) };
 }
 
 function createProject(userId, project) {
@@ -190,6 +222,7 @@ function createProject(userId, project) {
 function updateProjectById(userId, id, patch) {
   const current = getProjectById(userId, id);
   if (!current) return null;
+  assertCanEditProject(userId, id);
   const next = { ...current, ...patch };
   if (next.parentId) {
     if (next.parentId === id) throw new Error("A folder can't be its own sub-folder");
@@ -278,6 +311,7 @@ function assertAssigneeCanAccessProject(assigneeId, projectId) {
 function createTask(userId, task) {
   const project = getProjectById(userId, task.projectId);
   if (!project) throw new Error('Project not found');
+  assertCanEditProject(userId, task.projectId);
   assertTaskNotBeforeProject(project, task.startDate);
   assertAssigneeCanAccessProject(task.assigneeId, task.projectId);
   // New tasks go to the bottom of their project's manual order — not
@@ -285,11 +319,12 @@ function createTask(userId, task) {
   // several collaborators are adding tasks to the same project.
   const { maxOrder } = db.prepare('SELECT MAX(sortOrder) AS maxOrder FROM tasks WHERE projectId = ?').get(task.projectId);
   const sortOrder = (maxOrder ?? -1) + 1;
+  const assigneeAssignedAt = task.assigneeId ? new Date().toISOString() : null;
   db.prepare(`
-    INSERT INTO tasks (id, userId, projectId, title, category, status, priority, startDate, endDate, cost, notes, recurrence, sortOrder, assigneeId, createdAt)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    INSERT INTO tasks (id, userId, projectId, title, category, status, priority, startDate, endDate, cost, notes, recurrence, sortOrder, assigneeId, assigneeAssignedAt, createdAt)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(task.id, userId, task.projectId, task.title, task.category || '', task.status || 'Not Started', task.priority || 'Medium',
-         task.startDate || '', task.endDate || '', task.cost || 0, task.notes || '', task.recurrence || 'none', sortOrder, task.assigneeId || null, task.createdAt);
+         task.startDate || '', task.endDate || '', task.cost || 0, task.notes || '', task.recurrence || 'none', sortOrder, task.assigneeId || null, assigneeAssignedAt, task.createdAt);
   return getTaskById(userId, task.id);
 }
 
@@ -299,7 +334,7 @@ function createTask(userId, task) {
 // each individual task (a collaborator can reorder tasks someone else
 // created, same as dragging a Kanban card).
 function reorderTasks(userId, projectId, taskIds) {
-  if (!canAccessProject(userId, projectId)) return;
+  if (!canEditProject(userId, projectId)) return;
   const stmt = db.prepare('UPDATE tasks SET sortOrder = ? WHERE id = ? AND projectId = ?');
   const run = db.transaction((ids) => {
     ids.forEach((id, index) => stmt.run(index, id, projectId));
@@ -324,15 +359,21 @@ function shiftDateByRecurrence(dateStr, recurrence) {
 function updateTaskById(userId, id, patch) {
   const current = getTaskById(userId, id);
   if (!current) return null;
+  assertCanEditProject(userId, current.projectId);
   const next = { ...current, ...patch };
   const project = getProjectById(userId, next.projectId);
   if (!project) throw new Error('Project not found');
+  if (next.projectId !== current.projectId) assertCanEditProject(userId, next.projectId);
   assertTaskNotBeforeProject(project, next.startDate);
   assertAssigneeCanAccessProject(next.assigneeId, next.projectId);
+  // Only bump the "assigned at" stamp when the assignee actually changes —
+  // an unrelated edit (say, updating notes) shouldn't re-notify them.
+  const assigneeChanged = (next.assigneeId || null) !== (current.assigneeId || null);
+  const assigneeAssignedAt = assigneeChanged ? (next.assigneeId ? new Date().toISOString() : null) : current.assigneeAssignedAt;
   db.prepare(`
-    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?, assigneeId=?
+    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?, assigneeId=?, assigneeAssignedAt=?
     WHERE id = ?
-  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, id);
+  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, assigneeAssignedAt, id);
 
   // Completing a recurring task schedules its next occurrence automatically
   // — e.g. "apply to 5 jobs this week" comes back next week instead of
@@ -360,7 +401,9 @@ function updateTaskById(userId, id, patch) {
 }
 
 function deleteTaskById(userId, id) {
-  if (!getTaskById(userId, id)) return; // access check — owner or any accepted collaborator
+  const task = getTaskById(userId, id);
+  if (!task) return;
+  assertCanEditProject(userId, task.projectId);
   db.prepare('UPDATE tasks SET deletedAt = ? WHERE id = ? AND deletedAt IS NULL').run(new Date().toISOString(), id);
 }
 
@@ -393,18 +436,30 @@ function listCollaborators(projectId) {
 // There's deliberately no "invite a stranger who doesn't have an account
 // yet" flow — every person in the target scenario (a team where each
 // member already runs the app individually) already has one.
-function inviteCollaborator(inviterUserId, projectId, email) {
+function inviteCollaborator(inviterUserId, projectId, email, role = 'editor') {
   projectId = topLevelProjectId(projectId);
   if (!isProjectOwner(inviterUserId, projectId)) throw new Error('Only the project owner can invite collaborators');
+  if (!COLLAB_ROLES.includes(role)) throw new Error('Invalid role');
   const invitee = getUserByEmail(String(email || '').trim());
   if (!invitee) throw new Error('No Waypoint account found for that email');
   if (invitee.id === inviterUserId) throw new Error("That's your own account");
   const existing = db.prepare('SELECT * FROM project_collaborators WHERE projectId = ? AND userId = ?').get(projectId, invitee.id);
   if (existing) throw new Error(existing.joinedAt ? 'Already a collaborator on this project' : 'Already invited — waiting on them to accept');
-  const row = { id: uuid(), projectId, userId: invitee.id, role: 'member', invitedAt: new Date().toISOString(), joinedAt: null };
+  const row = { id: uuid(), projectId, userId: invitee.id, role, invitedAt: new Date().toISOString(), joinedAt: null };
   db.prepare('INSERT INTO project_collaborators (id, projectId, userId, role, invitedAt, joinedAt) VALUES (?,?,?,?,?,?)')
     .run(row.id, row.projectId, row.userId, row.role, row.invitedAt, row.joinedAt);
   return row;
+}
+
+// Owner-only. Changing a collaborator's role takes effect immediately —
+// e.g. demoting an editor to viewer mid-project revokes their write access
+// on their very next request.
+function updateCollaboratorRole(ownerUserId, projectId, collaboratorUserId, role) {
+  projectId = topLevelProjectId(projectId);
+  if (!isProjectOwner(ownerUserId, projectId)) throw new Error('Only the project owner can change roles');
+  if (!COLLAB_ROLES.includes(role)) throw new Error('Invalid role');
+  const result = db.prepare('UPDATE project_collaborators SET role = ? WHERE projectId = ? AND userId = ?').run(role, projectId, collaboratorUserId);
+  return result.changes > 0;
 }
 
 // Every pending invite for this user, across every project that's invited
@@ -448,6 +503,50 @@ function touchLastActive(userId) {
   db.prepare('UPDATE users SET lastActiveAt = ? WHERE id = ?').run(new Date().toISOString(), userId);
 }
 
+// ── NOTIFICATIONS ────────────────────────────────────────────────
+// A single per-user "last checked" timestamp derives "what's new since
+// you last looked" — no per-item read/unread table needed. Pending
+// invites are the exception: they're always included (they need a
+// decision) rather than aging out once seen.
+function getNotifications(userId) {
+  const user = getUserById(userId);
+  const checkedAt = user.notificationsCheckedAt || '1970-01-01T00:00:00.000Z';
+
+  const invites = listPendingInvites(userId);
+
+  const assignedTasks = db.prepare(`
+    SELECT t.id, t.title, t.projectId, t.assigneeAssignedAt, p.title AS projectTitle, p.icon AS projectIcon
+    FROM tasks t JOIN projects p ON p.id = t.projectId
+    WHERE t.assigneeId = ? AND t.deletedAt IS NULL AND t.status != 'Completed'
+      AND t.assigneeAssignedAt IS NOT NULL AND t.assigneeAssignedAt > ?
+    ORDER BY t.assigneeAssignedAt DESC
+  `).all(userId, checkedAt);
+
+  const chatActivity = db.prepare(`
+    SELECT pm.projectId, p.title AS projectTitle, p.icon AS projectIcon, COUNT(*) AS count, MAX(pm.createdAt) AS latestAt
+    FROM project_messages pm JOIN projects p ON p.id = pm.projectId
+    WHERE pm.userId != ? AND pm.createdAt > ? AND pm.projectId IN ${accessibleProjectIdsSQL()}
+    GROUP BY pm.projectId
+    ORDER BY latestAt DESC
+  `).all(userId, checkedAt, ...threeUserIds(userId));
+
+  const commentActivity = db.prepare(`
+    SELECT tc.taskId, t.title AS taskTitle, t.projectId, p.title AS projectTitle, p.icon AS projectIcon, COUNT(*) AS count, MAX(tc.createdAt) AS latestAt
+    FROM task_comments tc
+    JOIN tasks t ON t.id = tc.taskId
+    JOIN projects p ON p.id = t.projectId
+    WHERE tc.userId != ? AND tc.createdAt > ? AND t.deletedAt IS NULL AND t.projectId IN ${accessibleProjectIdsSQL()}
+    GROUP BY tc.taskId
+    ORDER BY latestAt DESC
+  `).all(userId, checkedAt, ...threeUserIds(userId));
+
+  return { invites, assignedTasks, chatActivity, commentActivity };
+}
+
+function markNotificationsRead(userId) {
+  db.prepare('UPDATE users SET notificationsCheckedAt = ? WHERE id = ?').run(new Date().toISOString(), userId);
+}
+
 // ── TASK COMMENTS ──────────────────────────────────────────────────
 function listComments(userId, taskId) {
   if (!getTaskById(userId, taskId)) return null;
@@ -459,7 +558,9 @@ function listComments(userId, taskId) {
 }
 
 function addComment(userId, taskId, text) {
-  if (!getTaskById(userId, taskId)) return null;
+  const task = getTaskById(userId, taskId);
+  if (!task) return null;
+  assertCanComment(userId, task.projectId);
   const clean = String(text || '').trim();
   if (!clean) throw new Error('Comment text is required');
   const comment = { id: uuid(), taskId, userId, text: clean, createdAt: new Date().toISOString() };
@@ -477,6 +578,42 @@ function deleteComment(userId, commentId) {
   const authorized = comment.userId === userId || (task && isProjectOwner(userId, task.projectId));
   if (!authorized) return false;
   db.prepare('DELETE FROM task_comments WHERE id = ?').run(commentId);
+  return true;
+}
+
+// ── PROJECT CHAT (project-wide, not tied to one task) ─────────────
+// A running discussion for everyone with access to the project. Polled by
+// the client every few seconds rather than pushed over a socket — same
+// lightweight-infra approach as presence (touchLastActive above).
+function listProjectMessages(userId, projectId) {
+  projectId = topLevelProjectId(projectId);
+  if (!canAccessProject(userId, projectId)) return null;
+  return db.prepare(`
+    SELECT pm.id, pm.projectId, pm.userId, pm.text, pm.createdAt, p.name AS authorName
+    FROM project_messages pm JOIN profile p ON p.userId = pm.userId
+    WHERE pm.projectId = ? ORDER BY pm.createdAt ASC
+  `).all(projectId);
+}
+
+function addProjectMessage(userId, projectId, text) {
+  projectId = topLevelProjectId(projectId);
+  assertCanComment(userId, projectId);
+  const clean = String(text || '').trim();
+  if (!clean) throw new Error('Message text is required');
+  const message = { id: uuid(), projectId, userId, text: clean, createdAt: new Date().toISOString() };
+  db.prepare('INSERT INTO project_messages (id, projectId, userId, text, createdAt) VALUES (?,?,?,?,?)')
+    .run(message.id, message.projectId, message.userId, message.text, message.createdAt);
+  return { ...message, authorName: getProfile(userId).name };
+}
+
+// The message's own author, or the project owner, can delete it — same
+// moderation boundary as task comments.
+function deleteProjectMessage(userId, messageId) {
+  const message = db.prepare('SELECT * FROM project_messages WHERE id = ?').get(messageId);
+  if (!message) return false;
+  const authorized = message.userId === userId || isProjectOwner(userId, message.projectId);
+  if (!authorized) return false;
+  db.prepare('DELETE FROM project_messages WHERE id = ?').run(messageId);
   return true;
 }
 
@@ -592,7 +729,9 @@ function attachTagsToTasks(tasks) {
 // "set" semantics than incremental attach/detach, matching a multi-select
 // checkbox picker in the UI that always submits the full current selection.
 function setTaskTags(userId, taskId, tagIds) {
-  if (!getTaskById(userId, taskId)) return null;
+  const task = getTaskById(userId, taskId);
+  if (!task) return null;
+  assertCanEditProject(userId, task.projectId);
   const ids = [...new Set((tagIds || []).filter(Boolean))];
   // Only tags that actually belong to this user can be attached — silently
   // drop anything else rather than erroring on a stale/foreign id.
@@ -614,7 +753,9 @@ function listChecklistItems(userId, taskId) {
 }
 
 function addChecklistItem(userId, taskId, title) {
-  if (!getTaskById(userId, taskId)) return null;
+  const task = getTaskById(userId, taskId);
+  if (!task) return null;
+  assertCanEditProject(userId, task.projectId);
   const { maxOrder } = db.prepare('SELECT MAX(sortOrder) AS maxOrder FROM checklist_items WHERE taskId = ?').get(taskId);
   const item = { id: uuid(), taskId, title, completed: 0, sortOrder: (maxOrder ?? -1) + 1 };
   db.prepare('INSERT INTO checklist_items (id, taskId, title, completed, sortOrder) VALUES (?,?,?,?,?)')
@@ -632,7 +773,9 @@ function getChecklistItemTaskId(id) {
 
 function updateChecklistItem(userId, id, patch) {
   const taskId = getChecklistItemTaskId(id);
-  if (!taskId || !getTaskById(userId, taskId)) return null;
+  const task = taskId && getTaskById(userId, taskId);
+  if (!task) return null;
+  assertCanEditProject(userId, task.projectId);
   const current = db.prepare('SELECT * FROM checklist_items WHERE id = ?').get(id);
   const next = { ...current, ...patch };
   db.prepare('UPDATE checklist_items SET title = ?, completed = ? WHERE id = ?').run(next.title, next.completed ? 1 : 0, id);
@@ -641,7 +784,9 @@ function updateChecklistItem(userId, id, patch) {
 
 function deleteChecklistItem(userId, id) {
   const taskId = getChecklistItemTaskId(id);
-  if (!taskId || !getTaskById(userId, taskId)) return false;
+  const task = taskId && getTaskById(userId, taskId);
+  if (!task) return false;
+  assertCanEditProject(userId, task.projectId);
   db.prepare('DELETE FROM checklist_items WHERE id = ?').run(id);
   return true;
 }
@@ -747,10 +892,12 @@ module.exports = {
   setPasswordResetToken, getUserByResetToken, clearPasswordResetToken,
   getProfile, updateProfile, listUsersForDigest, setLastDigestSentDate,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById,
-  getProjectRole, canAccessProject, isProjectOwner,
+  getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, reorderTasks,
-  listCollaborators, inviteCollaborator, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, touchLastActive,
+  listCollaborators, inviteCollaborator, updateCollaboratorRole, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, touchLastActive,
   listComments, addComment, deleteComment,
+  listProjectMessages, addProjectMessage, deleteProjectMessage,
+  getNotifications, markNotificationsRead,
   listTrash, restoreProject, restoreTask, purgeProjectForever, purgeTaskForever,
   listChecklistItems, addChecklistItem, updateChecklistItem, deleteChecklistItem,
   listTags, createTag, updateTag, deleteTag, setTaskTags, getTaskTags,

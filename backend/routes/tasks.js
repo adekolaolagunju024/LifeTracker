@@ -52,15 +52,23 @@ router.put('/:id', (req, res) => {
 
 // DELETE /api/tasks/:id
 router.delete('/:id', (req, res) => {
-  db.deleteTaskById(req.session.userId, req.params.id);
-  res.json({ success: true });
+  try {
+    db.deleteTaskById(req.session.userId, req.params.id);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
 });
 
 // PUT /api/tasks/:id/tags — { tagIds: [...] }, replaces the task's whole tag set
 router.put('/:id/tags', (req, res) => {
-  const tags = db.setTaskTags(req.session.userId, req.params.id, req.body.tagIds);
-  if (tags === null) return res.status(404).json({ error: 'Task not found' });
-  res.json(tags);
+  try {
+    const tags = db.setTaskTags(req.session.userId, req.params.id, req.body.tagIds);
+    if (tags === null) return res.status(404).json({ error: 'Task not found' });
+    res.json(tags);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
 });
 
 // GET /api/tasks/:id/comments
