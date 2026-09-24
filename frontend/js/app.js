@@ -235,7 +235,19 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeFileMenu(); closeGanttExportMenu(); hideGlobalSearchResults(); } });
 
 // ── NAVIGATION ─────────────────────────────────────────────────
-function showPage(id, projectId = null) {
+// A lightweight back button — there's no real browser routing here (one
+// index.html, no history.pushState), so "back" is an in-app stack of
+// wherever showPage() was called from, not actual browser history.
+function showPage(id, projectId = null, _skipHistory = false) {
+  if (!_skipHistory && APP.currentPage !== undefined) {
+    const isSamePlace = APP.currentPage === id && APP.currentProjectId === projectId;
+    if (!isSamePlace) {
+      APP.navHistory = APP.navHistory || [];
+      APP.navHistory.push({ page: APP.currentPage, projectId: APP.currentProjectId });
+      if (APP.navHistory.length > 30) APP.navHistory.shift(); // cap — this is a nav trail, not an audit log
+    }
+  }
+
   APP.currentPage      = id;
   APP.currentProjectId = projectId;
   APP.filters          = { status: '', priority: '', search: '', tag: '' };
@@ -275,6 +287,18 @@ function showPage(id, projectId = null) {
   if (id === 'calendar')       renderCalendar();
 
   updateSidebar();
+  updateBackButton();
+}
+
+function goBack() {
+  if (!APP.navHistory || !APP.navHistory.length) return;
+  const prev = APP.navHistory.pop();
+  showPage(prev.page, prev.projectId, true);
+}
+
+function updateBackButton() {
+  const btn = document.getElementById('topbar-back-btn');
+  if (btn) btn.classList.toggle('hidden', !(APP.navHistory && APP.navHistory.length));
 }
 
 // ── SIDEBAR ────────────────────────────────────────────────────
