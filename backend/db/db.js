@@ -613,6 +613,32 @@ function deleteComment(userId, commentId) {
   return true;
 }
 
+// A WhatsApp-style inbox: every shared project's chat in one list, most
+// recently active first, so you don't have to open each project just to
+// check for new messages. Only projects with someone else on them show up
+// here — a solo project has no one to chat with.
+function listChatPreviews(userId) {
+  const projects = listProjects(userId).filter(p => !p.parentId && (p.role !== 'owner' || p.collaboratorCount > 0));
+  const previews = projects.map(p => {
+    const last = db.prepare(`
+      SELECT pm.userId, pm.text, pm.createdAt, prof.name AS authorName
+      FROM project_messages pm JOIN profile prof ON prof.userId = pm.userId
+      WHERE pm.projectId = ? ORDER BY pm.createdAt DESC LIMIT 1
+    `).get(p.id);
+    return {
+      projectId: p.id,
+      title: p.title,
+      icon: p.icon,
+      color: p.color,
+      role: p.role,
+      ownerName: p.ownerName,
+      lastMessage: last ? { text: last.text, createdAt: last.createdAt, authorName: last.authorName, isMe: last.userId === userId } : null,
+    };
+  });
+  previews.sort((a, b) => (b.lastMessage?.createdAt || '').localeCompare(a.lastMessage?.createdAt || ''));
+  return previews;
+}
+
 // ── PROJECT CHAT (project-wide, not tied to one task) ─────────────
 // A running discussion for everyone with access to the project. Polled by
 // the client every few seconds rather than pushed over a socket — same
@@ -881,7 +907,7 @@ module.exports = {
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, reorderTasks,
   listCollaborators, inviteCollaborator, updateCollaboratorRole, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, touchLastActive,
   listComments, addComment, deleteComment,
-  listProjectMessages, addProjectMessage, deleteProjectMessage,
+  listChatPreviews, listProjectMessages, addProjectMessage, deleteProjectMessage,
   getNotifications, markNotificationsRead,
   createAttachment, getAttachmentById,
   listTrash, restoreProject, restoreTask, purgeProjectForever, purgeTaskForever,

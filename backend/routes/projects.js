@@ -23,6 +23,13 @@ router.post('/invites/:id/decline', (req, res) => {
   res.json({ success: true });
 });
 
+// GET /api/projects/chats — a WhatsApp-style inbox of every shared
+// project's chat, most recently active first (registered before /:id so
+// "chats" isn't captured as an id)
+router.get('/chats', (req, res) => {
+  res.json(db.listChatPreviews(req.session.userId));
+});
+
 // GET /api/projects?parentId=<id>|null
 router.get('/', (req, res) => {
   res.json(db.listProjects(req.session.userId, req.query));

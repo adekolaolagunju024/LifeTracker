@@ -108,6 +108,7 @@ const API = {
   purgeTaskForever:    (id) => request('DELETE', `/trash/tasks/${id}`),
 
   // ── COLLABORATION (project sharing, invites) ──
+  getChatPreviews:      ()             => request('GET',    '/projects/chats'),
   getPendingInvites:    ()             => request('GET',    '/projects/invites'),
   acceptInvite:         (inviteId)     => request('POST',   `/projects/invites/${inviteId}/accept`),
   declineInvite:        (inviteId)     => request('POST',   `/projects/invites/${inviteId}/decline`),

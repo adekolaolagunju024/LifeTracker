@@ -353,6 +353,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
     dashboard: 'Dashboard', projects: 'All Projects',
     gantt: 'Gantt Chart',   actions: 'Actions',
     settings: 'Settings',   calendar: 'Calendar',
+    chats: 'Chats',
   };
   document.getElementById('topbar-title').textContent =
     projectId ? '' : (titles[id] || id);
@@ -364,6 +365,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
   if (id === 'actions')        renderActions();
   if (id === 'settings')       renderSettings();
   if (id === 'calendar')       renderCalendar();
+  if (id === 'chats')          renderChats();
 
   updateSidebar();
   updateBackButton();
@@ -1198,9 +1200,10 @@ async function renderGantt() {
           <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-2 font-bold text-xs overflow-hidden">
             <span class="text-gray-400 text-[10px] flex-shrink-0 transition-transform cursor-pointer" style="${isCollapsed ? '' : 'transform:rotate(90deg)'}" onclick="toggleGanttGroup('${groupId}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">▶</span>
             <span class="w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${color}"></span>
-            <span class="truncate cursor-pointer hover:underline flex-1 min-w-0" style="color:${color}" onclick="editProject('${groupId}')" title="Edit this folder">${esc(groupProject?.icon || '')} ${esc(groupTitle)}</span>
+            <span class="truncate cursor-pointer hover:underline flex-1 min-w-0" style="color:${color}" onclick="showPage('project-detail','${groupId}')" title="Open this project">${esc(groupProject?.icon || '')} ${esc(groupTitle)}</span>
             ${cardFields.schedule ? miniProjectScheduleBadge(pts) : ''}
             ${canEditGroup ? `
+            <button onclick="event.stopPropagation();editProject('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Edit project details">✏️</button>
             <button onclick="openAddTask('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-teal px-1" title="Add task to this project">➕</button>
             <button onclick="deleteProjectConfirm('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete this project">🗑️</button>` : ''}
           </div>
@@ -3408,6 +3411,40 @@ function removeCollaboratorConfirm(projectId, userId, name) {
       renderShareCollaborators(projectId);
     } catch (e) { showToast('❌ ' + (e.message || 'Failed to remove'), 'error'); }
   });
+}
+
+// ── CHATS INBOX (WhatsApp-style list of every shared project's chat) ──
+function chatPreviewTime(iso) {
+  const d = new Date(iso);
+  const today = localDateKey(new Date());
+  if (localDateKey(d) === today) return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+async function renderChats() {
+  const wrap = document.getElementById('chats-list');
+  try {
+    const chats = await API.getChatPreviews();
+    wrap.innerHTML = chats.length
+      ? chats.map(c => {
+          const last = c.lastMessage;
+          const preview = last
+            ? `${last.isMe ? 'You: ' : ''}${esc(last.text || '📎 Attachment')}`
+            : `<span class="text-gray-400">No messages yet — say hi 👋</span>`;
+          return `
+            <button onclick="openProjectChat('${c.projectId}')" class="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 text-left">
+              <span class="w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0" style="background:${c.color}1A">${esc(c.icon)}</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <p class="font-bold text-sm text-navy truncate">${esc(c.title)}</p>
+                  ${last ? `<span class="text-[10px] text-gray-400 flex-shrink-0">${chatPreviewTime(last.createdAt)}</span>` : ''}
+                </div>
+                <p class="text-xs text-gray-500 truncate mt-0.5">${preview}</p>
+              </div>
+            </button>`;
+        }).join('')
+      : `<p class="text-center text-gray-400 text-sm py-10">No shared projects yet — share a project (👥 Share) or accept an invite to start chatting with your team.</p>`;
+  } catch (e) { console.error('Chats inbox error:', e); }
 }
 
 // ── PROJECT CHAT (project-wide, polled for a "live" feel) ─────────
