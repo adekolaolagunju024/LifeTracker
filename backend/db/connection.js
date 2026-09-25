@@ -138,6 +138,20 @@ db.exec(`
     size INTEGER NOT NULL,
     createdAt TEXT NOT NULL
   );
+
+  -- WhatsApp-style Status: a project-scoped update (photo/video + optional
+  -- caption, or text-only) visible to the project's team for 24 hours,
+  -- then it's gone — expiresAt is checked at read time and expired rows
+  -- are swept lazily (see purgeExpiredStatuses), no separate cron job.
+  CREATE TABLE IF NOT EXISTS project_statuses (
+    id TEXT PRIMARY KEY,
+    projectId TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    text TEXT DEFAULT '',
+    attachmentId TEXT REFERENCES attachments(id) ON DELETE CASCADE,
+    createdAt TEXT NOT NULL,
+    expiresAt TEXT NOT NULL
+  );
 `);
 
 // Lightweight migration for databases created before a column existed.

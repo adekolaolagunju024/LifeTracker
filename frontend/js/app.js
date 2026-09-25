@@ -2477,6 +2477,13 @@ async function refreshNotificationBadge() {
     const badge = document.getElementById('notif-badge-count');
     badge.textContent = count > 9 ? '9+' : String(count);
     badge.classList.toggle('hidden', count === 0);
+
+    // Chats nav item — like an unread mail count, total unseen messages
+    // across every project chat (not just how many projects have activity).
+    const chatCount = data.chatActivity.reduce((sum, c) => sum + c.count, 0);
+    const chatBadge = document.getElementById('nav-chats-badge');
+    chatBadge.textContent = chatCount > 99 ? '99+' : String(chatCount);
+    chatBadge.classList.toggle('hidden', chatCount === 0);
   } catch (e) { console.error('Notifications badge error:', e); }
 }
 
@@ -3450,6 +3457,10 @@ async function renderChats() {
             </button>`;
         }).join('')
       : `<p class="text-center text-gray-400 text-sm py-10">No shared projects yet — share a project (👥 Share) or accept an invite to start chatting with your team.</p>`;
+    // Visiting the inbox is "reading your mail" — clears the unread badge,
+    // same as opening the notification bell does.
+    await API.markNotificationsRead();
+    refreshNotificationBadge();
   } catch (e) { console.error('Chats inbox error:', e); }
 }
 
@@ -3466,11 +3477,12 @@ async function openProjectChat(projectId) {
     document.getElementById('team-chat-viewonly').classList.toggle('hidden', canComment);
     APP.chatProjectId = projectId;
     APP.chatIsOwner = proj.role === 'owner';
+    APP.chatCanComment = canComment;
     document.getElementById('project-chat-backdrop').classList.remove('hidden');
     document.getElementById('project-chat-panel').classList.remove('translate-x-full');
-    await renderProjectChat(projectId);
+    await Promise.all([renderProjectChat(projectId), renderStatusTray(projectId)]);
     if (chatPollTimer) clearInterval(chatPollTimer);
-    chatPollTimer = setInterval(() => renderProjectChat(projectId), CHAT_POLL_MS);
+    chatPollTimer = setInterval(() => { renderProjectChat(projectId); renderStatusTray(projectId); }, CHAT_POLL_MS);
   } catch (e) { console.error('Project chat error:', e); }
 }
 
@@ -3480,6 +3492,8 @@ function closeProjectChat() {
   if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
   APP.chatProjectId = null;
   clearTeamChatAttachment();
+  closeStatusViewer();
+  closeModal('modal-status-composer');
 }
 
 async function renderProjectChat(projectId) {
@@ -3551,6 +3565,154 @@ function deleteProjectChatMessageConfirm(messageId, projectId) {
     try {
       await API.deleteProjectMessage(messageId);
       renderProjectChat(projectId);
+    } catch (e) { showToast('❌ ' + (e.message || 'Failed to delete'), 'error'); }
+  });
+}
+
+// ── STATUS TRAY (WhatsApp-style, per project, expires after 24h) ──
+async function renderStatusTray(projectId) {
+  const wrap = document.getElementById('status-tray');
+  try {
+    const groups = await API.getStatuses(projectId);
+    APP.statusGroups = groups;
+    APP.statusTrayProjectId = projectId;
+    const myRing = APP.chatCanComment
+      ? `<button onclick="openStatusComposer()" class="flex flex-col items-center gap-1 flex-shrink-0 w-14" title="Add status">
+           <span class="w-12 h-12 rounded-full border-2 border-dashed border-teal text-teal flex items-center justify-center text-lg">➕</span>
+           <span class="text-[10px] text-gray-500 truncate w-full text-center">You</span>
+         </button>`
+      : '';
+    const rings = groups.map((g, i) => {
+      const initial = (g.authorName || '?').trim().charAt(0).toUpperCase();
+      const isMe = g.userId === APP.currentUserId;
+      return `
+        <button onclick="openStatusViewer(${i})" class="flex flex-col items-center gap-1 flex-shrink-0 w-14" title="${esc(g.authorName)}">
+          <span class="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold text-white" style="background:conic-gradient(#0A7E8C 0% 100%);padding:2px">
+            <span class="w-full h-full rounded-full bg-teal flex items-center justify-center">${esc(initial)}</span>
+          </span>
+          <span class="text-[10px] text-gray-500 truncate w-full text-center">${isMe ? 'You' : esc(g.authorName.split(' ')[0])}</span>
+        </button>`;
+    }).join('');
+    wrap.innerHTML = myRing + rings;
+    wrap.classList.toggle('hidden', !myRing && !rings);
+  } catch (e) { console.error('Status tray error:', e); }
+}
+
+// ── STATUS COMPOSER ────────────────────────────────────────────────
+function openStatusComposer() {
+  document.getElementById('status-text-input').value = '';
+  clearStatusAttachment();
+  openModal('modal-status-composer');
+}
+
+async function onStatusFileSelected(file) {
+  if (!file || !APP.statusTrayProjectId) return;
+  try {
+    const attachment = await API.uploadAttachment(APP.statusTrayProjectId, file);
+    APP.statusPendingAttachment = attachment;
+    document.getElementById('status-file-picker-btn').classList.add('hidden');
+    const wrap = document.getElementById('status-file-preview-wrap');
+    wrap.classList.remove('hidden');
+    wrap.classList.add('flex');
+    const img = document.getElementById('status-file-preview-img');
+    const video = document.getElementById('status-file-preview-video');
+    const url = API.attachmentUrl(attachment.id);
+    if (attachment.mimetype.startsWith('video/')) {
+      video.src = url; video.classList.remove('hidden'); img.classList.add('hidden');
+    } else {
+      img.src = url; img.classList.remove('hidden'); video.classList.add('hidden');
+    }
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'Failed to upload'), 'error');
+  } finally {
+    document.getElementById('status-file-input').value = '';
+  }
+}
+
+function clearStatusAttachment() {
+  APP.statusPendingAttachment = null;
+  document.getElementById('status-file-picker-btn').classList.remove('hidden');
+  const wrap = document.getElementById('status-file-preview-wrap');
+  wrap.classList.add('hidden');
+  wrap.classList.remove('flex');
+}
+
+async function submitStatus() {
+  const text = document.getElementById('status-text-input').value.trim();
+  const attachment = APP.statusPendingAttachment;
+  const projectId = APP.statusTrayProjectId;
+  if ((!text && !attachment) || !projectId) return;
+  try {
+    await API.addStatus(projectId, text, attachment ? attachment.id : null);
+    closeModal('modal-status-composer');
+    showToast('✅ Status posted — visible for 24h');
+    renderStatusTray(projectId);
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to post status'), 'error'); }
+}
+
+// ── STATUS VIEWER (story-style, one author at a time) ──────────────
+function openStatusViewer(authorIdx) {
+  APP.statusViewerAuthorIdx = authorIdx;
+  APP.statusViewerIdx = 0;
+  document.getElementById('status-viewer').classList.remove('hidden');
+  document.getElementById('status-viewer').classList.add('flex');
+  renderStatusViewerCurrent();
+}
+
+function closeStatusViewer() {
+  document.getElementById('status-viewer').classList.add('hidden');
+  document.getElementById('status-viewer').classList.remove('flex');
+}
+
+function statusViewerPrev() {
+  if (APP.statusViewerIdx > 0) { APP.statusViewerIdx--; renderStatusViewerCurrent(); return; }
+  if (APP.statusViewerAuthorIdx > 0) { APP.statusViewerAuthorIdx--; APP.statusViewerIdx = APP.statusGroups[APP.statusViewerAuthorIdx].statuses.length - 1; renderStatusViewerCurrent(); return; }
+  closeStatusViewer();
+}
+
+function statusViewerNext() {
+  const group = APP.statusGroups[APP.statusViewerAuthorIdx];
+  if (APP.statusViewerIdx < group.statuses.length - 1) { APP.statusViewerIdx++; renderStatusViewerCurrent(); return; }
+  if (APP.statusViewerAuthorIdx < APP.statusGroups.length - 1) { APP.statusViewerAuthorIdx++; APP.statusViewerIdx = 0; renderStatusViewerCurrent(); return; }
+  closeStatusViewer();
+}
+
+function renderStatusViewerCurrent() {
+  const group = APP.statusGroups[APP.statusViewerAuthorIdx];
+  const status = group.statuses[APP.statusViewerIdx];
+  document.getElementById('status-viewer-avatar').textContent = (group.authorName || '?').trim().charAt(0).toUpperCase();
+  document.getElementById('status-viewer-name').textContent = group.authorName + (group.userId === APP.currentUserId ? ' (you)' : '');
+  document.getElementById('status-viewer-time').textContent = new Date(status.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  document.getElementById('status-viewer-caption').textContent = status.text || '';
+  document.getElementById('status-viewer-caption').classList.toggle('hidden', !status.text);
+
+  const progress = document.getElementById('status-viewer-progress');
+  progress.innerHTML = group.statuses.map((_, i) =>
+    `<div class="flex-1 h-1 rounded-full ${i <= APP.statusViewerIdx ? 'bg-white' : 'bg-white/30'}"></div>`).join('');
+
+  const content = document.getElementById('status-viewer-content');
+  if (status.attachmentId) {
+    const url = API.attachmentUrl(status.attachmentId);
+    content.innerHTML = (status.attachmentMimetype || '').startsWith('video/')
+      ? `<video src="${url}" controls autoplay class="max-w-full max-h-full rounded-lg"></video>`
+      : `<img src="${url}" class="max-w-full max-h-full rounded-lg object-contain">`;
+  } else {
+    content.innerHTML = `<p class="text-white text-2xl font-bold text-center px-8">${esc(status.text)}</p>`;
+  }
+
+  const canDelete = group.userId === APP.currentUserId || APP.chatIsOwner;
+  const delBtn = document.getElementById('status-viewer-delete-btn');
+  delBtn.classList.toggle('hidden', !canDelete);
+  delBtn.dataset.statusId = status.id;
+}
+
+function deleteStatusFromViewer() {
+  const statusId = document.getElementById('status-viewer-delete-btn').dataset.statusId;
+  confirmAction('Delete this status?', async () => {
+    try {
+      await API.deleteStatus(statusId);
+      closeStatusViewer();
+      renderStatusTray(APP.statusTrayProjectId);
     } catch (e) { showToast('❌ ' + (e.message || 'Failed to delete'), 'error'); }
   });
 }

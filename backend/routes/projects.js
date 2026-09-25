@@ -139,4 +139,30 @@ router.delete('/messages/:messageId', (req, res) => {
   res.json({ success: true });
 });
 
+// ── PROJECT STATUS (WhatsApp-style, expires after 24h) ─────────────
+
+// GET /api/projects/:id/statuses
+router.get('/:id/statuses', (req, res) => {
+  const statuses = db.listActiveStatuses(req.session.userId, req.params.id);
+  if (statuses === null) return res.status(404).json({ error: 'Project not found' });
+  res.json(statuses);
+});
+
+// POST /api/projects/:id/statuses — { text, attachmentId }
+router.post('/:id/statuses', (req, res) => {
+  try {
+    const status = db.addStatus(req.session.userId, req.params.id, req.body.text, req.body.attachmentId);
+    res.status(201).json(status);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// DELETE /api/projects/statuses/:statusId — author or project owner
+router.delete('/statuses/:statusId', (req, res) => {
+  const removed = db.deleteStatus(req.session.userId, req.params.statusId);
+  if (!removed) return res.status(404).json({ error: 'Status not found' });
+  res.json({ success: true });
+});
+
 module.exports = router;

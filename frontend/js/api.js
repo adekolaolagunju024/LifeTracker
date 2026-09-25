@@ -127,6 +127,11 @@ const API = {
   addProjectMessage:    (projectId, text, attachmentId) => request('POST', `/projects/${projectId}/messages`, { text, attachmentId }),
   deleteProjectMessage: (messageId)       => request('DELETE', `/projects/messages/${messageId}`),
 
+  // ── PROJECT STATUS (WhatsApp-style, 24h) ──
+  getStatuses:    (projectId)       => request('GET',    `/projects/${projectId}/statuses`),
+  addStatus:      (projectId, text, attachmentId) => request('POST', `/projects/${projectId}/statuses`, { text, attachmentId }),
+  deleteStatus:   (statusId)        => request('DELETE', `/projects/statuses/${statusId}`),
+
   // ── ATTACHMENTS (media/files in chat + comments) ──
   uploadAttachment: async (projectId, file) => {
     const formData = new FormData();

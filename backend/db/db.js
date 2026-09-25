@@ -679,6 +679,68 @@ function deleteProjectMessage(userId, messageId) {
   return true;
 }
 
+// ── PROJECT STATUS (WhatsApp-style, expires after 24h) ─────────────
+const STATUS_LIFETIME_MS = 24 * 60 * 60 * 1000;
+
+function purgeExpiredStatuses(projectId) {
+  db.prepare('DELETE FROM project_statuses WHERE projectId = ? AND expiresAt < ?').run(projectId, new Date().toISOString());
+}
+
+// Grouped by author (like WhatsApp's status tray) — oldest first within
+// each author so the viewer can step forward through their story in the
+// order it was posted, authors ordered by their most recent update.
+function listActiveStatuses(userId, projectId) {
+  projectId = topLevelProjectId(projectId);
+  if (!canAccessProject(userId, projectId)) return null;
+  purgeExpiredStatuses(projectId);
+  const rows = db.prepare(`
+    SELECT ps.id, ps.userId, ps.text, ps.createdAt, ps.expiresAt, p.name AS authorName, ${ATTACHMENT_COLUMNS}
+    FROM project_statuses ps
+    JOIN profile p ON p.userId = ps.userId
+    LEFT JOIN attachments a ON a.id = ps.attachmentId
+    WHERE ps.projectId = ? ORDER BY ps.createdAt ASC
+  `).all(projectId);
+
+  const byAuthor = new Map();
+  for (const row of rows) {
+    if (!byAuthor.has(row.userId)) byAuthor.set(row.userId, { userId: row.userId, authorName: row.authorName, statuses: [] });
+    byAuthor.get(row.userId).statuses.push(row);
+  }
+  return [...byAuthor.values()].sort((a, b) => {
+    const aLatest = a.statuses[a.statuses.length - 1].createdAt;
+    const bLatest = b.statuses[b.statuses.length - 1].createdAt;
+    return bLatest.localeCompare(aLatest);
+  });
+}
+
+function addStatus(userId, projectId, text, attachmentId = null) {
+  projectId = topLevelProjectId(projectId);
+  assertCanComment(userId, projectId);
+  const clean = String(text || '').trim();
+  if (!clean && !attachmentId) throw new Error('A status needs text or a photo/video');
+  assertAttachmentBelongsToProject(attachmentId, projectId);
+  const now = new Date();
+  const status = {
+    id: uuid(), projectId, userId, text: clean, attachmentId: attachmentId || null,
+    createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + STATUS_LIFETIME_MS).toISOString(),
+  };
+  db.prepare('INSERT INTO project_statuses (id, projectId, userId, text, attachmentId, createdAt, expiresAt) VALUES (?,?,?,?,?,?,?)')
+    .run(status.id, status.projectId, status.userId, status.text, status.attachmentId, status.createdAt, status.expiresAt);
+  const attachment = attachmentId ? getAttachmentById(attachmentId) : null;
+  return { ...status, authorName: getProfile(userId).name, attachmentName: attachment?.originalName, attachmentMimetype: attachment?.mimetype, attachmentSize: attachment?.size };
+}
+
+// The status's own author, or the project owner, can remove it early —
+// same moderation boundary as chat messages and comments.
+function deleteStatus(userId, statusId) {
+  const status = db.prepare('SELECT * FROM project_statuses WHERE id = ?').get(statusId);
+  if (!status) return false;
+  const authorized = status.userId === userId || isProjectOwner(userId, status.projectId);
+  if (!authorized) return false;
+  db.prepare('DELETE FROM project_statuses WHERE id = ?').run(statusId);
+  return true;
+}
+
 // ── TRASH ────────────────────────────────────────────────────────
 // Soft-deleted projects/tasks older than this are purged for good — swept
 // lazily on every listTrash() call rather than a separate cron job.
@@ -908,6 +970,7 @@ module.exports = {
   listCollaborators, inviteCollaborator, updateCollaboratorRole, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, touchLastActive,
   listComments, addComment, deleteComment,
   listChatPreviews, listProjectMessages, addProjectMessage, deleteProjectMessage,
+  listActiveStatuses, addStatus, deleteStatus,
   getNotifications, markNotificationsRead,
   createAttachment, getAttachmentById,
   listTrash, restoreProject, restoreTask, purgeProjectForever, purgeTaskForever,

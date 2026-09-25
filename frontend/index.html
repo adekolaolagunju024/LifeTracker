@@ -583,6 +583,7 @@
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="showPage('chats')" data-page="chats">
         <span class="icon-badge" style="background:rgba(10,126,140,.22)">💬</span> Chats
+        <span class="hidden ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center leading-none" id="nav-chats-badge">0</span>
       </button>
     </div>
 
@@ -1505,6 +1506,9 @@
     </div>
     <button onclick="closeProjectChat()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1 flex-shrink-0">✕</button>
   </div>
+  <!-- Status tray — WhatsApp-style: a ring per teammate with an active
+       status (auto-expires after 24h), plus your own "+" to post one. -->
+  <div class="flex gap-3 px-6 py-3 border-b border-gray-100 overflow-x-auto" id="status-tray"></div>
   <div class="p-6 overflow-y-auto flex-1" id="team-chat-messages"></div>
   <div class="px-6 py-4 border-t border-gray-100">
     <div class="hidden items-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2" id="team-chat-attachment-chip">
@@ -1521,6 +1525,52 @@
     </div>
     <p class="hidden text-xs text-gray-400" id="team-chat-viewonly">👁 View-only access — you can't post in this chat.</p>
   </div>
+</div>
+
+<!-- STATUS COMPOSER MODAL -->
+<div class="modal-overlay fixed inset-0 bg-black/50 z-[60] items-center justify-center p-5" id="modal-status-composer">
+  <div class="bg-white rounded-2xl w-full max-w-sm max-h-[90vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+      <h3 class="text-base font-bold text-navy">Add Status</h3>
+      <button onclick="closeModal('modal-status-composer')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+    </div>
+    <div class="p-6 space-y-3">
+      <input type="file" id="status-file-input" accept="image/*,video/*" class="hidden" onchange="onStatusFileSelected(this.files[0])">
+      <button onclick="document.getElementById('status-file-input').click()" id="status-file-picker-btn" class="w-full border-2 border-dashed border-gray-200 rounded-xl py-8 text-center text-gray-400 hover:border-teal hover:text-teal text-sm">📷 Add a photo or video (optional)</button>
+      <div class="hidden relative" id="status-file-preview-wrap">
+        <img id="status-file-preview-img" class="hidden w-full rounded-xl max-h-64 object-cover">
+        <video id="status-file-preview-video" class="hidden w-full rounded-xl max-h-64" controls></video>
+        <button onclick="clearStatusAttachment()" class="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">✕</button>
+      </div>
+      <textarea id="status-text-input" rows="2" placeholder="Say something… (optional if you added a photo)"
+        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
+      <p class="text-xs text-gray-400">Visible to this project's team for 24 hours, then it disappears automatically.</p>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+      <button onclick="closeModal('modal-status-composer')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
+      <button onclick="submitStatus()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Post Status</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS VIEWER — full-panel story view, one author's statuses at a time -->
+<div class="hidden fixed inset-0 bg-black z-[70] items-center justify-center" id="status-viewer">
+  <div class="absolute top-0 left-0 right-0 flex gap-1 p-2 z-10" id="status-viewer-progress"></div>
+  <div class="absolute top-4 left-4 right-14 flex items-center gap-2 z-10 text-white">
+    <span class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold flex-shrink-0" id="status-viewer-avatar"></span>
+    <div class="min-w-0">
+      <p class="text-sm font-bold truncate" id="status-viewer-name"></p>
+      <p class="text-xs text-white/60" id="status-viewer-time"></p>
+    </div>
+  </div>
+  <button onclick="closeStatusViewer()" class="absolute top-4 right-4 z-10 text-white/80 hover:text-white text-2xl leading-none">✕</button>
+  <button onclick="statusViewerPrev()" class="absolute left-0 top-0 bottom-0 w-1/3 z-[5]" aria-label="Previous"></button>
+  <button onclick="statusViewerNext()" class="absolute right-0 top-0 bottom-0 w-1/3 z-[5]" aria-label="Next"></button>
+  <div class="w-full h-full flex items-center justify-center p-4" id="status-viewer-content"></div>
+  <div class="absolute bottom-6 left-0 right-0 flex justify-center px-6">
+    <p class="text-white text-sm text-center bg-black/40 rounded-lg px-4 py-2 max-w-md" id="status-viewer-caption"></p>
+  </div>
+  <button onclick="deleteStatusFromViewer()" id="status-viewer-delete-btn" class="hidden absolute bottom-6 right-6 z-10 text-white/70 hover:text-red-400 text-lg">🗑️</button>
 </div>
 
 <!-- SHARE PROJECT MODAL -->
