@@ -28,7 +28,7 @@ function setUserPasswordHash(id, passwordHash) {
 }
 
 // Every other table's userId column is ON DELETE CASCADE, so this alone
-// removes the profile, projects, tasks, wealth data, and integrations too.
+// removes the profile, projects, tasks, and integrations too.
 function deleteUser(id) {
   db.prepare('DELETE FROM users WHERE id = ?').run(id);
 }
@@ -827,56 +827,6 @@ function deleteChecklistItem(userId, id) {
   return true;
 }
 
-// ── WEALTH ───────────────────────────────────────────────────────
-function getWealth(userId) {
-  const targets = db.prepare('SELECT * FROM wealth_targets WHERE userId = ?').all(userId);
-  const entries = db.prepare('SELECT * FROM wealth_entries WHERE userId = ?').all(userId);
-  const monthlyLog = db.prepare('SELECT * FROM wealth_log WHERE userId = ? ORDER BY date DESC').all(userId);
-
-  const targetsMap = {};
-  targets.forEach(t => { targetsMap[t.key] = { label: t.label, target: t.target }; });
-  const entriesMap = {};
-  entries.forEach(e => { entriesMap[e.key] = e.value; });
-
-  return { entries: entriesMap, targets: targetsMap, monthlyLog };
-}
-
-function updateWealthEntries(userId, patch) {
-  const upsert = db.prepare(`
-    INSERT INTO wealth_entries (userId, key, value) VALUES (?, ?, ?)
-    ON CONFLICT(userId, key) DO UPDATE SET value = excluded.value
-  `);
-  Object.entries(patch).forEach(([key, value]) => upsert.run(userId, key, parseFloat(value) || 0));
-  return getWealth(userId).entries;
-}
-
-function addWealthTarget(userId, key, label, target) {
-  db.prepare('INSERT INTO wealth_targets (userId, key, label, target) VALUES (?,?,?,?)').run(userId, key, label, target || 0);
-  db.prepare('INSERT INTO wealth_entries (userId, key, value) VALUES (?, ?, 0)').run(userId, key);
-}
-
-function updateWealthTarget(userId, key, { label, target }) {
-  db.prepare('UPDATE wealth_targets SET label = ?, target = ? WHERE userId = ? AND key = ?')
-    .run(label, target || 0, userId, key);
-  return getWealth(userId).targets[key];
-}
-
-function deleteWealthTarget(userId, key) {
-  db.prepare('DELETE FROM wealth_targets WHERE userId = ? AND key = ?').run(userId, key);
-  db.prepare('DELETE FROM wealth_entries WHERE userId = ? AND key = ?').run(userId, key);
-}
-
-function addMonthlyLogEntry(userId, entry) {
-  db.prepare(`
-    INSERT INTO wealth_log (id, userId, date, month, income, business, expenses, saved, notes) VALUES (?,?,?,?,?,?,?,?,?)
-  `).run(entry.id, userId, entry.date, entry.month || '', entry.income || 0, entry.business || 0, entry.expenses || 0, entry.saved || 0, entry.notes || '');
-  return entry;
-}
-
-function deleteMonthlyLogEntry(userId, id) {
-  db.prepare('DELETE FROM wealth_log WHERE id = ? AND userId = ?').run(id, userId);
-}
-
 // ── INTEGRATIONS (Google Drive) ─────────────────────────────────
 function getGoogleDrive(userId) {
   const row = db.prepare('SELECT * FROM integrations WHERE userId = ?').get(userId);
@@ -919,7 +869,6 @@ function getFullSnapshot(userId) {
     profile: getProfile(userId),
     projects: listProjects(userId),
     tasks: listTasks(userId),
-    wealth: getWealth(userId),
   };
 }
 
@@ -938,7 +887,6 @@ module.exports = {
   listTrash, restoreProject, restoreTask, purgeProjectForever, purgeTaskForever,
   listChecklistItems, addChecklistItem, updateChecklistItem, deleteChecklistItem,
   listTags, createTag, updateTag, deleteTag, setTaskTags, getTaskTags,
-  getWealth, updateWealthEntries, addWealthTarget, updateWealthTarget, deleteWealthTarget, addMonthlyLogEntry, deleteMonthlyLogEntry,
   getGoogleDrive, setGoogleDrive,
   searchAll,
   getFullSnapshot,

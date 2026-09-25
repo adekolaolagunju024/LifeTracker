@@ -25,15 +25,13 @@ function findBrowser() {
 }
 
 const esc = s => String(s ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const money = (n, cur = '£') => cur + Math.round(n || 0).toLocaleString();
 const pct = (a, b) => b > 0 ? Math.min(Math.round((a / b) * 100), 100) : 0;
 
 function reportHtml(snapshot) {
-  const { profile, projects, tasks, wealth } = snapshot;
+  const { profile, projects, tasks } = snapshot;
   const done  = tasks.filter(t => t.status === 'Completed').length;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const overdueCount = tasks.filter(t => t.status !== 'Completed' && t.endDate && new Date(t.endDate) < today).length;
-  const cur     = profile.currency || '£';
   const goalsPct = pct(done, tasks.length);
 
   const projectRows = projects.map(p => {
@@ -46,15 +44,6 @@ function reportHtml(snapshot) {
       <td>${pct(pdone, pts.length)}%</td>
     </tr>`;
   }).join('') || `<tr><td colspan="4" class="muted">No projects yet</td></tr>`;
-
-  const logRows = (wealth.monthlyLog || []).slice(0, 6).map(e => `
-    <tr>
-      <td>${esc(e.month)}</td>
-      <td>${money(e.income, cur)}</td>
-      <td>${money(e.business, cur)}</td>
-      <td>${money(e.expenses, cur)}</td>
-      <td>${money(e.saved, cur)}</td>
-    </tr>`).join('') || `<tr><td colspan="5" class="muted">No monthly entries yet</td></tr>`;
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
@@ -99,12 +88,6 @@ function reportHtml(snapshot) {
   <table>
     <tr><th>Project</th><th>Tasks</th><th>Done</th><th>Complete</th></tr>
     ${projectRows}
-  </table>
-
-  <h2>Recent Monthly Log</h2>
-  <table>
-    <tr><th>Month</th><th>Job Income</th><th>Business</th><th>Expenses</th><th>Saved</th></tr>
-    ${logRows}
   </table>
 
   <p class="footer">${overdueCount} task${overdueCount === 1 ? '' : 's'} overdue · Waypoint</p>

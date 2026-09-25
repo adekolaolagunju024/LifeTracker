@@ -159,10 +159,6 @@ router.post('/backup/sheets', async (req, res) => {
       ['Title', 'Description', 'Icon', 'Color'],
       ...snapshot.projects.map(p => [p.title, p.description, p.icon, p.color]),
     ];
-    const wealthRows = [
-      ['Month', 'Job Income', 'Business', 'Expenses', 'Saved', 'Notes'],
-      ...snapshot.wealth.monthlyLog.map(e => [e.month, e.income, e.business, e.expenses, e.saved, e.notes]),
-    ];
 
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
@@ -170,14 +166,12 @@ router.post('/backup/sheets', async (req, res) => {
         requests: [
           { updateSheetProperties: { properties: { sheetId: 0, title: 'Tasks' }, fields: 'title' } },
           { addSheet: { properties: { title: 'Projects' } } },
-          { addSheet: { properties: { title: 'Wealth Log' } } },
         ],
       },
     });
 
     await sheets.spreadsheets.values.update({ spreadsheetId, range: 'Tasks!A1', valueInputOption: 'RAW', resource: { values: taskRows } });
     await sheets.spreadsheets.values.update({ spreadsheetId, range: 'Projects!A1', valueInputOption: 'RAW', resource: { values: projectRows } });
-    await sheets.spreadsheets.values.update({ spreadsheetId, range: 'Wealth Log!A1', valueInputOption: 'RAW', resource: { values: wealthRows } });
 
     markBackedUp(userId);
     res.json({ success: true, spreadsheetId, link: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` });

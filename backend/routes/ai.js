@@ -43,7 +43,7 @@ router.post('/insights', async (req, res) => {
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: 2000,
-      system: `You are a practical productivity assistant helping someone prioritize open tasks across their life, career, and wealth goals. Today's date is ${today}. Be concise and specific — reference real deadlines and real progress, not generic advice.`,
+      system: `You are a practical productivity assistant helping someone prioritize open tasks across every area of their life. Today's date is ${today}. Be concise and specific — reference real deadlines and real progress, not generic advice.`,
       messages: [{
         role: 'user',
         content: `My open tasks:\n${taskLines}\n\nMy top-level projects (use one of these exact ids for any new suggested task):\n${projectLines}\n\nAnalyze these and call the provide_insights tool.`,

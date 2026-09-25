@@ -58,16 +58,6 @@ const API = {
   deleteTask: (id)      => request('DELETE', `/tasks/${id}`),
   reorderTasks: (projectId, taskIds) => request('PUT', '/tasks/reorder', { projectId, taskIds }),
 
-  // ── WEALTH ──
-  getWealth:          ()       => request('GET',    '/wealth'),
-  updateWealthEntry:  (data)   => request('PUT',    '/wealth/entries', data),
-  addWealthCategory:  (data)   => request('POST',   '/wealth/targets', data),
-  updateWealthCategory: (key, data) => request('PUT',    `/wealth/targets/${key}`, data),
-  deleteWealthCategory: (key)  => request('DELETE', `/wealth/targets/${key}`),
-  getMonthlyLog:      ()       => request('GET',    '/wealth/log'),
-  addMonthlyEntry:    (data)   => request('POST',   '/wealth/log', data),
-  deleteMonthlyEntry: (id)     => request('DELETE', `/wealth/log/${id}`),
-
   // ── AI INSIGHTS ──
   getAIStatus:   ()  => request('GET',  '/ai/status'),
   getAIInsights: ()  => request('POST', '/ai/insights'),

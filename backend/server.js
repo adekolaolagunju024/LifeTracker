@@ -62,7 +62,6 @@ app.use('/api', requireAuth);
 app.use('/api/profile',  require('./routes/profile'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/tasks',    require('./routes/tasks'));
-app.use('/api/wealth',   require('./routes/wealth'));
 app.use('/api/drive',    require('./routes/drive'));
 app.use('/api/ai',       require('./routes/ai'));
 app.use('/api/reports',  require('./routes/reports'));

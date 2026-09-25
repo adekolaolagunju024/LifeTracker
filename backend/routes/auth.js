@@ -173,9 +173,8 @@ router.put('/password', async (req, res) => {
 });
 
 // DELETE /api/auth/account — permanently deletes this account and every row
-// that references it (profile, projects, tasks, wealth data, integrations
-// all cascade). Requires the current password as confirmation since there's
-// no undo.
+// that references it (profile, projects, tasks, integrations all cascade).
+// Requires the current password as confirmation since there's no undo.
 router.delete('/account', async (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
 

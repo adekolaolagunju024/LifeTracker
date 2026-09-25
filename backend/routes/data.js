@@ -10,15 +10,13 @@ const db = require('../db/db');
 router.post('/import', (req, res) => {
   try {
     const userId = req.session.userId;
-    const { profile, projects = [], tasks = [], wealth = {} } = req.body || {};
+    const { profile, projects = [], tasks = [] } = req.body || {};
 
     if (profile) {
       db.updateProfile(userId, {
         name: profile.name,
         tagline: profile.tagline,
         currency: profile.currency,
-        targetNetWorth: profile.targetNetWorth,
-        targetDate: profile.targetDate,
         onboarded: true,
       });
     }
@@ -77,40 +75,10 @@ router.post('/import', (req, res) => {
       taskCount++;
     }
 
-    // Wealth categories keep their original key so wealth.entries (keyed
-    // the same way) lines up without needing a separate remap.
-    let wealthCount = 0;
-    if (wealth.targets) {
-      for (const [key, wt] of Object.entries(wealth.targets)) {
-        db.addWealthTarget(userId, key, wt.label, wt.target);
-        wealthCount++;
-      }
-    }
-    if (wealth.entries) db.updateWealthEntries(userId, wealth.entries);
-
-    let logCount = 0;
-    if (Array.isArray(wealth.monthlyLog)) {
-      for (const entry of wealth.monthlyLog) {
-        db.addMonthlyLogEntry(userId, {
-          id: uuid(),
-          date: entry.date || new Date().toISOString(),
-          month: entry.month,
-          income: entry.income,
-          business: entry.business,
-          expenses: entry.expenses,
-          saved: entry.saved,
-          notes: entry.notes,
-        });
-        logCount++;
-      }
-    }
-
     res.json({
       success: true,
       projects: Object.keys(idMap).length,
       tasks: taskCount,
-      wealthCategories: wealthCount,
-      logEntries: logCount,
     });
   } catch (e) {
     console.error('Data import error:', e);

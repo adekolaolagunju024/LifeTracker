@@ -60,33 +60,6 @@ db.exec(`
     createdAt TEXT NOT NULL
   );
 
-  CREATE TABLE IF NOT EXISTS wealth_targets (
-    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    key TEXT NOT NULL,
-    label TEXT NOT NULL,
-    target REAL NOT NULL DEFAULT 0,
-    PRIMARY KEY (userId, key)
-  );
-
-  CREATE TABLE IF NOT EXISTS wealth_entries (
-    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    key TEXT NOT NULL,
-    value REAL NOT NULL DEFAULT 0,
-    PRIMARY KEY (userId, key)
-  );
-
-  CREATE TABLE IF NOT EXISTS wealth_log (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    date TEXT NOT NULL,
-    month TEXT DEFAULT '',
-    income REAL DEFAULT 0,
-    business REAL DEFAULT 0,
-    expenses REAL DEFAULT 0,
-    saved REAL DEFAULT 0,
-    notes TEXT DEFAULT ''
-  );
-
   CREATE TABLE IF NOT EXISTS tags (
     id TEXT PRIMARY KEY,
     userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -216,5 +189,12 @@ addColumnIfMissing('task_comments', "attachmentId TEXT REFERENCES attachments(id
 // computed from tasks (overdue / due this week / high priority) — drop the
 // now-unused table for databases created before this change.
 db.exec('DROP TABLE IF EXISTS actions');
+
+// The Wealth Tracker (net worth categories/targets, monthly income/savings
+// log) was removed — this is a general-purpose goal tracker, not a
+// finance app. Drop its tables for databases created before this change.
+db.exec('DROP TABLE IF EXISTS wealth_targets');
+db.exec('DROP TABLE IF EXISTS wealth_entries');
+db.exec('DROP TABLE IF EXISTS wealth_log');
 
 module.exports = db;

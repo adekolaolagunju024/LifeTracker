@@ -11,11 +11,10 @@ const APP = {
   filters: { status: '', priority: '', search: '' },
   ganttStart: new Date('2026-05-01'),
   ganttEnd:   new Date('2027-05-31'),
-  nwChart: null,
   onboardingStep: 1,
   aiInsights: null,
 };
-const ONBOARDING_STEPS = 4;
+const ONBOARDING_STEPS = 3;
 
 // ── UTILS ──────────────────────────────────────────────────────
 const fmt = (n, currency = '£') => currency + Math.round(n).toLocaleString();
@@ -79,7 +78,6 @@ function toggleTheme() {
   const isDark = document.documentElement.classList.toggle('dark');
   localStorage.setItem('lt-theme', isDark ? 'dark' : 'light');
   applyThemeIcon();
-  if (APP.currentPage === 'wealth') renderWealth(); // Chart.js needs a redraw for its own colors
 }
 
 // ── STATUS & PRIORITY BADGES ───────────────────────────────────
@@ -353,9 +351,8 @@ function showPage(id, projectId = null, _skipHistory = false) {
 
   const titles = {
     dashboard: 'Dashboard', projects: 'All Projects',
-    gantt: 'Gantt Chart',   wealth: 'Wealth Tracker',
-    actions: 'Actions',     settings: 'Settings',
-    calendar: 'Calendar',
+    gantt: 'Gantt Chart',   actions: 'Actions',
+    settings: 'Settings',   calendar: 'Calendar',
   };
   document.getElementById('topbar-title').textContent =
     projectId ? '' : (titles[id] || id);
@@ -364,7 +361,6 @@ function showPage(id, projectId = null, _skipHistory = false) {
   if (id === 'projects')       renderProjects();
   if (id === 'project-detail') renderProjectDetail(projectId);
   if (id === 'gantt')          renderGantt();
-  if (id === 'wealth')         renderWealth();
   if (id === 'actions')        renderActions();
   if (id === 'settings')       renderSettings();
   if (id === 'calendar')       renderCalendar();
@@ -419,25 +415,15 @@ function tasksInProjectTree(projectId, allProjects, allTasks) {
 // ── DASHBOARD ──────────────────────────────────────────────────
 async function renderDashboard() {
   try {
-    const [tasks, allProjects, profile, wealth] = await Promise.all([
+    const [tasks, allProjects, profile] = await Promise.all([
       API.getTasks(),
       API.getProjects(),
       API.getProfile(),
-      API.getWealth(),
     ]);
     const projects = allProjects.filter(p => !p.parentId); // top-level only, for the glance cards
 
     const done   = tasks.filter(t => t.status === 'Completed').length;
     const inprog = tasks.filter(t => t.status === 'In Progress').length;
-    // Still needed below for wealth-type projects' own card/table stats —
-    // this is a general goal tracker, not a net-worth dashboard, so nothing
-    // wealth-specific gets top-level KPI/hero billing anymore, but an
-    // individual Wealth-type project still shows its own £ progress same as
-    // any other project shows its own stats.
-    const nw     = Object.values(wealth.entries || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
-    const target = profile.targetNetWorth || 100000;
-    const p      = pct(nw, target);
-    const cur    = profile.currency || '£';
 
     // KPIs
     document.getElementById('kpi-total').textContent  = tasks.length;
@@ -446,7 +432,7 @@ async function renderDashboard() {
     document.getElementById('hero-name').textContent  = profile.name.split(' ')[0];
 
     // Goals Progress hero — overall task completion across every project,
-    // regardless of type; goals are goals, whether Career, Wealth, Health, etc.
+    // regardless of type; goals are goals, whether Career, Health, etc.
     const goalsPct = pct(done, tasks.length);
     document.getElementById('hero-goals-pct').textContent    = goalsPct + '%';
     document.getElementById('hero-goals-sub').textContent    = `${done} of ${tasks.length} tasks complete`;
@@ -460,13 +446,12 @@ async function renderDashboard() {
     const DASHBOARD_PROJECT_LIMIT = 4;
     let cardsHTML = '';
     projects.slice(0, DASHBOARD_PROJECT_LIMIT).forEach(proj => {
-      const isWealth = proj.type === 'wealth';
       const pts      = tasksInProjectTree(proj.id, allProjects, tasks);
       const pdone    = pts.filter(t => t.status === 'Completed').length;
       const overdue  = pts.filter(t => t.status !== 'Completed' && t.endDate && t.endDate.slice(0, 10) < todayKey).length;
-      const pp       = isWealth ? p : pct(pdone, pts.length);
+      const pp       = pct(pdone, pts.length);
       const sharedSuffix = proj.role !== 'owner' && proj.ownerName ? ` · 👤 ${esc(proj.ownerName)}` : '';
-      const subLine  = (isWealth ? `${fmt(nw, cur)} of ${fmt(target, cur)}` : `${pts.length} tasks · ${pdone} done`) + sharedSuffix;
+      const subLine  = `${pts.length} tasks · ${pdone} done` + sharedSuffix;
       const overdueBadge = overdue > 0 ? `<span class="flex-shrink-0 bg-red-50 text-red-600 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">🔴 ${overdue} overdue</span>` : '';
 
       cardsHTML += `
@@ -518,14 +503,13 @@ async function renderProjects() {
       btn.classList.toggle('active', btn.dataset.filter === filter);
     });
 
-    const [allProjects, tasks, wealth, profile] = await Promise.all([
-      API.getProjects(), API.getTasks(), API.getWealth(), API.getProfile(),
+    const [allProjects, tasks] = await Promise.all([
+      API.getProjects(), API.getTasks(),
     ]);
     let projects = allProjects.filter(p => !p.parentId); // top-level only
     if (filter === 'mine')             projects = projects.filter(p => p.role === 'owner' && !p.collaboratorCount);
     else if (filter === 'shared-with-me') projects = projects.filter(p => p.role !== 'owner');
     else if (filter === 'shared-by-me')   projects = projects.filter(p => p.role === 'owner' && p.collaboratorCount > 0);
-    const cur = profile.currency || '£';
 
     if (!projects.length) {
       const emptyByFilter = {
@@ -538,31 +522,15 @@ async function renderProjects() {
     }
 
     document.getElementById('projects-grid').innerHTML = projects.map(proj => {
-      const isWealth = proj.type === 'wealth';
-      let pts = [], pdone = 0, pinp = 0, pp = 0, cost = 0, tagsHTML = '', costLine = '';
-
-      if (isWealth) {
-        const nw     = Object.values(wealth.entries || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
-        const target = profile.targetNetWorth || 100000;
-        pp = pct(nw, target);
-        const catCount = Object.keys(wealth.targets || {}).length;
-        pts   = tasksInProjectTree(proj.id, allProjects, tasks);
-        pdone = pts.filter(t => t.status === 'Completed').length;
-        tagsHTML = `<span class="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-semibold">${catCount} categories</span>
-          <span class="bg-amber-50 text-amber-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${fmt(nw, cur)} saved</span>
-          ${pts.length ? `<span class="bg-green-50 text-green-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pdone}/${pts.length} tasks</span>` : ''}`;
-        costLine = `<span>Target ${fmt(target, cur)}</span>`;
-      } else {
-        pts   = tasksInProjectTree(proj.id, allProjects, tasks);
-        pdone = pts.filter(t => t.status === 'Completed').length;
-        pinp  = pts.filter(t => t.status === 'In Progress').length;
-        pp    = pct(pdone, pts.length);
-        cost  = pts.reduce((s, t) => s + (t.cost || 0), 0);
-        tagsHTML = `<span class="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pts.length} tasks</span>
-          <span class="bg-green-50 text-green-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pdone} done</span>
-          <span class="bg-orange-50 text-orange-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pinp} active</span>`;
-        costLine = `<span>Est. £${cost.toLocaleString()}</span>`;
-      }
+      const pts   = tasksInProjectTree(proj.id, allProjects, tasks);
+      const pdone = pts.filter(t => t.status === 'Completed').length;
+      const pinp  = pts.filter(t => t.status === 'In Progress').length;
+      const pp    = pct(pdone, pts.length);
+      const cost  = pts.reduce((s, t) => s + (t.cost || 0), 0);
+      const tagsHTML = `<span class="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pts.length} tasks</span>
+        <span class="bg-green-50 text-green-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pdone} done</span>
+        <span class="bg-orange-50 text-orange-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pinp} active</span>`;
+      const costLine = `<span>Est. £${cost.toLocaleString()}</span>`;
 
       return `
         <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-5 project-card"
@@ -617,13 +585,6 @@ async function renderProjectDetail(projectId) {
     document.getElementById('detail-desc').textContent      = proj.description || '';
     document.getElementById('detail-color').style.background = proj.color;
     document.getElementById('topbar-title').textContent     = proj.title;
-
-    // Wealth-type projects get real tasks too, just like Career projects —
-    // the banner just points to the dedicated Wealth Tracker for the £
-    // categories/monthly log/chart that don't fit the task model.
-    const wealthBanner = document.getElementById('detail-wealth-banner');
-    wealthBanner.classList.toggle('hidden', proj.type !== 'wealth');
-    wealthBanner.classList.toggle('flex', proj.type === 'wealth');
 
     // Sub-folders can't themselves have sub-folders (one level of nesting only)
     const canEdit = proj.role === 'owner' || proj.role === 'editor';
@@ -1756,195 +1717,10 @@ async function ganttRowMouseUp() {
   renderGantt();
 }
 
-// ── WEALTH ──────────────────────────────────────────────────────
-async function renderWealth() {
-  try {
-    const [wealth, profile, log] = await Promise.all([
-      API.getWealth(),
-      API.getProfile(),
-      API.getMonthlyLog(),
-    ]);
-
-    const entries = wealth.entries || {};
-    const targets = wealth.targets || {};
-    const nw      = Object.values(entries).reduce((s, v) => s + (parseFloat(v) || 0), 0);
-    const target  = profile.targetNetWorth || 100000;
-    const p       = pct(nw, target);
-    const cur     = profile.currency || '£';
-
-    document.getElementById('wealth-total').textContent = fmt(nw, cur);
-    document.getElementById('wealth-pct').textContent   = p + '%';
-    document.getElementById('wealth-prog').style.width  = p + '%';
-    document.getElementById('wealth-left').textContent  = fmt(Math.max(0, target - nw), cur) + ' to go';
-
-    // Wealth cards
-    document.getElementById('wealth-cards').innerHTML = Object.entries(targets).map(([key, wt]) => {
-      const val = parseFloat(entries[key]) || 0;
-      const pp  = pct(val, wt.target);
-      return `
-        <div class="bg-white rounded-xl border border-gray-200 p-4">
-          <div class="flex items-center justify-between mb-3 gap-2">
-            <h4 class="text-sm font-bold text-navy truncate">${esc(wt.label)}</h4>
-            <div class="flex items-center gap-1 shrink-0">
-              <button onclick="editWealthCat('${key}')" class="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 text-xs" title="Edit category">✏️</button>
-              <button onclick="deleteWealthCatConfirm('${key}', '${esc(wt.label).replace(/'/g, "\\'")}')" class="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 text-xs" title="Delete category">🗑️</button>
-            </div>
-          </div>
-          <div class="flex items-center justify-between mb-2">
-            <label class="text-xs text-gray-500 font-medium">Current (${cur})</label>
-            <input type="number" min="0" placeholder="0" value="${val || ''}"
-              class="w-32 border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-mono font-semibold text-right focus:outline-none focus:border-teal"
-              oninput="updateWealth('${key}', this.value)">
-          </div>
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-xs text-gray-400">Target</span>
-            <span class="text-xs font-mono font-bold text-green-600">${fmt(wt.target, cur)}</span>
-          </div>
-          <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-300"
-              style="width:${pp}%;background:${pp >= 100 ? '#1A7A4A' : pp > 50 ? '#0A7E8C' : '#C49A00'}"></div>
-          </div>
-          <p class="text-xs text-gray-400 text-right mt-1">${pp}%</p>
-        </div>`;
-    }).join('');
-
-    // Chart
-    renderNWChart(log, cur);
-
-    // Monthly log
-    document.getElementById('monthly-log').innerHTML = log.length
-      ? log.map(e => `
-          <tr class="border-b border-gray-100 hover:bg-gray-50">
-            <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">${esc(e.month || '')}</td>
-            <td class="px-4 py-3 text-xs font-mono font-semibold">${fmt(e.income || 0, cur)}</td>
-            <td class="px-4 py-3 text-xs font-mono font-semibold text-orange-600">${fmt(e.business || 0, cur)}</td>
-            <td class="px-4 py-3 text-xs font-mono">${fmt(e.expenses || 0, cur)}</td>
-            <td class="px-4 py-3 text-xs font-mono font-bold text-green-600">${fmt(e.saved || 0, cur)}</td>
-            <td class="px-4 py-3 text-xs text-gray-400">${esc(e.notes || '')}</td>
-            <td class="px-4 py-3">
-              <button onclick="deleteLogEntry('${e.id}')"
-                class="text-gray-300 hover:text-red-500 text-sm p-1 rounded hover:bg-red-50">🗑️</button>
-            </td>
-          </tr>`).join('')
-      : `<tr><td colspan="7" class="px-4 py-8 text-center text-gray-400 text-sm">No entries yet. Log your first month above.</td></tr>`;
-
-  } catch (e) { console.error('Wealth error:', e); }
-}
-
-async function updateWealth(key, value) {
-  await API.updateWealthEntry({ [key]: parseFloat(value) || 0 });
-  updateSidebar();
-
-  // Update hero totals live
-  const [wealth, profile] = await Promise.all([API.getWealth(), API.getProfile()]);
-  const nw     = Object.values(wealth.entries || {}).reduce((s, v) => s + (parseFloat(v) || 0), 0);
-  const target = profile.targetNetWorth || 100000;
-  const p      = pct(nw, target);
-  const cur    = profile.currency || '£';
-  document.getElementById('wealth-total').textContent = fmt(nw, cur);
-  document.getElementById('wealth-pct').textContent   = p + '%';
-  document.getElementById('wealth-prog').style.width  = p + '%';
-  document.getElementById('wealth-left').textContent  = fmt(Math.max(0, target - nw), cur) + ' to go';
-}
-
-async function deleteLogEntry(id) {
-  await API.deleteMonthlyEntry(id);
-  renderWealth();
-  showToast('🗑️ Entry deleted');
-}
-
-// ── NET WORTH CHART ─────────────────────────────────────────────
-function renderNWChart(log, cur = '£') {
-  const wrap = document.getElementById('nw-chart-wrap');
-  if (!wrap) return;
-
-  if (APP.nwChart) { APP.nwChart.destroy(); APP.nwChart = null; }
-
-  if (!log.length) {
-    wrap.innerHTML = `
-      <div class="text-center py-10 text-gray-400 text-sm">
-        <p class="text-2xl mb-2">📈</p>
-        <p>No monthly data yet. Log your first month to see your chart.</p>
-      </div>`;
-    return;
-  }
-
-  wrap.innerHTML = '<canvas id="nw-chart" height="80"></canvas>';
-  const canvas = document.getElementById('nw-chart');
-
-  const sorted  = [...log].reverse();
-  const labels  = sorted.map(e => e.month || '');
-  const data    = sorted.map(e => parseFloat(e.saved) || 0);
-  const running = data.reduce((acc, val, i) => {
-    acc.push((acc[i - 1] || 0) + val); return acc;
-  }, []);
-
-  const isDark    = document.documentElement.classList.contains('dark');
-  const textColor = isDark ? '#CBD5E1' : '#374151';
-  const gridColor = isDark ? '#263449' : '#F3F4F6';
-
-  APP.nwChart = new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        {
-          label: 'Monthly Saved',
-          data,
-          borderColor: '#0A7E8C',
-          backgroundColor: 'rgba(10,126,140,0.08)',
-          borderWidth: 2,
-          pointBackgroundColor: '#0A7E8C',
-          pointRadius: 4,
-          tension: 0.4,
-          fill: true,
-        },
-        {
-          label: 'Running Total',
-          data: running,
-          borderColor: '#C49A00',
-          backgroundColor: 'rgba(196,154,0,0.06)',
-          borderWidth: 2,
-          pointBackgroundColor: '#C49A00',
-          pointRadius: 4,
-          tension: 0.4,
-          fill: true,
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'top', labels: { color: textColor, font: { family: 'Inter', size: 12 } } },
-        tooltip: {
-          callbacks: {
-            label: ctx => ` ${cur}${Math.round(ctx.parsed.y).toLocaleString()}`
-          }
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
-            callback: v => cur + Math.round(v).toLocaleString(),
-            color: textColor,
-            font: { family: 'JetBrains Mono', size: 11 }
-          },
-          grid: { color: gridColor }
-        },
-        x: {
-          ticks: { color: textColor, font: { family: 'Inter', size: 11 } },
-          grid: { display: false }
-        }
-      }
-    }
-  });
-}
-
 // ── ACTIONS — a live feed, not a maintained list ──────────────────
 // Nothing here is stored separately: it's computed fresh from real tasks
-// across every project (Career and Wealth alike) every time the page opens,
-// so there's nothing to keep in sync by hand.
+// across every project every time the page opens, so there's nothing to
+// keep in sync by hand.
 const PRI_BADGE = {
   High:   'bg-orange-100 text-orange-700',
   Medium: 'bg-yellow-100 text-yellow-700',
@@ -2881,9 +2657,6 @@ function startOnboarding() {
   APP.onboardingStep = 1;
   document.getElementById('onb-name').value     = '';
   document.getElementById('onb-tagline').value  = '';
-  document.getElementById('onb-currency').value = '£';
-  document.getElementById('onb-target').value   = '100000';
-  document.getElementById('onb-date').value     = '';
   document.getElementById('onb-proj-title').value = '';
   document.getElementById('onb-proj-icon').value  = '📁';
   document.getElementById('onb-proj-color').value = '#0A7E8C';
@@ -2901,7 +2674,7 @@ function renderOnboardingStep() {
   document.getElementById('onb-back-btn').style.visibility = APP.onboardingStep === 1 ? 'hidden' : 'visible';
   document.getElementById('onb-next-btn').textContent = APP.onboardingStep === ONBOARDING_STEPS ? 'Finish' : 'Next';
 
-  if (APP.onboardingStep === 4) renderOnboardingDriveStatus();
+  if (APP.onboardingStep === 3) renderOnboardingDriveStatus();
 }
 
 function onboardingBack() {
@@ -2928,12 +2701,9 @@ async function skipOnboarding() {
 async function finishOnboarding() {
   try {
     await API.updateProfile({
-      name:           document.getElementById('onb-name').value.trim()     || 'Your Name',
-      tagline:        document.getElementById('onb-tagline').value.trim()  || 'My Life & Wealth Tracker',
-      currency:       document.getElementById('onb-currency').value.trim() || '£',
-      targetNetWorth: parseFloat(document.getElementById('onb-target').value) || 100000,
-      targetDate:     document.getElementById('onb-date').value,
-      onboarded:      true,
+      name:      document.getElementById('onb-name').value.trim()    || 'Your Name',
+      tagline:   document.getElementById('onb-tagline').value.trim() || 'Every Goal, One Path',
+      onboarded: true,
     });
 
     const projTitle = document.getElementById('onb-proj-title').value.trim();
@@ -3963,98 +3733,14 @@ async function deleteTaskConfirm(id, projectId) {
   });
 }
 
-// ACTION MODAL
-// LOG MODAL
-async function openAddLog() {
-  const now = new Date();
-  document.getElementById('log-month').value    = now.toLocaleString('default', { month: 'long', year: 'numeric' });
-  document.getElementById('log-income').value   = '';
-  document.getElementById('log-business').value = '';
-  document.getElementById('log-expenses').value = '';
-  document.getElementById('log-saved').value    = '';
-  document.getElementById('log-notes').value    = '';
-  const profile = await API.getProfile();
-  document.querySelectorAll('.log-currency').forEach(el => el.textContent = profile.currency || '£');
-  openModal('modal-log');
-}
-
-async function saveLog() {
-  const income   = parseFloat(document.getElementById('log-income').value)   || 0;
-  const business = parseFloat(document.getElementById('log-business').value) || 0;
-  const expenses = parseFloat(document.getElementById('log-expenses').value) || 0;
-  const saved    = parseFloat(document.getElementById('log-saved').value)    || (income + business - expenses);
-  try {
-    await API.addMonthlyEntry({
-      month: document.getElementById('log-month').value,
-      income, business, expenses, saved,
-      notes: document.getElementById('log-notes').value.trim(),
-    });
-    closeModal('modal-log');
-    renderWealth();
-    showToast('✅ Month logged');
-  } catch (e) { showToast('❌ Failed to save entry', 'error'); }
-}
-
-// WEALTH CATEGORY MODAL
-async function openAddWealthCat() {
-  document.getElementById('wcat-key').value    = '';
-  document.getElementById('wcat-label').value  = '';
-  document.getElementById('wcat-target').value = '';
-  document.getElementById('modal-wcat-title').textContent = 'Add Wealth Category';
-  document.getElementById('wcat-save-btn').textContent    = 'Add Category';
-  const profile = await API.getProfile();
-  document.getElementById('wcat-target-currency').textContent = profile.currency || '£';
-  openModal('modal-wcat');
-}
-
-async function editWealthCat(key) {
-  const wealth = await API.getWealth();
-  const wt = wealth.targets[key];
-  if (!wt) return;
-  document.getElementById('wcat-key').value    = key;
-  document.getElementById('wcat-label').value  = wt.label;
-  document.getElementById('wcat-target').value = wt.target;
-  document.getElementById('modal-wcat-title').textContent = 'Edit Wealth Category';
-  document.getElementById('wcat-save-btn').textContent    = 'Save Changes';
-  const profile = await API.getProfile();
-  document.getElementById('wcat-target-currency').textContent = profile.currency || '£';
-  openModal('modal-wcat');
-}
-
-async function saveWealthCat() {
-  const key    = document.getElementById('wcat-key').value;
-  const label  = document.getElementById('wcat-label').value.trim();
-  const target = parseFloat(document.getElementById('wcat-target').value) || 0;
-  if (!label) { showToast('Label is required', 'error'); return; }
-  try {
-    if (key) {
-      await API.updateWealthCategory(key, { label, target });
-      showToast('✅ Category updated');
-    } else {
-      await API.addWealthCategory({ label, target });
-      showToast('✅ Category added');
-    }
-    closeModal('modal-wcat');
-    renderWealth();
-  } catch (e) { showToast('❌ Failed to save category', 'error'); }
-}
-
-function deleteWealthCatConfirm(key, label) {
-  confirmAction(`Delete "${label}"? Its logged value will be lost.`, async () => {
-    await API.deleteWealthCategory(key);
-    renderWealth();
-    showToast('🗑️ Category deleted');
-  });
-}
-
 // ── EXPORT / IMPORT ─────────────────────────────────────────────
 async function exportData() {
   try {
-    const [profile, projects, tasks, wealth] = await Promise.all([
-      API.getProfile(), API.getProjects(), API.getTasks(), API.getWealth(),
+    const [profile, projects, tasks] = await Promise.all([
+      API.getProfile(), API.getProjects(), API.getTasks(),
     ]);
     const blob = new Blob(
-      [JSON.stringify({ profile, projects, tasks, wealth }, null, 2)],
+      [JSON.stringify({ profile, projects, tasks }, null, 2)],
       { type: 'application/json' }
     );
     const a = document.createElement('a');
