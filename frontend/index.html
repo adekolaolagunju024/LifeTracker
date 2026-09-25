@@ -1504,7 +1504,10 @@
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Project Chat</p>
       <p class="font-bold text-navy truncate" id="team-chat-project-title"></p>
     </div>
-    <button onclick="closeProjectChat()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1 flex-shrink-0">✕</button>
+    <div class="flex items-center gap-1 flex-shrink-0">
+      <button onclick="openShareProject(APP.chatProjectId)" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-base" title="Add members / manage access">👥</button>
+      <button onclick="closeProjectChat()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+    </div>
   </div>
   <!-- Status tray — WhatsApp-style: a ring per teammate with an active
        status (auto-expires after 24h), plus your own "+" to post one. -->

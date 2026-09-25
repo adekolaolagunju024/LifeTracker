@@ -3339,6 +3339,10 @@ async function deleteProjectConfirm(id) {
 // ── PROJECT SHARING (Google-Sheets-style collaborators) ───────────
 async function openShareProject(projectId) {
   const p = await API.getProject(projectId);
+  // The modal can now be opened for a project other than whatever page is
+  // currently showing (e.g. from the chat panel) — remember which project
+  // it's actually for, rather than assuming APP.currentProjectId.
+  APP.shareModalProjectId = projectId;
   document.getElementById('share-project-title').textContent = '— ' + p.title;
   document.getElementById('share-email-input').value = '';
   document.getElementById('share-error').classList.add('hidden');
@@ -3404,7 +3408,7 @@ async function submitInviteCollaborator() {
   const email = input.value.trim();
   if (!email) return;
   const role = document.getElementById('share-role-select').value;
-  const projectId = APP.currentProjectId;
+  const projectId = APP.shareModalProjectId;
   try {
     await API.inviteCollaborator(projectId, email, role);
     input.value = '';
