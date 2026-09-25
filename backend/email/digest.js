@@ -1,16 +1,8 @@
-const nodemailer = require('nodemailer');
 const cron = require('node-cron');
 const db = require('../db/db');
+const { getTransporter } = require('./mailer');
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
-
-function getTransporter() {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) return null;
-  return nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD },
-  });
-}
 
 // Local (not UTC) date key — matches the same technique used client-side
 // for the in-app daily digest banner, for the same reason: a task's due

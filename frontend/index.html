@@ -1519,12 +1519,21 @@
       <span class="text-xs text-gray-600 truncate flex-1" id="team-chat-attachment-name"></span>
       <button onclick="clearTeamChatAttachment()" class="text-gray-400 hover:text-red-500 text-xs flex-shrink-0" title="Remove">✕</button>
     </div>
-    <div class="flex gap-2" id="team-chat-input-box">
-      <input type="file" id="team-chat-file-input" accept="image/*,video/*,.pdf,.xlsx,.xls,.docx,.doc,.txt,.csv" class="hidden" onchange="onTeamChatFileSelected(this.files[0])">
-      <button onclick="document.getElementById('team-chat-file-input').click()" class="text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 flex-shrink-0" title="Attach a file or photo">📎</button>
-      <input type="text" id="team-chat-input" placeholder="Message the team…" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitProjectChatMessage();}"
-        class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-      <button onclick="submitProjectChatMessage()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg flex-shrink-0">Send</button>
+    <div id="team-chat-input-box">
+      <label class="flex items-center gap-1.5 mb-1.5 text-xs text-gray-500 cursor-pointer select-none">
+        <input type="checkbox" id="chat-also-email" onchange="toggleChatEmailOptions()"> ✉️ Also email this to the team
+      </label>
+      <div class="hidden mb-1.5" id="chat-cc-row">
+        <input type="text" id="chat-cc-input" placeholder="CC anyone else (comma-separated emails, optional)"
+          class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-teal">
+      </div>
+      <div class="flex gap-2">
+        <input type="file" id="team-chat-file-input" accept="image/*,video/*,.pdf,.xlsx,.xls,.docx,.doc,.txt,.csv" class="hidden" onchange="onTeamChatFileSelected(this.files[0])">
+        <button onclick="document.getElementById('team-chat-file-input').click()" class="text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 flex-shrink-0" title="Attach a file or photo">📎</button>
+        <input type="text" id="team-chat-input" placeholder="Message the team…" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitProjectChatMessage();}"
+          class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        <button onclick="submitProjectChatMessage()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg flex-shrink-0">Send</button>
+      </div>
     </div>
     <p class="hidden text-xs text-gray-400" id="team-chat-viewonly">👁 View-only access — you can't post in this chat.</p>
   </div>

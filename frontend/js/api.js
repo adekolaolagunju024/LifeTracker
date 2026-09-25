@@ -124,7 +124,7 @@ const API = {
 
   // ── PROJECT CHAT (project-wide) ──
   getProjectMessages:   (projectId)       => request('GET',    `/projects/${projectId}/messages`),
-  addProjectMessage:    (projectId, text, attachmentId) => request('POST', `/projects/${projectId}/messages`, { text, attachmentId }),
+  addProjectMessage:    (projectId, text, attachmentId, alsoEmail, ccEmails) => request('POST', `/projects/${projectId}/messages`, { text, attachmentId, alsoEmail, ccEmails }),
   deleteProjectMessage: (messageId)       => request('DELETE', `/projects/messages/${messageId}`),
 
   // ── PROJECT STATUS (WhatsApp-style, 24h) ──

@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const { v4: uuid } = require('uuid');
 const db = require('../db/db');
+const { sendChatMessageEmail } = require('../email/chatMail');
 
 // ── INVITES (registered before /:id so "invites" isn't captured as an id) ──
 
@@ -122,11 +123,17 @@ router.get('/:id/messages', (req, res) => {
   res.json(messages);
 });
 
-// POST /api/projects/:id/messages — { text }
-router.post('/:id/messages', (req, res) => {
+// POST /api/projects/:id/messages — { text, attachmentId, alsoEmail, ccEmails }
+// alsoEmail is an explicit per-message opt-in, not a setting — most
+// messages should just be a chat message, not an inbox notification.
+router.post('/:id/messages', async (req, res) => {
   try {
     const message = db.addProjectMessage(req.session.userId, req.params.id, req.body.text, req.body.attachmentId);
-    res.status(201).json(message);
+    let email = { sent: false };
+    if (req.body.alsoEmail) {
+      email = await sendChatMessageEmail(req.session.userId, req.params.id, message, req.body.ccEmails);
+    }
+    res.status(201).json({ ...message, email });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

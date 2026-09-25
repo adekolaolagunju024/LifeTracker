@@ -3498,6 +3498,9 @@ function closeProjectChat() {
   clearTeamChatAttachment();
   closeStatusViewer();
   closeModal('modal-status-composer');
+  document.getElementById('chat-also-email').checked = false;
+  document.getElementById('chat-cc-input').value = '';
+  document.getElementById('chat-cc-row').classList.add('hidden');
 }
 
 async function renderProjectChat(projectId) {
@@ -3550,16 +3553,32 @@ function clearTeamChatAttachment() {
   document.getElementById('team-chat-attachment-chip').classList.remove('flex');
 }
 
+// Toggling "Also email this" reveals an optional CC field — most messages
+// are just chat, so this is an explicit opt-in per message, not a setting.
+function toggleChatEmailOptions() {
+  const on = document.getElementById('chat-also-email').checked;
+  document.getElementById('chat-cc-row').classList.toggle('hidden', !on);
+}
+
 async function submitProjectChatMessage() {
   const input = document.getElementById('team-chat-input');
   const text = input.value.trim();
   const attachment = APP.teamChatPendingAttachment;
   const projectId = APP.chatProjectId;
+  const alsoEmail = document.getElementById('chat-also-email').checked;
+  const ccEmails = document.getElementById('chat-cc-input').value.split(',').map(s => s.trim()).filter(Boolean);
   if ((!text && !attachment) || !projectId) return;
   try {
-    await API.addProjectMessage(projectId, text, attachment ? attachment.id : null);
+    const result = await API.addProjectMessage(projectId, text, attachment ? attachment.id : null, alsoEmail, ccEmails);
     input.value = '';
     clearTeamChatAttachment();
+    if (alsoEmail) {
+      document.getElementById('chat-also-email').checked = false;
+      document.getElementById('chat-cc-input').value = '';
+      toggleChatEmailOptions();
+      if (result.email?.sent) showToast(`✅ Sent — emailed ${result.email.recipients} ${result.email.recipients === 1 ? 'person' : 'people'}`);
+      else showToast('⚠️ Posted to chat, but email failed: ' + (result.email?.reason || 'unknown error'), 'error');
+    }
     await renderProjectChat(projectId);
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to send'), 'error'); }
 }
