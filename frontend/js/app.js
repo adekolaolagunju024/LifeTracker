@@ -186,6 +186,18 @@ function closeFileMenu() {
   document.getElementById('file-menu').classList.add('hidden');
 }
 
+// Project Detail header: less-frequent actions (sub-folder, chat, edit,
+// delete) tucked behind a "⋯" so the header isn't a wall of buttons —
+// Add Task and Share stay directly visible since they're used the most.
+function toggleProjectDetailMenu(e) {
+  e.stopPropagation();
+  document.getElementById('detail-more-menu').classList.toggle('hidden');
+}
+
+function closeProjectDetailMenu() {
+  document.getElementById('detail-more-menu').classList.add('hidden');
+}
+
 // Gantt toolbar: legend is collapsed by default (remembered next time) so
 // reference info about colors/markers doesn't compete with the chart —
 // "too busy" otherwise, especially with several projects each adding a
@@ -196,13 +208,6 @@ function toggleGanttLegend() {
   const el = document.getElementById('gantt-legend');
   const open = el.classList.toggle('hidden') === false;
   try { localStorage.setItem('ganttLegendOpen', open ? '1' : '0'); } catch { /* private mode etc */ }
-}
-function toggleGanttExportMenu(e) {
-  e.stopPropagation();
-  document.getElementById('gantt-export-menu').classList.toggle('hidden');
-}
-function closeGanttExportMenu() {
-  document.getElementById('gantt-export-menu').classList.add('hidden');
 }
 
 // ── OPTIONAL CARD FIELDS (Gantt rows + Kanban cards) ──────────────
@@ -298,21 +303,22 @@ document.addEventListener('click', (e) => {
   if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && !btn.contains(e.target)) {
     closeFileMenu();
   }
-  const exportMenu = document.getElementById('gantt-export-menu');
-  if (exportMenu && !exportMenu.classList.contains('hidden') && !exportMenu.contains(e.target)) {
-    closeGanttExportMenu();
-  }
   const fieldsMenu = document.getElementById('gantt-fields-menu');
   const fieldsBtn  = document.getElementById('gantt-fields-btn');
   if (fieldsMenu && !fieldsMenu.classList.contains('hidden') && !fieldsMenu.contains(e.target) && !fieldsBtn.contains(e.target)) {
     closeGanttFieldsMenu();
+  }
+  const detailMenu = document.getElementById('detail-more-menu');
+  const detailBtn  = document.getElementById('detail-more-btn');
+  if (detailMenu && !detailMenu.classList.contains('hidden') && !detailMenu.contains(e.target) && !detailBtn.contains(e.target)) {
+    closeProjectDetailMenu();
   }
   const searchWrap = document.getElementById('global-search-wrap');
   if (searchWrap && !searchWrap.contains(e.target)) {
     hideGlobalSearchResults();
   }
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeFileMenu(); closeGanttExportMenu(); closeGanttFieldsMenu(); closeNotifications(); hideGlobalSearchResults(); } });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeFileMenu(); closeGanttFieldsMenu(); closeProjectDetailMenu(); closeNotifications(); hideGlobalSearchResults(); } });
 
 // ── NAVIGATION ─────────────────────────────────────────────────
 // A lightweight back button — there's no real browser routing here (one
@@ -951,10 +957,10 @@ async function exportGanttImage() {
   // The menu item that was clicked lives inside the dropdown, which closes
   // right away — show the loading state on the always-visible toolbar
   // button instead, so there's feedback during the ~10-15s render.
-  const btn = document.getElementById('gantt-export-btn');
+  const btn = document.getElementById('gantt-fields-btn');
   const originalLabel = btn.textContent;
   btn.disabled = true;
-  btn.innerHTML = `<span class="spinner"></span> Rendering… (~10-15s)`;
+  btn.innerHTML = `<span class="spinner"></span> Rendering…`;
   try {
     const res = await fetch('/api/reports/gantt-image');
     if (!res.ok) {
