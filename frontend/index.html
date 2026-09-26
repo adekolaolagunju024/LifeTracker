@@ -82,13 +82,20 @@
     .gantt-bar-label { font-size: 10px; color: #fff; font-weight: 600; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #EF4444; z-index: 5; pointer-events: none; }
     .project-start-line { position: absolute; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(180deg,#059669 0 6px,transparent 6px 10px); z-index: 5; pointer-events: none; }
+    /* Frozen-column widths as CSS variables, not hardcoded pixels — lets
+       columns be dragged wider/narrower (Excel-style) without re-rendering
+       every row, and the same variables drive grid-template-columns below
+       so a widened "Task / Project" column also prints uncompressed. */
+    #page-gantt { --gc1: 200px; --gc2: 90px; --gc3: 100px; --gc4: 100px; --gc5: 70px; }
     .gantt-sticky { position: sticky; z-index: 6; background: inherit; }
     .gantt-sticky-1 { left: 0; }
-    .gantt-sticky-2 { left: 200px; }
-    .gantt-sticky-3 { left: 290px; }
-    .gantt-sticky-4 { left: 375px; }
-    .gantt-sticky-5 { left: 460px; box-shadow: 3px 0 6px -2px rgba(0,0,0,.08); }
+    .gantt-sticky-2 { left: var(--gc1); }
+    .gantt-sticky-3 { left: calc(var(--gc1) + var(--gc2)); }
+    .gantt-sticky-4 { left: calc(var(--gc1) + var(--gc2) + var(--gc3)); }
+    .gantt-sticky-5 { left: calc(var(--gc1) + var(--gc2) + var(--gc3) + var(--gc4)); box-shadow: 3px 0 6px -2px rgba(0,0,0,.08); }
     .dark .gantt-sticky-5 { box-shadow: 3px 0 6px -2px rgba(0,0,0,.4); }
+    .gantt-col-resize-handle { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 8; }
+    .gantt-col-resize-handle:hover, .gantt-col-resizing { background: rgba(10,126,140,.35); }
     .gantt-gridline { position: absolute; top: 0; bottom: 0; width: 1px; background: #EDF0F3; z-index: 1; pointer-events: none; }
     .gantt-milestone { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 3px; z-index: 4; box-sizing: border-box; cursor: grab; transform: translate(-50%, -50%) rotate(45deg); }
     .gantt-milestone:active { cursor: grabbing; }
@@ -161,6 +168,9 @@
       .gantt-sticky-3, .gantt-sticky-4, .gantt-sticky-5 { display: none !important; }
       .gantt-sticky-2 { left: 130px !important; box-shadow: 3px 0 6px -2px rgba(0,0,0,.08); }
       .dark .gantt-sticky-2 { box-shadow: 3px 0 6px -2px rgba(0,0,0,.4); }
+      /* Fixed columns on mobile (see above) — a resize handle here would
+         drag a variable the layout no longer even uses. */
+      .gantt-col-resize-handle { display: none !important; }
     }
 
     @media print {
@@ -934,6 +944,7 @@
               <div id="gantt-export-actions">
                 <button onclick="toggleGanttLegend()" id="gantt-legend-btn" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">ⓘ Toggle Legend</button>
                 <button onclick="closeGanttFieldsMenu(); exportGanttImage()" id="gantt-export-img-btn" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">🖼️ Export Image</button>
+                <button onclick="closeGanttFieldsMenu(); resetGanttColWidths()" title="Drag a column's right edge to resize it — handy before printing so a long task title isn't cut off" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">↔️ Reset Column Widths</button>
               </div>
             </div>
           </div>
@@ -959,12 +970,12 @@
              scroll; a separate non-scrolling header sidesteps that entirely). -->
         <div class="overflow-hidden" id="gantt-header-scroll">
           <div style="min-width:900px" id="gantt-timeline-wrapper">
-            <div class="grid gantt-grid-row border-b border-gray-200" style="grid-template-columns:200px 90px 100px 100px 70px 1fr">
-              <div class="gantt-sticky gantt-sticky-1 px-4 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Task / Project</div>
-              <div class="gantt-sticky gantt-sticky-2 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Status</div>
-              <div class="gantt-sticky gantt-sticky-3 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Start</div>
-              <div class="gantt-sticky gantt-sticky-4 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Due</div>
-              <div class="gantt-sticky gantt-sticky-5 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Duration</div>
+            <div class="grid gantt-grid-row border-b border-gray-200" style="grid-template-columns:var(--gc1) var(--gc2) var(--gc3) var(--gc4) var(--gc5) 1fr">
+              <div class="gantt-sticky gantt-sticky-1 px-4 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Task / Project<span class="gantt-col-resize-handle" onmousedown="ganttColResizeMouseDown(event,1)" title="Drag to resize column"></span></div>
+              <div class="gantt-sticky gantt-sticky-2 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Status<span class="gantt-col-resize-handle" onmousedown="ganttColResizeMouseDown(event,2)" title="Drag to resize column"></span></div>
+              <div class="gantt-sticky gantt-sticky-3 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Start<span class="gantt-col-resize-handle" onmousedown="ganttColResizeMouseDown(event,3)" title="Drag to resize column"></span></div>
+              <div class="gantt-sticky gantt-sticky-4 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Due<span class="gantt-col-resize-handle" onmousedown="ganttColResizeMouseDown(event,4)" title="Drag to resize column"></span></div>
+              <div class="gantt-sticky gantt-sticky-5 px-3 py-3 bg-gray-50 text-xs font-bold text-gray-500 border-r border-gray-200">Duration<span class="gantt-col-resize-handle" onmousedown="ganttColResizeMouseDown(event,5)" title="Drag to resize column"></span></div>
               <div class="flex overflow-hidden bg-gray-50" id="gantt-months"></div>
             </div>
           </div>

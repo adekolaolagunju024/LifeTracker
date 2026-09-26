@@ -954,7 +954,66 @@ let ganttGroupIds = []; // every group id currently rendered — kept up to date
 // Start/Due are 100px, not 85px, so a native date input can show the full
 // "DD/MM/YYYY" — at 85px the year got clipped to 2 digits (e.g. "16/08/20"
 // instead of "16/08/2026") by the column's overflow-hidden.
-const GANTT_GRID_COLS = '200px 90px 100px 100px 70px 1fr';
+// The 5 frozen columns are actual CSS variables (see #page-gantt in the
+// stylesheet), not hardcoded pixels — this constant stays fixed, dragging
+// a column only ever changes the variables' values, so every row that was
+// already rendered picks up the new width for free, no re-render needed.
+const GANTT_GRID_COLS = 'var(--gc1) var(--gc2) var(--gc3) var(--gc4) var(--gc5) 1fr';
+
+// ── GANTT COLUMN RESIZE (Excel-style drag-to-widen) ─────────────
+const GANTT_COL_MIN_WIDTH = 50;
+const GANTT_COL_STORAGE_KEY = 'waypoint-gantt-col-widths';
+const GANTT_COL_DEFAULTS = { 1: 200, 2: 90, 3: 100, 4: 100, 5: 70 };
+
+function loadGanttColWidths() {
+  let widths = { ...GANTT_COL_DEFAULTS };
+  try {
+    const saved = JSON.parse(localStorage.getItem(GANTT_COL_STORAGE_KEY) || '{}');
+    widths = { ...widths, ...saved };
+  } catch {}
+  applyGanttColWidths(widths);
+}
+
+function applyGanttColWidths(widths) {
+  const el = document.getElementById('page-gantt');
+  if (!el) return;
+  Object.keys(widths).forEach(i => el.style.setProperty(`--gc${i}`, widths[i] + 'px'));
+}
+
+function resetGanttColWidths() {
+  try { localStorage.removeItem(GANTT_COL_STORAGE_KEY); } catch {}
+  applyGanttColWidths(GANTT_COL_DEFAULTS);
+  showToast('↔️ Column widths reset');
+}
+
+let _ganttColResize = null;
+function ganttColResizeMouseDown(e, colIndex) {
+  e.preventDefault();
+  e.stopPropagation();
+  const el = document.getElementById('page-gantt');
+  const startWidth = parseFloat(getComputedStyle(el).getPropertyValue(`--gc${colIndex}`)) || GANTT_COL_DEFAULTS[colIndex];
+  _ganttColResize = { colIndex, startX: e.clientX, startWidth };
+  e.target.classList.add('gantt-col-resizing');
+  document.addEventListener('mousemove', ganttColResizeMouseMove);
+  document.addEventListener('mouseup', ganttColResizeMouseUp);
+}
+function ganttColResizeMouseMove(e) {
+  if (!_ganttColResize) return;
+  const { colIndex, startX, startWidth } = _ganttColResize;
+  const newWidth = Math.max(GANTT_COL_MIN_WIDTH, startWidth + (e.clientX - startX));
+  applyGanttColWidths({ [colIndex]: newWidth });
+}
+function ganttColResizeMouseUp() {
+  if (!_ganttColResize) return;
+  document.querySelectorAll('.gantt-col-resizing').forEach(el => el.classList.remove('gantt-col-resizing'));
+  const el = document.getElementById('page-gantt');
+  const widths = {};
+  for (let i = 1; i <= 5; i++) widths[i] = parseFloat(getComputedStyle(el).getPropertyValue(`--gc${i}`)) || GANTT_COL_DEFAULTS[i];
+  try { localStorage.setItem(GANTT_COL_STORAGE_KEY, JSON.stringify(widths)); } catch {}
+  _ganttColResize = null;
+  document.removeEventListener('mousemove', ganttColResizeMouseMove);
+  document.removeEventListener('mouseup', ganttColResizeMouseUp);
+}
 
 function toggleGanttGroup(groupId) {
   if (ganttCollapsed.has(groupId)) ganttCollapsed.delete(groupId);
@@ -1080,6 +1139,7 @@ async function renderGantt() {
     let pageView = 'timeline';
     try { pageView = localStorage.getItem('ganttPageView') || 'timeline'; } catch { /* private mode etc */ }
     applyGanttPageView(pageView);
+    loadGanttColWidths();
 
     let legendOpen = false;
     try { legendOpen = localStorage.getItem('ganttLegendOpen') === '1'; } catch { /* private mode etc */ }
