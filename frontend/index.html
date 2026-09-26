@@ -100,7 +100,14 @@
        Gantt "⋯ More" menu turns this on so a long title already at its
        column's full width shows in full across two lines instead of an
        ellipsis; rows grow to fit since only min-height is set below. */
-    #page-gantt.gantt-wrap-on .gantt-title-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: break-word; }
+    /* min-width matters here, not just cosmetically: with min-w-0 (needed
+       so the flex item CAN shrink below its content) plus flex-shrink:0
+       siblings (the color dot, schedule badge, etc.) that refuse to give
+       up space, the flexbox algorithm can squeeze this span to literal
+       zero width once its neighbors alone exceed the column's width —
+       which then makes the browser wrap one character per line instead
+       of one word per line, ballooning the row instead of reading fine. */
+    #page-gantt.gantt-wrap-on .gantt-title-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: break-word; min-width: 60px; }
     .gantt-gridline { position: absolute; top: 0; bottom: 0; width: 1px; background: #EDF0F3; z-index: 1; pointer-events: none; }
     .gantt-milestone { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 3px; z-index: 4; box-sizing: border-box; cursor: grab; transform: translate(-50%, -50%) rotate(45deg); }
     .gantt-milestone:active { cursor: grabbing; }
@@ -188,7 +195,7 @@
       /* Printed output shouldn't ever lose text to an ellipsis, regardless
          of the on-screen wrap preference — there's no "hover to see the
          rest" on paper. */
-      .gantt-title-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: break-word; }
+      .gantt-title-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: break-word; min-width: 60px; }
       @page { size: landscape; margin: 12mm; }
     }
     .spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -0.15em; }
