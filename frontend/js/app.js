@@ -1465,10 +1465,45 @@ function pointerXY(e) {
   return { x: e.clientX, y: e.clientY };
 }
 
+// Touch needs to tell "scrolling the column" apart from "dragging this
+// card" — both start as a finger landing on the card. Mouse doesn't have
+// that ambiguity (scrolling is the wheel/scrollbar, unrelated to
+// mousedown), so only touch gets the hold-before-drag treatment: a short
+// hold with the finger basically still starts the drag, while an ordinary
+// scroll swipe cancels it and falls through to the browser's native scroll.
+const KANBAN_TOUCH_HOLD_MS = 300;
+const KANBAN_TOUCH_CANCEL_PX = 10;
+let kanbanTouchHoldTimer = null;
+
 function kanbanCardMouseDown(e, taskId, currentStatus) {
   if (e.target.closest('button')) return; // let the 📅/🗑️ buttons handle their own click
+
+  if (e.type === 'touchstart') {
+    const cardEl = e.currentTarget;
+    const { x: startX, y: startY } = pointerXY(e);
+    const cancel = () => {
+      clearTimeout(kanbanTouchHoldTimer);
+      kanbanTouchHoldTimer = null;
+      cardEl.removeEventListener('touchmove', onEarlyMove);
+      cardEl.removeEventListener('touchend', cancel);
+      cardEl.removeEventListener('touchcancel', cancel);
+    };
+    const onEarlyMove = (ev) => {
+      const { x, y } = pointerXY(ev);
+      if (Math.hypot(x - startX, y - startY) > KANBAN_TOUCH_CANCEL_PX) cancel(); // moved enough to be a scroll, not a hold
+    };
+    cardEl.addEventListener('touchmove', onEarlyMove, { passive: true });
+    cardEl.addEventListener('touchend', cancel);
+    cardEl.addEventListener('touchcancel', cancel);
+    kanbanTouchHoldTimer = setTimeout(() => { cancel(); startKanbanDrag(e, cardEl, taskId, currentStatus); }, KANBAN_TOUCH_HOLD_MS);
+    return; // no preventDefault yet — let the page scroll normally until/unless the hold fires
+  }
+
+  startKanbanDrag(e, e.currentTarget, taskId, currentStatus);
+}
+
+function startKanbanDrag(e, cardEl, taskId, currentStatus) {
   e.preventDefault();
-  const cardEl = e.currentTarget;
   const rect = cardEl.getBoundingClientRect();
   const { x, y } = pointerXY(e);
 
