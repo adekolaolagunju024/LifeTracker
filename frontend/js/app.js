@@ -1065,16 +1065,12 @@ function setGanttProjectFilter(projectId) {
 // inside this chart's CSS Grid rows (a known limitation), so a real
 // headless browser screenshot of the live page is used for pixel-perfect
 // output — see backend/reports/visual.js renderGanttImage().
-// Printing "All Projects" still wants the padded, task-driven range (there's
-// no single project timeline to bound to), but printing a specific project
-// (the filter dropdown) should show exactly that project's own timeline —
-// no extra months of blank chart before it starts or after its last task —
-// so this flag only takes effect when a project filter is active.
+// Trims the printed timeline to whatever's actually shown — no padded
+// blank months meant for on-screen browsing room — whether or not a
+// specific project is selected in the filter dropdown.
 async function printGanttChart() {
-  if (APP.ganttProjectFilter) {
-    APP.ganttPrintMode = true;
-    await renderGantt();
-  }
+  APP.ganttPrintMode = true;
+  await renderGantt();
   window.print();
 }
 window.addEventListener('afterprint', () => {
@@ -1217,12 +1213,14 @@ async function renderGantt() {
       .filter(d => !isNaN(d));
 
     let start, end;
-    if (APP.ganttPrintMode && APP.ganttProjectFilter) {
-      // Printing one project's own timeline: no padding, bounded to the
-      // project's own start date (tasks can never start earlier than it —
-      // enforced on save) and its latest task end date, so nothing before
-      // or after the project's actual timeline shows up on the page.
-      const filterProject = projectById[APP.ganttProjectFilter];
+    if (APP.ganttPrintMode) {
+      // Printing: show exactly the timeline being printed, not padded with
+      // extra months of blank chart meant for on-screen browsing room.
+      // Works whether or not a specific project is selected in the filter
+      // — with one, its own start date anchors the left edge (a task can
+      // never start earlier than its project — enforced on save); without
+      // one, it's just the tightest span of whatever tasks are shown.
+      const filterProject = APP.ganttProjectFilter ? projectById[APP.ganttProjectFilter] : null;
       const projStart = filterProject && filterProject.startDate ? new Date(filterProject.startDate) : null;
       if (dated.length) {
         start = (projStart && !isNaN(projStart)) ? projStart : new Date(Math.min(...dated));
