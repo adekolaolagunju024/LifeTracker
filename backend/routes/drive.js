@@ -111,6 +111,50 @@ function markBackedUp(userId) {
   db.setGoogleDrive(userId, { lastBackupAt: new Date().toISOString() });
 }
 
+// Creates the file if it doesn't exist yet in this folder, otherwise
+// overwrites its content in place — one always-current file per project
+// rather than piling up a new dated copy on every save.
+async function upsertDriveFile(drive, folderId, fileName, mimeType, body) {
+  const found = await drive.files.list({
+    q: `name='${fileName.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed=false`,
+    fields: 'files(id)',
+  });
+  const media = { mimeType, body };
+  if (found.data.files && found.data.files.length) {
+    const fileId = found.data.files[0].id;
+    const updated = await drive.files.update({ fileId, media, fields: 'id, webViewLink' });
+    return updated.data;
+  }
+  const created = await drive.files.create({
+    resource: { name: fileName, parents: [folderId] },
+    media,
+    fields: 'id, webViewLink',
+  });
+  return created.data;
+}
+
+// POST /api/drive/backup/project/:projectId — JSON snapshot of one
+// project's whole tree, upserted to "<Project Title>.json" in the same
+// auto-created backup folder as the whole-account exports.
+router.post('/backup/project/:projectId', async (req, res) => {
+  const userId = req.session.userId;
+  try {
+    const snapshot = db.getProjectSnapshot(userId, req.params.projectId);
+    if (!snapshot) return res.status(404).json({ error: 'Project not found' });
+    const { drive } = await getDriveClient(userId);
+    const folderId = await ensureBackupFolder(userId, drive);
+    const fileName = `${snapshot.projects[0].title}.json`;
+
+    const file = await upsertDriveFile(drive, folderId, fileName, 'application/json', JSON.stringify(snapshot, null, 2));
+
+    markBackedUp(userId);
+    res.json({ success: true, fileId: file.id, link: file.webViewLink });
+  } catch (e) {
+    console.error('Project drive backup error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // POST /api/drive/backup — JSON snapshot
 router.post('/backup', async (req, res) => {
   const userId = req.session.userId;

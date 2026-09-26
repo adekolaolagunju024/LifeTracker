@@ -3,6 +3,16 @@ const router  = express.Router();
 const { v4: uuid } = require('uuid');
 const db = require('../db/db');
 
+// GET /api/data/export/:projectId — one project's own tree (itself, its
+// sub-folders, and their tasks) as a downloadable JSON snapshot, same
+// shape the whole-account Export Data (JSON) produces, so it can be
+// re-imported the same way.
+router.get('/export/:projectId', (req, res) => {
+  const snapshot = db.getProjectSnapshot(req.session.userId, req.params.projectId);
+  if (!snapshot) return res.status(404).json({ error: 'Project not found' });
+  res.json(snapshot);
+});
+
 // POST /api/data/import — takes the JSON produced by Settings → Export Data
 // and recreates it for the current user. Additive, not a wipe-and-replace:
 // safe to run against an account that already has data, though re-running

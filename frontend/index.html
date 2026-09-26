@@ -802,6 +802,10 @@
               <button onclick="closeProjectDetailMenu();openAddSubfolder(APP.currentProjectId)" id="btn-new-subfolder" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">📁 New Sub-folder</button>
               <button onclick="closeProjectDetailMenu();openProjectChat(APP.currentProjectId)" id="btn-project-chat" class="hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">💬 Chat</button>
               <button onclick="closeProjectDetailMenu();editProject(APP.currentProjectId)" id="btn-edit-project" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">✏️ Edit</button>
+              <div class="border-t border-gray-100 my-1"></div>
+              <button onclick="exportProjectData(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">⬇️ Export This Project</button>
+              <button onclick="saveProjectToDrive(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">☁️ Save to Google Drive</button>
+              <div class="border-t border-gray-100 my-1"></div>
               <button onclick="closeProjectDetailMenu();deleteProjectConfirm(APP.currentProjectId)" id="btn-delete-project" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-red-600 hover:bg-red-50 text-left">🗑️ Delete</button>
             </div>
           </div>

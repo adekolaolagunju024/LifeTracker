@@ -4014,6 +4014,41 @@ async function exportData() {
   } catch (e) { showToast('❌ Export failed', 'error'); }
 }
 
+// Same idea as exportData(), but scoped to one project's own tree (itself,
+// its sub-folders, and their tasks) rather than the whole account.
+async function exportProjectData(projectId) {
+  closeProjectDetailMenu();
+  try {
+    const res = await fetch(API.exportProjectUrl(projectId));
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Export failed');
+    const snapshot = await res.json();
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = snapshot.projects[0].title.replace(/[^\w\- ]+/g, '').trim() + '.json';
+    a.click();
+    showToast('✅ Project exported!');
+  } catch (e) { showToast('❌ ' + (e.message || 'Export failed'), 'error'); }
+}
+
+// Saves one project's tree to Google Drive as a single JSON file that gets
+// overwritten on every save (not a new dated copy each time) — the backup
+// folder is created automatically the first time, same as the
+// whole-account Drive backup in Settings.
+async function saveProjectToDrive(projectId) {
+  closeProjectDetailMenu();
+  try {
+    const status = await API.getDriveStatus();
+    if (!status.connected) {
+      showToast('☁️ Connect Google Drive in Settings first', 'error');
+      return;
+    }
+    showToast('☁️ Saving to Drive…');
+    await API.backupProjectToDrive(projectId);
+    showToast('✅ Saved to Google Drive');
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to save to Drive'), 'error'); }
+}
+
 function importData() {
   const input    = document.createElement('input');
   input.type     = 'file';

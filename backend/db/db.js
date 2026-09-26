@@ -960,6 +960,22 @@ function getFullSnapshot(userId) {
   };
 }
 
+// Same shape as getFullSnapshot, scoped to one project's whole tree (the
+// project plus its one level of sub-folders, and every task under them) —
+// same {profile, projects, tasks} shape, so every export format (JSON,
+// Excel, Sheets, PDF, image) works unchanged on either kind of snapshot.
+// Always normalizes to the top-level project, so exporting from inside a
+// sub-folder still exports the whole tree, not an orphaned slice of it.
+function getProjectSnapshot(userId, projectId) {
+  const project = getProjectById(userId, topLevelProjectId(projectId));
+  if (!project) return null;
+  const subs = listProjects(userId, { parentId: project.id });
+  const projects = [project, ...subs];
+  const projectIds = new Set(projects.map(p => p.id));
+  const tasks = listTasks(userId).filter(t => projectIds.has(t.projectId));
+  return { profile: getProfile(userId), projects, tasks };
+}
+
 module.exports = {
   createUser, getUserByEmail, getUserById, setUserPasswordHash, deleteUser,
   setPasswordResetToken, getUserByResetToken, clearPasswordResetToken,
@@ -978,5 +994,5 @@ module.exports = {
   listTags, createTag, updateTag, deleteTag, setTaskTags, getTaskTags,
   getGoogleDrive, setGoogleDrive,
   searchAll,
-  getFullSnapshot,
+  getFullSnapshot, getProjectSnapshot,
 };

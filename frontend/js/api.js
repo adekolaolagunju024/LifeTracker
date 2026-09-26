@@ -69,8 +69,10 @@ const API = {
   backupToExcel:      ()  => request('POST', '/drive/backup/excel'),
   backupToPdf:        ()  => request('POST', '/drive/backup/pdf'),
   backupToImage:      ()  => request('POST', '/drive/backup/image'),
+  backupProjectToDrive: (projectId) => request('POST', `/drive/backup/project/${projectId}`),
   disconnectDrive:    ()  => request('POST', '/drive/disconnect'),
   connectDriveUrl:    ()  => '/api/drive/connect',
+  exportProjectUrl:   (projectId) => `/api/data/export/${projectId}`,
 
   // ── AUTH ──
   getAuthStatus:   ()        => request('GET',  '/auth/status'),
