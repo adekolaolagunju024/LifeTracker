@@ -170,6 +170,33 @@ router.delete('/messages/:messageId', (req, res) => {
   res.json({ success: true });
 });
 
+// ── GO LIVE (embedded video room for a walkthrough) ─────────────────
+
+// GET /api/projects/:id/live
+router.get('/:id/live', (req, res) => {
+  const status = db.getLiveStatus(req.session.userId, req.params.id);
+  if (!status) return res.status(404).json({ error: 'Project not found' });
+  res.json(status);
+});
+
+// POST /api/projects/:id/live/start — editor/owner only
+router.post('/:id/live/start', (req, res) => {
+  try {
+    res.status(201).json(db.startLiveSession(req.session.userId, req.params.id));
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// POST /api/projects/:id/live/end — editor/owner only
+router.post('/:id/live/end', (req, res) => {
+  try {
+    res.json(db.endLiveSession(req.session.userId, req.params.id));
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // ── PROJECT STATUS (WhatsApp-style, expires after 24h) ─────────────
 
 // GET /api/projects/:id/statuses

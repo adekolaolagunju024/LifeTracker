@@ -3862,6 +3862,8 @@ async function openProjectChat(projectId) {
     APP.chatProjectId = projectId;
     APP.chatIsOwner = proj.role === 'owner';
     APP.chatCanComment = canComment;
+    APP.chatCanEdit = proj.role === 'owner' || proj.role === 'editor';
+    APP.liveJoined = false;
     cancelChatReply();
     document.getElementById('project-chat-backdrop').classList.remove('hidden');
     document.getElementById('project-chat-panel').classList.remove('translate-x-full');
@@ -3872,9 +3874,9 @@ async function openProjectChat(projectId) {
       const people = await API.getCollaborators(projectId);
       APP.chatPeopleNames = people.filter(p => p.joinedAt).map(p => p.name).filter(Boolean);
     } catch { APP.chatPeopleNames = []; }
-    await Promise.all([renderProjectChat(projectId), renderStatusTray(projectId)]);
+    await Promise.all([renderProjectChat(projectId), renderStatusTray(projectId), checkLiveStatus(projectId)]);
     if (chatPollTimer) clearInterval(chatPollTimer);
-    chatPollTimer = setInterval(() => { renderProjectChat(projectId); renderStatusTray(projectId); }, CHAT_POLL_MS);
+    chatPollTimer = setInterval(() => { renderProjectChat(projectId); renderStatusTray(projectId); checkLiveStatus(projectId); }, CHAT_POLL_MS);
   } catch (e) { console.error('Project chat error:', e); }
 }
 
@@ -3889,6 +3891,66 @@ function closeProjectChat() {
   document.getElementById('chat-also-email').checked = false;
   document.getElementById('chat-cc-input').value = '';
   document.getElementById('chat-cc-row').classList.add('hidden');
+  // Closing the panel should stop your camera/mic immediately, not leave
+  // a hidden iframe quietly still broadcasting.
+  document.getElementById('live-video-iframe').src = '';
+  APP.liveJoined = false;
+}
+
+// ── GO LIVE (embedded Jitsi Meet walkthrough) ──────────────────────
+// Reuses the project's own chat for comments rather than a separate
+// live-only comment stream — the video sits above the existing thread,
+// which already has @mentions and replies.
+async function checkLiveStatus(projectId) {
+  try {
+    const status = await API.getLiveStatus(projectId);
+    const area = document.getElementById('live-session-area');
+    const goLiveBtn = document.getElementById('btn-go-live');
+    if (!status.live) {
+      area.classList.add('hidden');
+      area.classList.remove('flex');
+      goLiveBtn.classList.toggle('hidden', !APP.chatCanEdit);
+      document.getElementById('live-video-iframe').src = '';
+      APP.liveJoined = false;
+      return;
+    }
+    goLiveBtn.classList.add('hidden');
+    area.classList.remove('hidden');
+    area.classList.add('flex');
+    document.getElementById('live-session-label').textContent = `${status.startedByName} is live`;
+    document.getElementById('btn-end-live').classList.toggle('hidden', !APP.chatCanEdit);
+    document.getElementById('btn-join-live').classList.toggle('hidden', APP.liveJoined);
+    document.getElementById('live-video-wrap').classList.toggle('hidden', !APP.liveJoined);
+    if (APP.liveJoined) {
+      const iframe = document.getElementById('live-video-iframe');
+      if (!iframe.src.includes(status.roomName)) iframe.src = `https://meet.jit.si/${status.roomName}`;
+    }
+  } catch (e) { console.error('Live status error:', e); }
+}
+
+async function startGoLive() {
+  if (!APP.chatProjectId) return;
+  try {
+    await API.startLiveSession(APP.chatProjectId);
+    APP.liveJoined = true; // starting it is intending to broadcast right away
+    await checkLiveStatus(APP.chatProjectId);
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to go live'), 'error'); }
+}
+
+function joinGoLive() {
+  APP.liveJoined = true;
+  checkLiveStatus(APP.chatProjectId);
+}
+
+function endGoLiveConfirm() {
+  if (!APP.chatProjectId) return;
+  confirmAction('End the live session for everyone?', async () => {
+    try {
+      await API.endLiveSession(APP.chatProjectId);
+      APP.liveJoined = false;
+      await checkLiveStatus(APP.chatProjectId);
+    } catch (e) { showToast('❌ ' + (e.message || 'Failed to end'), 'error'); }
+  });
 }
 
 // WhatsApp/iMessage-style bubbles: your own messages sit right-aligned in

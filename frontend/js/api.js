@@ -134,6 +134,11 @@ const API = {
   addProjectMessage:    (projectId, text, attachmentId, alsoEmail, ccEmails, replyToId) => request('POST', `/projects/${projectId}/messages`, { text, attachmentId, alsoEmail, ccEmails, replyToId }),
   deleteProjectMessage: (messageId)       => request('DELETE', `/projects/messages/${messageId}`),
 
+  // ── GO LIVE (embedded video walkthrough) ──
+  getLiveStatus:   (projectId) => request('GET',  `/projects/${projectId}/live`),
+  startLiveSession: (projectId) => request('POST', `/projects/${projectId}/live/start`),
+  endLiveSession:   (projectId) => request('POST', `/projects/${projectId}/live/end`),
+
   // ── PROJECT STATUS (WhatsApp-style, 24h) ──
   getStatuses:    (projectId)       => request('GET',    `/projects/${projectId}/statuses`),
   addStatus:      (projectId, text, attachmentId) => request('POST', `/projects/${projectId}/statuses`, { text, attachmentId }),

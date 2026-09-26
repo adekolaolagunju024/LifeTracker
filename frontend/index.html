@@ -1606,9 +1606,23 @@
       <p class="font-bold text-navy truncate" id="team-chat-project-title"></p>
     </div>
     <div class="flex items-center gap-1 flex-shrink-0">
+      <button onclick="startGoLive()" id="btn-go-live" class="hidden text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-gray-100 text-base" title="Start a live video walkthrough">🔴</button>
       <button onclick="openShareProject(APP.chatProjectId)" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-base" title="Add members / manage access">👥</button>
       <button onclick="closeProjectChat()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
     </div>
+  </div>
+  <!-- Go Live — an embedded Jitsi Meet room so a site rep can broadcast a
+       walkthrough; everyone else watches here and comments in the same
+       chat below, rather than a separate live-only comment stream. -->
+  <div class="hidden flex-col border-b border-gray-100" id="live-session-area">
+    <div class="flex items-center justify-between px-6 py-2 bg-red-50 border-b border-red-100">
+      <span class="text-xs font-semibold text-red-600 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> <span id="live-session-label">Live</span></span>
+      <button onclick="endGoLiveConfirm()" id="btn-end-live" class="hidden text-xs font-semibold text-red-600 hover:text-red-700">End</button>
+    </div>
+    <div class="hidden" id="live-video-wrap" style="height:220px">
+      <iframe id="live-video-iframe" style="width:100%;height:100%;border:0" allow="camera; microphone; fullscreen; display-capture; autoplay"></iframe>
+    </div>
+    <button onclick="joinGoLive()" id="btn-join-live" class="hidden mx-6 my-2 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-2 rounded-lg">▶ Join</button>
   </div>
   <!-- Status tray — WhatsApp-style: a ring per teammate with an active
        status (auto-expires after 24h), plus your own "+" to post one. -->

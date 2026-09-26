@@ -226,4 +226,14 @@ addColumnIfMissing('tasks', "progressCount INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing('task_comments', "replyToId TEXT REFERENCES task_comments(id) ON DELETE SET NULL");
 addColumnIfMissing('project_messages', "replyToId TEXT REFERENCES project_messages(id) ON DELETE SET NULL");
 
+// "Go Live" — an embedded video room (Jitsi Meet's public server, no new
+// infrastructure) for a site rep to broadcast a walkthrough to the rest of
+// the project's team, who watch and comment in the project's existing
+// chat alongside it. Only one active room per project at a time; a stale
+// one (crashed tab, lost connection) is treated as ended after a few
+// hours rather than needing an explicit "end" that never comes.
+addColumnIfMissing('projects', "liveRoomName TEXT");
+addColumnIfMissing('projects', "liveStartedAt TEXT");
+addColumnIfMissing('projects', "liveStartedBy TEXT REFERENCES users(id) ON DELETE SET NULL");
+
 module.exports = db;

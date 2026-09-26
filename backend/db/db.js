@@ -843,6 +843,46 @@ function deleteProjectMessage(userId, messageId) {
   return true;
 }
 
+// ── GO LIVE (embedded Jitsi video room for a walkthrough) ──────────
+// The room name is the only thing standing between "anyone with this
+// link" and the video — Jitsi's public server has no idea about our own
+// collaborator permissions — so it's a long random slug, never a
+// guessable one, and it's only ever handed out through this authenticated
+// API to people who already pass canAccessProject.
+const LIVE_SESSION_MAX_HOURS = 6;
+
+function getLiveStatus(userId, projectId) {
+  projectId = topLevelProjectId(projectId);
+  if (!canAccessProject(userId, projectId)) return null;
+  const row = db.prepare('SELECT liveRoomName, liveStartedAt, liveStartedBy FROM projects WHERE id = ?').get(projectId);
+  if (!row || !row.liveRoomName) return { live: false };
+  const ageHours = (Date.now() - new Date(row.liveStartedAt)) / 3600000;
+  if (ageHours > LIVE_SESSION_MAX_HOURS) {
+    db.prepare('UPDATE projects SET liveRoomName = NULL, liveStartedAt = NULL, liveStartedBy = NULL WHERE id = ?').run(projectId);
+    return { live: false };
+  }
+  const starter = getProfile(row.liveStartedBy);
+  return { live: true, roomName: row.liveRoomName, startedAt: row.liveStartedAt, startedByName: starter?.name || 'Someone' };
+}
+
+// Anyone who can edit the project can start (or stop) a broadcast — same
+// bar as everything else that changes shared state, not just the owner.
+function startLiveSession(userId, projectId) {
+  projectId = topLevelProjectId(projectId);
+  assertCanEditProject(userId, projectId);
+  const roomName = 'waypoint-' + uuid();
+  const startedAt = new Date().toISOString();
+  db.prepare('UPDATE projects SET liveRoomName = ?, liveStartedAt = ?, liveStartedBy = ? WHERE id = ?').run(roomName, startedAt, userId, projectId);
+  return { live: true, roomName, startedAt, startedByName: getProfile(userId).name };
+}
+
+function endLiveSession(userId, projectId) {
+  projectId = topLevelProjectId(projectId);
+  assertCanEditProject(userId, projectId);
+  db.prepare('UPDATE projects SET liveRoomName = NULL, liveStartedAt = NULL, liveStartedBy = NULL WHERE id = ?').run(projectId);
+  return { live: false };
+}
+
 // ── PROJECT STATUS (WhatsApp-style, expires after 24h) ─────────────
 const STATUS_LIFETIME_MS = 24 * 60 * 60 * 1000;
 
@@ -1160,6 +1200,7 @@ module.exports = {
   listCollaborators, inviteCollaborator, updateCollaboratorRole, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, leaveProject, touchLastActive,
   listComments, addComment, deleteComment,
   listChatPreviews, listProjectMessages, addProjectMessage, deleteProjectMessage,
+  getLiveStatus, startLiveSession, endLiveSession,
   listActiveStatuses, addStatus, deleteStatus,
   getNotifications, markNotificationsRead,
   createAttachment, getAttachmentById,
