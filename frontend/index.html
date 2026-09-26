@@ -96,6 +96,11 @@
     .dark .gantt-sticky-5 { box-shadow: 3px 0 6px -2px rgba(0,0,0,.4); }
     .gantt-col-resize-handle { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 8; }
     .gantt-col-resize-handle:hover, .gantt-col-resizing { background: rgba(10,126,140,.35); }
+    /* Off by default (rows stay compact) — "🔤 Wrap Task Text" in the
+       Gantt "⋯ More" menu turns this on so a long title already at its
+       column's full width shows in full across two lines instead of an
+       ellipsis; rows grow to fit since only min-height is set below. */
+    #page-gantt.gantt-wrap-on .gantt-title-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: break-word; }
     .gantt-gridline { position: absolute; top: 0; bottom: 0; width: 1px; background: #EDF0F3; z-index: 1; pointer-events: none; }
     .gantt-milestone { position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 3px; z-index: 4; box-sizing: border-box; cursor: grab; transform: translate(-50%, -50%) rotate(45deg); }
     .gantt-milestone:active { cursor: grabbing; }
@@ -180,6 +185,10 @@
       #gantt-header-scroll, #gantt-rows-scroll { overflow: visible !important; max-height: none !important; }
       .gantt-sticky { position: static !important; box-shadow: none !important; }
       #gantt-project-filter, #gantt-view-toggle, .gantt-view-btn, #gantt-export-actions, #gantt-fields-btn, #gantt-fields-menu, #gantt-page-view-toggle { display: none !important; }
+      /* Printed output shouldn't ever lose text to an ellipsis, regardless
+         of the on-screen wrap preference — there's no "hover to see the
+         rest" on paper. */
+      .gantt-title-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: break-word; }
       @page { size: landscape; margin: 12mm; }
     }
     .spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -0.15em; }
@@ -934,6 +943,7 @@
               <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-checklist" onchange="toggleCardField('checklist')"> Checklist</label>
               <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-cost" onchange="toggleCardField('cost')"> Cost</label>
               <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-schedule" onchange="toggleCardField('schedule')"> Schedule status</label>
+              <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-wraptext" onchange="toggleGanttWrapText()"> Wrap task text</label>
               <div class="border-t border-gray-100 my-2"></div>
               <!-- Print/PDF works for whichever view (Timeline or Kanban) is
                    currently on screen, so it stays available in both — only

@@ -986,6 +986,23 @@ function resetGanttColWidths() {
   showToast('↔️ Column widths reset');
 }
 
+// Off by default — a compact single-line-per-task chart is still the
+// common case, and forcing every row taller by default would be a bigger
+// change than most people asked for. Print always wraps regardless (see
+// the stylesheet's @media print rule), since there's no "widen the column
+// to see the rest" on paper.
+function loadGanttWrapText() {
+  let on = false;
+  try { on = localStorage.getItem('ganttWrapText') === '1'; } catch {}
+  document.getElementById('page-gantt').classList.toggle('gantt-wrap-on', on);
+  document.getElementById('field-toggle-wraptext').checked = on;
+}
+function toggleGanttWrapText() {
+  const on = document.getElementById('field-toggle-wraptext').checked;
+  document.getElementById('page-gantt').classList.toggle('gantt-wrap-on', on);
+  try { localStorage.setItem('ganttWrapText', on ? '1' : '0'); } catch {}
+}
+
 let _ganttColResize = null;
 function ganttColResizeMouseDown(e, colIndex) {
   e.preventDefault();
@@ -1140,6 +1157,7 @@ async function renderGantt() {
     try { pageView = localStorage.getItem('ganttPageView') || 'timeline'; } catch { /* private mode etc */ }
     applyGanttPageView(pageView);
     loadGanttColWidths();
+    loadGanttWrapText();
 
     let legendOpen = false;
     try { legendOpen = localStorage.getItem('ganttLegendOpen') === '1'; } catch { /* private mode etc */ }
@@ -1306,7 +1324,7 @@ async function renderGantt() {
           <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-2 font-bold text-xs overflow-hidden">
             <span class="text-gray-400 text-[10px] flex-shrink-0 transition-transform cursor-pointer" style="${isCollapsed ? '' : 'transform:rotate(90deg)'}" onclick="toggleGanttGroup('${groupId}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">▶</span>
             <span class="w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${color}"></span>
-            <span class="truncate cursor-pointer hover:underline flex-1 min-w-0" style="color:${color}" onclick="showPage('project-detail','${groupId}')" title="Open this project">${esc(groupProject?.icon || '')} ${esc(groupTitle)}</span>
+            <span class="gantt-title-text truncate cursor-pointer hover:underline flex-1 min-w-0" style="color:${color}" onclick="showPage('project-detail','${groupId}')" title="Open this project">${esc(groupProject?.icon || '')} ${esc(groupTitle)}</span>
             ${cardFields.schedule ? miniProjectScheduleBadge(pts) : ''}
             ${canEditGroup ? `
             <button onclick="event.stopPropagation();editProject('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Edit project details">✏️</button>
@@ -1352,7 +1370,7 @@ async function renderGantt() {
           <div class="grid gantt-grid-row group border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px" data-task-id="${t.id}" data-group="${groupId}">
             <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-1 overflow-hidden">
               ${canEditGroup ? `<span class="flex-shrink-0 hidden group-hover:inline cursor-grab text-gray-300 hover:text-gray-500 px-0.5" onmousedown="ganttRowMouseDown(event, '${t.id}', '${t.projectId}', '${groupId}')" title="Drag to reorder">⠿</span>` : ''}
-              <span class="flex-1 min-w-0 text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="${canEditGroup ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" title="${esc(t.title)} (click to ${canEditGroup ? 'edit' : 'view'})">${esc(t.title)}</span>
+              <span class="gantt-title-text flex-1 min-w-0 text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="${canEditGroup ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" title="${esc(t.title)} (click to ${canEditGroup ? 'edit' : 'view'})">${esc(t.title)}</span>
               ${cardFields.priority ? miniPriorityBadge(t.priority) : ''}
               ${cardFields.tags ? miniTagBadges(t.tags) : ''}
               ${cardFields.checklist ? miniChecklistBadge(t) : ''}
