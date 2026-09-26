@@ -1065,9 +1065,24 @@ function setGanttProjectFilter(projectId) {
 // inside this chart's CSS Grid rows (a known limitation), so a real
 // headless browser screenshot of the live page is used for pixel-perfect
 // output — see backend/reports/visual.js renderGanttImage().
-function printGanttChart() {
+// Printing "All Projects" still wants the padded, task-driven range (there's
+// no single project timeline to bound to), but printing a specific project
+// (the filter dropdown) should show exactly that project's own timeline —
+// no extra months of blank chart before it starts or after its last task —
+// so this flag only takes effect when a project filter is active.
+async function printGanttChart() {
+  if (APP.ganttProjectFilter) {
+    APP.ganttPrintMode = true;
+    await renderGantt();
+  }
   window.print();
 }
+window.addEventListener('afterprint', () => {
+  if (APP.ganttPrintMode) {
+    APP.ganttPrintMode = false;
+    renderGantt();
+  }
+});
 
 async function exportGanttImage() {
   // The menu item that was clicked lives inside the dropdown, which closes
@@ -1202,7 +1217,25 @@ async function renderGantt() {
       .filter(d => !isNaN(d));
 
     let start, end;
-    if (dated.length) {
+    if (APP.ganttPrintMode && APP.ganttProjectFilter) {
+      // Printing one project's own timeline: no padding, bounded to the
+      // project's own start date (tasks can never start earlier than it —
+      // enforced on save) and its latest task end date, so nothing before
+      // or after the project's actual timeline shows up on the page.
+      const filterProject = projectById[APP.ganttProjectFilter];
+      const projStart = filterProject && filterProject.startDate ? new Date(filterProject.startDate) : null;
+      if (dated.length) {
+        start = (projStart && !isNaN(projStart)) ? projStart : new Date(Math.min(...dated));
+        end   = new Date(Math.max(...dated));
+        if (end < start) end = start;
+      } else if (projStart && !isNaN(projStart)) {
+        start = projStart;
+        end   = projStart;
+      } else {
+        start = APP.ganttStart;
+        end   = APP.ganttEnd;
+      }
+    } else if (dated.length) {
       const minD = new Date(Math.min(...dated));
       const maxD = new Date(Math.max(...dated));
       start = new Date(minD.getFullYear(), minD.getMonth() - 1, 1);
@@ -1211,6 +1244,9 @@ async function renderGantt() {
       start = APP.ganttStart;
       end   = APP.ganttEnd;
     }
+    // A single-day project with no task range yet would otherwise divide
+    // every bar/column position by zero days.
+    if (end <= start) end = new Date(start.getTime() + 86400000);
     const totalDays = Math.ceil((end - start) / 86400000);
 
     // Timeline header, divided according to the chosen zoom level
