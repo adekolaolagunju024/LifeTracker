@@ -174,8 +174,11 @@
        screens, so the actual timeline bars — the point of a Gantt chart —
        were scrolled out of reach. Drop Start/Due/Duration (visible in the
        task's own edit panel anyway) and narrow what's left so the timeline
-       is reachable after one short swipe instead of a very long one. */
-    @media (max-width: 767px) {
+       is reachable after one short swipe instead of a very long one.
+       Explicitly screen-only: printing from a phone still has this same
+       narrow max-width match, and Print/PDF wants every column, not the
+       on-screen mobile layout's reduced set. */
+    @media screen and (max-width: 767px) {
       .gantt-grid-row { grid-template-columns: 130px 64px 1fr !important; }
       .gantt-sticky-3, .gantt-sticky-4, .gantt-sticky-5 { display: none !important; }
       .gantt-sticky-2 { left: 130px !important; box-shadow: 3px 0 6px -2px rgba(0,0,0,.08); }
@@ -198,6 +201,27 @@
          title is truncated with an ellipsis on screen, it prints that way;
          turning "Wrap task text" on first makes both match in full. */
       @page { size: landscape; margin: 12mm; }
+      /* Print-only column visibility ("Print columns" in ⋯ More) — sets
+         that column's own grid track to 0 width so the others reflow to
+         fill the reclaimed space (rather than just visually hiding it and
+         leaving a blank gap); min-width/overflow/padding are zeroed too so
+         its own padding can't hold the track open wider than 0. Screen view
+         never gets these classes, so it's unaffected either way. */
+      /* !important is load-bearing here, not just belt-and-braces: the
+         column-resize feature sets --gc1..--gc5 as an inline style on this
+         same element (so dragging updates instantly with no re-render),
+         and an inline style beats any stylesheet rule regardless of
+         selector specificity unless that rule is !important. */
+      #page-gantt.print-hide-status  { --gc2: 0px !important; }
+      #page-gantt.print-hide-start   { --gc3: 0px !important; }
+      #page-gantt.print-hide-due     { --gc4: 0px !important; }
+      #page-gantt.print-hide-duration { --gc5: 0px !important; }
+      #page-gantt.print-hide-status .gantt-sticky-2,
+      #page-gantt.print-hide-start .gantt-sticky-3,
+      #page-gantt.print-hide-due .gantt-sticky-4,
+      #page-gantt.print-hide-duration .gantt-sticky-5 {
+        padding: 0 !important; border: none !important; overflow: hidden !important; min-width: 0 !important;
+      }
     }
     .spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -0.15em; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -834,6 +858,7 @@
               <button onclick="exportProjectData(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">⬇️ Export This Project</button>
               <button onclick="saveProjectToDrive(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">☁️ Save to Google Drive</button>
               <div class="border-t border-gray-100 my-1"></div>
+              <button onclick="closeProjectDetailMenu();leaveProjectConfirm(APP.currentProjectId)" id="btn-leave-project" class="hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-red-600 hover:bg-red-50 text-left">🚪 Leave Project</button>
               <button onclick="closeProjectDetailMenu();deleteProjectConfirm(APP.currentProjectId)" id="btn-delete-project" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-red-600 hover:bg-red-50 text-left">🗑️ Delete</button>
             </div>
           </div>
@@ -955,12 +980,23 @@
               <div class="border-t border-gray-100 my-2"></div>
               <!-- Print/PDF works for whichever view (Timeline or Kanban) is
                    currently on screen, so it stays available in both — only
-                   the Legend (Timeline-only content) and the server-rendered
-                   Export Image (doesn't know about Kanban yet) are
+                   the Legend (Timeline-only content), Export Image (doesn't
+                   know about Kanban yet), and the frozen-column toggles
+                   below (Kanban has no such columns at all) are
                    Timeline-only. -->
               <button onclick="closeGanttFieldsMenu(); printGanttChart()" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">🖨️ Print / PDF</button>
               <div id="gantt-export-actions">
                 <button onclick="toggleGanttLegend()" id="gantt-legend-btn" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">ⓘ Toggle Legend</button>
+                <!-- Which frozen table columns actually appear in Print/PDF —
+                     Task/Project always prints (it's the point of the page);
+                     these four are optional so a printout can drop whichever
+                     columns aren't needed and let the timeline use that
+                     space instead. Screen view is unaffected either way. -->
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2 mb-1.5 px-1">Print columns</p>
+                <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="print-col-toggle-status" onchange="toggleGanttPrintColumn('status')"> Status</label>
+                <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="print-col-toggle-start" onchange="toggleGanttPrintColumn('start')"> Start</label>
+                <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="print-col-toggle-due" onchange="toggleGanttPrintColumn('due')"> Due</label>
+                <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="print-col-toggle-duration" onchange="toggleGanttPrintColumn('duration')"> Duration</label>
                 <button onclick="closeGanttFieldsMenu(); exportGanttImage()" id="gantt-export-img-btn" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">🖼️ Export Image</button>
                 <button onclick="closeGanttFieldsMenu(); resetGanttColWidths()" title="Drag a column's right edge to resize it — handy before printing so a long task title isn't cut off" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">↔️ Reset Column Widths</button>
               </div>
@@ -1231,7 +1267,10 @@
         <button onclick="rerunOnboarding()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🧭 Re-run Setup Wizard</button>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#6B728022">🗑️</span> Trash</h3>
+        <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-5">
+          <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy"><span class="icon-badge" style="background:#6B728022">🗑️</span> Trash</h3>
+          <button onclick="purgeAllTrashConfirm()" id="btn-empty-trash" class="hidden bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg">Delete All Forever</button>
+        </div>
         <p class="text-xs text-gray-400 mb-4">Deleted projects and tasks land here first — restore them, or delete forever. Anything left here is purged automatically after 30 days.</p>
         <div id="trash-list"></div>
       </div>

@@ -634,6 +634,17 @@ function removeCollaborator(ownerUserId, projectId, collaboratorUserId) {
   return result.changes > 0;
 }
 
+// A collaborator (Viewer/Commenter/Editor) can remove themselves from a
+// shared project at any time, no owner approval needed — same as leaving
+// any shared document. The owner can't leave their own project (there's
+// no one to hand it to); they'd delete it instead.
+function leaveProject(userId, projectId) {
+  projectId = topLevelProjectId(projectId);
+  if (isProjectOwner(userId, projectId)) throw new Error("You own this project — delete it instead of leaving it");
+  const result = db.prepare('DELETE FROM project_collaborators WHERE projectId = ? AND userId = ?').run(projectId, userId);
+  return result.changes > 0;
+}
+
 // A lightweight "last seen" heartbeat, not a live socket connection — see
 // connection.js. Called on ordinary API activity; a collaborator reads as
 // active if this is recent, away otherwise.
@@ -937,6 +948,16 @@ function purgeTaskForever(userId, id) {
   db.prepare('DELETE FROM tasks WHERE id = ? AND userId = ? AND deletedAt IS NOT NULL').run(id, userId);
 }
 
+// Empties Trash in one action — every trashed project (tasks cascade via
+// FK) and every trashed task, scoped to this account the same way
+// listTrash is. No further undo past this point.
+function purgeAllTrash(userId) {
+  db.transaction(() => {
+    db.prepare('DELETE FROM projects WHERE userId = ? AND deletedAt IS NOT NULL').run(userId);
+    db.prepare('DELETE FROM tasks WHERE userId = ? AND deletedAt IS NOT NULL').run(userId);
+  })();
+}
+
 // ── TAGS (custom labels, many-to-many with tasks) ────────────────
 function listTags(userId) {
   return db.prepare('SELECT * FROM tags WHERE userId = ? ORDER BY label ASC').all(userId);
@@ -1121,13 +1142,13 @@ module.exports = {
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById, duplicateProject,
   getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, duplicateTask, bumpTaskProgress, reorderTasks,
-  listCollaborators, inviteCollaborator, updateCollaboratorRole, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, touchLastActive,
+  listCollaborators, inviteCollaborator, updateCollaboratorRole, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, leaveProject, touchLastActive,
   listComments, addComment, deleteComment,
   listChatPreviews, listProjectMessages, addProjectMessage, deleteProjectMessage,
   listActiveStatuses, addStatus, deleteStatus,
   getNotifications, markNotificationsRead,
   createAttachment, getAttachmentById,
-  listTrash, restoreProject, restoreTask, purgeProjectForever, purgeTaskForever,
+  listTrash, restoreProject, restoreTask, purgeProjectForever, purgeTaskForever, purgeAllTrash,
   listChecklistItems, addChecklistItem, updateChecklistItem, deleteChecklistItem,
   listTags, createTag, updateTag, deleteTag, setTaskTags, getTaskTags,
   getGoogleDrive, setGoogleDrive,

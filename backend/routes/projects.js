@@ -126,6 +126,18 @@ router.delete('/:id/collaborators/:userId', (req, res) => {
   }
 });
 
+// POST /api/projects/:id/leave — a collaborator removes themselves; the
+// owner can't leave their own project
+router.post('/:id/leave', (req, res) => {
+  try {
+    const left = db.leaveProject(req.session.userId, req.params.id);
+    if (!left) return res.status(404).json({ error: 'You are not a collaborator on this project' });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // ── PROJECT CHAT (project-wide, polled for near-live updates) ──────
 
 // GET /api/projects/:id/messages

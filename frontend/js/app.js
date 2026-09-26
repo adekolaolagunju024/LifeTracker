@@ -644,6 +644,10 @@ async function renderProjectDetail(projectId) {
     // modal) is owner-only — a collaborator who could delete it could
     // lock everyone else out.
     document.getElementById('btn-delete-project').classList.toggle('hidden', proj.role !== 'owner');
+    // The flip side of delete: a collaborator (any role) can remove
+    // themselves from someone else's project — the owner can't leave
+    // their own project, so these two are always mutually exclusive.
+    document.getElementById('btn-leave-project').classList.toggle('hidden', proj.role === 'owner');
     document.getElementById('btn-share-label').textContent = proj.role === 'owner' ? 'Share' : 'People';
 
     // "No way to know who sent it" — a shared project now says whose it is,
@@ -1003,6 +1007,40 @@ function toggleGanttWrapText() {
   try { localStorage.setItem('ganttWrapText', on ? '1' : '0'); } catch {}
 }
 
+// ── GANTT PRINT COLUMNS ("⋯ More" → Print columns) ──────────────
+// Which of the 4 optional frozen columns actually appear in Print/PDF —
+// Task/Project always prints. Screen view is untouched either way; the
+// print-hide-* classes only do anything under @media print (see stylesheet).
+const GANTT_PRINT_COL_DEFAULTS = { status: true, start: true, due: true, duration: true };
+const GANTT_PRINT_COL_STORAGE_KEY = 'waypoint-gantt-print-columns';
+
+function loadGanttPrintColumns() {
+  let cols = { ...GANTT_PRINT_COL_DEFAULTS };
+  try {
+    const saved = JSON.parse(localStorage.getItem(GANTT_PRINT_COL_STORAGE_KEY) || '{}');
+    cols = { ...cols, ...saved };
+  } catch {}
+  applyGanttPrintColumns(cols);
+}
+function applyGanttPrintColumns(cols) {
+  const el = document.getElementById('page-gantt');
+  Object.keys(GANTT_PRINT_COL_DEFAULTS).forEach(key => {
+    el.classList.toggle(`print-hide-${key}`, !cols[key]);
+    const cb = document.getElementById(`print-col-toggle-${key}`);
+    if (cb) cb.checked = !!cols[key];
+  });
+}
+function toggleGanttPrintColumn(key) {
+  let cols = { ...GANTT_PRINT_COL_DEFAULTS };
+  try {
+    const saved = JSON.parse(localStorage.getItem(GANTT_PRINT_COL_STORAGE_KEY) || '{}');
+    cols = { ...cols, ...saved };
+  } catch {}
+  cols[key] = !cols[key];
+  try { localStorage.setItem(GANTT_PRINT_COL_STORAGE_KEY, JSON.stringify(cols)); } catch {}
+  applyGanttPrintColumns(cols);
+}
+
 let _ganttColResize = null;
 function ganttColResizeMouseDown(e, colIndex) {
   e.preventDefault();
@@ -1169,6 +1207,7 @@ async function renderGantt() {
     applyGanttPageView(pageView);
     loadGanttColWidths();
     loadGanttWrapText();
+    loadGanttPrintColumns();
 
     let legendOpen = false;
     try { legendOpen = localStorage.getItem('ganttLegendOpen') === '1'; } catch { /* private mode etc */ }
@@ -2412,6 +2451,7 @@ async function renderTrash() {
   const list = document.getElementById('trash-list');
   try {
     const [{ projects, tasks }, activeProjects] = await Promise.all([API.getTrash(), API.getProjects()]);
+    document.getElementById('btn-empty-trash').classList.toggle('hidden', !projects.length && !tasks.length);
     if (!projects.length && !tasks.length) {
       list.innerHTML = `<p class="text-center text-gray-400 text-sm py-6">Trash is empty</p>`;
       return;
@@ -2479,6 +2519,16 @@ function purgeTaskFromTrash(id, title) {
     await API.purgeTaskForever(id);
     showToast('🗑️ Permanently deleted');
     renderTrash();
+  });
+}
+
+function purgeAllTrashConfirm() {
+  confirmAction('Permanently delete everything in Trash? This cannot be undone.', async () => {
+    try {
+      await API.purgeAllTrash();
+      showToast('🗑️ Trash emptied');
+      renderTrash();
+    } catch (e) { showToast('❌ ' + (e.message || 'Failed to empty Trash'), 'error'); }
   });
 }
 
@@ -3544,6 +3594,23 @@ async function deleteProjectConfirm(id) {
     }
     if (APP.currentPage === 'gantt') renderGantt();
     updateSidebar();
+  });
+}
+
+// The other side of removeCollaborator — a collaborator taking themselves
+// off someone else's project, no owner approval needed. Confirmed first
+// since it's not easily undoable from this side (the owner would need to
+// re-invite); leaving from a sub-folder still leaves the whole shared tree,
+// same as every other sharing action.
+async function leaveProjectConfirm(id) {
+  const p = await API.getProject(id);
+  confirmAction(`Leave "${p?.title}"? You'll lose access to it${p?.ownerName ? ` — ${p.ownerName} would need to re-invite you to see it again` : ''}.`, async () => {
+    try {
+      await API.leaveProject(id);
+      showToast('🚪 Left "' + p.title + '"');
+      await showPage('projects');
+      updateSidebar();
+    } catch (e) { showToast('❌ ' + (e.message || 'Failed to leave project'), 'error'); }
   });
 }
 

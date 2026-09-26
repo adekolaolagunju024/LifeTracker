@@ -34,4 +34,10 @@ router.delete('/tasks/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// DELETE /api/trash — empties Trash entirely, permanent, no further undo
+router.delete('/', (req, res) => {
+  db.purgeAllTrash(req.session.userId);
+  res.json({ success: true });
+});
+
 module.exports = router;
