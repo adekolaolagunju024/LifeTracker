@@ -169,7 +169,7 @@
       #page-gantt { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
       #gantt-header-scroll, #gantt-rows-scroll { overflow: visible !important; max-height: none !important; }
       .gantt-sticky { position: static !important; box-shadow: none !important; }
-      #gantt-project-filter, #gantt-view-toggle, .gantt-view-btn, #gantt-export-actions, #gantt-fields-btn, #gantt-fields-menu { display: none !important; }
+      #gantt-project-filter, #gantt-view-toggle, .gantt-view-btn, #gantt-export-actions, #gantt-fields-btn, #gantt-fields-menu, #gantt-page-view-toggle { display: none !important; }
       @page { size: landscape; margin: 12mm; }
     }
     .spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -0.15em; }
@@ -923,10 +923,15 @@
               <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-checklist" onchange="toggleCardField('checklist')"> Checklist</label>
               <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-cost" onchange="toggleCardField('cost')"> Cost</label>
               <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-schedule" onchange="toggleCardField('schedule')"> Schedule status</label>
+              <div class="border-t border-gray-100 my-2"></div>
+              <!-- Print/PDF works for whichever view (Timeline or Kanban) is
+                   currently on screen, so it stays available in both — only
+                   the Legend (Timeline-only content) and the server-rendered
+                   Export Image (doesn't know about Kanban yet) are
+                   Timeline-only. -->
+              <button onclick="closeGanttFieldsMenu(); printGanttChart()" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">🖨️ Print / PDF</button>
               <div id="gantt-export-actions">
-                <div class="border-t border-gray-100 my-2"></div>
                 <button onclick="toggleGanttLegend()" id="gantt-legend-btn" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">ⓘ Toggle Legend</button>
-                <button onclick="closeGanttFieldsMenu(); printGanttChart()" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">🖨️ Print / PDF</button>
                 <button onclick="closeGanttFieldsMenu(); exportGanttImage()" id="gantt-export-img-btn" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">🖼️ Export Image</button>
               </div>
             </div>
