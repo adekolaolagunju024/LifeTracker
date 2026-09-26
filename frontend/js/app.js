@@ -136,6 +136,14 @@ function miniChecklistBadge(t) {
   if (!t.checklistTotal) return '';
   return `<span class="text-[9px] text-gray-400 flex-shrink-0">☑️ ${t.checklistDone}/${t.checklistTotal}</span>`;
 }
+// The only signal that a task has any discussion on it at all was opening
+// its detail panel — nothing on the row/card itself hinted a commenter had
+// left something worth reading. A plain count badge, always shown (not
+// gated behind the optional card-fields checkboxes), fixes that.
+function commentCountBadge(t) {
+  if (!t.commentCount) return '';
+  return `<span class="text-[9px] text-gray-400 flex-shrink-0" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">💬 ${t.commentCount}</span>`;
+}
 // A numeric progress target (e.g. "20 mock tests") — a lower-friction
 // alternative to a checklist for a repetitive goal made of identical
 // units: one tap logs a unit instead of typing out 20 separate items.
@@ -776,7 +784,7 @@ async function renderTaskTable(projectId) {
           <tr class="border-b border-gray-100 hover:bg-gray-50">
             ${canEdit ? `<td class="px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()"></td>` : ''}
             <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">
-              <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}</div>
+              <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}${t.commentCount ? ` <span class="text-gray-400 font-normal text-xs" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">💬 ${t.commentCount}</span>` : ''}</div>
               ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
               ${taskProgressBarHTML(t)}
             </td>
@@ -1460,6 +1468,7 @@ async function renderGantt() {
               ${cardFields.cost ? miniCostBadge(t.cost) : ''}
               ${cardFields.schedule ? miniScheduleBadge(t) : ''}
               ${cardFields.assignee ? assigneeInitialBadge(t.assigneeName) : ''}
+              ${commentCountBadge(t)}
               ${miniProgressBadge(t)}
               ${t.targetCount && t.status !== 'Completed' && canEditGroup ? `<button onclick="event.stopPropagation();bumpTaskProgressAction('${t.id}',1,'${t.projectId}')" class="flex-shrink-0 text-[10px] font-bold bg-teal/10 hover:bg-teal/20 text-teal px-1 rounded" title="Log one">+1</button>` : ''}
               <button onclick="addTaskToGoogleCalendar('${t.id}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Add to Google Calendar">📅</button>
@@ -1633,7 +1642,7 @@ function renderKanbanBoard(tasks, projectById) {
           </div>
           ${cardFields.tags && (t.tags || []).length ? `<div class="flex flex-wrap gap-1 mb-1.5">${miniTagBadges(t.tags)}</div>` : ''}
           <div class="flex items-center justify-between text-xs text-gray-400">
-            <span class="truncate flex items-center gap-1.5">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}</span>
+            <span class="truncate flex items-center gap-1.5">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}</span>
             ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
           </div>
           ${taskProgressBarHTML(t)}
@@ -3159,9 +3168,19 @@ async function openTaskDetail(id) {
     document.getElementById('btn-edit-task-detail').classList.toggle('hidden', !canEdit);
     document.getElementById('td-comment-box').classList.toggle('hidden', !canComment);
     document.getElementById('td-comment-viewonly').classList.toggle('hidden', canComment);
+    APP.taskCommentCanReply = canComment;
+    cancelCommentReply();
 
     document.getElementById('task-detail-backdrop').classList.remove('hidden');
     document.getElementById('task-detail-panel').classList.remove('translate-x-full');
+    // Cached once per panel-open rather than refetched per keystroke — the
+    // @mention picker just filters this list client-side.
+    APP.taskCommentPeopleNames = [];
+    if (t.projectId) {
+      API.getCollaborators(t.projectId).then(people => {
+        APP.taskCommentPeopleNames = people.filter(p => p.joinedAt).map(p => p.name).filter(Boolean);
+      }).catch(() => {});
+    }
     renderTaskComments(id);
   } catch (e) { console.error('Task detail error:', e); }
 }
@@ -3171,6 +3190,7 @@ async function renderTaskComments(taskId) {
   const wrap = document.getElementById('td-comments');
   try {
     const comments = await API.getComments(taskId);
+    const names = APP.taskCommentPeopleNames || [];
     wrap.innerHTML = comments.length
       ? comments.map(c => `
           <div class="group">
@@ -3178,14 +3198,82 @@ async function renderTaskComments(taskId) {
               <p class="text-xs font-semibold text-navy">${esc(c.authorName)}</p>
               <div class="flex items-center gap-2 flex-shrink-0">
                 <span class="text-[10px] text-gray-400">${new Date(c.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                ${APP.taskCommentCanReply ? `<button onclick="replyToComment('${c.id}','${esc(c.authorName).replace(/'/g, "\\'")}','${esc(c.text).replace(/'/g, "\\'")}')" class="text-gray-300 hover:text-teal text-xs opacity-0 group-hover:opacity-100" title="Reply">↩</button>` : ''}
                 ${c.userId === APP.currentUserId ? `<button onclick="deleteCommentConfirm('${c.id}','${taskId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">🗑️</button>` : ''}
               </div>
             </div>
-            <p class="text-sm text-gray-700 whitespace-pre-wrap">${esc(c.text)}</p>
+            ${c.replyToId ? `<div class="border-l-2 border-gray-200 pl-2 mb-1 text-xs text-gray-400 truncate">↩ ${esc(c.replyToAuthorName || 'a deleted comment')}${c.replyToText ? ': ' + esc(c.replyToText.length > 60 ? c.replyToText.slice(0, 60) + '…' : c.replyToText) : ''}</div>` : ''}
+            <p class="text-sm text-gray-700 whitespace-pre-wrap">${renderMentionText(c.text, names)}</p>
             ${renderAttachmentHTML(c)}
           </div>`).join('')
       : `<p class="text-xs text-gray-400">No comments yet.</p>`;
   } catch (e) { console.error('Comments error:', e); }
+}
+
+// A comment/message someone tagged you in should read as unmistakably
+// theirs to you, not blend into ordinary text — matched against the
+// project's own collaborator names rather than a generic @word regex, so
+// an email address pasted into a comment is never mistaken for a mention.
+function renderMentionText(text, names) {
+  let html = esc(text);
+  if (!names || !names.length) return html;
+  [...new Set(names)].filter(Boolean).sort((a, b) => b.length - a.length).forEach(name => {
+    const escName = esc(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    html = html.replace(new RegExp('@' + escName + '\\b', 'g'), `<span class="font-semibold text-teal">@${esc(name)}</span>`);
+  });
+  return html;
+}
+
+// ── @MENTIONS input helper (task comments + project chat) ─────────
+// Typing "@" opens a small picker of people with access to the project;
+// picking one inserts their name at the cursor. Shared by both inputs —
+// which project's people list to filter against is inferred from the
+// input's own id.
+async function onMentionInput(inputId, listId) {
+  const input = document.getElementById(inputId);
+  const list = document.getElementById(listId);
+  const pos = input.selectionStart;
+  const match = input.value.slice(0, pos).match(/@([A-Za-z][\w ]{0,30})$/);
+  if (!match) { list.classList.add('hidden'); return; }
+  const query = match[1].toLowerCase();
+  const names = inputId === 'team-chat-input' ? (APP.chatPeopleNames || []) : (APP.taskCommentPeopleNames || []);
+  const filtered = names.filter(n => n.toLowerCase().includes(query));
+  if (!filtered.length) { list.classList.add('hidden'); return; }
+  list.innerHTML = filtered.map(n =>
+    `<button type="button" onmousedown="event.preventDefault();insertMention('${inputId}','${listId}','${esc(n).replace(/'/g, "\\'")}')" class="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100">${esc(n)}</button>`
+  ).join('');
+  list.classList.remove('hidden');
+}
+// A click on a dropdown option is preventDefault'd on mousedown precisely
+// so it fires before this blur — but a click anywhere else (dismissing the
+// picker without choosing) needs its own way to close it.
+function hideMentionListDelayed(listId) {
+  setTimeout(() => document.getElementById(listId)?.classList.add('hidden'), 150);
+}
+function insertMention(inputId, listId, name) {
+  const input = document.getElementById(inputId);
+  const pos = input.selectionStart;
+  const before = input.value.slice(0, pos).replace(/@([A-Za-z][\w ]{0,30})$/, '@' + name + ' ');
+  input.value = before + input.value.slice(pos);
+  document.getElementById(listId).classList.add('hidden');
+  input.focus();
+  input.setSelectionRange(before.length, before.length);
+}
+
+// ── REPLY (task comments) ──────────────────────────────────────────
+let APP_commentReplyTo = null;
+function replyToComment(id, authorName, text) {
+  APP_commentReplyTo = { id, authorName, text };
+  document.getElementById('td-comment-reply-author').textContent = authorName;
+  document.getElementById('td-comment-reply-snippet').textContent = text.length > 60 ? text.slice(0, 60) + '…' : text;
+  document.getElementById('td-comment-reply-chip').classList.remove('hidden');
+  document.getElementById('td-comment-reply-chip').classList.add('flex');
+  document.getElementById('td-comment-input').focus();
+}
+function cancelCommentReply() {
+  APP_commentReplyTo = null;
+  document.getElementById('td-comment-reply-chip').classList.add('hidden');
+  document.getElementById('td-comment-reply-chip').classList.remove('flex');
 }
 
 async function onCommentFileSelected(file) {
@@ -3215,9 +3303,10 @@ async function submitTaskComment() {
   const attachment = APP.commentPendingAttachment;
   if ((!text && !attachment) || !APP_currentDetailTaskId) return;
   try {
-    await API.addComment(APP_currentDetailTaskId, text, attachment ? attachment.id : null);
+    await API.addComment(APP_currentDetailTaskId, text, attachment ? attachment.id : null, APP_commentReplyTo?.id || null);
     input.value = '';
     clearCommentAttachment();
+    cancelCommentReply();
     renderTaskComments(APP_currentDetailTaskId);
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to post comment'), 'error'); }
 }
@@ -3773,8 +3862,16 @@ async function openProjectChat(projectId) {
     APP.chatProjectId = projectId;
     APP.chatIsOwner = proj.role === 'owner';
     APP.chatCanComment = canComment;
+    cancelChatReply();
     document.getElementById('project-chat-backdrop').classList.remove('hidden');
     document.getElementById('project-chat-panel').classList.remove('translate-x-full');
+    // Cached once per panel-open rather than refetched per keystroke — the
+    // @mention picker and the message-list mention highlighting both just
+    // filter/match against this list client-side.
+    try {
+      const people = await API.getCollaborators(projectId);
+      APP.chatPeopleNames = people.filter(p => p.joinedAt).map(p => p.name).filter(Boolean);
+    } catch { APP.chatPeopleNames = []; }
     await Promise.all([renderProjectChat(projectId), renderStatusTray(projectId)]);
     if (chatPollTimer) clearInterval(chatPollTimer);
     chatPollTimer = setInterval(() => { renderProjectChat(projectId); renderStatusTray(projectId); }, CHAT_POLL_MS);
@@ -3807,6 +3904,7 @@ async function renderProjectChat(projectId) {
   const wasAtBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 40;
   try {
     const messages = await API.getProjectMessages(projectId);
+    const names = APP.chatPeopleNames || [];
     wrap.innerHTML = messages.length
       ? messages.map((m, i) => {
           const isMe = m.userId === APP.currentUserId;
@@ -3815,23 +3913,42 @@ async function renderProjectChat(projectId) {
           const showHeader = !prev || prev.userId !== m.userId;
           const time = new Date(m.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
           const initial = (m.authorName || '?').trim().charAt(0).toUpperCase();
+          const replyQuote = m.replyToId ? `<div class="border-l-2 ${isMe ? 'border-white/40' : 'border-gray-300'} pl-1.5 mb-1 text-[10px] ${isMe ? 'text-white/70' : 'text-gray-400'} truncate max-w-[200px]">↩ ${esc(m.replyToAuthorName || 'a deleted message')}${m.replyToText ? ': ' + esc(m.replyToText.length > 40 ? m.replyToText.slice(0, 40) + '…' : m.replyToText) : ''}</div>` : '';
           return `
             <div class="group flex items-end gap-1.5 ${isMe ? 'justify-end' : 'justify-start'} ${showHeader ? 'mt-3' : 'mt-0.5'}">
               ${!isMe ? `<span class="w-6 h-6 rounded-full bg-teal/15 text-teal text-[10px] font-bold flex items-center justify-center flex-shrink-0 self-end ${showHeader ? '' : 'invisible'}" title="${esc(m.authorName)}">${esc(initial)}</span>` : ''}
               <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
                 ${showHeader && !isMe ? `<p class="text-[10px] font-semibold text-gray-400 mb-0.5 ml-1">${esc(m.authorName)}</p>` : ''}
                 <div class="rounded-2xl px-3.5 py-2 ${isMe ? 'bg-teal text-white rounded-br-md' : 'bg-gray-100 text-gray-700 rounded-bl-md'}">
-                  ${m.text ? `<p class="text-sm whitespace-pre-wrap break-words">${esc(m.text)}</p>` : ''}
+                  ${replyQuote}
+                  ${m.text ? `<p class="text-sm whitespace-pre-wrap break-words">${renderMentionText(m.text, names)}</p>` : ''}
                   ${renderAttachmentHTML(m)}
                 </div>
                 <p class="text-[9px] text-gray-400 mt-0.5 ${isMe ? 'mr-1' : 'ml-1'}">${isMe ? 'You · ' : ''}${time}</p>
               </div>
+              ${APP.chatCanComment ? `<button onclick="replyToChatMessage('${m.id}','${esc(m.authorName).replace(/'/g, "\\'")}','${esc(m.text).replace(/'/g, "\\'")}')" class="text-gray-300 hover:text-teal text-xs opacity-0 group-hover:opacity-100 self-center flex-shrink-0" title="Reply">↩</button>` : ''}
               ${canDelete ? `<button onclick="deleteProjectChatMessageConfirm('${m.id}','${projectId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100 self-center flex-shrink-0">🗑️</button>` : ''}
             </div>`;
         }).join('')
       : `<p class="text-xs text-gray-400 text-center py-6">No messages yet — say hi 👋</p>`;
     if (wasAtBottom) wrap.scrollTop = wrap.scrollHeight;
   } catch (e) { console.error('Chat load error:', e); }
+}
+
+// ── REPLY (project chat) ────────────────────────────────────────────
+let APP_chatReplyTo = null;
+function replyToChatMessage(id, authorName, text) {
+  APP_chatReplyTo = { id, authorName, text };
+  document.getElementById('team-chat-reply-author').textContent = authorName;
+  document.getElementById('team-chat-reply-snippet').textContent = text.length > 60 ? text.slice(0, 60) + '…' : text;
+  document.getElementById('team-chat-reply-chip').classList.remove('hidden');
+  document.getElementById('team-chat-reply-chip').classList.add('flex');
+  document.getElementById('team-chat-input').focus();
+}
+function cancelChatReply() {
+  APP_chatReplyTo = null;
+  document.getElementById('team-chat-reply-chip').classList.add('hidden');
+  document.getElementById('team-chat-reply-chip').classList.remove('flex');
 }
 
 async function onTeamChatFileSelected(file) {
@@ -3871,9 +3988,10 @@ async function submitProjectChatMessage() {
   const ccEmails = document.getElementById('chat-cc-input').value.split(',').map(s => s.trim()).filter(Boolean);
   if ((!text && !attachment) || !projectId) return;
   try {
-    const result = await API.addProjectMessage(projectId, text, attachment ? attachment.id : null, alsoEmail, ccEmails);
+    const result = await API.addProjectMessage(projectId, text, attachment ? attachment.id : null, alsoEmail, ccEmails, APP_chatReplyTo?.id || null);
     input.value = '';
     clearTeamChatAttachment();
+    cancelChatReply();
     if (alsoEmail) {
       document.getElementById('chat-also-email').checked = false;
       document.getElementById('chat-cc-input').value = '';

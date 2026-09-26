@@ -220,4 +220,10 @@ addColumnIfMissing('tasks', "targetCount INTEGER");
 addColumnIfMissing('tasks', "targetUnit TEXT");
 addColumnIfMissing('tasks', "progressCount INTEGER NOT NULL DEFAULT 0");
 
+// Reply-to-a-specific-message threading, task comments and project chat
+// both — a lightweight "in response to X" pointer rather than a full
+// nested-thread model, same one-level-deep quote style as WhatsApp/Slack.
+addColumnIfMissing('task_comments', "replyToId TEXT REFERENCES task_comments(id) ON DELETE SET NULL");
+addColumnIfMissing('project_messages', "replyToId TEXT REFERENCES project_messages(id) ON DELETE SET NULL");
+
 module.exports = db;

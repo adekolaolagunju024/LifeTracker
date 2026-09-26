@@ -126,12 +126,12 @@ const API = {
 
   // ── TASK COMMENTS ──
   getComments:    (taskId)       => request('GET',    `/tasks/${taskId}/comments`),
-  addComment:     (taskId, text, attachmentId) => request('POST', `/tasks/${taskId}/comments`, { text, attachmentId }),
+  addComment:     (taskId, text, attachmentId, replyToId) => request('POST', `/tasks/${taskId}/comments`, { text, attachmentId, replyToId }),
   deleteComment:  (commentId)    => request('DELETE', `/tasks/comments/${commentId}`),
 
   // ── PROJECT CHAT (project-wide) ──
   getProjectMessages:   (projectId)       => request('GET',    `/projects/${projectId}/messages`),
-  addProjectMessage:    (projectId, text, attachmentId, alsoEmail, ccEmails) => request('POST', `/projects/${projectId}/messages`, { text, attachmentId, alsoEmail, ccEmails }),
+  addProjectMessage:    (projectId, text, attachmentId, alsoEmail, ccEmails, replyToId) => request('POST', `/projects/${projectId}/messages`, { text, attachmentId, alsoEmail, ccEmails, replyToId }),
   deleteProjectMessage: (messageId)       => request('DELETE', `/projects/messages/${messageId}`),
 
   // ── PROJECT STATUS (WhatsApp-style, 24h) ──

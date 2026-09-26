@@ -101,10 +101,10 @@ router.get('/:id/comments', (req, res) => {
   res.json(comments);
 });
 
-// POST /api/tasks/:id/comments — { text }
+// POST /api/tasks/:id/comments — { text, attachmentId, replyToId }
 router.post('/:id/comments', (req, res) => {
   try {
-    const comment = db.addComment(req.session.userId, req.params.id, req.body.text, req.body.attachmentId);
+    const comment = db.addComment(req.session.userId, req.params.id, req.body.text, req.body.attachmentId, req.body.replyToId);
     if (!comment) return res.status(404).json({ error: 'Task not found' });
     res.status(201).json(comment);
   } catch (e) {

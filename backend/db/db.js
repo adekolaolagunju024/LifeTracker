@@ -335,6 +335,7 @@ function duplicateProject(userId, projectId) {
 const CHECKLIST_COUNT_COLUMNS = `
   (SELECT COUNT(*) FROM checklist_items WHERE taskId = t.id) AS checklistTotal,
   (SELECT COUNT(*) FROM checklist_items WHERE taskId = t.id AND completed = 1) AS checklistDone,
+  (SELECT COUNT(*) FROM task_comments WHERE taskId = t.id) AS commentCount,
   (SELECT p.name FROM profile p WHERE p.userId = t.assigneeId) AS assigneeName
 `;
 
@@ -728,24 +729,31 @@ function assertAttachmentBelongsToProject(attachmentId, projectId) {
 function listComments(userId, taskId) {
   if (!getTaskById(userId, taskId)) return null;
   return db.prepare(`
-    SELECT tc.id, tc.taskId, tc.userId, tc.text, tc.createdAt, p.name AS authorName, ${ATTACHMENT_COLUMNS}
+    SELECT tc.id, tc.taskId, tc.userId, tc.text, tc.createdAt, tc.replyToId, p.name AS authorName, ${ATTACHMENT_COLUMNS},
+      rc.text AS replyToText, rp.name AS replyToAuthorName
     FROM task_comments tc
     JOIN profile p ON p.userId = tc.userId
     LEFT JOIN attachments a ON a.id = tc.attachmentId
+    LEFT JOIN task_comments rc ON rc.id = tc.replyToId
+    LEFT JOIN profile rp ON rp.userId = rc.userId
     WHERE tc.taskId = ? ORDER BY tc.createdAt ASC
   `).all(taskId);
 }
 
-function addComment(userId, taskId, text, attachmentId = null) {
+function addComment(userId, taskId, text, attachmentId = null, replyToId = null) {
   const task = getTaskById(userId, taskId);
   if (!task) return null;
   assertCanComment(userId, task.projectId);
   const clean = String(text || '').trim();
   if (!clean && !attachmentId) throw new Error('Comment text is required');
   assertAttachmentBelongsToProject(attachmentId, task.projectId);
-  const comment = { id: uuid(), taskId, userId, text: clean, attachmentId: attachmentId || null, createdAt: new Date().toISOString() };
-  db.prepare('INSERT INTO task_comments (id, taskId, userId, text, attachmentId, createdAt) VALUES (?,?,?,?,?,?)')
-    .run(comment.id, comment.taskId, comment.userId, comment.text, comment.attachmentId, comment.createdAt);
+  // Replying to a comment on a different task would be a dangling/misleading
+  // quote — silently drop it rather than erroring over something the UI
+  // itself should never produce.
+  const replyTarget = replyToId ? db.prepare('SELECT id FROM task_comments WHERE id = ? AND taskId = ?').get(replyToId, taskId) : null;
+  const comment = { id: uuid(), taskId, userId, text: clean, attachmentId: attachmentId || null, replyToId: replyTarget ? replyToId : null, createdAt: new Date().toISOString() };
+  db.prepare('INSERT INTO task_comments (id, taskId, userId, text, attachmentId, replyToId, createdAt) VALUES (?,?,?,?,?,?,?)')
+    .run(comment.id, comment.taskId, comment.userId, comment.text, comment.attachmentId, comment.replyToId, comment.createdAt);
   const attachment = attachmentId ? getAttachmentById(attachmentId) : null;
   return { ...comment, authorName: getProfile(userId).name, attachmentName: attachment?.originalName, attachmentMimetype: attachment?.mimetype, attachmentSize: attachment?.size };
 }
@@ -796,23 +804,30 @@ function listProjectMessages(userId, projectId) {
   projectId = topLevelProjectId(projectId);
   if (!canAccessProject(userId, projectId)) return null;
   return db.prepare(`
-    SELECT pm.id, pm.projectId, pm.userId, pm.text, pm.createdAt, p.name AS authorName, ${ATTACHMENT_COLUMNS}
+    SELECT pm.id, pm.projectId, pm.userId, pm.text, pm.createdAt, pm.replyToId, p.name AS authorName, ${ATTACHMENT_COLUMNS},
+      rm.text AS replyToText, rp.name AS replyToAuthorName
     FROM project_messages pm
     JOIN profile p ON p.userId = pm.userId
     LEFT JOIN attachments a ON a.id = pm.attachmentId
+    LEFT JOIN project_messages rm ON rm.id = pm.replyToId
+    LEFT JOIN profile rp ON rp.userId = rm.userId
     WHERE pm.projectId = ? ORDER BY pm.createdAt ASC
   `).all(projectId);
 }
 
-function addProjectMessage(userId, projectId, text, attachmentId = null) {
+function addProjectMessage(userId, projectId, text, attachmentId = null, replyToId = null) {
   projectId = topLevelProjectId(projectId);
   assertCanComment(userId, projectId);
   const clean = String(text || '').trim();
   if (!clean && !attachmentId) throw new Error('Message text is required');
   assertAttachmentBelongsToProject(attachmentId, projectId);
-  const message = { id: uuid(), projectId, userId, text: clean, attachmentId: attachmentId || null, createdAt: new Date().toISOString() };
-  db.prepare('INSERT INTO project_messages (id, projectId, userId, text, attachmentId, createdAt) VALUES (?,?,?,?,?,?)')
-    .run(message.id, message.projectId, message.userId, message.text, message.attachmentId, message.createdAt);
+  // Replying to a message from a different project would be a dangling/
+  // misleading quote — silently drop it rather than erroring over
+  // something the UI itself should never produce.
+  const replyTarget = replyToId ? db.prepare('SELECT id FROM project_messages WHERE id = ? AND projectId = ?').get(replyToId, projectId) : null;
+  const message = { id: uuid(), projectId, userId, text: clean, attachmentId: attachmentId || null, replyToId: replyTarget ? replyToId : null, createdAt: new Date().toISOString() };
+  db.prepare('INSERT INTO project_messages (id, projectId, userId, text, attachmentId, replyToId, createdAt) VALUES (?,?,?,?,?,?,?)')
+    .run(message.id, message.projectId, message.userId, message.text, message.attachmentId, message.replyToId, message.createdAt);
   const attachment = attachmentId ? getAttachmentById(attachmentId) : null;
   return { ...message, authorName: getProfile(userId).name, attachmentName: attachment?.originalName, attachmentMimetype: attachment?.mimetype, attachmentSize: attachment?.size };
 }
