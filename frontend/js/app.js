@@ -1250,14 +1250,24 @@ async function renderGantt() {
     // Timeline header, divided according to the chosen zoom level
     const { widths: colWidths, labels: colLabels } = buildTimelineColumns(APP.ganttViewMode, start, end, totalDays);
 
-    // Each column needs a minimum pixel width to keep its label readable —
-    // week view especially can produce far more columns than fit at a fixed
-    // table width, so the wrapper grows and the outer container scrolls.
-    const minColPx = { week: 50, month: 70, year: 90 }[APP.ganttViewMode] || 70;
-    const fixedColsPx = 200 + 90 + 85 + 85 + 70;
-    const ganttWidthPx = (fixedColsPx + colLabels.length * minColPx) + 'px';
-    document.getElementById('gantt-timeline-wrapper').style.minWidth = ganttWidthPx;
-    document.getElementById('gantt-rows-wrapper').style.minWidth = ganttWidthPx;
+    if (APP.ganttPrintMode) {
+      // Print always fits the page width — no forced minimum, so the
+      // percentage-based date columns shrink to fit instead of overflowing
+      // past the page edge and getting cut off. The screen view's "keep
+      // columns readable, let the container scroll instead" behavior below
+      // only makes sense when there's actually a scrollbar to reach for.
+      document.getElementById('gantt-timeline-wrapper').style.minWidth = '';
+      document.getElementById('gantt-rows-wrapper').style.minWidth = '';
+    } else {
+      // Each column needs a minimum pixel width to keep its label readable —
+      // week view especially can produce far more columns than fit at a fixed
+      // table width, so the wrapper grows and the outer container scrolls.
+      const minColPx = { week: 50, month: 70, year: 90 }[APP.ganttViewMode] || 70;
+      const fixedColsPx = 200 + 90 + 85 + 85 + 70;
+      const ganttWidthPx = (fixedColsPx + colLabels.length * minColPx) + 'px';
+      document.getElementById('gantt-timeline-wrapper').style.minWidth = ganttWidthPx;
+      document.getElementById('gantt-rows-wrapper').style.minWidth = ganttWidthPx;
+    }
 
     document.getElementById('gantt-months').innerHTML = colLabels.map((label, i) => `
       <div class="text-xs font-semibold text-gray-500 py-2.5 border-r border-gray-200 text-center flex-shrink-0 truncate" style="width:${colWidths[i]}%">
@@ -3717,6 +3727,12 @@ function closeProjectChat() {
   document.getElementById('chat-cc-row').classList.add('hidden');
 }
 
+// WhatsApp/iMessage-style bubbles: your own messages sit right-aligned in
+// teal, everyone else's sit left-aligned in gray with their name + an
+// initial avatar — so who sent what is obvious at a glance instead of
+// having to read a "(you)" label on an otherwise identical row. Consecutive
+// messages from the same sender only repeat the name/avatar once (grouped),
+// same as any real chat app.
 async function renderProjectChat(projectId) {
   const wrap = document.getElementById('team-chat-messages');
   // Don't yank the scroll position/focus out from under someone mid-read —
@@ -3725,20 +3741,25 @@ async function renderProjectChat(projectId) {
   try {
     const messages = await API.getProjectMessages(projectId);
     wrap.innerHTML = messages.length
-      ? messages.map(m => {
+      ? messages.map((m, i) => {
           const isMe = m.userId === APP.currentUserId;
           const canDelete = isMe || APP.chatIsOwner;
+          const prev = messages[i - 1];
+          const showHeader = !prev || prev.userId !== m.userId;
+          const time = new Date(m.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+          const initial = (m.authorName || '?').trim().charAt(0).toUpperCase();
           return `
-            <div class="mb-3 group">
-              <div class="flex items-center justify-between gap-2">
-                <p class="text-xs font-semibold text-navy">${esc(m.authorName)}${isMe ? ' (you)' : ''}</p>
-                <div class="flex items-center gap-2 flex-shrink-0">
-                  <span class="text-[10px] text-gray-400">${new Date(m.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                  ${canDelete ? `<button onclick="deleteProjectChatMessageConfirm('${m.id}','${projectId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">🗑️</button>` : ''}
+            <div class="group flex items-end gap-1.5 ${isMe ? 'justify-end' : 'justify-start'} ${showHeader ? 'mt-3' : 'mt-0.5'}">
+              ${!isMe ? `<span class="w-6 h-6 rounded-full bg-teal/15 text-teal text-[10px] font-bold flex items-center justify-center flex-shrink-0 self-end ${showHeader ? '' : 'invisible'}" title="${esc(m.authorName)}">${esc(initial)}</span>` : ''}
+              <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
+                ${showHeader && !isMe ? `<p class="text-[10px] font-semibold text-gray-400 mb-0.5 ml-1">${esc(m.authorName)}</p>` : ''}
+                <div class="rounded-2xl px-3.5 py-2 ${isMe ? 'bg-teal text-white rounded-br-md' : 'bg-gray-100 text-gray-700 rounded-bl-md'}">
+                  ${m.text ? `<p class="text-sm whitespace-pre-wrap break-words">${esc(m.text)}</p>` : ''}
+                  ${renderAttachmentHTML(m)}
                 </div>
+                <p class="text-[9px] text-gray-400 mt-0.5 ${isMe ? 'mr-1' : 'ml-1'}">${isMe ? 'You · ' : ''}${time}</p>
               </div>
-              <p class="text-sm text-gray-700 whitespace-pre-wrap">${esc(m.text)}</p>
-              ${renderAttachmentHTML(m)}
+              ${canDelete ? `<button onclick="deleteProjectChatMessageConfirm('${m.id}','${projectId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100 self-center flex-shrink-0">🗑️</button>` : ''}
             </div>`;
         }).join('')
       : `<p class="text-xs text-gray-400 text-center py-6">No messages yet — say hi 👋</p>`;
