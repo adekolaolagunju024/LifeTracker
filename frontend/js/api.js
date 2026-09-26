@@ -44,6 +44,7 @@ const API = {
   addProject:    (data)    => request('POST',   '/projects', data),
   updateProject: (id, d)   => request('PUT',    `/projects/${id}`, d),
   deleteProject: (id)      => request('DELETE', `/projects/${id}`),
+  duplicateProject: (id)   => request('POST',   `/projects/${id}/duplicate`),
 
   // ── TASKS ──
   getTasks: (params = {}) => {
@@ -56,6 +57,7 @@ const API = {
   addTask:    (data)    => request('POST',   '/tasks', data),
   updateTask: (id, d)   => request('PUT',    `/tasks/${id}`, d),
   deleteTask: (id)      => request('DELETE', `/tasks/${id}`),
+  duplicateTask: (id)   => request('POST',   `/tasks/${id}/duplicate`),
   reorderTasks: (projectId, taskIds) => request('PUT', '/tasks/reorder', { projectId, taskIds }),
 
   // ── AI INSIGHTS ──

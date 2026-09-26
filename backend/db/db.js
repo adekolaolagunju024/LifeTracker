@@ -256,6 +256,75 @@ function deleteProjectById(userId, id) {
   })();
 }
 
+// A completely independent copy of a project's whole tree (itself, its
+// one level of sub-folders, and every task under them — checklist and
+// tags included, same as duplicateTask). Always owned fresh by whoever
+// duplicates it, with no collaborators carried over — it doesn't touch
+// the original's sharing at all, so anyone with access (even a Viewer)
+// can make their own copy to edit freely.
+function duplicateProject(userId, projectId) {
+  projectId = topLevelProjectId(projectId);
+  const original = getProjectById(userId, projectId);
+  if (!original) return null;
+
+  const subs = listProjects(userId, { parentId: projectId });
+  const newTop = createProject(userId, {
+    id: uuid(),
+    title: original.title + ' (Copy)',
+    description: original.description,
+    icon: original.icon,
+    color: original.color,
+    startDate: original.startDate,
+    type: original.type,
+    createdAt: new Date().toISOString(),
+  });
+
+  const idMap = { [projectId]: newTop.id };
+  subs.forEach(sub => {
+    const newSub = createProject(userId, {
+      id: uuid(),
+      title: sub.title,
+      description: sub.description,
+      icon: sub.icon,
+      color: sub.color,
+      startDate: sub.startDate,
+      type: sub.type,
+      parentId: newTop.id,
+      createdAt: new Date().toISOString(),
+    });
+    idMap[sub.id] = newSub.id;
+  });
+
+  const treeIds = new Set(Object.keys(idMap));
+  const tasks = listTasks(userId).filter(t => treeIds.has(t.projectId));
+  tasks.forEach(task => {
+    const copy = createTask(userId, {
+      id: uuid(),
+      projectId: idMap[task.projectId],
+      title: task.title,
+      category: task.category,
+      status: task.status,
+      priority: task.priority,
+      startDate: task.startDate,
+      endDate: task.endDate,
+      cost: task.cost,
+      notes: task.notes,
+      recurrence: task.recurrence,
+      // Not carried over: the new project starts unshared, so the
+      // original assignee may have no access to it at all.
+      assigneeId: null,
+      createdAt: new Date().toISOString(),
+    });
+    const items = db.prepare('SELECT title, completed, sortOrder FROM checklist_items WHERE taskId = ? ORDER BY sortOrder ASC').all(task.id);
+    const insertItem = db.prepare('INSERT INTO checklist_items (id, taskId, title, completed, sortOrder) VALUES (?,?,?,?,?)');
+    items.forEach(item => insertItem.run(uuid(), copy.id, item.title, item.completed, item.sortOrder));
+    const tagIds = getTaskTags(task.id).map(t => t.id);
+    if (tagIds.length) setTaskTags(userId, copy.id, tagIds);
+  });
+
+  return getProjectById(userId, newTop.id);
+}
+
 // ── TASKS ────────────────────────────────────────────────────────
 // checklistTotal/checklistDone are subquery counts, not real columns — lets
 // the task table/Kanban card show a "n/m" checklist badge without an extra
@@ -405,6 +474,41 @@ function deleteTaskById(userId, id) {
   if (!task) return;
   assertCanEditProject(userId, task.projectId);
   db.prepare('UPDATE tasks SET deletedAt = ? WHERE id = ? AND deletedAt IS NULL').run(new Date().toISOString(), id);
+}
+
+// A completely independent copy — same fields, checklist, and tags, but
+// its own id and no shared history (comments aren't copied; that's a
+// conversation about the original, not the copy). Same permission bar as
+// creating a task, since that's effectively what this does.
+function duplicateTask(userId, id) {
+  const original = getTaskById(userId, id);
+  if (!original) return null;
+  assertCanEditProject(userId, original.projectId);
+
+  const copy = createTask(userId, {
+    id: uuid(),
+    projectId: original.projectId,
+    title: original.title + ' (Copy)',
+    category: original.category,
+    status: original.status,
+    priority: original.priority,
+    startDate: original.startDate,
+    endDate: original.endDate,
+    cost: original.cost,
+    notes: original.notes,
+    recurrence: original.recurrence,
+    assigneeId: original.assigneeId,
+    createdAt: new Date().toISOString(),
+  });
+
+  const items = db.prepare('SELECT title, completed, sortOrder FROM checklist_items WHERE taskId = ? ORDER BY sortOrder ASC').all(id);
+  const insertItem = db.prepare('INSERT INTO checklist_items (id, taskId, title, completed, sortOrder) VALUES (?,?,?,?,?)');
+  items.forEach(item => insertItem.run(uuid(), copy.id, item.title, item.completed, item.sortOrder));
+
+  const tagIds = getTaskTags(id).map(t => t.id);
+  if (tagIds.length) setTaskTags(userId, copy.id, tagIds);
+
+  return getTaskById(userId, copy.id);
 }
 
 // ── COLLABORATION (project sharing, invites, presence) ────────────
@@ -980,9 +1084,9 @@ module.exports = {
   createUser, getUserByEmail, getUserById, setUserPasswordHash, deleteUser,
   setPasswordResetToken, getUserByResetToken, clearPasswordResetToken,
   getProfile, updateProfile, listUsersForDigest, setLastDigestSentDate,
-  listProjects, getProjectById, createProject, updateProjectById, deleteProjectById,
+  listProjects, getProjectById, createProject, updateProjectById, deleteProjectById, duplicateProject,
   getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,
-  listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, reorderTasks,
+  listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, duplicateTask, reorderTasks,
   listCollaborators, inviteCollaborator, updateCollaboratorRole, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, touchLastActive,
   listComments, addComment, deleteComment,
   listChatPreviews, listProjectMessages, addProjectMessage, deleteProjectMessage,

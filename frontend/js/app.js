@@ -768,6 +768,8 @@ async function renderTaskTable(projectId) {
                 ${canEdit ? `
                 <button onclick="editTask('${t.id}')"
                   class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">✏️</button>
+                <button onclick="duplicateTaskAction('${t.id}','${projectId}')" title="Duplicate"
+                  class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">⧉</button>
                 <button onclick="deleteTaskConfirm('${t.id}','${projectId}')"
                   class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm opacity-60 hover:opacity-100">🗑️</button>` : ''}
               </div>
@@ -1260,7 +1262,8 @@ async function renderGantt() {
               ${cardFields.schedule ? miniScheduleBadge(t) : ''}
               ${cardFields.assignee ? assigneeInitialBadge(t.assigneeName) : ''}
               <button onclick="addTaskToGoogleCalendar('${t.id}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Add to Google Calendar">📅</button>
-              ${canEditGroup ? `<button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">🗑️</button>` : ''}
+              ${canEditGroup ? `<button onclick="duplicateTaskAction('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Duplicate">⧉</button>
+              <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">🗑️</button>` : ''}
             </div>
             <div class="gantt-sticky gantt-sticky-2 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
               <select class="w-full rounded px-1 py-1 text-[10px] font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}" ${canEditGroup ? '' : 'disabled'}
@@ -1420,7 +1423,8 @@ function renderKanbanBoard(tasks, projectById) {
             <div class="flex-shrink-0 flex items-center gap-1.5">
               <span class="hidden group-hover:flex gap-1">
                 <button onclick="addTaskToGoogleCalendar('${t.id}')" class="text-gray-400 hover:text-gray-600 text-xs" title="Add to Google Calendar">📅</button>
-                ${canEdit ? `<button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="text-gray-400 hover:text-red-500 text-xs" title="Delete task">🗑️</button>` : ''}
+                ${canEdit ? `<button onclick="duplicateTaskAction('${t.id}', '${t.projectId}')" class="text-gray-400 hover:text-gray-600 text-xs" title="Duplicate">⧉</button>
+                <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="text-gray-400 hover:text-red-500 text-xs" title="Delete task">🗑️</button>` : ''}
               </span>
               ${cardFields.priority ? miniPriorityBadge(t.priority) : ''}
               ${cardFields.assignee ? assigneeInitialBadge(t.assigneeName) : ''}
@@ -3025,6 +3029,13 @@ function editTaskFromDetail() {
   if (id) editTask(id);
 }
 
+function duplicateTaskFromDetail() {
+  const id = APP_currentDetailTaskId;
+  const projectId = APP.detailTaskProjectId;
+  closeTaskDetail();
+  if (id) duplicateTaskAction(id, projectId);
+}
+
 // ── GOOGLE CALENDAR ──────────────────────────────────────────────
 // Uses Google's public "render" link (no OAuth, no setup needed) — opens a
 // pre-filled event that the user reviews and saves themselves, in contrast
@@ -3369,6 +3380,19 @@ async function deleteProjectConfirm(id) {
     if (APP.currentPage === 'gantt') renderGantt();
     updateSidebar();
   });
+}
+
+// Non-destructive and doesn't touch the original at all (or its sharing),
+// so no confirmation needed — jumps straight to the new copy so it's
+// obvious it worked and ready to edit right away.
+async function duplicateProjectAction(projectId) {
+  closeProjectDetailMenu();
+  try {
+    const copy = await API.duplicateProject(projectId);
+    showToast('✅ Duplicated as "' + copy.title + '"');
+    updateSidebar();
+    await showPage('project-detail', copy.id);
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to duplicate'), 'error'); }
 }
 
 // ── PROJECT SHARING (Google-Sheets-style collaborators) ───────────
@@ -3994,6 +4018,18 @@ async function deleteTaskConfirm(id, projectId) {
     if (APP.currentPage === 'gantt') renderGantt();
     updateSidebar();
   });
+}
+
+// Non-destructive, so no confirmation needed — same instant feedback as
+// any other quick action.
+async function duplicateTaskAction(id, projectId) {
+  try {
+    await API.duplicateTask(id);
+    showToast('✅ Task duplicated');
+    if (projectId) renderTaskTable(projectId);
+    if (APP.currentPage === 'gantt') renderGantt();
+    updateSidebar();
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to duplicate'), 'error'); }
 }
 
 // ── EXPORT / IMPORT ─────────────────────────────────────────────

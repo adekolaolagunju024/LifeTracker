@@ -74,6 +74,18 @@ router.delete('/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// POST /api/projects/:id/duplicate — anyone with access can make their own
+// independent copy (it doesn't touch the original or its sharing at all)
+router.post('/:id/duplicate', (req, res) => {
+  try {
+    const copy = db.duplicateProject(req.session.userId, req.params.id);
+    if (!copy) return res.status(404).json({ error: 'Project not found' });
+    res.status(201).json(copy);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // ── SHARING (Google-Sheets-style: invite an existing account by email) ──
 
 // GET /api/projects/:id/collaborators

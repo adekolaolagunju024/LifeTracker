@@ -60,6 +60,17 @@ router.delete('/:id', (req, res) => {
   }
 });
 
+// POST /api/tasks/:id/duplicate
+router.post('/:id/duplicate', (req, res) => {
+  try {
+    const copy = db.duplicateTask(req.session.userId, req.params.id);
+    if (!copy) return res.status(404).json({ error: 'Task not found' });
+    res.status(201).json(copy);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // PUT /api/tasks/:id/tags — { tagIds: [...] }, replaces the task's whole tag set
 router.put('/:id/tags', (req, res) => {
   try {
