@@ -71,6 +71,18 @@ router.post('/:id/duplicate', (req, res) => {
   }
 });
 
+// POST /api/tasks/:id/progress — { delta: 1 } logs one unit toward a
+// task's numeric target (or -1 to undo one); auto-completes at target
+router.post('/:id/progress', (req, res) => {
+  try {
+    const task = db.bumpTaskProgress(req.session.userId, req.params.id, Number(req.body.delta) || 0);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    res.json(task);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // PUT /api/tasks/:id/tags — { tagIds: [...] }, replaces the task's whole tag set
 router.put('/:id/tags', (req, res) => {
   try {

@@ -211,4 +211,13 @@ db.exec('DROP TABLE IF EXISTS wealth_targets');
 db.exec('DROP TABLE IF EXISTS wealth_entries');
 db.exec('DROP TABLE IF EXISTS wealth_log');
 
+// Optional numeric progress target on a task (e.g. "20 mock tests") — a
+// lower-friction alternative to a checklist for a repetitive goal made of
+// identical units: one tap bumps progressCount instead of typing out
+// "Mock test 1", "Mock test 2"... Hitting the target auto-completes the
+// task, same as the recurrence auto-next-occurrence behavior above.
+addColumnIfMissing('tasks', "targetCount INTEGER");
+addColumnIfMissing('tasks', "targetUnit TEXT");
+addColumnIfMissing('tasks', "progressCount INTEGER NOT NULL DEFAULT 0");
+
 module.exports = db;

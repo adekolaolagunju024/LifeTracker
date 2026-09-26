@@ -58,6 +58,7 @@ const API = {
   updateTask: (id, d)   => request('PUT',    `/tasks/${id}`, d),
   deleteTask: (id)      => request('DELETE', `/tasks/${id}`),
   duplicateTask: (id)   => request('POST',   `/tasks/${id}/duplicate`),
+  bumpTaskProgress: (id, delta) => request('POST', `/tasks/${id}/progress`, { delta }),
   reorderTasks: (projectId, taskIds) => request('PUT', '/tasks/reorder', { projectId, taskIds }),
 
   // ── AI INSIGHTS ──

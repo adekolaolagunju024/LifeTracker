@@ -136,6 +136,43 @@ function miniChecklistBadge(t) {
   if (!t.checklistTotal) return '';
   return `<span class="text-[9px] text-gray-400 flex-shrink-0">☑️ ${t.checklistDone}/${t.checklistTotal}</span>`;
 }
+// A numeric progress target (e.g. "20 mock tests") — a lower-friction
+// alternative to a checklist for a repetitive goal made of identical
+// units: one tap logs a unit instead of typing out 20 separate items.
+// Full version (progress bar + count + "+1") for spots with room —
+// the task table row, Kanban card, and task detail panel.
+function taskProgressBarHTML(t) {
+  if (!t.targetCount) return '';
+  const pct = Math.min(100, Math.round((t.progressCount / t.targetCount) * 100));
+  const label = `${t.progressCount}/${t.targetCount}${t.targetUnit ? ' ' + esc(t.targetUnit) : ''}`;
+  return `<div class="flex items-center gap-1.5 mt-1" onclick="event.stopPropagation()">
+    <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[100px]">
+      <div class="h-full bg-teal rounded-full" style="width:${pct}%"></div>
+    </div>
+    <span class="text-[10px] text-gray-500 font-semibold whitespace-nowrap">🎯 ${label}</span>
+    ${t.status !== 'Completed' ? `<button onclick="bumpTaskProgressAction('${t.id}',1,'${t.projectId}')" class="text-[10px] font-bold bg-teal/10 hover:bg-teal/20 text-teal px-1.5 py-0.5 rounded flex-shrink-0" title="Log one">+1</button>` : ''}
+  </div>`;
+}
+// Compact version for tight spots (Gantt row) — just the count, no bar.
+function miniProgressBadge(t) {
+  if (!t.targetCount) return '';
+  return `<span class="text-[9px] text-gray-400 flex-shrink-0" title="Progress toward target">🎯 ${t.progressCount}/${t.targetCount}</span>`;
+}
+// Larger version for the task detail side panel, matching its text sizing.
+function taskProgressPanelHTML(t) {
+  if (!t.targetCount) return '';
+  const pct = Math.min(100, Math.round((t.progressCount / t.targetCount) * 100));
+  const label = `${t.progressCount} / ${t.targetCount}${t.targetUnit ? ' ' + esc(t.targetUnit) : ''}`;
+  return `
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Progress</p>
+    <div class="flex items-center gap-3">
+      <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div class="h-full bg-teal rounded-full" style="width:${pct}%"></div>
+      </div>
+      <span class="text-sm font-semibold text-navy whitespace-nowrap">${label}</span>
+      ${t.status !== 'Completed' ? `<button onclick="bumpTaskProgressAction('${t.id}',1,'${t.projectId}')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0">+1</button>` : ''}
+    </div>`;
+}
 // Delayed / On Track / Done — derived from status + due date, not a stored
 // field, so it's always consistent with the task/project's real data.
 function miniScheduleBadge(t) {
@@ -737,6 +774,7 @@ async function renderTaskTable(projectId) {
             <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">
               <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}</div>
               ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
+              ${taskProgressBarHTML(t)}
             </td>
             <td class="px-4 py-3">
               <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}" ${canEdit ? '' : 'disabled'}
@@ -1261,6 +1299,8 @@ async function renderGantt() {
               ${cardFields.cost ? miniCostBadge(t.cost) : ''}
               ${cardFields.schedule ? miniScheduleBadge(t) : ''}
               ${cardFields.assignee ? assigneeInitialBadge(t.assigneeName) : ''}
+              ${miniProgressBadge(t)}
+              ${t.targetCount && t.status !== 'Completed' && canEditGroup ? `<button onclick="event.stopPropagation();bumpTaskProgressAction('${t.id}',1,'${t.projectId}')" class="flex-shrink-0 text-[10px] font-bold bg-teal/10 hover:bg-teal/20 text-teal px-1 rounded" title="Log one">+1</button>` : ''}
               <button onclick="addTaskToGoogleCalendar('${t.id}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Add to Google Calendar">📅</button>
               ${canEditGroup ? `<button onclick="duplicateTaskAction('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Duplicate">⧉</button>
               <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">🗑️</button>` : ''}
@@ -1435,6 +1475,7 @@ function renderKanbanBoard(tasks, projectById) {
             <span class="truncate flex items-center gap-1.5">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}</span>
             ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
           </div>
+          ${taskProgressBarHTML(t)}
         </div>`;
     }).join('') || `<p class="text-xs text-gray-400 text-center py-6">No tasks</p>`;
 
@@ -2931,6 +2972,8 @@ async function openTaskDetail(id) {
     document.getElementById('td-project-title').textContent = proj ? proj.title : '';
     document.getElementById('td-title').textContent = t.title;
     document.getElementById('td-badges').innerHTML   = statusBadge(t.status) + priorityBadge(t.priority);
+    document.getElementById('td-progress').innerHTML = taskProgressPanelHTML(t);
+    document.getElementById('td-progress').classList.toggle('hidden', !t.targetCount);
     document.getElementById('td-cost').textContent      = (t.cost || 0) > 0 ? '£' + t.cost.toLocaleString() : '—';
     document.getElementById('td-start').textContent     = t.startDate || '—';
     document.getElementById('td-end').textContent       = t.endDate || '—';
@@ -3811,6 +3854,9 @@ async function openAddTask(projectId) {
   document.getElementById('task-cost').value       = '';
   document.getElementById('task-notes').value      = '';
   document.getElementById('task-recurrence').value = 'none';
+  document.getElementById('task-target-count').value = '';
+  document.getElementById('task-target-unit').value  = '';
+  document.getElementById('task-progress-current-row').classList.add('hidden');
   document.getElementById('task-checklist-section').classList.add('hidden');
   APP.taskModalTagIds = [];
   await renderTaskTagPicker();
@@ -3831,6 +3877,10 @@ async function editTask(id) {
   document.getElementById('task-cost').value       = t.cost || '';
   document.getElementById('task-notes').value      = t.notes || '';
   document.getElementById('task-recurrence').value = t.recurrence || 'none';
+  document.getElementById('task-target-count').value = t.targetCount || '';
+  document.getElementById('task-target-unit').value  = t.targetUnit || '';
+  document.getElementById('task-progress-current').value = t.progressCount || 0;
+  document.getElementById('task-progress-current-row').classList.toggle('hidden', !t.targetCount);
   document.getElementById('task-checklist-section').classList.remove('hidden');
   renderTaskChecklist(id);
   APP.taskModalTagIds = (t.tags || []).map(tag => tag.id);
@@ -3923,6 +3973,16 @@ function refreshTaskListsAfterChecklistChange() {
   if (APP.currentPage === 'gantt') renderGantt();
 }
 
+// Only relevant once a target is set — an already-open Edit form flips the
+// current-progress row in/out live as the target is added or cleared,
+// rather than requiring a reopen.
+function onTaskTargetCountChange() {
+  const hasTarget = !!document.getElementById('task-target-count').value;
+  const row = document.getElementById('task-progress-current-row');
+  row.classList.toggle('hidden', !hasTarget);
+  if (hasTarget && !row.querySelector('input').value) row.querySelector('input').value = 0;
+}
+
 let _projectStartDates = {};
 
 function onTaskProjectChange() {
@@ -3986,6 +4046,9 @@ async function saveTask() {
     notes:     document.getElementById('task-notes').value.trim(),
     recurrence: document.getElementById('task-recurrence').value,
     assigneeId: document.getElementById('task-assignee').value || null,
+    targetCount: parseInt(document.getElementById('task-target-count').value, 10) || null,
+    targetUnit: document.getElementById('task-target-unit').value.trim(),
+    progressCount: parseInt(document.getElementById('task-progress-current').value, 10) || 0,
   };
   if (!data.title)     { showToast('Task title is required', 'error'); return; }
   if (!data.projectId) { showToast('Please select a project', 'error'); return; }
@@ -4030,6 +4093,20 @@ async function duplicateTaskAction(id, projectId) {
     if (APP.currentPage === 'gantt') renderGantt();
     updateSidebar();
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to duplicate'), 'error'); }
+}
+
+// Logs one unit toward a task's progress target ("+1" tap) — refreshes
+// whichever view is on screen, same pattern as every other quick action,
+// and flags it when that tap just auto-completed the task.
+async function bumpTaskProgressAction(id, delta, projectId) {
+  try {
+    const updated = await API.bumpTaskProgress(id, delta);
+    showToast(updated.status === 'Completed' ? '🎉 Target reached — task completed!' : '✅ Progress logged');
+    if (projectId) renderTaskTable(projectId);
+    if (APP.currentPage === 'gantt') renderGantt();
+    if (APP_currentDetailTaskId === id) openTaskDetail(id);
+    updateSidebar();
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to log progress'), 'error'); }
 }
 
 // ── EXPORT / IMPORT ─────────────────────────────────────────────

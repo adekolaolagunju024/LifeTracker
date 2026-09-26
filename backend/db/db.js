@@ -314,6 +314,9 @@ function duplicateProject(userId, projectId) {
       // original assignee may have no access to it at all.
       assigneeId: null,
       createdAt: new Date().toISOString(),
+      targetCount: task.targetCount,
+      targetUnit: task.targetUnit,
+      progressCount: task.progressCount,
     });
     const items = db.prepare('SELECT title, completed, sortOrder FROM checklist_items WHERE taskId = ? ORDER BY sortOrder ASC').all(task.id);
     const insertItem = db.prepare('INSERT INTO checklist_items (id, taskId, title, completed, sortOrder) VALUES (?,?,?,?,?)');
@@ -389,11 +392,14 @@ function createTask(userId, task) {
   const { maxOrder } = db.prepare('SELECT MAX(sortOrder) AS maxOrder FROM tasks WHERE projectId = ?').get(task.projectId);
   const sortOrder = (maxOrder ?? -1) + 1;
   const assigneeAssignedAt = task.assigneeId ? new Date().toISOString() : null;
+  const targetCount = task.targetCount || null;
+  const targetUnit = targetCount ? (task.targetUnit || '') : null;
   db.prepare(`
-    INSERT INTO tasks (id, userId, projectId, title, category, status, priority, startDate, endDate, cost, notes, recurrence, sortOrder, assigneeId, assigneeAssignedAt, createdAt)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    INSERT INTO tasks (id, userId, projectId, title, category, status, priority, startDate, endDate, cost, notes, recurrence, sortOrder, assigneeId, assigneeAssignedAt, createdAt, targetCount, targetUnit, progressCount)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(task.id, userId, task.projectId, task.title, task.category || '', task.status || 'Not Started', task.priority || 'Medium',
-         task.startDate || '', task.endDate || '', task.cost || 0, task.notes || '', task.recurrence || 'none', sortOrder, task.assigneeId || null, assigneeAssignedAt, task.createdAt);
+         task.startDate || '', task.endDate || '', task.cost || 0, task.notes || '', task.recurrence || 'none', sortOrder, task.assigneeId || null, assigneeAssignedAt, task.createdAt,
+         targetCount, targetUnit, task.progressCount || 0);
   return getTaskById(userId, task.id);
 }
 
@@ -439,10 +445,16 @@ function updateTaskById(userId, id, patch) {
   // an unrelated edit (say, updating notes) shouldn't re-notify them.
   const assigneeChanged = (next.assigneeId || null) !== (current.assigneeId || null);
   const assigneeAssignedAt = assigneeChanged ? (next.assigneeId ? new Date().toISOString() : null) : current.assigneeAssignedAt;
+  // Clearing the target (targetCount falsy) drops the unit and resets the
+  // counter too — an old count from a target that no longer exists would
+  // just be confusing leftover state.
+  const targetCount = next.targetCount || null;
+  const targetUnit = targetCount ? (next.targetUnit || '') : null;
+  const progressCount = targetCount ? (next.progressCount || 0) : 0;
   db.prepare(`
-    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?, assigneeId=?, assigneeAssignedAt=?
+    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?, assigneeId=?, assigneeAssignedAt=?, targetCount=?, targetUnit=?, progressCount=?
     WHERE id = ?
-  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, assigneeAssignedAt, id);
+  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, assigneeAssignedAt, targetCount, targetUnit, progressCount, id);
 
   // Completing a recurring task schedules its next occurrence automatically
   // — e.g. "apply to 5 jobs this week" comes back next week instead of
@@ -499,6 +511,9 @@ function duplicateTask(userId, id) {
     recurrence: original.recurrence,
     assigneeId: original.assigneeId,
     createdAt: new Date().toISOString(),
+    targetCount: original.targetCount,
+    targetUnit: original.targetUnit,
+    progressCount: original.progressCount,
   });
 
   const items = db.prepare('SELECT title, completed, sortOrder FROM checklist_items WHERE taskId = ? ORDER BY sortOrder ASC').all(id);
@@ -509,6 +524,25 @@ function duplicateTask(userId, id) {
   if (tagIds.length) setTaskTags(userId, copy.id, tagIds);
 
   return getTaskById(userId, copy.id);
+}
+
+// Logs (or un-logs, with a negative delta) one unit of progress toward a
+// task's numeric target — the "+1" tap for a repetitive goal like "20 mock
+// tests" instead of ticking off 20 individually-typed checklist items.
+// Clamped to [0, targetCount] and auto-flips Completed the moment it hits
+// the target (and back off it if you correct a count below the target
+// after that), reusing updateTaskById so recurrence-on-complete still
+// applies the same as completing the task any other way.
+function bumpTaskProgress(userId, id, delta) {
+  const task = getTaskById(userId, id);
+  if (!task) return null;
+  if (!task.targetCount) throw new Error('This task has no progress target set');
+  assertCanEditProject(userId, task.projectId);
+  const nextCount = Math.max(0, Math.min(task.targetCount, task.progressCount + delta));
+  const patch = { progressCount: nextCount };
+  if (nextCount >= task.targetCount && task.status !== 'Completed') patch.status = 'Completed';
+  else if (nextCount < task.targetCount && task.status === 'Completed') patch.status = 'In Progress';
+  return updateTaskById(userId, id, patch);
 }
 
 // ── COLLABORATION (project sharing, invites, presence) ────────────
@@ -1086,7 +1120,7 @@ module.exports = {
   getProfile, updateProfile, listUsersForDigest, setLastDigestSentDate,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById, duplicateProject,
   getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,
-  listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, duplicateTask, reorderTasks,
+  listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, duplicateTask, bumpTaskProgress, reorderTasks,
   listCollaborators, inviteCollaborator, updateCollaboratorRole, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, touchLastActive,
   listComments, addComment, deleteComment,
   listChatPreviews, listProjectMessages, addProjectMessage, deleteProjectMessage,
