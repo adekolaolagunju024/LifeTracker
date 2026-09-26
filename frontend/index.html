@@ -192,10 +192,11 @@
       #gantt-header-scroll, #gantt-rows-scroll { overflow: visible !important; max-height: none !important; }
       .gantt-sticky { position: static !important; box-shadow: none !important; }
       #gantt-project-filter, #gantt-view-toggle, .gantt-view-btn, #gantt-export-actions, #gantt-fields-btn, #gantt-fields-menu, #gantt-page-view-toggle { display: none !important; }
-      /* Printed output shouldn't ever lose text to an ellipsis, regardless
-         of the on-screen wrap preference — there's no "hover to see the
-         rest" on paper. */
-      .gantt-title-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: break-word; min-width: 60px; }
+      /* Deliberately NOT forcing wrap here — print should match whatever
+         is on screen (the .gantt-wrap-on rule above already applies during
+         print too, since it isn't itself scoped to a media query). If the
+         title is truncated with an ellipsis on screen, it prints that way;
+         turning "Wrap task text" on first makes both match in full. */
       @page { size: landscape; margin: 12mm; }
     }
     .spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -0.15em; }
