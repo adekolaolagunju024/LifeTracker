@@ -1193,7 +1193,7 @@
               <span class="icon-badge" style="background:#B0302022">🔔</span>
               <div class="min-w-0">
                 <p class="text-sm font-semibold text-navy">Push Reminders</p>
-                <p class="text-xs text-gray-400 mt-0.5">Real notifications on this device — an alert the moment a task goes overdue, a morning ping for what's due today, and a nudge every couple hours while something's still outstanding (9am–6pm).</p>
+                <p class="text-xs text-gray-400 mt-0.5">Real notifications on this device — an alert the moment a task goes overdue, a morning ping for what's due today, and a nudge every couple hours while something's still outstanding (9am–6pm). The overdue and nudge alerts vibrate and stay on screen until you dismiss them, not a 3-second toast that's easy to swipe away without looking.</p>
               </div>
             </div>
             <button onclick="togglePushReminders()" class="ios-switch" id="push-reminders-btn" role="switch" aria-label="Toggle push reminders on this device"><span class="ios-switch-knob"></span></button>
@@ -1203,6 +1203,16 @@
             <span class="text-xs text-gray-400" id="push-reminders-status"></span>
           </div>
           <p class="text-xs text-gray-400 mt-2 ml-[52px]">On iPhone, Safari only delivers these if Waypoint is added to your Home Screen first (Share → Add to Home Screen) — a plain browser tab can't receive them.</p>
+        </div>
+        <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="icon-badge" style="background:#7C3AED22">✉️</span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-navy">Activity Emails</p>
+              <p class="text-xs text-gray-400 mt-0.5">An email the moment something happens, not just a daily roundup — you're assigned a task, someone @mentions you, comments on a task you're on, or invites you to a project.</p>
+            </div>
+          </div>
+          <button onclick="toggleActivityEmails()" class="ios-switch" id="activity-emails-btn" role="switch" aria-label="Toggle activity emails"><span class="ios-switch-knob"></span></button>
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">

@@ -31,10 +31,10 @@ function getVapidPublicKey() {
 // Sends to every device a user has enabled reminders on; a subscription
 // the push service reports as gone (410) or invalid (404) is removed on
 // the spot rather than retried forever.
-async function sendPushToUser(userId, { title, body, url }) {
+async function sendPushToUser(userId, { title, body, url, urgent, tag }) {
   ensureVapidKeys();
   const subs = db.listPushSubscriptionsForUser(userId);
-  const payload = JSON.stringify({ title, body, url: url || APP_URL });
+  const payload = JSON.stringify({ title, body, url: url || APP_URL, urgent: !!urgent, tag });
   await Promise.all(subs.map(async sub => {
     try {
       await webpush.sendNotification(

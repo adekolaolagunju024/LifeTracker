@@ -48,16 +48,16 @@ function clearPasswordResetToken(id) {
 // ── PROFILE ──────────────────────────────────────────────────────
 function getProfile(userId) {
   const row = db.prepare('SELECT * FROM profile WHERE userId = ?').get(userId);
-  return { ...row, onboarded: !!row.onboarded, emailDigestEnabled: !!row.emailDigestEnabled, pushRemindersEnabled: !!row.pushRemindersEnabled };
+  return { ...row, onboarded: !!row.onboarded, emailDigestEnabled: !!row.emailDigestEnabled, pushRemindersEnabled: !!row.pushRemindersEnabled, activityEmailsEnabled: !!row.activityEmailsEnabled };
 }
 
 function updateProfile(userId, patch) {
   const current = getProfile(userId);
   const next = { ...current, ...patch };
   db.prepare(`
-    UPDATE profile SET name=?, tagline=?, currency=?, targetNetWorth=?, targetDate=?, onboarded=?, emailDigestEnabled=?, pushRemindersEnabled=?
+    UPDATE profile SET name=?, tagline=?, currency=?, targetNetWorth=?, targetDate=?, onboarded=?, emailDigestEnabled=?, pushRemindersEnabled=?, activityEmailsEnabled=?
     WHERE userId = ?
-  `).run(next.name, next.tagline, next.currency, next.targetNetWorth, next.targetDate, next.onboarded ? 1 : 0, next.emailDigestEnabled ? 1 : 0, next.pushRemindersEnabled ? 1 : 0, userId);
+  `).run(next.name, next.tagline, next.currency, next.targetNetWorth, next.targetDate, next.onboarded ? 1 : 0, next.emailDigestEnabled ? 1 : 0, next.pushRemindersEnabled ? 1 : 0, next.activityEmailsEnabled ? 1 : 0, userId);
   return getProfile(userId);
 }
 
@@ -626,6 +626,40 @@ function listCollaborators(projectId) {
     ORDER BY pc.invitedAt ASC
   `).all(projectId);
   return [...ownerRow, ...collaborators];
+}
+
+// Matches @Name mentions in a comment/message against the project's own
+// collaborator list (not a generic @word regex) — same matching rule the
+// frontend uses to highlight them, so "who got mentioned" is consistent
+// between what's displayed and who gets emailed. Longest names first so
+// "@Alex Smith" doesn't only match on "@Alex".
+function extractMentionedUserIds(text, projectId) {
+  const people = listCollaborators(projectId).filter(p => p.joinedAt && p.name);
+  const sorted = [...people].sort((a, b) => b.name.length - a.name.length);
+  const matched = new Set();
+  const consumed = new Set();
+  sorted.forEach(p => {
+    const escName = p.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp('@' + escName + '\\b');
+    if (re.test(text) && !consumed.has(p.name)) {
+      matched.add(p.userId);
+      consumed.add(p.name);
+    }
+  });
+  return [...matched];
+}
+
+// Who a task comment should notify beyond anyone directly @mentioned: the
+// assignee, whoever created the task, and anyone who's commented on it
+// before — a lightweight "thread participants" set, same idea as Asana/
+// ClickUp "followers," rather than broadcasting to the whole project.
+function getTaskFollowers(taskId, excludeUserId) {
+  const task = db.prepare('SELECT userId, assigneeId FROM tasks WHERE id = ?').get(taskId);
+  if (!task) return [];
+  const commenterIds = db.prepare('SELECT DISTINCT userId FROM task_comments WHERE taskId = ?').all(taskId).map(r => r.userId);
+  const ids = new Set([task.userId, task.assigneeId, ...commenterIds].filter(Boolean));
+  ids.delete(excludeUserId);
+  return [...ids];
 }
 
 // Invites an existing account (by email) onto a project — owner-only.
@@ -1257,6 +1291,7 @@ module.exports = {
   getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, duplicateTask, bumpTaskProgress, reorderTasks,
   listCollaborators, inviteCollaborator, updateCollaboratorRole, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, leaveProject, touchLastActive,
+  extractMentionedUserIds, getTaskFollowers,
   listComments, addComment, deleteComment,
   listChatPreviews, listProjectMessages, addProjectMessage, deleteProjectMessage,
   getLiveStatus, startLiveSession, endLiveSession,

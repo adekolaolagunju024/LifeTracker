@@ -29,12 +29,15 @@ router.post('/unsubscribe', (req, res) => {
 
 // POST /api/push/test — lets Settings offer a "Send test notification"
 // button, so turning this on comes with immediate confirmation it worked
-// instead of silently waiting for the next real reminder.
+// instead of silently waiting for the next real reminder. Sent as
+// "urgent" (stays on screen, vibrates) so the test actually demonstrates
+// what the overdue/focus-nudge alerts feel like, not a softer preview of it.
 router.post('/test', async (req, res) => {
   try {
     await sendPushToUser(req.session.userId, {
       title: '✅ Push reminders are working',
-      body: "You'll get alerts like this for overdue and due-today tasks.",
+      body: "This is what an overdue/focus-nudge alert feels like — stays put until you dismiss it.",
+      urgent: true,
     });
     res.json({ success: true });
   } catch (e) {

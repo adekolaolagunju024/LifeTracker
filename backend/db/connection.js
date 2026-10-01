@@ -264,4 +264,11 @@ addColumnIfMissing('profile', "lastFocusNudgeAt TEXT");
 // whenever the task's own dates/status change (see updateTaskById).
 addColumnIfMissing('tasks', "overdueNotifiedAt TEXT");
 
+// Activity emails (Asana/ClickUp-style instant per-event emails — assigned,
+// @mentioned, commented on your task, invited — as opposed to the once-a-
+// day digest above) — see backend/email/activity.js. One blanket toggle
+// rather than Asana's per-event checkboxes, deliberately: simpler to ship,
+// and these four events are already each fairly low-noise on their own.
+addColumnIfMissing('profile', "activityEmailsEnabled INTEGER NOT NULL DEFAULT 0");
+
 module.exports = db;

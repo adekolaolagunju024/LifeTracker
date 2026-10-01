@@ -3,6 +3,7 @@ const router  = express.Router();
 const { v4: uuid } = require('uuid');
 const db = require('../db/db');
 const { sendChatMessageEmail } = require('../email/chatMail');
+const { notifyMentioned, notifyInvited } = require('../email/activity');
 
 // ── INVITES (registered before /:id so "invites" isn't captured as an id) ──
 
@@ -99,6 +100,9 @@ router.post('/:id/collaborators', (req, res) => {
   try {
     const invite = db.inviteCollaborator(req.session.userId, req.params.id, req.body.email, req.body.role);
     res.status(201).json(invite);
+    const project = db.getProjectById(req.session.userId, invite.projectId);
+    const inviterName = db.getProfile(req.session.userId).name;
+    notifyInvited(invite.userId, inviterName, project?.title || '').catch(e => console.error('Invite email failed:', e.message));
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -158,6 +162,20 @@ router.post('/:id/messages', async (req, res) => {
       email = await sendChatMessageEmail(req.session.userId, req.params.id, message, req.body.ccEmails);
     }
     res.status(201).json({ ...message, email });
+
+    // @mentions get an activity email regardless of the "also email the
+    // team" checkbox above — that one's an explicit broadcast the sender
+    // opts into per message; a mention is the recipient's own opt-in
+    // (Settings → Activity Emails) firing for something actually about them.
+    if (message.text) {
+      const project = db.getProjectById(req.session.userId, req.params.id);
+      const senderName = db.getProfile(req.session.userId).name;
+      db.extractMentionedUserIds(message.text, req.params.id)
+        .filter(userId => userId !== req.session.userId)
+        .forEach(userId => {
+          notifyMentioned(userId, senderName, message.text, { projectTitle: project?.title || '' }).catch(e => console.error('Mention email failed:', e.message));
+        });
+    }
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

@@ -42,7 +42,7 @@ async function checkOverdueAlerts() {
       const { overdue } = getAttentionTasks(u.userId, todayKey);
       for (const t of overdue) {
         if (t.overdueNotifiedAt) continue;
-        await sendPushToUser(u.userId, { title: '🔴 Overdue: ' + t.title, body: `Was due ${t.endDate.slice(0, 10)}` });
+        await sendPushToUser(u.userId, { title: '🔴 Overdue: ' + t.title, body: `Was due ${t.endDate.slice(0, 10)}`, urgent: true });
         db.markTaskOverdueNotified(t.id, nowIso);
       }
     } catch (e) { console.error(`Overdue push check failed for ${u.userId}:`, e.message); }
@@ -85,6 +85,8 @@ async function checkFocusNudges() {
       await sendPushToUser(u.userId, {
         title: `⏰ Still open: ${count} ${count === 1 ? 'task needs' : 'tasks need'} attention today`,
         body: [...overdue, ...dueToday].slice(0, 3).map(t => t.title).join(', '),
+        urgent: true,
+        tag: 'focus-nudge', // renotify (re-vibrate/re-sound) each time, not silently replace a still-open one
       });
       db.setLastFocusNudgeAt(u.userId, now.toISOString());
     } catch (e) { console.error(`Focus nudge failed for ${u.userId}:`, e.message); }

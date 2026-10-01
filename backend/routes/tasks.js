@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const { v4: uuid } = require('uuid');
 const db = require('../db/db');
+const { notifyAssigned, notifyMentioned, notifyTaskComment } = require('../email/activity');
 
 // GET /api/tasks?projectId=&status=&priority=&category=&search=
 router.get('/', (req, res) => {
@@ -24,6 +25,14 @@ router.post('/', (req, res) => {
       ...req.body,
     });
     res.status(201).json(task);
+    // Fire-and-forget — the response already went out; a slow or failed
+    // email (or Gmail just not being configured) shouldn't hold up or
+    // fail the actual task creation.
+    if (task.assigneeId && task.assigneeId !== req.session.userId) {
+      const project = db.getProjectById(req.session.userId, task.projectId);
+      const assignedByName = db.getProfile(req.session.userId).name;
+      notifyAssigned(task.assigneeId, task, project?.title || '', assignedByName).catch(e => console.error('Assigned email failed:', e.message));
+    }
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -42,9 +51,16 @@ router.put('/reorder', (req, res) => {
 // PUT /api/tasks/:id
 router.put('/:id', (req, res) => {
   try {
+    const before = db.getTaskById(req.session.userId, req.params.id);
     const task = db.updateTaskById(req.session.userId, req.params.id, req.body);
     if (!task) return res.status(404).json({ error: 'Task not found' });
     res.json(task);
+    const assigneeChanged = task.assigneeId && task.assigneeId !== before?.assigneeId;
+    if (assigneeChanged && task.assigneeId !== req.session.userId) {
+      const project = db.getProjectById(req.session.userId, task.projectId);
+      const assignedByName = db.getProfile(req.session.userId).name;
+      notifyAssigned(task.assigneeId, task, project?.title || '', assignedByName).catch(e => console.error('Assigned email failed:', e.message));
+    }
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -107,6 +123,23 @@ router.post('/:id/comments', (req, res) => {
     const comment = db.addComment(req.session.userId, req.params.id, req.body.text, req.body.attachmentId, req.body.replyToId);
     if (!comment) return res.status(404).json({ error: 'Task not found' });
     res.status(201).json(comment);
+
+    // Activity emails: anyone @mentioned gets the targeted email; everyone
+    // else "following" the task (assignee, creator, prior commenters) gets
+    // the generic one — never both, mentioning someone is more specific.
+    const task = db.getTaskById(req.session.userId, req.params.id);
+    if (task && comment.text) {
+      const project = db.getProjectById(req.session.userId, task.projectId);
+      const commenterName = db.getProfile(req.session.userId).name;
+      const mentionedIds = new Set(db.extractMentionedUserIds(comment.text, task.projectId).filter(id => id !== req.session.userId));
+      mentionedIds.forEach(userId => {
+        notifyMentioned(userId, commenterName, comment.text, { taskTitle: task.title }).catch(e => console.error('Mention email failed:', e.message));
+      });
+      db.getTaskFollowers(task.id, req.session.userId).forEach(userId => {
+        if (mentionedIds.has(userId)) return;
+        notifyTaskComment(userId, commenterName, task, project?.title || '', comment.text).catch(e => console.error('Task comment email failed:', e.message));
+      });
+    }
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

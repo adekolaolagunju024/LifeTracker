@@ -2450,6 +2450,7 @@ async function renderSettings() {
     document.getElementById('set-date').value     = p.targetDate;
     setEmailDigestButton(p.emailDigestEnabled);
     setPushRemindersButton(p.pushRemindersEnabled);
+    setActivityEmailsButton(p.activityEmailsEnabled);
     renderSettingsDrive();
     renderTrash();
     API.getMe().then(me => { document.getElementById('account-email').textContent = me.email; }).catch(() => {});
@@ -2569,6 +2570,22 @@ async function toggleEmailDigest() {
     await API.updateProfile({ emailDigestEnabled: next });
     setEmailDigestButton(next);
     showToast(next ? '✅ Daily digest emails turned on' : 'Daily digest emails turned off');
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to update'), 'error'); }
+}
+
+// ── ACTIVITY EMAILS (instant per-event — assigned/mentioned/commented/invited) ──
+function setActivityEmailsButton(enabled) {
+  const btn = document.getElementById('activity-emails-btn');
+  btn.classList.toggle('on', enabled);
+  btn.dataset.enabled = enabled ? '1' : '0';
+}
+async function toggleActivityEmails() {
+  const btn = document.getElementById('activity-emails-btn');
+  const next = btn.dataset.enabled !== '1';
+  try {
+    await API.updateProfile({ activityEmailsEnabled: next });
+    setActivityEmailsButton(next);
+    showToast(next ? '✅ Activity emails turned on' : 'Activity emails turned off');
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to update'), 'error'); }
 }
 

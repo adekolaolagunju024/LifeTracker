@@ -14,12 +14,21 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   let data = { title: 'Waypoint', body: 'You have a reminder.' };
   try { data = { ...data, ...event.data.json() }; } catch {}
+  // "urgent" (overdue alerts, focus nudges) stays on screen until actually
+  // dismissed instead of auto-disappearing after a few seconds, and
+  // vibrates — the whole point of these two is to interrupt a scrolling
+  // session, not blend into the notification shade unnoticed. The
+  // due-today ping and test notification stay soft/informational.
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-192.png',
       data: { url: data.url || '/' },
+      requireInteraction: !!data.urgent,
+      vibrate: data.urgent ? [300, 150, 300, 150, 300] : [200],
+      tag: data.tag || undefined,
+      renotify: !!data.tag,
     })
   );
 });
