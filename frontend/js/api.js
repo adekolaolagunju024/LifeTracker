@@ -163,4 +163,10 @@ const API = {
   // ── NOTIFICATIONS ──
   getNotifications:      ()  => request('GET',  '/notifications'),
   markNotificationsRead: ()  => request('POST', '/notifications/read'),
+
+  // ── PUSH REMINDERS ──
+  getVapidPublicKey: ()         => request('GET',  '/push/vapid-public-key'),
+  subscribePush:     (sub)      => request('POST', '/push/subscribe', sub),
+  unsubscribePush:   (endpoint) => request('POST', '/push/unsubscribe', { endpoint }),
+  testPush:          ()         => request('POST', '/push/test'),
 };

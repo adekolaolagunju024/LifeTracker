@@ -1177,7 +1177,7 @@
           </div>
           <button onclick="toggleTheme()" class="ios-switch" id="theme-switch" role="switch" aria-label="Toggle dark mode"><span class="ios-switch-knob"></span></button>
         </div>
-        <div class="flex items-center justify-between pt-3.5">
+        <div class="flex items-center justify-between py-3.5 border-b border-gray-100">
           <div class="flex items-center gap-3 min-w-0">
             <span class="icon-badge" style="background:#0A7E8C22">📧</span>
             <div class="min-w-0">
@@ -1186,6 +1186,23 @@
             </div>
           </div>
           <button onclick="toggleEmailDigest()" class="ios-switch" id="email-digest-btn" role="switch" aria-label="Toggle daily email digest"><span class="ios-switch-knob"></span></button>
+        </div>
+        <div class="pt-3.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="icon-badge" style="background:#B0302022">🔔</span>
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-navy">Push Reminders</p>
+                <p class="text-xs text-gray-400 mt-0.5">Real notifications on this device — an alert the moment a task goes overdue, a morning ping for what's due today, and a nudge every couple hours while something's still outstanding (9am–6pm).</p>
+              </div>
+            </div>
+            <button onclick="togglePushReminders()" class="ios-switch" id="push-reminders-btn" role="switch" aria-label="Toggle push reminders on this device"><span class="ios-switch-knob"></span></button>
+          </div>
+          <div class="hidden mt-3 ml-[52px] flex items-center gap-3" id="push-reminders-test-row">
+            <button onclick="sendTestPush()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">Send test notification</button>
+            <span class="text-xs text-gray-400" id="push-reminders-status"></span>
+          </div>
+          <p class="text-xs text-gray-400 mt-2 ml-[52px]">On iPhone, Safari only delivers these if Waypoint is added to your Home Screen first (Share → Add to Home Screen) — a plain browser tab can't receive them.</p>
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">

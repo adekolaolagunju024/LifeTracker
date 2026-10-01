@@ -236,4 +236,32 @@ addColumnIfMissing('projects', "liveRoomName TEXT");
 addColumnIfMissing('projects', "liveStartedAt TEXT");
 addColumnIfMissing('projects', "liveStartedBy TEXT REFERENCES users(id) ON DELETE SET NULL");
 
+// Push reminders (real OS-level notifications, distinct from both the
+// email digest and the in-app bell) — see backend/push/. app_config holds
+// the server's own VAPID keypair (generated once on first use, not a
+// per-.env secret, so the feature works with zero manual setup); a device
+// can hold several subscriptions per user (phone + desktop + tablet).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS app_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+  );
+`);
+addColumnIfMissing('profile', "pushRemindersEnabled INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('profile', "lastPushDigestSentDate TEXT");
+addColumnIfMissing('profile', "lastFocusNudgeAt TEXT");
+// Dedupes the "just went overdue" push so it fires once, not on every
+// ~15-minute scheduler tick while the task stays overdue — cleared
+// whenever the task's own dates/status change (see updateTaskById).
+addColumnIfMissing('tasks', "overdueNotifiedAt TEXT");
+
 module.exports = db;

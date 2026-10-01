@@ -2449,6 +2449,7 @@ async function renderSettings() {
     document.getElementById('set-target').value   = p.targetNetWorth;
     document.getElementById('set-date').value     = p.targetDate;
     setEmailDigestButton(p.emailDigestEnabled);
+    setPushRemindersButton(p.pushRemindersEnabled);
     renderSettingsDrive();
     renderTrash();
     API.getMe().then(me => { document.getElementById('account-email').textContent = me.email; }).catch(() => {});
@@ -2569,6 +2570,78 @@ async function toggleEmailDigest() {
     setEmailDigestButton(next);
     showToast(next ? '✅ Daily digest emails turned on' : 'Daily digest emails turned off');
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to update'), 'error'); }
+}
+
+// ── PUSH REMINDERS (real OS-level notifications on this device) ──
+// The Settings toggle reflects — and drives — THIS device's own browser
+// subscription, not just a database flag: turning it on actually requests
+// Notification permission and registers a service worker, since a
+// "reminders enabled" account flag with no device actually subscribed
+// would silently send nothing.
+function setPushRemindersButton(enabled) {
+  const btn = document.getElementById('push-reminders-btn');
+  btn.classList.toggle('on', enabled);
+  btn.dataset.enabled = enabled ? '1' : '0';
+  document.getElementById('push-reminders-test-row').classList.toggle('hidden', !enabled);
+  document.getElementById('push-reminders-status').textContent = '';
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+async function togglePushReminders() {
+  const btn = document.getElementById('push-reminders-btn');
+  const turningOn = btn.dataset.enabled !== '1';
+  try {
+    if (turningOn) {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        throw new Error("Push notifications aren't supported in this browser");
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') throw new Error('Notification permission was not granted');
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      const { publicKey } = await API.getVapidPublicKey();
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+      }
+      await API.subscribePush(subscription.toJSON());
+      await API.updateProfile({ pushRemindersEnabled: true });
+      setPushRemindersButton(true);
+      showToast('✅ Push reminders turned on');
+    } else {
+      const registration = await navigator.serviceWorker.getRegistration();
+      const subscription = await registration?.pushManager.getSubscription();
+      if (subscription) {
+        await API.unsubscribePush(subscription.endpoint).catch(() => {});
+        await subscription.unsubscribe();
+      }
+      await API.updateProfile({ pushRemindersEnabled: false });
+      setPushRemindersButton(false);
+      showToast('Push reminders turned off');
+    }
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'Failed to update push reminders'), 'error');
+  }
+}
+
+async function sendTestPush() {
+  const statusEl = document.getElementById('push-reminders-status');
+  statusEl.textContent = 'Sending…';
+  try {
+    await API.testPush();
+    statusEl.textContent = 'Sent — check your notifications.';
+  } catch (e) {
+    statusEl.textContent = '❌ ' + (e.message || 'Failed to send');
+  }
 }
 
 // ── AUTH ────────────────────────────────────────────────────────

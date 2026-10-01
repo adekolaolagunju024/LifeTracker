@@ -11,6 +11,7 @@ const db = require('./db/connection');
 const requireAuth = require('./middleware/requireAuth');
 const SqliteStore = require('better-sqlite3-session-store')(session);
 const { startDigestScheduler } = require('./email/digest');
+const { startPushReminderScheduler } = require('./push/scheduler');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -72,6 +73,7 @@ app.use('/api/checklist', require('./routes/checklist'));
 app.use('/api/tags',     require('./routes/tags'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/uploads',  require('./routes/uploads'));
+app.use('/api/push',     require('./routes/push'));
 
 // ── CATCH ALL — serve frontend ──
 app.get('*', (req, res) => {
@@ -83,3 +85,4 @@ app.listen(PORT, () => {
 });
 
 startDigestScheduler();
+startPushReminderScheduler();

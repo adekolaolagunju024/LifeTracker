@@ -48,16 +48,16 @@ function clearPasswordResetToken(id) {
 // ── PROFILE ──────────────────────────────────────────────────────
 function getProfile(userId) {
   const row = db.prepare('SELECT * FROM profile WHERE userId = ?').get(userId);
-  return { ...row, onboarded: !!row.onboarded, emailDigestEnabled: !!row.emailDigestEnabled };
+  return { ...row, onboarded: !!row.onboarded, emailDigestEnabled: !!row.emailDigestEnabled, pushRemindersEnabled: !!row.pushRemindersEnabled };
 }
 
 function updateProfile(userId, patch) {
   const current = getProfile(userId);
   const next = { ...current, ...patch };
   db.prepare(`
-    UPDATE profile SET name=?, tagline=?, currency=?, targetNetWorth=?, targetDate=?, onboarded=?, emailDigestEnabled=?
+    UPDATE profile SET name=?, tagline=?, currency=?, targetNetWorth=?, targetDate=?, onboarded=?, emailDigestEnabled=?, pushRemindersEnabled=?
     WHERE userId = ?
-  `).run(next.name, next.tagline, next.currency, next.targetNetWorth, next.targetDate, next.onboarded ? 1 : 0, next.emailDigestEnabled ? 1 : 0, userId);
+  `).run(next.name, next.tagline, next.currency, next.targetNetWorth, next.targetDate, next.onboarded ? 1 : 0, next.emailDigestEnabled ? 1 : 0, next.pushRemindersEnabled ? 1 : 0, userId);
   return getProfile(userId);
 }
 
@@ -73,6 +73,58 @@ function listUsersForDigest() {
 
 function setLastDigestSentDate(userId, dateStr) {
   db.prepare('UPDATE profile SET lastDigestSentDate = ? WHERE userId = ?').run(dateStr, userId);
+}
+
+// ── PUSH REMINDERS (real OS-level notifications — see backend/push/) ──
+function getAppConfig(key) {
+  return db.prepare('SELECT value FROM app_config WHERE key = ?').get(key)?.value || null;
+}
+function setAppConfig(key, value) {
+  db.prepare('INSERT INTO app_config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
+}
+
+// One row per browser/device a user has enabled reminders on — a phone and
+// a desktop both get their own push. Re-subscribing the same endpoint
+// (e.g. permission re-granted) just refreshes its keys rather than
+// duplicating the row.
+function addPushSubscription(userId, { endpoint, keys }) {
+  const existing = db.prepare('SELECT id FROM push_subscriptions WHERE endpoint = ?').get(endpoint);
+  if (existing) {
+    db.prepare('UPDATE push_subscriptions SET userId = ?, p256dh = ?, auth = ? WHERE endpoint = ?').run(userId, keys.p256dh, keys.auth, endpoint);
+    return existing.id;
+  }
+  const id = uuid();
+  db.prepare('INSERT INTO push_subscriptions (id, userId, endpoint, p256dh, auth, createdAt) VALUES (?,?,?,?,?,?)')
+    .run(id, userId, endpoint, keys.p256dh, keys.auth, new Date().toISOString());
+  return id;
+}
+function removePushSubscription(userId, endpoint) {
+  db.prepare('DELETE FROM push_subscriptions WHERE userId = ? AND endpoint = ?').run(userId, endpoint);
+}
+function removePushSubscriptionByEndpoint(endpoint) {
+  db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(endpoint);
+}
+function listPushSubscriptionsForUser(userId) {
+  return db.prepare('SELECT * FROM push_subscriptions WHERE userId = ?').all(userId);
+}
+
+// All users with push reminders turned on — the scheduler needs this plus
+// each user's own tasks (fetched separately, same as the email digest).
+function listUsersForPushReminders() {
+  return db.prepare(`
+    SELECT u.id AS userId, p.name, p.lastPushDigestSentDate, p.lastFocusNudgeAt
+    FROM profile p JOIN users u ON u.id = p.userId
+    WHERE p.pushRemindersEnabled = 1
+  `).all();
+}
+function setLastPushDigestSentDate(userId, dateStr) {
+  db.prepare('UPDATE profile SET lastPushDigestSentDate = ? WHERE userId = ?').run(dateStr, userId);
+}
+function setLastFocusNudgeAt(userId, iso) {
+  db.prepare('UPDATE profile SET lastFocusNudgeAt = ? WHERE userId = ?').run(iso, userId);
+}
+function markTaskOverdueNotified(taskId, iso) {
+  db.prepare('UPDATE tasks SET overdueNotifiedAt = ? WHERE id = ?').run(iso, taskId);
 }
 
 // ── ACCESS CONTROL (Google-Sheets-style project sharing) ─────────
@@ -452,10 +504,15 @@ function updateTaskById(userId, id, patch) {
   const targetCount = next.targetCount || null;
   const targetUnit = targetCount ? (next.targetUnit || '') : null;
   const progressCount = targetCount ? (next.progressCount || 0) : 0;
+  // A due-date or status change can un-overdue a task (pushed back, or
+  // reopened/completed) — clear the "already sent that push" flag so it's
+  // free to fire again if it genuinely becomes overdue a second time,
+  // rather than staying silently suppressed forever.
+  const overdueNotifiedAt = (next.endDate !== current.endDate || next.status !== current.status) ? null : current.overdueNotifiedAt;
   db.prepare(`
-    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?, assigneeId=?, assigneeAssignedAt=?, targetCount=?, targetUnit=?, progressCount=?
+    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?, assigneeId=?, assigneeAssignedAt=?, targetCount=?, targetUnit=?, progressCount=?, overdueNotifiedAt=?
     WHERE id = ?
-  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, assigneeAssignedAt, targetCount, targetUnit, progressCount, id);
+  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, assigneeAssignedAt, targetCount, targetUnit, progressCount, overdueNotifiedAt, id);
 
   // Completing a recurring task schedules its next occurrence automatically
   // — e.g. "apply to 5 jobs this week" comes back next week instead of
@@ -1194,6 +1251,8 @@ module.exports = {
   createUser, getUserByEmail, getUserById, setUserPasswordHash, deleteUser,
   setPasswordResetToken, getUserByResetToken, clearPasswordResetToken,
   getProfile, updateProfile, listUsersForDigest, setLastDigestSentDate,
+  getAppConfig, setAppConfig, addPushSubscription, removePushSubscription, removePushSubscriptionByEndpoint,
+  listPushSubscriptionsForUser, listUsersForPushReminders, setLastPushDigestSentDate, setLastFocusNudgeAt, markTaskOverdueNotified,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById, duplicateProject,
   getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, duplicateTask, bumpTaskProgress, reorderTasks,
