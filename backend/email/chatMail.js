@@ -27,8 +27,7 @@ async function sendChatMessageEmail(senderId, projectId, message, ccEmails = [])
 
   try {
     await transporter.sendMail({
-      from: `"Waypoint" <${process.env.GMAIL_USER}>`,
-      to: [...recipients].join(', '),
+      to: [...recipients],
       subject: `💬 ${sender.name} in ${project.title}`,
       html: `<!doctype html><html><body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,Segoe UI,Arial,sans-serif;">
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;padding:24px 0;">

@@ -107,7 +107,7 @@ function buildDigestForUser(userId, name) {
 async function runDailyDigest() {
   const transporter = getTransporter();
   if (!transporter) {
-    console.log('Email digest: GMAIL_USER/GMAIL_APP_PASSWORD not set — skipping.');
+    console.log('Email digest: RESEND_API_KEY not set — skipping.');
     return;
   }
 
@@ -119,7 +119,6 @@ async function runDailyDigest() {
       const html = buildDigestForUser(u.userId, u.name);
       if (html) {
         await transporter.sendMail({
-          from: `"Waypoint" <${process.env.GMAIL_USER}>`,
           to: u.email,
           subject: '📋 Your Waypoint digest',
           html,

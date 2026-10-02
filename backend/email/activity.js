@@ -48,14 +48,13 @@ async function sendActivityEmail(userId, { subject, heading, bodyHtml }) {
   }
   const transporter = getTransporter();
   if (!transporter) {
-    console.log('Activity email skipped: GMAIL_USER/GMAIL_APP_PASSWORD not set.');
+    console.log('Activity email skipped: RESEND_API_KEY not set.');
     return;
   }
   const user = db.getUserById(userId);
   if (!user) return;
   try {
     await transporter.sendMail({
-      from: `"Waypoint" <${process.env.GMAIL_USER}>`,
       to: user.email,
       subject,
       html: wrapEmailHtml({ heading, bodyHtml }),
