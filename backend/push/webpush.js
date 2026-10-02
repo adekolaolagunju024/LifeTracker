@@ -30,25 +30,36 @@ function getVapidPublicKey() {
 
 // Sends to every device a user has enabled reminders on; a subscription
 // the push service reports as gone (410) or invalid (404) is removed on
-// the spot rather than retried forever.
+// the spot rather than retried forever. Logged on every outcome (not just
+// failure) — a silent success and "never had a subscription to send to in
+// the first place" used to look identical from the server logs alone.
 async function sendPushToUser(userId, { title, body, url, urgent, tag }) {
   ensureVapidKeys();
   const subs = db.listPushSubscriptionsForUser(userId);
+  if (!subs.length) {
+    console.log(`Push skipped for user ${userId}: no subscriptions registered (device never finished enabling it).`);
+    return;
+  }
   const payload = JSON.stringify({ title, body, url: url || APP_URL, urgent: !!urgent, tag });
+  let sent = 0, failed = 0;
   await Promise.all(subs.map(async sub => {
     try {
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         payload
       );
+      sent++;
     } catch (e) {
+      failed++;
       if (e.statusCode === 404 || e.statusCode === 410) {
         db.removePushSubscriptionByEndpoint(sub.endpoint);
+        console.log(`Push subscription removed for user ${userId}: push service reported it gone (${e.statusCode}).`);
       } else {
-        console.error(`Push send failed for ${userId}:`, e.message);
+        console.error(`Push send failed for ${userId} (status ${e.statusCode || 'n/a'}):`, e.message);
       }
     }
   }));
+  if (sent) console.log(`Push sent to ${sent}/${subs.length} device(s) for user ${userId}: ${title}`);
 }
 
 module.exports = { getVapidPublicKey, sendPushToUser };
