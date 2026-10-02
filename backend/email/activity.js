@@ -35,14 +35,22 @@ function taskCardHtml(task, projectTitle) {
   </div>`;
 }
 
-// Silently a no-op if the recipient hasn't opted in, or Gmail isn't
-// configured on the server — same two guards as the daily digest, checked
-// fresh per-send rather than cached, since either can change anytime.
+// A no-op if the recipient hasn't opted in, or Gmail isn't configured on
+// the server — same two guards as the daily digest, checked fresh per-send
+// rather than cached, since either can change anytime. Logged either way
+// (not just on failure) so "nothing arrived" is diagnosable from server
+// logs alone — was it skipped, attempted-and-failed, or sent fine?
 async function sendActivityEmail(userId, { subject, heading, bodyHtml }) {
   const profile = db.getProfile(userId);
-  if (!profile.activityEmailsEnabled) return;
+  if (!profile.activityEmailsEnabled) {
+    console.log(`Activity email skipped for user ${userId}: activityEmailsEnabled is off.`);
+    return;
+  }
   const transporter = getTransporter();
-  if (!transporter) return;
+  if (!transporter) {
+    console.log('Activity email skipped: GMAIL_USER/GMAIL_APP_PASSWORD not set.');
+    return;
+  }
   const user = db.getUserById(userId);
   if (!user) return;
   try {
@@ -52,6 +60,7 @@ async function sendActivityEmail(userId, { subject, heading, bodyHtml }) {
       subject,
       html: wrapEmailHtml({ heading, bodyHtml }),
     });
+    console.log(`Activity email sent to ${user.email}: ${subject}`);
   } catch (e) {
     console.error(`Activity email failed for ${user.email}:`, e.message);
   }
