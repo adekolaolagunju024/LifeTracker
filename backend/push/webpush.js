@@ -1,7 +1,6 @@
 const webpush = require('web-push');
 const db = require('../db/db');
-
-const APP_URL = process.env.APP_URL || 'http://localhost:3000';
+const { APP_URL } = require('../email/appUrl');
 
 // VAPID identifies this server to push services (Chrome/Firefox/etc) —
 // unlike Gmail or Google OAuth, it needs no external account at all, just
