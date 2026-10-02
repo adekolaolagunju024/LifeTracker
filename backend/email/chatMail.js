@@ -1,7 +1,6 @@
 const db = require('../db/db');
 const { getTransporter } = require('./mailer');
-
-const APP_URL = process.env.APP_URL || 'http://localhost:3000';
+const { APP_URL } = require('./appUrl');
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
