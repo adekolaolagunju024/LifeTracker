@@ -1193,7 +1193,7 @@
               <span class="icon-badge" style="background:#B0302022">🔔</span>
               <div class="min-w-0">
                 <p class="text-sm font-semibold text-navy">Push Reminders</p>
-                <p class="text-xs text-gray-400 mt-0.5">Real notifications on this device — an alert the moment a task goes overdue, a morning ping for what's due today, and a nudge every couple hours while something's still outstanding (9am–6pm). The overdue and nudge alerts vibrate and stay on screen until you dismiss them, not a 3-second toast that's easy to swipe away without looking.</p>
+                <p class="text-xs text-gray-400 mt-0.5">Real notifications on this device. The overdue and nudge alerts vibrate and stay on screen until you dismiss them, not a 3-second toast that's easy to swipe away without looking.</p>
               </div>
             </div>
             <button onclick="togglePushReminders()" class="ios-switch" id="push-reminders-btn" role="switch" aria-label="Toggle push reminders on this device"><span class="ios-switch-knob"></span></button>
@@ -1201,6 +1201,35 @@
           <div class="hidden mt-3 ml-[52px] flex items-center gap-3" id="push-reminders-test-row">
             <button onclick="sendTestPush()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">Send test notification</button>
             <span class="text-xs text-gray-400" id="push-reminders-status"></span>
+          </div>
+          <!-- Per-type controls — only meaningful once the device is actually
+               subscribed, so hidden until the master toggle above is on. -->
+          <div class="hidden mt-3 ml-[52px] space-y-2.5" id="push-type-settings">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs text-gray-600">🔴 Overdue alerts — the instant a task goes overdue</span>
+              <button onclick="togglePushType('pushOverdueEnabled')" class="ios-switch" id="push-type-overdue-btn" role="switch" aria-label="Toggle overdue alerts"><span class="ios-switch-knob"></span></button>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs text-gray-600">📌 Due-today ping — once each morning</span>
+              <button onclick="togglePushType('pushDueTodayEnabled')" class="ios-switch" id="push-type-duetoday-btn" role="switch" aria-label="Toggle due-today ping"><span class="ios-switch-knob"></span></button>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs text-gray-600">⏰ Focus nudges — recurring while something's outstanding</span>
+              <button onclick="togglePushType('pushFocusNudgeEnabled')" class="ios-switch" id="push-type-focusnudge-btn" role="switch" aria-label="Toggle focus nudges"><span class="ios-switch-knob"></span></button>
+            </div>
+            <div class="hidden flex items-center gap-1.5 text-xs text-gray-500 flex-wrap" id="focus-nudge-timing-row">
+              <span>Between</span>
+              <select id="focus-nudge-start" onchange="saveFocusNudgeTiming()" class="border border-gray-200 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:border-teal"></select>
+              <span>and</span>
+              <select id="focus-nudge-end" onchange="saveFocusNudgeTiming()" class="border border-gray-200 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:border-teal"></select>
+              <span>every</span>
+              <select id="focus-nudge-interval" onchange="saveFocusNudgeTiming()" class="border border-gray-200 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:border-teal">
+                <option value="60">1 hour</option>
+                <option value="120">2 hours</option>
+                <option value="180">3 hours</option>
+                <option value="240">4 hours</option>
+              </select>
+            </div>
           </div>
           <p class="text-xs text-gray-400 mt-2 ml-[52px]">On iPhone, Safari only delivers these if Waypoint is added to your Home Screen first (Share → Add to Home Screen) — a plain browser tab can't receive them.</p>
         </div>

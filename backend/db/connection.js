@@ -271,4 +271,18 @@ addColumnIfMissing('tasks', "overdueNotifiedAt TEXT");
 // and these four events are already each fairly low-noise on their own.
 addColumnIfMissing('profile', "activityEmailsEnabled INTEGER NOT NULL DEFAULT 0");
 
+// Per-type push controls, layered on top of pushRemindersEnabled (which
+// stays the master "is this device subscribed at all" switch — these three
+// just gate which kinds of push actually get sent once it is). Default to
+// on for all three so an account that already enabled Push Reminders
+// keeps getting exactly what it already had, not a feature regression.
+addColumnIfMissing('profile', "pushOverdueEnabled INTEGER NOT NULL DEFAULT 1");
+addColumnIfMissing('profile', "pushDueTodayEnabled INTEGER NOT NULL DEFAULT 1");
+addColumnIfMissing('profile', "pushFocusNudgeEnabled INTEGER NOT NULL DEFAULT 1");
+// Focus-nudge timing, previously hardcoded (9am-6pm, every 2h) — now
+// user-configurable per account.
+addColumnIfMissing('profile', "focusNudgeStartHour INTEGER NOT NULL DEFAULT 9");
+addColumnIfMissing('profile', "focusNudgeEndHour INTEGER NOT NULL DEFAULT 18");
+addColumnIfMissing('profile', "focusNudgeIntervalMinutes INTEGER NOT NULL DEFAULT 120");
+
 module.exports = db;

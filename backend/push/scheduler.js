@@ -10,10 +10,6 @@ function localDateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const FOCUS_WINDOW_START_HOUR = 9;
-const FOCUS_WINDOW_END_HOUR = 18;
-const FOCUS_NUDGE_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
-
 // "Needs attention" is the same two buckets as the email digest minus
 // "due tomorrow" (that's advance notice, not urgency) — overdue or due
 // today, and not already done.
@@ -38,6 +34,7 @@ async function checkOverdueAlerts() {
   const todayKey = localDateKey(new Date());
   const nowIso = new Date().toISOString();
   for (const u of db.listUsersForPushReminders()) {
+    if (!u.pushOverdueEnabled) continue;
     try {
       const { overdue } = getAttentionTasks(u.userId, todayKey);
       for (const t of overdue) {
@@ -54,6 +51,7 @@ async function checkOverdueAlerts() {
 async function checkDueTodayDigest() {
   const todayKey = localDateKey(new Date());
   for (const u of db.listUsersForPushReminders()) {
+    if (!u.pushDueTodayEnabled) continue;
     if (u.lastPushDigestSentDate === todayKey) continue;
     try {
       const { dueToday } = getAttentionTasks(u.userId, todayKey);
@@ -73,12 +71,18 @@ async function checkDueTodayDigest() {
 async function checkFocusNudges() {
   const now = new Date();
   const hour = now.getHours();
-  if (hour < FOCUS_WINDOW_START_HOUR || hour >= FOCUS_WINDOW_END_HOUR) return;
   const todayKey = localDateKey(now);
   for (const u of db.listUsersForPushReminders()) {
+    if (!u.pushFocusNudgeEnabled) continue;
+    // Window is per-account and may wrap past midnight (e.g. 22 → 6).
+    const start = u.focusNudgeStartHour ?? 9;
+    const end = u.focusNudgeEndHour ?? 18;
+    const inWindow = start <= end ? (hour >= start && hour < end) : (hour >= start || hour < end);
+    if (!inWindow) continue;
     try {
+      const intervalMs = (u.focusNudgeIntervalMinutes || 120) * 60 * 1000;
       const lastNudge = u.lastFocusNudgeAt ? new Date(u.lastFocusNudgeAt).getTime() : 0;
-      if (now.getTime() - lastNudge < FOCUS_NUDGE_INTERVAL_MS) continue;
+      if (now.getTime() - lastNudge < intervalMs) continue;
       const { overdue, dueToday } = getAttentionTasks(u.userId, todayKey);
       const count = overdue.length + dueToday.length;
       if (!count) continue;

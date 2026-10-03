@@ -48,16 +48,30 @@ function clearPasswordResetToken(id) {
 // ── PROFILE ──────────────────────────────────────────────────────
 function getProfile(userId) {
   const row = db.prepare('SELECT * FROM profile WHERE userId = ?').get(userId);
-  return { ...row, onboarded: !!row.onboarded, emailDigestEnabled: !!row.emailDigestEnabled, pushRemindersEnabled: !!row.pushRemindersEnabled, activityEmailsEnabled: !!row.activityEmailsEnabled };
+  return {
+    ...row,
+    onboarded: !!row.onboarded,
+    emailDigestEnabled: !!row.emailDigestEnabled,
+    pushRemindersEnabled: !!row.pushRemindersEnabled,
+    activityEmailsEnabled: !!row.activityEmailsEnabled,
+    pushOverdueEnabled: !!row.pushOverdueEnabled,
+    pushDueTodayEnabled: !!row.pushDueTodayEnabled,
+    pushFocusNudgeEnabled: !!row.pushFocusNudgeEnabled,
+  };
 }
 
 function updateProfile(userId, patch) {
   const current = getProfile(userId);
   const next = { ...current, ...patch };
   db.prepare(`
-    UPDATE profile SET name=?, tagline=?, currency=?, targetNetWorth=?, targetDate=?, onboarded=?, emailDigestEnabled=?, pushRemindersEnabled=?, activityEmailsEnabled=?
+    UPDATE profile SET name=?, tagline=?, currency=?, targetNetWorth=?, targetDate=?, onboarded=?, emailDigestEnabled=?, pushRemindersEnabled=?, activityEmailsEnabled=?,
+      pushOverdueEnabled=?, pushDueTodayEnabled=?, pushFocusNudgeEnabled=?, focusNudgeStartHour=?, focusNudgeEndHour=?, focusNudgeIntervalMinutes=?
     WHERE userId = ?
-  `).run(next.name, next.tagline, next.currency, next.targetNetWorth, next.targetDate, next.onboarded ? 1 : 0, next.emailDigestEnabled ? 1 : 0, next.pushRemindersEnabled ? 1 : 0, next.activityEmailsEnabled ? 1 : 0, userId);
+  `).run(
+    next.name, next.tagline, next.currency, next.targetNetWorth, next.targetDate, next.onboarded ? 1 : 0, next.emailDigestEnabled ? 1 : 0, next.pushRemindersEnabled ? 1 : 0, next.activityEmailsEnabled ? 1 : 0,
+    next.pushOverdueEnabled ? 1 : 0, next.pushDueTodayEnabled ? 1 : 0, next.pushFocusNudgeEnabled ? 1 : 0, next.focusNudgeStartHour, next.focusNudgeEndHour, next.focusNudgeIntervalMinutes,
+    userId
+  );
   return getProfile(userId);
 }
 
@@ -112,7 +126,9 @@ function listPushSubscriptionsForUser(userId) {
 // each user's own tasks (fetched separately, same as the email digest).
 function listUsersForPushReminders() {
   return db.prepare(`
-    SELECT u.id AS userId, p.name, p.lastPushDigestSentDate, p.lastFocusNudgeAt
+    SELECT u.id AS userId, p.name, p.lastPushDigestSentDate, p.lastFocusNudgeAt,
+      p.pushOverdueEnabled, p.pushDueTodayEnabled, p.pushFocusNudgeEnabled,
+      p.focusNudgeStartHour, p.focusNudgeEndHour, p.focusNudgeIntervalMinutes
     FROM profile p JOIN users u ON u.id = p.userId
     WHERE p.pushRemindersEnabled = 1
   `).all();

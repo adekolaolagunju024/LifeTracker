@@ -2449,7 +2449,7 @@ async function renderSettings() {
     document.getElementById('set-target').value   = p.targetNetWorth;
     document.getElementById('set-date').value     = p.targetDate;
     setEmailDigestButton(p.emailDigestEnabled);
-    setPushRemindersButton(p.pushRemindersEnabled);
+    setPushRemindersButton(p);
     setActivityEmailsButton(p.activityEmailsEnabled);
     renderSettingsDrive();
     renderTrash();
@@ -2595,12 +2595,61 @@ async function toggleActivityEmails() {
 // Notification permission and registers a service worker, since a
 // "reminders enabled" account flag with no device actually subscribed
 // would silently send nothing.
-function setPushRemindersButton(enabled) {
+// profile is the full /api/profile object — the master switch's own on/off
+// state plus the three per-type toggles and focus-nudge timing all live
+// there, so one render call keeps all of it in sync rather than threading
+// four separate booleans through every call site.
+function setPushRemindersButton(profile) {
+  const enabled = profile.pushRemindersEnabled;
   const btn = document.getElementById('push-reminders-btn');
   btn.classList.toggle('on', enabled);
   btn.dataset.enabled = enabled ? '1' : '0';
   document.getElementById('push-reminders-test-row').classList.toggle('hidden', !enabled);
   document.getElementById('push-reminders-status').textContent = '';
+  document.getElementById('push-type-settings').classList.toggle('hidden', !enabled);
+  if (!enabled) return;
+
+  setPushTypeButton('push-type-overdue-btn', profile.pushOverdueEnabled);
+  setPushTypeButton('push-type-duetoday-btn', profile.pushDueTodayEnabled);
+  setPushTypeButton('push-type-focusnudge-btn', profile.pushFocusNudgeEnabled);
+  document.getElementById('focus-nudge-timing-row').classList.toggle('hidden', !profile.pushFocusNudgeEnabled);
+
+  populateHourSelect('focus-nudge-start', profile.focusNudgeStartHour ?? 9);
+  populateHourSelect('focus-nudge-end', profile.focusNudgeEndHour ?? 18);
+  document.getElementById('focus-nudge-interval').value = String(profile.focusNudgeIntervalMinutes ?? 120);
+}
+
+function setPushTypeButton(id, enabled) {
+  const btn = document.getElementById(id);
+  btn.classList.toggle('on', enabled);
+  btn.dataset.enabled = enabled ? '1' : '0';
+}
+
+function populateHourSelect(id, selectedHour) {
+  const sel = document.getElementById(id);
+  const label = h => h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
+  sel.innerHTML = Array.from({ length: 24 }, (_, h) => `<option value="${h}" ${h === selectedHour ? 'selected' : ''}>${label(h)}</option>`).join('');
+}
+
+async function togglePushType(field) {
+  const idMap = { pushOverdueEnabled: 'push-type-overdue-btn', pushDueTodayEnabled: 'push-type-duetoday-btn', pushFocusNudgeEnabled: 'push-type-focusnudge-btn' };
+  const btn = document.getElementById(idMap[field]);
+  const next = btn.dataset.enabled !== '1';
+  try {
+    const profile = await API.updateProfile({ [field]: next });
+    setPushRemindersButton(profile);
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to update'), 'error'); }
+}
+
+async function saveFocusNudgeTiming() {
+  try {
+    await API.updateProfile({
+      focusNudgeStartHour: parseInt(document.getElementById('focus-nudge-start').value, 10),
+      focusNudgeEndHour: parseInt(document.getElementById('focus-nudge-end').value, 10),
+      focusNudgeIntervalMinutes: parseInt(document.getElementById('focus-nudge-interval').value, 10),
+    });
+    showToast('✅ Focus nudge timing saved');
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to update'), 'error'); }
 }
 
 function urlBase64ToUint8Array(base64String) {
@@ -2631,8 +2680,8 @@ async function togglePushReminders() {
         });
       }
       await API.subscribePush(subscription.toJSON());
-      await API.updateProfile({ pushRemindersEnabled: true });
-      setPushRemindersButton(true);
+      const profile = await API.updateProfile({ pushRemindersEnabled: true });
+      setPushRemindersButton(profile);
       showToast('✅ Push reminders turned on');
     } else {
       const registration = await navigator.serviceWorker.getRegistration();
@@ -2641,8 +2690,8 @@ async function togglePushReminders() {
         await API.unsubscribePush(subscription.endpoint).catch(() => {});
         await subscription.unsubscribe();
       }
-      await API.updateProfile({ pushRemindersEnabled: false });
-      setPushRemindersButton(false);
+      const profile = await API.updateProfile({ pushRemindersEnabled: false });
+      setPushRemindersButton(profile);
       showToast('Push reminders turned off');
     }
   } catch (e) {
