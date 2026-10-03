@@ -1,10 +1,9 @@
 const cron = require('node-cron');
-const Anthropic = require('@anthropic-ai/sdk');
 const db = require('../db/db');
 const { sendPushToUser } = require('../push/webpush');
 const { notifyCheckIn } = require('../email/activity');
+const { callAI, isAIConfigured } = require('./provider');
 
-const MODEL = 'claude-haiku-4-5-20251001';
 const SIX_DAYS_MS = 6 * 24 * 60 * 60 * 1000;
 
 function localDateKey(d) {
@@ -28,27 +27,24 @@ function summarizeGoal(tasks) {
 // just read status and say something useful about it. Auto-editing a
 // user's timeline from a cron job is a much bigger trust risk than a
 // read-only nudge, so that's left for a future pass if this isn't enough.
-async function generateCheckInMessage(client, userName, projectTitle, stats) {
+async function generateCheckInMessage(userName, projectTitle, stats) {
   const today = new Date().toISOString().slice(0, 10);
-  const response = await client.messages.create({
-    model: MODEL,
-    max_tokens: 300,
+  const response = await callAI({
     system: `You are a supportive accountability coach checking in on someone's goal. Today's date is ${today}. Write 2-3 short, specific, plain-spoken sentences: acknowledge real progress if there is any, name what's stalled or overdue if anything is, and end with one concrete next action. No greeting, no sign-off, no markdown — just the message body.`,
     messages: [{
       role: 'user',
       content: `Goal: "${projectTitle}" (${userName}'s account)\nTotal tasks: ${stats.total}\nCompleted: ${stats.done}\nOverdue: ${stats.overdue}\nLatest due date in the plan: ${stats.latestDue || 'none set'}`,
     }],
+    maxTokens: 300,
   });
-  const textBlock = response.content.find(c => c.type === 'text');
-  return textBlock ? textBlock.text.trim() : null;
+  return response.text ? response.text.trim() : null;
 }
 
 async function runWeeklyCheckIns() {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.log('Weekly AI check-ins skipped: ANTHROPIC_API_KEY not set.');
+  if (!isAIConfigured()) {
+    console.log('Weekly AI check-ins skipped: no AI provider configured (set ANTHROPIC_API_KEY or GEMINI_API_KEY).');
     return;
   }
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const now = new Date();
 
   for (const goal of db.listGoalProjectsForCheckIn()) {
@@ -58,7 +54,7 @@ async function runWeeklyCheckIns() {
       if (!tasks.length) continue; // nothing to say about an empty goal
       const stats = summarizeGoal(tasks);
       const profile = db.getProfile(goal.userId);
-      const message = await generateCheckInMessage(client, profile.name, goal.title, stats);
+      const message = await generateCheckInMessage(profile.name, goal.title, stats);
       if (!message) continue;
 
       await sendPushToUser(goal.userId, { title: `🎯 Check-in: ${goal.title}`, body: message, url: undefined });

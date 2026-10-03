@@ -1,22 +1,20 @@
 const express = require('express');
 const router  = express.Router();
 const ExcelJS = require('exceljs');
-const Anthropic = require('@anthropic-ai/sdk');
 const db = require('../db/db');
-
-const MODEL = 'claude-haiku-4-5-20251001';
+const { callAI, isAIConfigured } = require('../ai/provider');
 
 // GET /api/ai/status — lets the frontend show "not configured" without
 // triggering a real (billable) call, same pattern as Google Drive backup.
 router.get('/status', (req, res) => {
-  res.json({ configured: !!process.env.ANTHROPIC_API_KEY });
+  res.json({ configured: isAIConfigured() });
 });
 
-// POST /api/ai/insights — sends the user's open tasks to Claude and asks
+// POST /api/ai/insights — sends the user's open tasks to the AI and asks
 // for a prioritized focus list plus a few suggested next-step tasks.
 router.post('/insights', async (req, res) => {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY to .env to enable it.' });
+  if (!isAIConfigured()) {
+    return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY (or GEMINI_API_KEY) to .env to enable it.' });
   }
 
   try {
@@ -38,11 +36,7 @@ router.post('/insights', async (req, res) => {
 
     const projectLines = topLevelProjects.map(p => `- id:${p.id} | "${p.title}" (${p.type})`).join('\n');
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 2000,
+    const response = await callAI({
       system: `You are a practical productivity assistant helping someone prioritize open tasks across every area of their life. Today's date is ${today}. Be concise and specific — reference real deadlines and real progress, not generic advice.`,
       messages: [{
         role: 'user',
@@ -85,13 +79,12 @@ router.post('/insights', async (req, res) => {
           required: ['summary', 'priorityOrder', 'suggestedNextSteps'],
         },
       }],
-      tool_choice: { type: 'tool', name: 'provide_insights' },
+      forceToolName: 'provide_insights',
     });
 
-    const toolUse = response.content.find(c => c.type === 'tool_use');
-    if (!toolUse) throw new Error('AI did not return structured insights');
+    if (response.type !== 'tool_use') throw new Error('AI did not return structured insights');
 
-    const result = toolUse.input;
+    const result = response.input;
     result.priorityOrder = (result.priorityOrder || [])
       .map(p => {
         const task = tasks.find(t => t.id === p.taskId);
@@ -205,8 +198,8 @@ async function attachmentToContentBlocks({ name, mimetype, dataBase64 }) {
 // to keep the conversation going, or calls propose_project once it has
 // enough to finalize.
 router.post('/project-chat', async (req, res) => {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY to .env to enable it.' });
+  if (!isAIConfigured()) {
+    return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY (or GEMINI_API_KEY) to .env to enable it.' });
   }
 
   const incoming = Array.isArray(req.body.messages) ? req.body.messages : [];
@@ -228,21 +221,16 @@ router.post('/project-chat', async (req, res) => {
       return { role: m.role, content: [...blocks, { type: 'text', text: text || '(see attached file)' }] };
     }));
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 4000,
+    const response = await callAI({
       system: CHAT_SYSTEM_PROMPT(today),
       messages,
       tools: [IMPORT_TOOL],
-      tool_choice: { type: 'auto' },
+      maxTokens: 4000,
     });
 
-    const toolUse = response.content.find(c => c.type === 'tool_use');
-    if (toolUse) return res.json({ type: 'proposal', proposal: toolUse.input });
+    if (response.type === 'tool_use') return res.json({ type: 'proposal', proposal: response.input });
 
-    const textBlock = response.content.find(c => c.type === 'text');
-    res.json({ type: 'message', message: textBlock ? textBlock.text : "Sorry, I didn't catch that — could you say more?" });
+    res.json({ type: 'message', message: response.text || "Sorry, I didn't catch that — could you say more?" });
   } catch (e) {
     console.error('AI project-chat error:', e);
     const apiMessage = e?.error?.error?.message || e?.message || 'Unknown error';
