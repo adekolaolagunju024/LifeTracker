@@ -98,4 +98,12 @@ async function notifyInvited(userId, inviterName, projectTitle) {
   });
 }
 
-module.exports = { notifyAssigned, notifyMentioned, notifyTaskComment, notifyInvited };
+async function notifyCheckIn(userId, { projectTitle, message }) {
+  await sendActivityEmail(userId, {
+    subject: `🎯 Check-in: ${projectTitle}`,
+    heading: `Your weekly check-in on "${esc(projectTitle)}"`,
+    bodyHtml: `<div style="margin-top:4px;padding:12px 14px;background:#F8FAFC;border-radius:10px;font-size:13px;color:#374151;white-space:pre-wrap;">${esc(message)}</div>`,
+  });
+}
+
+module.exports = { notifyAssigned, notifyMentioned, notifyTaskComment, notifyInvited, notifyCheckIn };

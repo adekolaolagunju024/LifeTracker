@@ -57,6 +57,7 @@ function getProfile(userId) {
     pushOverdueEnabled: !!row.pushOverdueEnabled,
     pushDueTodayEnabled: !!row.pushDueTodayEnabled,
     pushFocusNudgeEnabled: !!row.pushFocusNudgeEnabled,
+    aiCheckInsEnabled: !!row.aiCheckInsEnabled,
   };
 }
 
@@ -65,11 +66,11 @@ function updateProfile(userId, patch) {
   const next = { ...current, ...patch };
   db.prepare(`
     UPDATE profile SET name=?, tagline=?, currency=?, targetNetWorth=?, targetDate=?, onboarded=?, emailDigestEnabled=?, pushRemindersEnabled=?, activityEmailsEnabled=?,
-      pushOverdueEnabled=?, pushDueTodayEnabled=?, pushFocusNudgeEnabled=?, focusNudgeStartHour=?, focusNudgeEndHour=?, focusNudgeIntervalMinutes=?
+      pushOverdueEnabled=?, pushDueTodayEnabled=?, pushFocusNudgeEnabled=?, focusNudgeStartHour=?, focusNudgeEndHour=?, focusNudgeIntervalMinutes=?, aiCheckInsEnabled=?
     WHERE userId = ?
   `).run(
     next.name, next.tagline, next.currency, next.targetNetWorth, next.targetDate, next.onboarded ? 1 : 0, next.emailDigestEnabled ? 1 : 0, next.pushRemindersEnabled ? 1 : 0, next.activityEmailsEnabled ? 1 : 0,
-    next.pushOverdueEnabled ? 1 : 0, next.pushDueTodayEnabled ? 1 : 0, next.pushFocusNudgeEnabled ? 1 : 0, next.focusNudgeStartHour, next.focusNudgeEndHour, next.focusNudgeIntervalMinutes,
+    next.pushOverdueEnabled ? 1 : 0, next.pushDueTodayEnabled ? 1 : 0, next.pushFocusNudgeEnabled ? 1 : 0, next.focusNudgeStartHour, next.focusNudgeEndHour, next.focusNudgeIntervalMinutes, next.aiCheckInsEnabled ? 1 : 0,
     userId
   );
   return getProfile(userId);
@@ -141,6 +142,31 @@ function setLastFocusNudgeAt(userId, iso) {
 }
 function markTaskOverdueNotified(taskId, iso) {
   db.prepare('UPDATE tasks SET overdueNotifiedAt = ? WHERE id = ?').run(iso, taskId);
+}
+
+// ── AI GOAL ROADMAPS (projects.isGoal — see backend/ai/checkIn.js) ──
+// Backend equivalent of the frontend's tasksInProjectTree: a goal's own
+// tasks plus its direct phase sub-projects' tasks (one level, same
+// constraint createProject/updateProjectById already enforce).
+function listTasksInProjectTree(userId, projectId) {
+  const childIds = db.prepare('SELECT id FROM projects WHERE parentId = ? AND deletedAt IS NULL').all(projectId).map(r => r.id);
+  const ids = [projectId, ...childIds];
+  const placeholders = ids.map(() => '?').join(',');
+  return db.prepare(`SELECT * FROM tasks WHERE userId = ? AND deletedAt IS NULL AND projectId IN (${placeholders})`).all(userId, ...ids);
+}
+
+// Every goal project whose owner has opted into weekly AI check-ins — the
+// scheduler fetches each one's task tree separately (same split as the push
+// reminder scheduler, which fetches tasks per-user rather than in this query).
+function listGoalProjectsForCheckIn() {
+  return db.prepare(`
+    SELECT pr.id AS projectId, pr.userId, pr.title, pr.lastCheckInAt
+    FROM projects pr JOIN profile p ON p.userId = pr.userId
+    WHERE pr.isGoal = 1 AND pr.deletedAt IS NULL AND p.aiCheckInsEnabled = 1
+  `).all();
+}
+function setProjectLastCheckInAt(projectId, iso) {
+  db.prepare('UPDATE projects SET lastCheckInAt = ? WHERE id = ?').run(iso, projectId);
 }
 
 // ── ACCESS CONTROL (Google-Sheets-style project sharing) ─────────
@@ -279,8 +305,8 @@ function createProject(userId, project) {
     if (parent) ownerId = parent.userId;
   }
   db.prepare(`
-    INSERT INTO projects (id, userId, parentId, title, description, icon, color, startDate, type, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?)
-  `).run(project.id, ownerId, project.parentId || null, project.title, project.description || '', project.icon || '📁', project.color || '#0A7E8C', project.startDate || '', project.type || 'career', project.createdAt);
+    INSERT INTO projects (id, userId, parentId, title, description, icon, color, startDate, type, isGoal, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+  `).run(project.id, ownerId, project.parentId || null, project.title, project.description || '', project.icon || '📁', project.color || '#0A7E8C', project.startDate || '', project.type || 'career', project.isGoal ? 1 : 0, project.createdAt);
   return getProjectById(userId, project.id);
 }
 
@@ -1303,6 +1329,7 @@ module.exports = {
   getProfile, updateProfile, listUsersForDigest, setLastDigestSentDate,
   getAppConfig, setAppConfig, addPushSubscription, removePushSubscription, removePushSubscriptionByEndpoint,
   listPushSubscriptionsForUser, listUsersForPushReminders, setLastPushDigestSentDate, setLastFocusNudgeAt, markTaskOverdueNotified,
+  listTasksInProjectTree, listGoalProjectsForCheckIn, setProjectLastCheckInAt,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById, duplicateProject,
   getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, duplicateTask, bumpTaskProgress, reorderTasks,

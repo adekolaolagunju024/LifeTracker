@@ -131,33 +131,42 @@ async function excelToText(buffer) {
   return parts.join('\n');
 }
 
+const TASK_SCHEMA = {
+  type: 'object',
+  properties: {
+    title:     { type: 'string' },
+    priority:  { type: 'string', enum: ['High', 'Medium', 'Low'] },
+    status:    { type: 'string', enum: ['Not Started', 'In Progress', 'Completed'] },
+    startDate: { type: 'string', description: 'YYYY-MM-DD if known, else empty string' },
+    endDate:   { type: 'string', description: 'YYYY-MM-DD if known, else empty string' },
+    notes:     { type: 'string', description: 'Any extra context worth keeping, else empty string' },
+  },
+  required: ['title', 'priority', 'status', 'startDate', 'endDate', 'notes'],
+};
+
 const IMPORT_TOOL = {
   name: 'propose_project',
-  description: 'Return a proposed project and its tasks, once the conversation (and any attached file) has enough to finalize',
+  description: 'Return a proposed project, broken into phases, once the conversation (and any attached file) has enough to finalize',
   input_schema: {
     type: 'object',
     properties: {
-      title:       { type: 'string', description: 'A short project title summarising the file' },
+      title:       { type: 'string', description: 'A short project title summarising the goal/file' },
       icon:        { type: 'string', description: 'One emoji that fits the project' },
       description: { type: 'string', description: 'One sentence describing the project' },
-      tasks: {
+      phases: {
         type: 'array',
-        description: 'Every concrete task/action/goal item found in the file',
+        description: 'The roadmap broken into 2-5 named phases/milestones when the goal has natural stages (e.g. "Phase 1: Research"), or a single phase when it is simple enough not to need them. Every concrete task/action/goal item found in the conversation or attached file goes under one of these.',
         items: {
           type: 'object',
           properties: {
-            title:     { type: 'string' },
-            priority:  { type: 'string', enum: ['High', 'Medium', 'Low'] },
-            status:    { type: 'string', enum: ['Not Started', 'In Progress', 'Completed'] },
-            startDate: { type: 'string', description: 'YYYY-MM-DD if known, else empty string' },
-            endDate:   { type: 'string', description: 'YYYY-MM-DD if known, else empty string' },
-            notes:     { type: 'string', description: 'Any extra context worth keeping, else empty string' },
+            title: { type: 'string', description: 'Short phase/milestone name' },
+            tasks: { type: 'array', items: TASK_SCHEMA },
           },
-          required: ['title', 'priority', 'status', 'startDate', 'endDate', 'notes'],
+          required: ['title', 'tasks'],
         },
       },
     },
-    required: ['title', 'icon', 'description', 'tasks'],
+    required: ['title', 'icon', 'description', 'phases'],
   },
 };
 
@@ -167,7 +176,7 @@ The user may attach a file to a message — a spreadsheet, PDF, or image of a pl
 
 Ask short, specific clarifying questions when they'd genuinely sharpen the plan — timeframe, scope, current progress, constraints. Don't interrogate: one or two questions is usually enough, and if the goal (or an attached file) is already clear and specific, you can skip straight to proposing.
 
-Once you have enough to propose a solid, sequenced plan AND the user seems ready (they've answered your questions, or said something like "go ahead", "that's enough", "just do it"), call the propose_project tool with realistic startDate/endDate on every task — don't pile everything on one day. Otherwise, just send a normal short conversational reply (a sentence or two, plus your question) and do not call the tool yet.`;
+Once you have enough to propose a solid, sequenced plan AND the user seems ready (they've answered your questions, or said something like "go ahead", "that's enough", "just do it"), call the propose_project tool with realistic startDate/endDate on every task — don't pile everything on one day. Break the plan into phases: use 2-5 named phases/milestones ("Phase 1: Research", "Phase 2: Build", ...) when the goal has natural stages, or a single phase when it's simple enough that phases would be artificial padding. Otherwise, just send a normal short conversational reply (a sentence or two, plus your question) and do not call the tool yet.`;
 
 // Converts one message's file attachment (sent as base64 inside the JSON
 // body, not multipart — see the raised express.json limit in server.js)

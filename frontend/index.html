@@ -716,6 +716,15 @@
       <button onclick="dismissDigestBanner()" class="text-amber-500 hover:text-amber-700 text-lg leading-none px-1 flex-shrink-0" aria-label="Dismiss">&times;</button>
     </div>
 
+    <!-- One-time nudge after creating a goal via AI chat, if this device
+         hasn't got Push Reminders on — otherwise the new goal's tasks get
+         zero follow-through until the user finds Settings on their own. -->
+    <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-teal/10 border border-teal/30 rounded-xl px-4 py-3 flex items-start gap-3" id="push-nudge-banner">
+      <span class="text-lg leading-none">🔔</span>
+      <div class="flex-1 min-w-0 text-sm text-navy">Want reminders so this goal doesn't stall? <button onclick="enablePushRemindersFromNudge()" class="font-semibold underline">Turn on Push Reminders</button></div>
+      <button onclick="dismissPushNudgeBanner()" class="text-teal hover:text-teal/70 text-lg leading-none px-1 flex-shrink-0" aria-label="Dismiss">&times;</button>
+    </div>
+
     <!-- Pending project invites — checked on load, not dismissible (an
          invite needs an actual accept/decline, not just "hide this") -->
     <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-teal/10 border border-teal/30 rounded-xl px-4 py-3 flex items-center gap-3" id="invites-banner">
@@ -775,6 +784,20 @@
           </div>
           <p class="text-xs text-white/30 mt-2"><span id="hero-goals-sub">0 of 0 tasks complete</span> · <span id="hero-goals-detail">across 0 projects</span></p>
         </div>
+      </div>
+
+      <!-- Goals — projects created via the AI chat ("Chat with AI") flow,
+           called out separately from ordinary projects since these came
+           with an explicit target and are meant to be tracked to
+           completion, not just managed. Hidden entirely when there are
+           none, so an account with no AI-created goals sees no empty
+           section. -->
+      <div class="hidden" id="dashboard-goals-section">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-1 h-4 bg-teal rounded-full"></div>
+          <h3 class="text-sm font-bold text-navy-2">🎯 Goals</h3>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="dashboard-goals-cards"></div>
       </div>
 
       <!-- Projects at a Glance — a glance, not a management surface: no
@@ -1242,6 +1265,16 @@
             </div>
           </div>
           <button onclick="toggleActivityEmails()" class="ios-switch" id="activity-emails-btn" role="switch" aria-label="Toggle activity emails"><span class="ios-switch-knob"></span></button>
+        </div>
+        <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="icon-badge" style="background:#0A7E8C22">🎯</span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-navy">Weekly Goal Check-ins (AI)</p>
+              <p class="text-xs text-gray-400 mt-0.5">Once a week, AI looks at how each AI-created goal is actually going and sends a short check-in — what's on track, what's stalled, and one concrete next step. It only reads status, never edits your plan.</p>
+            </div>
+          </div>
+          <button onclick="toggleAiCheckIns()" class="ios-switch" id="ai-checkins-btn" role="switch" aria-label="Toggle weekly AI goal check-ins"><span class="ios-switch-knob"></span></button>
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">

@@ -285,4 +285,17 @@ addColumnIfMissing('profile', "focusNudgeStartHour INTEGER NOT NULL DEFAULT 9");
 addColumnIfMissing('profile', "focusNudgeEndHour INTEGER NOT NULL DEFAULT 18");
 addColumnIfMissing('profile', "focusNudgeIntervalMinutes INTEGER NOT NULL DEFAULT 120");
 
+// AI-generated goal roadmaps (Dashboard "Chat with AI" -> /api/ai/project-chat)
+// get flagged so they can be distinguished from an ordinary project: a
+// dedicated Dashboard "Goals" section, and eligibility for the weekly AI
+// check-in below. Only the top-level project of a roadmap is flagged — its
+// phase sub-projects are already part of its tree for rollup purposes.
+addColumnIfMissing('projects', "isGoal INTEGER NOT NULL DEFAULT 0");
+// Dedupe guard for the weekly check-in, same role as lastPushDigestSentDate.
+addColumnIfMissing('projects', "lastCheckInAt TEXT");
+// Separate opt-in from Push Reminders/Activity Emails — this one triggers a
+// billable AI call per goal per week, so it defaults off even for an
+// account that already has the other two notification types on.
+addColumnIfMissing('profile', "aiCheckInsEnabled INTEGER NOT NULL DEFAULT 0");
+
 module.exports = db;

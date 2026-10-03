@@ -496,6 +496,45 @@ async function renderDashboard() {
     // table (that's what All Projects is for); capped so this stays a
     // quick overview even for an account with a dozen projects.
     const todayKey = localDateKey(new Date());
+
+    // Goals — AI-created roadmaps (isGoal), shown separately from ordinary
+    // projects with progress, days remaining, and the next concrete thing
+    // due, since a goal is meant to be finished, not just managed.
+    const goalProjects = projects.filter(p => p.isGoal);
+    document.getElementById('dashboard-goals-section').classList.toggle('hidden', !goalProjects.length);
+    let goalsHTML = '';
+    goalProjects.forEach(proj => {
+      const gts = tasksInProjectTree(proj.id, allProjects, tasks);
+      const gdone = gts.filter(t => t.status === 'Completed').length;
+      const gp = pct(gdone, gts.length);
+      const dueDates = gts.map(t => t.endDate).filter(Boolean).sort();
+      const latestDue = dueDates[dueDates.length - 1];
+      let daysLine = '';
+      if (latestDue) {
+        const diffDays = Math.ceil((new Date(latestDue) - new Date(todayKey)) / 86400000);
+        daysLine = diffDays >= 0 ? `${diffDays} day${diffDays === 1 ? '' : 's'} left` : `${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? '' : 's'} overdue`;
+      }
+      const nextTask = gts.filter(t => t.status !== 'Completed' && t.endDate).sort((a, b) => a.endDate.localeCompare(b.endDate))[0];
+      const milestoneLine = nextTask ? `Next: ${esc(nextTask.title)} (${nextTask.endDate.slice(0, 10)})` : (gts.length ? 'No dates set on remaining tasks' : 'No tasks yet');
+
+      goalsHTML += `
+        <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-4 cursor-pointer"
+          onclick="showPage('project-detail','${proj.id}')">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background:${proj.color}1A">${proj.icon}</span>
+            <div class="flex-1 min-w-0">
+              <p class="font-bold text-sm text-navy truncate">${esc(proj.title)}</p>
+              <p class="text-xs text-gray-400">${gdone} of ${gts.length} tasks done${daysLine ? ' · ' + daysLine : ''}</p>
+            </div>
+          </div>
+          <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-500" style="width:${gp}%;background:${proj.color}"></div>
+          </div>
+          <p class="text-xs text-gray-400 mt-1.5">${milestoneLine}</p>
+        </div>`;
+    });
+    document.getElementById('dashboard-goals-cards').innerHTML = goalsHTML;
+
     const DASHBOARD_PROJECT_LIMIT = 4;
     let cardsHTML = '';
     projects.slice(0, DASHBOARD_PROJECT_LIMIT).forEach(proj => {
@@ -2451,6 +2490,7 @@ async function renderSettings() {
     setEmailDigestButton(p.emailDigestEnabled);
     setPushRemindersButton(p);
     setActivityEmailsButton(p.activityEmailsEnabled);
+    setAiCheckInsButton(p.aiCheckInsEnabled);
     renderSettingsDrive();
     renderTrash();
     API.getMe().then(me => { document.getElementById('account-email').textContent = me.email; }).catch(() => {});
@@ -2589,6 +2629,22 @@ async function toggleActivityEmails() {
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to update'), 'error'); }
 }
 
+// ── WEEKLY AI GOAL CHECK-INS (read-only status check, not plan edits) ──
+function setAiCheckInsButton(enabled) {
+  const btn = document.getElementById('ai-checkins-btn');
+  btn.classList.toggle('on', enabled);
+  btn.dataset.enabled = enabled ? '1' : '0';
+}
+async function toggleAiCheckIns() {
+  const btn = document.getElementById('ai-checkins-btn');
+  const next = btn.dataset.enabled !== '1';
+  try {
+    await API.updateProfile({ aiCheckInsEnabled: next });
+    setAiCheckInsButton(next);
+    showToast(next ? '✅ Weekly AI check-ins turned on' : 'Weekly AI check-ins turned off');
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to update'), 'error'); }
+}
+
 // ── PUSH REMINDERS (real OS-level notifications on this device) ──
 // The Settings toggle reflects — and drives — THIS device's own browser
 // subscription, not just a database flag: turning it on actually requests
@@ -2659,29 +2715,38 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
 }
 
+// Pulled out of togglePushReminders() so it can also be called from
+// contexts that don't have the Settings page's own toggle button in view
+// (e.g. the one-time nudge after creating a goal via AI chat) — it doesn't
+// read or depend on any Settings-page DOM state.
+async function enablePushReminders() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    throw new Error("Push notifications aren't supported in this browser");
+  }
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') throw new Error('Notification permission was not granted');
+  const registration = await navigator.serviceWorker.register('/sw.js');
+  await navigator.serviceWorker.ready;
+  const { publicKey } = await API.getVapidPublicKey();
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+  }
+  await API.subscribePush(subscription.toJSON());
+  const profile = await API.updateProfile({ pushRemindersEnabled: true });
+  setPushRemindersButton(profile);
+  return profile;
+}
+
 async function togglePushReminders() {
   const btn = document.getElementById('push-reminders-btn');
   const turningOn = btn.dataset.enabled !== '1';
   try {
     if (turningOn) {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        throw new Error("Push notifications aren't supported in this browser");
-      }
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') throw new Error('Notification permission was not granted');
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
-      const { publicKey } = await API.getVapidPublicKey();
-      let subscription = await registration.pushManager.getSubscription();
-      if (!subscription) {
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey),
-        });
-      }
-      await API.subscribePush(subscription.toJSON());
-      const profile = await API.updateProfile({ pushRemindersEnabled: true });
-      setPushRemindersButton(profile);
+      await enablePushReminders();
       showToast('✅ Push reminders turned on');
     } else {
       const registration = await navigator.serviceWorker.getRegistration();
@@ -3657,7 +3722,11 @@ function showImportPreview(body) {
   document.getElementById('import-proj-icon').value  = body.icon || '📁';
   document.getElementById('import-proj-title').value = body.title || '';
   document.getElementById('import-proj-desc').value  = body.description || '';
-  renderImportTasksList(body.tasks || []);
+  // Older/degenerate responses might still come back as a flat `tasks`
+  // array (e.g. a proposal with no phases at all) — normalize into one
+  // phase so the renderer only ever has to handle the phases shape.
+  const phases = body.phases && body.phases.length ? body.phases : [{ title: body.title || '', tasks: body.tasks || [] }];
+  renderImportTasksList(phases);
 
   document.getElementById('import-step-upload').classList.add('hidden');
   document.getElementById('import-upload-actions').classList.add('hidden');
@@ -3670,10 +3739,9 @@ function showImportPreview(body) {
 const IMPORT_PRIORITIES = ['High', 'Medium', 'Low'];
 const IMPORT_STATUSES   = ['Not Started', 'In Progress', 'Completed'];
 
-function renderImportTasksList(tasks) {
-  document.getElementById('import-task-count').textContent = tasks.length;
-  document.getElementById('import-tasks-list').innerHTML = tasks.map((t, i) => `
-    <div class="border border-gray-200 rounded-lg p-3" data-task-index="${i}">
+function importTaskRowHtml(t, globalIndex) {
+  return `
+    <div class="border border-gray-200 rounded-lg p-3" data-task-index="${globalIndex}">
       <div class="flex items-start gap-2 mb-2">
         <input type="text" class="import-task-title flex-1 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-teal" value="${esc(t.title || '')}">
         <button onclick="this.closest('[data-task-index]').remove(); updateImportTaskCount();" class="text-gray-300 hover:text-red-500 text-sm p-1.5 rounded hover:bg-red-50">🗑️</button>
@@ -3690,7 +3758,34 @@ function renderImportTasksList(tasks) {
         <input type="date" class="import-task-start border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-teal" value="${t.startDate || ''}">
         <input type="date" class="import-task-end border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-teal" value="${t.endDate || ''}">
       </div>
-    </div>`).join('') || `<p class="text-xs text-gray-400 text-center py-4">No tasks found in that file — you can still create the project and add tasks manually.</p>`;
+    </div>`;
+}
+
+// A single phase renders as a flat task list, exactly like before phases
+// existed — only 2+ phases get a visible, editable phase header, so a
+// simple goal's preview looks unchanged. Every task row carries a
+// data-phase-index so createImportedProject() can regroup them later even
+// after rows are deleted or reordered by hand.
+function renderImportTasksList(phases) {
+  let globalIndex = 0;
+  let totalTasks = 0;
+  const showHeaders = phases.length > 1;
+
+  const html = phases.map((phase, phaseIndex) => {
+    const rows = (phase.tasks || []).map(t => importTaskRowHtml(t, globalIndex++)).join('');
+    totalTasks += (phase.tasks || []).length;
+    const header = showHeaders ? `
+      <div class="flex items-center gap-2 mb-2 ${phaseIndex > 0 ? 'mt-4' : ''}">
+        <span class="text-xs flex-shrink-0">🚩</span>
+        <input type="text" class="import-phase-title flex-1 text-xs font-semibold text-gray-600 bg-transparent border-b border-dashed border-gray-300 focus:outline-none focus:border-teal py-1" value="${esc(phase.title || '')}">
+      </div>` : '';
+    return `<div data-phase-group="${phaseIndex}">${header}<div class="space-y-2">${rows}</div></div>`;
+  }).join('');
+
+  document.getElementById('import-task-count').textContent = totalTasks;
+  document.getElementById('import-tasks-list').innerHTML = totalTasks
+    ? html
+    : `<p class="text-xs text-gray-400 text-center py-4">No tasks found — you can still create the project and add tasks manually.</p>`;
 }
 
 function updateImportTaskCount() {
@@ -3711,31 +3806,78 @@ async function createImportedProject() {
       title,
       icon: document.getElementById('import-proj-icon').value.trim() || '📁',
       description: document.getElementById('import-proj-desc').value.trim(),
+      isGoal: true,
     });
 
-    const rows = document.querySelectorAll('#import-tasks-list [data-task-index]');
-    for (const row of rows) {
-      const taskTitle = row.querySelector('.import-task-title').value.trim();
-      if (!taskTitle) continue;
-      await API.addTask({
-        projectId: proj.id,
-        title: taskTitle,
-        priority: row.querySelector('.import-task-priority').value,
-        status: row.querySelector('.import-task-status').value,
-        startDate: row.querySelector('.import-task-start').value,
-        endDate: row.querySelector('.import-task-end').value,
-      });
+    const phaseGroups = document.querySelectorAll('#import-tasks-list [data-phase-group]');
+    const nonEmptyGroups = Array.from(phaseGroups).filter(g => g.querySelector('[data-task-index]'));
+    let taskCount = 0;
+
+    for (const group of nonEmptyGroups) {
+      // One phase (the common case for a simple goal) — attach its tasks
+      // straight to the main project, no sub-folder needed. Multiple
+      // phases become one sub-project per phase, same as a user manually
+      // organizing work into sub-folders elsewhere in the app.
+      let targetProjectId = proj.id;
+      if (nonEmptyGroups.length > 1) {
+        const phaseTitleInput = group.querySelector('.import-phase-title');
+        const phaseTitle = (phaseTitleInput?.value || '').trim() || 'Untitled Phase';
+        const subProj = await API.addProject({ title: phaseTitle, parentId: proj.id });
+        targetProjectId = subProj.id;
+      }
+
+      const rows = group.querySelectorAll('[data-task-index]');
+      for (const row of rows) {
+        const taskTitle = row.querySelector('.import-task-title').value.trim();
+        if (!taskTitle) continue;
+        await API.addTask({
+          projectId: targetProjectId,
+          title: taskTitle,
+          priority: row.querySelector('.import-task-priority').value,
+          status: row.querySelector('.import-task-status').value,
+          startDate: row.querySelector('.import-task-start').value,
+          endDate: row.querySelector('.import-task-end').value,
+        });
+        taskCount++;
+      }
     }
 
     closeModal('modal-import');
-    showToast(`✅ Created "${title}" with ${rows.length} task${rows.length === 1 ? '' : 's'}`);
+    showToast(`✅ Created "${title}" with ${taskCount} task${taskCount === 1 ? '' : 's'}`);
     if (APP.currentProjectId) renderProjectDetail(APP.currentProjectId); else renderProjects();
     updateSidebar();
+    maybeNudgePushReminders();
   } catch (e) {
     showToast('❌ ' + (e.message || 'Failed to create project'), 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = originalLabel;
+  }
+}
+
+// A goal's tasks only get overdue/due-today/focus-nudge pushes if the
+// account already has Push Reminders on — easy to miss since it's a
+// separate opt-in from creating the goal itself. One soft, dismissible
+// nudge right after creation beats silently getting zero follow-through.
+async function maybeNudgePushReminders() {
+  try {
+    const profile = await API.getProfile();
+    if (profile.pushRemindersEnabled) return;
+    document.getElementById('push-nudge-banner').classList.remove('hidden');
+  } catch (e) { /* non-critical — skip the nudge rather than surface an error for it */ }
+}
+
+function dismissPushNudgeBanner() {
+  document.getElementById('push-nudge-banner').classList.add('hidden');
+}
+
+async function enablePushRemindersFromNudge() {
+  try {
+    await enablePushReminders();
+    dismissPushNudgeBanner();
+    showToast('✅ Push reminders turned on');
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'Failed to turn on push reminders'), 'error');
   }
 }
 
