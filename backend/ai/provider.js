@@ -24,6 +24,29 @@ function isAIConfigured() {
   return !!activeProvider();
 }
 
+// Both SDKs attach the HTTP status to the thrown error (Anthropic's
+// APIError and Gemini's GoogleGenerativeAIFetchError both set `.status`).
+// 429 (rate limit), 500/502/503 (transient server trouble), and Anthropic's
+// 529 ("overloaded") are all worth a short retry — a free-tier model under
+// momentary high demand is exactly the "try again in a few seconds and it
+// usually works" case, which shouldn't surface as a hard failure on the
+// very first attempt.
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 529]);
+const RETRY_DELAYS_MS = [1000, 2500, 5000];
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function withRetry(fn) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (attempt >= RETRY_DELAYS_MS.length || !RETRYABLE_STATUSES.has(e?.status)) throw e;
+      await sleep(RETRY_DELAYS_MS[attempt]);
+    }
+  }
+}
+
 // messages: [{ role: 'user'|'assistant', content: string | ContentBlock[] }]
 // ContentBlock (Anthropic shape, reused for both providers):
 //   { type: 'text', text }
@@ -35,9 +58,9 @@ function isAIConfigured() {
 async function callAI({ system, messages, tools, forceToolName, maxTokens = 2000 }) {
   const provider = activeProvider();
   if (!provider) throw new Error('AI is not configured on this server.');
-  return provider === 'gemini'
+  return withRetry(() => provider === 'gemini'
     ? callGemini({ system, messages, tools, forceToolName, maxTokens })
-    : callAnthropic({ system, messages, tools, forceToolName, maxTokens });
+    : callAnthropic({ system, messages, tools, forceToolName, maxTokens }));
 }
 
 async function callAnthropic({ system, messages, tools, forceToolName, maxTokens }) {
@@ -89,4 +112,4 @@ async function callGemini({ system, messages, tools, forceToolName, maxTokens })
   return { type: 'text', text: response.text() };
 }
 
-module.exports = { callAI, isAIConfigured, activeProvider };
+module.exports = { callAI, isAIConfigured, activeProvider, withRetry };
