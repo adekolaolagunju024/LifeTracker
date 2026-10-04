@@ -311,4 +311,25 @@ addColumnIfMissing('profile', "lastStreakNudgeDate TEXT");
 // pushFocusNudgeEnabled above.
 addColumnIfMissing('profile', "pushStreakEnabled INTEGER NOT NULL DEFAULT 1");
 
+// Consent record: when the user accepted the Terms and Privacy Policy. Null
+// for accounts created before this existed.
+addColumnIfMissing('users', "acceptedTermsAt TEXT");
+
+// Per-account daily cap on user-triggered AI calls, so one account can't run
+// up an unbounded AI bill. Resets when aiCallsResetDate isn't today.
+addColumnIfMissing('profile', "aiCallsToday INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('profile', "aiCallsResetDate TEXT");
+
+// Minimal first-party event log (signups, goals created, tasks completed) —
+// enough to answer "is anyone signing up or activating" without a third-party
+// analytics account. Deliberately not a full analytics product.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS analytics_events (
+    id TEXT PRIMARY KEY,
+    userId TEXT,
+    event TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+  );
+`);
+
 module.exports = db;

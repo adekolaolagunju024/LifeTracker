@@ -4,6 +4,17 @@ const ExcelJS = require('exceljs');
 const db = require('../db/db');
 const { callAI, isAIConfigured } = require('../ai/provider');
 
+// Every user-triggered AI route spends one unit of the account's daily
+// allowance. The configured check comes first so an unconfigured server
+// doesn't burn anyone's quota on a request that's going to 503 anyway.
+function aiQuota(req, res, next) {
+  if (!isAIConfigured()) return next();
+  if (!db.consumeAiQuota(req.session.userId)) {
+    return res.status(429).json({ error: "You've used today's AI allowance. It resets tomorrow — everything else in Waypoint still works." });
+  }
+  next();
+}
+
 // GET /api/ai/status — lets the frontend show "not configured" without
 // triggering a real (billable) call, same pattern as Google Drive backup.
 router.get('/status', (req, res) => {
@@ -12,7 +23,7 @@ router.get('/status', (req, res) => {
 
 // POST /api/ai/insights — sends the user's open tasks to the AI and asks
 // for a prioritized focus list plus a few suggested next-step tasks.
-router.post('/insights', async (req, res) => {
+router.post('/insights', aiQuota, async (req, res) => {
   if (!isAIConfigured()) {
     return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY (or GEMINI_API_KEY) to .env to enable it.' });
   }
@@ -197,7 +208,7 @@ async function attachmentToContentBlocks({ name, mimetype, dataBase64 }) {
 // that context across later turns). Claude either replies with plain text
 // to keep the conversation going, or calls propose_project once it has
 // enough to finalize.
-router.post('/project-chat', async (req, res) => {
+router.post('/project-chat', aiQuota, async (req, res) => {
   if (!isAIConfigured()) {
     return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY (or GEMINI_API_KEY) to .env to enable it.' });
   }
@@ -242,7 +253,7 @@ router.post('/project-chat', async (req, res) => {
 // task: one concrete, doable-in-two-minutes first action, not a full plan.
 // Loads the task server-side (never trusts a client-supplied title/notes
 // directly) so this can't be used as an open-ended prompt injection point.
-router.post('/tiny-step', async (req, res) => {
+router.post('/tiny-step', aiQuota, async (req, res) => {
   if (!isAIConfigured()) {
     return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY (or GEMINI_API_KEY) to .env to enable it.' });
   }

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Waypoint — Turn a goal into a plan</title>
+  <meta name="description" content="Waypoint turns a vague goal into a phased plan with dated tasks, then sends the reminders, streaks, and check-ins that keep it moving.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: { DEFAULT: '#0D1B2A', 2: '#1B3A5C' },
+            teal: { DEFAULT: '#0A7E8C' }
+          }
+        }
+      }
+    };
+  </script>
+</head>
+<body class="bg-white text-navy antialiased overflow-x-hidden">
+
+  <!-- Hero -->
+  <header class="bg-navy text-white">
+    <div class="mx-auto max-w-5xl px-4 md:px-8 pt-16 pb-20 md:pt-24 md:pb-28 text-center">
+      <p class="text-sm font-semibold tracking-wide uppercase text-white/70">Waypoint</p>
+      <h1 class="mt-4 text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+        Turns a vague goal into a plan, then won&rsquo;t let you forget it.
+      </h1>
+      <p class="mt-6 mx-auto max-w-2xl text-lg md:text-xl text-white/80">
+        Describe what you want in plain English and get a phased project with dated tasks, plus the reminders that keep it moving.
+      </p>
+      <div class="mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-4">
+        <a href="/" class="inline-flex items-center justify-center rounded-lg bg-teal px-6 py-3 text-base font-semibold text-white shadow hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
+          Get started free
+        </a>
+        <a href="/" class="text-base font-medium text-white/80 underline underline-offset-4 hover:text-white">
+          Already have an account? Log in
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Demo -->
+  <section class="bg-gray-50">
+    <div class="mx-auto max-w-4xl px-4 md:px-8 py-16">
+      <div class="relative aspect-video w-full overflow-hidden rounded-2xl border border-navy-2/15 bg-white shadow-sm">
+        <img
+          src="/media/demo.gif"
+          alt="Waypoint turning a goal into a phased plan"
+          class="absolute inset-0 h-full w-full object-cover"
+          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+        >
+        <div
+          class="absolute inset-0 items-center justify-center text-base font-medium text-navy-2"
+          style="display: none;"
+        >
+          Demo coming soon
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="bg-white">
+    <div class="mx-auto max-w-5xl px-4 md:px-8 py-16 md:py-20">
+      <h2 class="text-3xl md:text-4xl font-bold text-navy text-center">How it works</h2>
+      <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="flex flex-col">
+          <span class="flex h-12 w-12 items-center justify-center rounded-full bg-teal text-xl font-bold text-white">1</span>
+          <h3 class="mt-5 text-xl font-semibold text-navy">Describe the goal</h3>
+          <p class="mt-2 text-gray-600">Tell the AI chat what you want in plain English. It asks a question or two if it needs more detail.</p>
+        </div>
+        <div class="flex flex-col">
+          <span class="flex h-12 w-12 items-center justify-center rounded-full bg-teal text-xl font-bold text-white">2</span>
+          <h3 class="mt-5 text-xl font-semibold text-navy">The AI builds the phased plan</h3>
+          <p class="mt-2 text-gray-600">You get a full project broken into named phases with dated tasks. Review and edit it, then create it in one click.</p>
+        </div>
+        <div class="flex flex-col">
+          <span class="flex h-12 w-12 items-center justify-center rounded-full bg-teal text-xl font-bold text-white">3</span>
+          <h3 class="mt-5 text-xl font-semibold text-navy">Reminders, streaks, and check-ins keep you moving</h3>
+          <p class="mt-2 text-gray-600">Push notifications on your phone or desktop flag overdue and due-today tasks, a 🔥 streak counts your consecutive productive days, and an optional weekly check-in keeps you accountable.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Built for stuck starters -->
+  <section class="bg-gray-50">
+    <div class="mx-auto max-w-5xl px-4 md:px-8 py-16 md:py-20">
+      <h2 class="text-3xl md:text-4xl font-bold text-navy text-center">Built for stuck starters</h2>
+      <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 class="text-lg font-semibold text-navy">The 2-minute &ldquo;just start&rdquo; timer</h3>
+          <p class="mt-3 text-gray-600">On any task you haven&rsquo;t started, a built-in two-minute timer makes the first step feel small, with an optional AI-suggested tiny first step.</p>
+        </div>
+        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 class="text-lg font-semibold text-navy">🔥 Momentum streak</h3>
+          <p class="mt-3 text-gray-600">Your streak counts consecutive days with at least one completed task, so progress you&rsquo;ve made stays visible.</p>
+        </div>
+        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h3 class="text-lg font-semibold text-navy">Weekly AI check-in</h3>
+          <p class="mt-3 text-gray-600">An optional message per goal each week covers what&rsquo;s on track, what&rsquo;s stalled, and one next step.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Who it's for -->
+  <section class="bg-white">
+    <div class="mx-auto max-w-3xl px-4 md:px-8 py-16 md:py-20">
+      <h2 class="text-3xl md:text-4xl font-bold text-navy text-center">Who it&rsquo;s for</h2>
+      <div class="mt-10 space-y-6 text-lg leading-relaxed text-gray-700">
+        <p>
+          If you have a graveyard of to-do apps and a list of goals you keep meaning to start, Waypoint is for the gap between wanting something and actually beginning it. It&rsquo;s built for freelancers juggling client work, side-hustle builders with a pile of half-finished ideas, and anyone who finds the first step the hardest part.
+        </p>
+        <p>
+          Instead of asking you to plan everything yourself, Waypoint turns a rough goal into named phases and dated tasks you can edit. Then it keeps that plan in front of you with reminders, a momentum streak, and a weekly check-in, so the plan doesn&rsquo;t quietly disappear.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section class="bg-navy text-white">
+    <div class="mx-auto max-w-4xl px-4 md:px-8 py-16 md:py-20 text-center">
+      <h2 class="text-3xl md:text-4xl font-bold">Ready to turn your next goal into a plan?</h2>
+      <p class="mt-4 text-lg text-white/80">Start with one sentence describing what you want.</p>
+      <div class="mt-8">
+        <a href="/" class="inline-flex items-center justify-center rounded-lg bg-teal px-6 py-3 text-base font-semibold text-white shadow hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
+          Get started free
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-gray-200">
+    <div class="mx-auto max-w-5xl px-4 md:px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-600">
+      <p>&copy; 2026 Waypoint</p>
+      <nav class="flex items-center gap-6">
+        <a href="privacy.html" class="hover:text-navy underline-offset-4 hover:underline">Privacy</a>
+        <a href="terms.html" class="hover:text-navy underline-offset-4 hover:underline">Terms</a>
+      </nav>
+    </div>
+  </footer>
+
+</body>
+</html>

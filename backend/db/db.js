@@ -2,9 +2,9 @@ const db = require('./connection');
 const { v4: uuid } = require('uuid');
 
 // ── USERS ────────────────────────────────────────────────────────
-function createUser({ id, email, passwordHash, createdAt }) {
-  db.prepare(`INSERT INTO users (id, email, passwordHash, createdAt) VALUES (?,?,?,?)`)
-    .run(id, email, passwordHash, createdAt);
+function createUser({ id, email, passwordHash, createdAt, acceptedTermsAt = null }) {
+  db.prepare(`INSERT INTO users (id, email, passwordHash, createdAt, acceptedTermsAt) VALUES (?,?,?,?,?)`)
+    .run(id, email, passwordHash, createdAt, acceptedTermsAt);
 
   // Explicit, not relying on the column DEFAULT — SQLite bakes a column's
   // default into the table at CREATE TABLE time, so editing the DEFAULT in
@@ -177,6 +177,23 @@ function setStreakState(userId, { currentStreak, longestStreak, lastStreakDate }
 
 function setLastStreakNudgeDate(userId, dateStr) {
   db.prepare('UPDATE profile SET lastStreakNudgeDate = ? WHERE userId = ?').run(dateStr, userId);
+}
+
+// Per-account daily cap on user-triggered AI calls. Returns false (and
+// spends nothing) once today's allowance is used up.
+const AI_DAILY_LIMIT = 15;
+function consumeAiQuota(userId) {
+  const todayKey = localDateKeyFromDate(new Date());
+  const profile = getProfile(userId);
+  const used = profile.aiCallsResetDate === todayKey ? profile.aiCallsToday : 0;
+  if (used >= AI_DAILY_LIMIT) return false;
+  db.prepare('UPDATE profile SET aiCallsToday = ?, aiCallsResetDate = ? WHERE userId = ?').run(used + 1, todayKey, userId);
+  return true;
+}
+
+function logEvent(userId, event) {
+  db.prepare('INSERT INTO analytics_events (id, userId, event, createdAt) VALUES (?,?,?,?)')
+    .run(uuid(), userId, event, new Date().toISOString());
 }
 
 function hasCompletedTaskToday(userId, todayKey) {
@@ -602,7 +619,10 @@ function updateTaskById(userId, id, patch) {
     WHERE id = ?
   `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, assigneeAssignedAt, targetCount, targetUnit, progressCount, overdueNotifiedAt, completedAt, id);
 
-  if (justCompleted) recordStreakProgress(userId);
+  if (justCompleted) {
+    recordStreakProgress(userId);
+    logEvent(userId, 'task_completed');
+  }
 
   // Completing a recurring task schedules its next occurrence automatically
   // — e.g. "apply to 5 jobs this week" comes back next week instead of
@@ -1377,7 +1397,7 @@ module.exports = {
   getAppConfig, setAppConfig, addPushSubscription, removePushSubscription, removePushSubscriptionByEndpoint,
   listPushSubscriptionsForUser, listUsersForPushReminders, setLastPushDigestSentDate, setLastFocusNudgeAt, markTaskOverdueNotified,
   listTasksInProjectTree, listGoalProjectsForCheckIn, setProjectLastCheckInAt,
-  setLastStreakNudgeDate, hasCompletedTaskToday,
+  setLastStreakNudgeDate, hasCompletedTaskToday, consumeAiQuota, logEvent,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById, duplicateProject,
   getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, duplicateTask, bumpTaskProgress, reorderTasks,

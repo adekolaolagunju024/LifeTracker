@@ -2840,8 +2840,10 @@ async function submitAuthRegister() {
   const confirm  = document.getElementById('auth-register-confirm').value;
   if (password.length < 6) return showAuthError('auth-register-error', 'Password must be at least 6 characters');
   if (password !== confirm) return showAuthError('auth-register-error', 'Passwords do not match');
+  const acceptTerms = document.getElementById('auth-register-terms').checked;
+  if (!acceptTerms) return showAuthError('auth-register-error', 'Please agree to the Terms and Privacy Policy to create an account');
   try {
-    await API.register(email, password);
+    await API.register(email, password, acceptTerms);
     offerToSaveCredential(email, password);
     closeAuth();
     await afterAuth();

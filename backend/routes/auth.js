@@ -41,6 +41,7 @@ router.post('/register', async (req, res) => {
 
   if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Enter a valid email address' });
   if (!password || password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  if (req.body.acceptTerms !== true) return res.status(400).json({ error: 'Please agree to the Terms and Privacy Policy to create an account' });
   if (db.getUserByEmail(email)) return res.status(409).json({ error: 'An account with that email already exists' });
 
   const user = db.createUser({
@@ -48,7 +49,9 @@ router.post('/register', async (req, res) => {
     email,
     passwordHash: await bcrypt.hash(password, 10),
     createdAt: new Date().toISOString(),
+    acceptedTermsAt: new Date().toISOString(),
   });
+  db.logEvent(user.id, 'user_registered');
 
   req.session.userId = user.id;
   res.status(201).json({ email: user.email });
@@ -103,12 +106,17 @@ router.get('/google/callback', async (req, res) => {
 
     let user = db.getUserByEmail(email);
     if (!user) {
+      // Google sign-in has no in-app checkbox; the sign-in buttons carry a
+      // "by continuing you agree to the Terms and Privacy Policy" notice, and
+      // that's recorded here as acceptance at account creation.
       user = db.createUser({
         id: uuid(),
         email,
         passwordHash: await bcrypt.hash(crypto.randomUUID(), 10),
         createdAt: new Date().toISOString(),
+        acceptedTermsAt: new Date().toISOString(),
       });
+      db.logEvent(user.id, 'user_registered');
     }
     req.session.userId = user.id;
     res.redirect('/');
