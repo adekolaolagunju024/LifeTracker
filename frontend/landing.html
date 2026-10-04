@@ -1,150 +1,229 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Waypoint — Turn a goal into a plan</title>
-  <meta name="description" content="Waypoint turns a vague goal into a phased plan with dated tasks, then sends the reminders, streaks, and check-ins that keep it moving.">
+  <meta name="description" content="Describe a goal in plain English and get a phased plan with dated tasks, plus reminders, streaks, and weekly check-ins that keep you moving.">
+  <link rel="icon" href="/icons/icon-192.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script>document.documentElement.classList.add('js')</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
           colors: {
             navy: { DEFAULT: '#0D1B2A', 2: '#1B3A5C' },
-            teal: { DEFAULT: '#0A7E8C' }
-          }
-        }
-      }
+            teal: { DEFAULT: '#0A7E8C', light: '#5EEAD4' },
+          },
+        },
+      },
     };
   </script>
+  <style>
+    html { scroll-behavior: smooth; }
+    .hero-glow {
+      background:
+        radial-gradient(60% 50% at 80% 0%, rgba(10,126,140,.35), transparent 70%),
+        radial-gradient(40% 40% at 0% 100%, rgba(27,58,92,.6), transparent 70%),
+        linear-gradient(180deg, #0D1B2A 0%, #0f2236 100%);
+    }
+    .js .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .js .reveal { opacity: 1; transform: none; transition: none; }
+    }
+  </style>
 </head>
-<body class="bg-white text-navy antialiased overflow-x-hidden">
+<body class="bg-white font-sans text-gray-700 antialiased">
 
-  <!-- Hero -->
-  <header class="bg-navy text-white">
-    <div class="mx-auto max-w-5xl px-4 md:px-8 pt-16 pb-20 md:pt-24 md:pb-28 text-center">
-      <p class="text-sm font-semibold tracking-wide uppercase text-white/70">Waypoint</p>
-      <h1 class="mt-4 text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-        Turns a vague goal into a plan, then won&rsquo;t let you forget it.
-      </h1>
-      <p class="mt-6 mx-auto max-w-2xl text-lg md:text-xl text-white/80">
-        Describe what you want in plain English and get a phased project with dated tasks, plus the reminders that keep it moving.
-      </p>
-      <div class="mt-10 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-4">
-        <a href="/app" class="inline-flex items-center justify-center rounded-lg bg-teal px-6 py-3 text-base font-semibold text-white shadow hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
-          Get started free
-        </a>
-        <a href="/app" class="text-base font-medium text-white/80 underline underline-offset-4 hover:text-white">
-          Already have an account? Log in
-        </a>
+  <!-- Brand wordmark: same icon and two-tone name as the app's sidebar -->
+  <header class="hero-glow text-white">
+    <nav class="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
+      <a href="/landing.html" class="flex items-center gap-2.5" aria-label="Waypoint home">
+        <img src="/icons/icon-192.png" alt="" class="h-8 w-8 rounded-lg">
+        <span class="text-xl font-black tracking-tight"><span class="text-white">Way</span><span class="text-teal-light">point</span></span>
+      </a>
+      <div class="flex items-center gap-5 text-sm font-medium">
+        <a href="#how" class="hidden text-white/70 hover:text-white sm:inline">How it works</a>
+        <a href="#features" class="hidden text-white/70 hover:text-white sm:inline">Features</a>
+        <a href="/app" class="text-white/80 hover:text-white">Log in</a>
+        <a href="/app" class="rounded-lg bg-teal px-4 py-2 font-semibold text-white shadow-lg shadow-teal/30 hover:brightness-110">Get started</a>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <div class="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-10 md:grid-cols-2 md:pt-16">
+      <div>
+        <p class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-teal-light">
+          <span class="h-1.5 w-1.5 rounded-full bg-teal-light"></span> AI goal planner with accountability
+        </p>
+        <h1 class="mt-5 text-4xl font-black leading-[1.05] tracking-tight md:text-6xl">
+          Turns a vague goal into a plan,
+          <span class="text-teal-light">then won't let you forget it.</span>
+        </h1>
+        <p class="mt-6 max-w-xl text-lg leading-relaxed text-white/70">
+          Describe what you want in plain English. Waypoint builds a phased project with dated tasks, then keeps it moving with reminders, a streak, and a weekly check-in.
+        </p>
+        <div class="mt-8 flex flex-wrap items-center gap-4">
+          <a href="/app" class="rounded-xl bg-teal px-6 py-3.5 text-base font-bold text-white shadow-xl shadow-teal/30 hover:brightness-110">Get started free</a>
+          <a href="#how" class="rounded-xl border border-white/20 px-6 py-3.5 text-base font-semibold text-white/90 hover:bg-white/5">See how it works</a>
+        </div>
+        <p class="mt-5 text-sm text-white/50">Works in any browser, on Android, and on iPhone once added to your Home Screen.</p>
+      </div>
+
+      <!-- Demo in a browser-style frame -->
+      <div class="reveal relative">
+        <div class="absolute -inset-4 rounded-3xl bg-teal/20 blur-2xl"></div>
+        <div class="relative overflow-hidden rounded-2xl border border-white/10 bg-navy-2 shadow-2xl">
+          <div class="flex items-center gap-1.5 border-b border-white/10 bg-navy/60 px-4 py-3">
+            <span class="h-2.5 w-2.5 rounded-full bg-white/20"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-white/20"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-white/20"></span>
+          </div>
+          <div class="aspect-video w-full bg-navy">
+            <img src="/media/demo.gif" alt="Waypoint turning a goal into a phased plan" class="h-full w-full object-cover"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div style="display:none" class="h-full w-full items-center justify-center text-sm text-white/50">Demo coming soon</div>
+          </div>
+        </div>
       </div>
     </div>
   </header>
 
-  <!-- Demo -->
-  <section class="bg-gray-50">
-    <div class="mx-auto max-w-4xl px-4 md:px-8 py-16">
-      <div class="relative aspect-video w-full overflow-hidden rounded-2xl border border-navy-2/15 bg-white shadow-sm">
-        <img
-          src="/media/demo.gif"
-          alt="Waypoint turning a goal into a phased plan"
-          class="absolute inset-0 h-full w-full object-cover"
-          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-        >
-        <div
-          class="absolute inset-0 items-center justify-center text-base font-medium text-navy-2"
-          style="display: none;"
-        >
-          Demo coming soon
-        </div>
-      </div>
+  <!-- Proof strip: facts only, no invented numbers -->
+  <section class="border-b border-gray-100 bg-white">
+    <div class="mx-auto grid max-w-6xl gap-6 px-5 py-8 text-center text-sm font-semibold text-navy sm:grid-cols-3">
+      <p>Plans from a plain-English description</p>
+      <p>Reminders on your phone and desktop</p>
+      <p>Built for starting, not just tracking</p>
     </div>
   </section>
 
   <!-- How it works -->
-  <section class="bg-white">
-    <div class="mx-auto max-w-5xl px-4 md:px-8 py-16 md:py-20">
-      <h2 class="text-3xl md:text-4xl font-bold text-navy text-center">How it works</h2>
-      <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div class="flex flex-col">
-          <span class="flex h-12 w-12 items-center justify-center rounded-full bg-teal text-xl font-bold text-white">1</span>
-          <h3 class="mt-5 text-xl font-semibold text-navy">Describe the goal</h3>
-          <p class="mt-2 text-gray-600">Tell the AI chat what you want in plain English. It asks a question or two if it needs more detail.</p>
+  <section id="how" class="scroll-mt-6 bg-gray-50 py-20">
+    <div class="mx-auto max-w-6xl px-5">
+      <div class="reveal mx-auto max-w-2xl text-center">
+        <p class="text-sm font-bold uppercase tracking-widest text-teal">How it works</p>
+        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">From wanting it to doing it, in three steps</h2>
+      </div>
+      <div class="mt-14 grid gap-6 md:grid-cols-3">
+        <div class="reveal rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-lg font-black text-white">1</div>
+          <h3 class="mt-5 text-lg font-bold text-navy">Describe the goal</h3>
+          <p class="mt-2 leading-relaxed text-gray-600">Tell the AI chat what you want in plain English. It asks a question or two if it needs more detail.</p>
         </div>
-        <div class="flex flex-col">
-          <span class="flex h-12 w-12 items-center justify-center rounded-full bg-teal text-xl font-bold text-white">2</span>
-          <h3 class="mt-5 text-xl font-semibold text-navy">The AI builds the phased plan</h3>
-          <p class="mt-2 text-gray-600">You get a full project broken into named phases with dated tasks. Review and edit it, then create it in one click.</p>
+        <div class="reveal rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-lg font-black text-white">2</div>
+          <h3 class="mt-5 text-lg font-bold text-navy">Get a phased plan</h3>
+          <p class="mt-2 leading-relaxed text-gray-600">Review a project broken into named phases with dated tasks. Edit anything, then create it in one click.</p>
         </div>
-        <div class="flex flex-col">
-          <span class="flex h-12 w-12 items-center justify-center rounded-full bg-teal text-xl font-bold text-white">3</span>
-          <h3 class="mt-5 text-xl font-semibold text-navy">Reminders, streaks, and check-ins keep you moving</h3>
-          <p class="mt-2 text-gray-600">Push notifications on your phone or desktop flag overdue and due-today tasks, a 🔥 streak counts your consecutive productive days, and an optional weekly check-in keeps you accountable.</p>
+        <div class="reveal rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-teal text-lg font-black text-white">3</div>
+          <h3 class="mt-5 text-lg font-bold text-navy">Stay on track</h3>
+          <p class="mt-2 leading-relaxed text-gray-600">Reminders, a streak, and a weekly check-in keep the plan in front of you until it's done.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Built for stuck starters -->
-  <section class="bg-gray-50">
-    <div class="mx-auto max-w-5xl px-4 md:px-8 py-16 md:py-20">
-      <h2 class="text-3xl md:text-4xl font-bold text-navy text-center">Built for stuck starters</h2>
-      <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 class="text-lg font-semibold text-navy">The 2-minute &ldquo;just start&rdquo; timer</h3>
-          <p class="mt-3 text-gray-600">On any task you haven&rsquo;t started, a built-in two-minute timer makes the first step feel small, with an optional AI-suggested tiny first step.</p>
+  <!-- Features -->
+  <section id="features" class="scroll-mt-6 bg-white py-20">
+    <div class="mx-auto max-w-6xl px-5">
+      <div class="reveal mx-auto max-w-2xl text-center">
+        <p class="text-sm font-bold uppercase tracking-widest text-teal">Built for stuck starters</p>
+        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">The features that get you moving</h2>
+      </div>
+      <div class="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <div class="reveal group rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
+          <div class="text-2xl">⚡</div>
+          <h3 class="mt-4 font-bold text-navy">"Just start" timer</h3>
+          <p class="mt-2 text-sm leading-relaxed text-gray-600">On any task you haven't started, a built-in two-minute timer makes the first step feel small. An optional AI suggestion gives you one concrete action.</p>
         </div>
-        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 class="text-lg font-semibold text-navy">🔥 Momentum streak</h3>
-          <p class="mt-3 text-gray-600">Your streak counts consecutive days with at least one completed task, so progress you&rsquo;ve made stays visible.</p>
+        <div class="reveal group rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
+          <div class="text-2xl">🔥</div>
+          <h3 class="mt-4 font-bold text-navy">Momentum streak</h3>
+          <p class="mt-2 text-sm leading-relaxed text-gray-600">Your streak counts consecutive days with at least one completed task. An evening alert fires if today's streak is at risk.</p>
         </div>
-        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h3 class="text-lg font-semibold text-navy">Weekly AI check-in</h3>
-          <p class="mt-3 text-gray-600">An optional message per goal each week covers what&rsquo;s on track, what&rsquo;s stalled, and one next step.</p>
+        <div class="reveal group rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
+          <div class="text-2xl">🔔</div>
+          <h3 class="mt-4 font-bold text-navy">Real reminders</h3>
+          <p class="mt-2 text-sm leading-relaxed text-gray-600">Alerts when a task goes overdue, a morning ping for what's due today, and a recurring nudge while something is still open.</p>
+        </div>
+        <div class="reveal group rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
+          <div class="text-2xl">🎯</div>
+          <h3 class="mt-4 font-bold text-navy">Weekly check-in</h3>
+          <p class="mt-2 text-sm leading-relaxed text-gray-600">An optional short message for each goal: what's on track, what's stalled, and one next step. It reads your progress and never rewrites your plan.</p>
+        </div>
+        <div class="reveal group rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
+          <div class="text-2xl">🗺️</div>
+          <h3 class="mt-4 font-bold text-navy">Gantt, Kanban, and calendar</h3>
+          <p class="mt-2 text-sm leading-relaxed text-gray-600">When you want more structure, see the same plan as a timeline, a board, or a calendar.</p>
+        </div>
+        <div class="reveal group rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
+          <div class="text-2xl">👥</div>
+          <h3 class="mt-4 font-bold text-navy">Share with control</h3>
+          <p class="mt-2 text-sm leading-relaxed text-gray-600">Invite collaborators as viewers, commenters, or editors, and keep your private goals private.</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- Who it's for -->
-  <section class="bg-white">
-    <div class="mx-auto max-w-3xl px-4 md:px-8 py-16 md:py-20">
-      <h2 class="text-3xl md:text-4xl font-bold text-navy text-center">Who it&rsquo;s for</h2>
-      <div class="mt-10 space-y-6 text-lg leading-relaxed text-gray-700">
-        <p>
-          If you have a graveyard of to-do apps and a list of goals you keep meaning to start, Waypoint is for the gap between wanting something and actually beginning it. It&rsquo;s built for freelancers juggling client work, side-hustle builders with a pile of half-finished ideas, and anyone who finds the first step the hardest part.
-        </p>
-        <p>
-          Instead of asking you to plan everything yourself, Waypoint turns a rough goal into named phases and dated tasks you can edit. Then it keeps that plan in front of you with reminders, a momentum streak, and a weekly check-in, so the plan doesn&rsquo;t quietly disappear.
-        </p>
+  <section class="bg-gray-50 py-20">
+    <div class="mx-auto max-w-6xl px-5">
+      <div class="reveal mx-auto max-w-2xl text-center">
+        <p class="text-sm font-bold uppercase tracking-widest text-teal">Who it's for</p>
+        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">For the gap between wanting it and starting it</h2>
+      </div>
+      <div class="mt-14 grid gap-6 md:grid-cols-2">
+        <div class="reveal rounded-2xl bg-white p-8 shadow-sm">
+          <p class="text-base font-bold text-navy">Freelancers and side-hustle builders</p>
+          <p class="mt-3 leading-relaxed text-gray-600">You're juggling client work with a course, a product, or a business. Waypoint turns the big idea into steps you can see, and keeps the plan visible when your day gets busy.</p>
+        </div>
+        <div class="reveal rounded-2xl bg-white p-8 shadow-sm">
+          <p class="text-base font-bold text-navy">Anyone who finds starting the hardest part</p>
+          <p class="mt-3 leading-relaxed text-gray-600">If you already own a graveyard of to-do apps, the problem usually isn't the list. Waypoint makes the first step small and gives you a reason to keep going.</p>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- Final CTA -->
-  <section class="bg-navy text-white">
-    <div class="mx-auto max-w-4xl px-4 md:px-8 py-16 md:py-20 text-center">
-      <h2 class="text-3xl md:text-4xl font-bold">Ready to turn your next goal into a plan?</h2>
-      <p class="mt-4 text-lg text-white/80">Start with one sentence describing what you want.</p>
-      <div class="mt-8">
-        <a href="/app" class="inline-flex items-center justify-center rounded-lg bg-teal px-6 py-3 text-base font-semibold text-white shadow hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
-          Get started free
-        </a>
-      </div>
+  <!-- Final call to action -->
+  <section class="hero-glow py-20 text-white">
+    <div class="reveal mx-auto max-w-3xl px-5 text-center">
+      <h2 class="text-3xl font-black tracking-tight md:text-5xl">Ready to turn your next goal into a plan?</h2>
+      <p class="mt-5 text-lg text-white/70">Start with one sentence describing what you want.</p>
+      <a href="/app" class="mt-9 inline-block rounded-xl bg-teal px-8 py-4 text-base font-bold text-white shadow-xl shadow-teal/30 hover:brightness-110">Get started free</a>
     </div>
   </section>
 
-  <!-- Footer -->
-  <footer class="bg-white border-t border-gray-200">
-    <div class="mx-auto max-w-5xl px-4 md:px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-600">
-      <p>&copy; 2026 Waypoint</p>
-      <nav class="flex items-center gap-6">
-        <a href="privacy.html" class="hover:text-navy underline-offset-4 hover:underline">Privacy</a>
-        <a href="terms.html" class="hover:text-navy underline-offset-4 hover:underline">Terms</a>
-      </nav>
+  <footer class="bg-navy py-10 text-white/60">
+    <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-5 px-5 md:flex-row">
+      <a href="/landing.html" class="flex items-center gap-2.5">
+        <img src="/icons/icon-192.png" alt="" class="h-6 w-6 rounded-md">
+        <span class="font-black tracking-tight"><span class="text-white">Way</span><span class="text-teal-light">point</span></span>
+      </a>
+      <div class="flex gap-6 text-sm">
+        <a href="/privacy.html" class="hover:text-white">Privacy</a>
+        <a href="/terms.html" class="hover:text-white">Terms</a>
+        <a href="/app" class="hover:text-white">Log in</a>
+      </div>
+      <p class="text-xs">© 2026 Waypoint</p>
     </div>
   </footer>
 
+  <script>
+    // Gentle scroll-in for sections; users who prefer reduced motion get it immediately via CSS.
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+  </script>
 </body>
 </html>
