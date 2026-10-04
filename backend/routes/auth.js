@@ -95,14 +95,14 @@ router.get('/google', (req, res) => {
 // Google unless the user later sets a password from Settings).
 router.get('/google/callback', async (req, res) => {
   const { code, error } = req.query;
-  if (error || !code) return res.redirect('/?auth=error');
+  if (error || !code) return res.redirect('/app?auth=error');
   try {
     const client = getGoogleLoginClient(req);
     const { tokens } = await client.getToken(code);
     const ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: process.env.GOOGLE_CLIENT_ID });
     const payload = ticket.getPayload();
     const email = String(payload.email || '').trim().toLowerCase();
-    if (!email || !payload.email_verified) return res.redirect('/?auth=error');
+    if (!email || !payload.email_verified) return res.redirect('/app?auth=error');
 
     let user = db.getUserByEmail(email);
     if (!user) {
@@ -122,7 +122,7 @@ router.get('/google/callback', async (req, res) => {
     res.redirect('/');
   } catch (e) {
     console.error('Google login error:', e.message);
-    res.redirect('/?auth=error');
+    res.redirect('/app?auth=error');
   }
 });
 

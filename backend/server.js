@@ -49,7 +49,15 @@ app.use(session({
 }));
 
 // ── SERVE FRONTEND (public — the login screen itself lives here) ──
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, '../frontend'), { index: false }));
+
+// The marketing page is the front door for signed-out visitors; signed-in
+// users (and the app's own login screen at /app) get the app itself.
+app.get('/', (req, res) => {
+  const file = req.session && req.session.userId ? 'index.html' : 'landing.html';
+  res.sendFile(path.join(__dirname, '../frontend', file));
+});
+app.get('/app', (req, res) => res.sendFile(path.join(__dirname, '../frontend/index.html')));
 
 // ── PUBLIC ROUTES ──
 app.use('/api/auth', require('./routes/auth'));
