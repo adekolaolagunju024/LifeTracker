@@ -41,7 +41,7 @@ async function sendPushToUser(userId, { title, body, url, urgent, tag }) {
     return;
   }
   const payload = JSON.stringify({ title, body, url: url || APP_URL, urgent: !!urgent, tag });
-  let sent = 0, failed = 0;
+  let sent = 0;
   await Promise.all(subs.map(async sub => {
     try {
       await webpush.sendNotification(
@@ -50,7 +50,6 @@ async function sendPushToUser(userId, { title, body, url, urgent, tag }) {
       );
       sent++;
     } catch (e) {
-      failed++;
       if (e.statusCode === 404 || e.statusCode === 410) {
         db.removePushSubscriptionByEndpoint(sub.endpoint);
         console.log(`Push subscription removed for user ${userId}: push service reported it gone (${e.statusCode}).`);

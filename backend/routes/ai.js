@@ -126,7 +126,7 @@ async function excelToText(buffer) {
   const parts = [];
   wb.worksheets.forEach(ws => {
     parts.push(`--- Sheet: ${ws.name} ---`);
-    ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+    ws.eachRow({ includeEmpty: false }, (row) => {
       const cells = [];
       row.eachCell({ includeEmpty: false }, cell => cells.push(String(cell.value ?? '').trim()));
       if (cells.some(Boolean)) parts.push(cells.join(' | '));
