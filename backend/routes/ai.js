@@ -3,6 +3,7 @@ const router  = express.Router();
 const ExcelJS = require('exceljs');
 const db = require('../db/db');
 const { callAI, isAIConfigured } = require('../ai/provider');
+const { EDIT_TOOL, buildEditContext, validateOperations } = require('../ai/edit');
 
 // Every user-triggered AI route spends one unit of the account's daily
 // allowance. The configured check comes first so an unconfigured server
@@ -272,6 +273,42 @@ router.post('/tiny-step', aiQuota, async (req, res) => {
     res.json({ suggestion: response.text ? response.text.trim() : null });
   } catch (e) {
     console.error('AI tiny-step error:', e);
+    const apiMessage = e?.error?.error?.message || e?.message || 'Unknown error';
+    res.status(502).json({ error: apiMessage });
+  }
+});
+
+// POST /api/ai/edit-project — revises an existing top-level plan from a
+// feedback message. Proposes changes only; nothing is written here. The
+// client shows them for review and applies whichever ones the user ticks,
+// through the same endpoints the manual UI uses.
+router.post('/edit-project', aiQuota, async (req, res) => {
+  if (!isAIConfigured()) {
+    return res.status(503).json({ error: 'AI is not configured on this server.' });
+  }
+  const userId = req.session.userId;
+  const feedback = String(req.body.feedback || '').trim().slice(0, 1000);
+  if (!feedback) return res.status(400).json({ error: 'Tell the AI what you want changed' });
+
+  const project = db.getProjectById(userId, req.body.projectId);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+  if (!db.canEditProject(userId, project.id)) return res.status(403).json({ error: 'You need edit access to revise this plan' });
+  if (project.parentId) return res.status(400).json({ error: 'Open the top-level project to revise its plan' });
+
+  const context = buildEditContext(userId, project);
+  try {
+    const response = await callAI({
+      system: 'You revise an existing plan the user already has. Make only the changes that address the request, keep everything else as it is, and never mark anything Completed or delete anything. Use only the ids listed in the plan. Dates are YYYY-MM-DD.',
+      messages: [{ role: 'user', content: context.text + '\n\nRequested change: ' + feedback }],
+      tools: [EDIT_TOOL],
+      forceToolName: 'propose_edits',
+      maxTokens: 3000,
+    });
+    if (response.type !== 'tool_use') throw new Error('AI did not return a revision');
+    const { operations, dropped } = validateOperations(response.input.operations, context.index);
+    res.json({ summary: response.input.summary || '', operations, dropped });
+  } catch (e) {
+    console.error('AI edit-project error:', e);
     const apiMessage = e?.error?.error?.message || e?.message || 'Unknown error';
     res.status(502).json({ error: apiMessage });
   }

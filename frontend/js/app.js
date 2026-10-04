@@ -687,6 +687,7 @@ async function renderProjectDetail(projectId) {
     document.getElementById('btn-new-subfolder').classList.toggle('hidden', !!proj.parentId || !canEdit);
     document.getElementById('btn-add-task-header').classList.toggle('hidden', !canEdit);
     document.getElementById('btn-edit-project').classList.toggle('hidden', !canEdit);
+    document.getElementById('btn-revise-ai').classList.toggle('hidden', !canEdit || !!proj.parentId);
 
     // Chat only makes sense once there's someone else to talk to.
     document.getElementById('btn-project-chat').classList.toggle('hidden', proj.role === 'owner' && !proj.collaboratorCount);
@@ -3956,6 +3957,121 @@ async function enablePushRemindersFromNudge() {
     showToast('✅ Push reminders turned on');
   } catch (e) {
     showToast('❌ ' + (e.message || 'Failed to turn on push reminders'), 'error');
+  }
+}
+
+// ── REVISE PLAN WITH AI ───────────────────────────────────────────
+// The AI only proposes. Nothing is written until the user ticks changes and
+// applies them, and each change goes through the same endpoints the manual
+// UI uses, so permissions and validation still apply.
+function openReviseProject(projectId) {
+  APP.reviseProjectId = projectId;
+  APP.reviseOps = [];
+  document.getElementById('revise-feedback').value = '';
+  document.getElementById('revise-summary').classList.add('hidden');
+  document.getElementById('revise-ops').innerHTML = '';
+  document.getElementById('revise-error').classList.add('hidden');
+  document.getElementById('revise-actions').classList.add('hidden');
+  document.getElementById('revise-actions').classList.remove('flex');
+  openModal('modal-revise');
+  document.getElementById('revise-feedback').focus();
+}
+
+const REVISE_LABELS = {
+  updateTask: 'Change task',
+  addTask: 'Add task',
+  renamePhase: 'Rename phase',
+  addPhase: 'Add phase',
+};
+
+function describeReviseOp(op) {
+  if (op.type === 'updateTask') {
+    const changes = Object.entries(op.fields).map(([k, v]) => `${k} → ${v || 'none'}`).join(', ');
+    return `"${esc(op.currentTitle)}": ${esc(changes)}`;
+  }
+  if (op.type === 'addTask') return `"${esc(op.task.title)}" (${esc(op.task.priority)}${op.task.endDate ? ', due ' + esc(op.task.endDate) : ''})`;
+  if (op.type === 'renamePhase') return `to "${esc(op.title)}"`;
+  return `"${esc(op.title)}" with ${op.tasks.length} task${op.tasks.length === 1 ? '' : 's'}`;
+}
+
+async function submitRevise() {
+  const feedback = document.getElementById('revise-feedback').value.trim();
+  const errEl = document.getElementById('revise-error');
+  errEl.classList.add('hidden');
+  if (!feedback) { errEl.textContent = 'Tell the AI what you want changed.'; errEl.classList.remove('hidden'); return; }
+  const btn = document.getElementById('revise-ask-btn');
+  btn.disabled = true;
+  btn.textContent = 'Thinking…';
+  try {
+    const res = await fetch('/api/ai/edit-project', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId: APP.reviseProjectId, feedback }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Could not get a revision');
+    APP.reviseOps = body.operations;
+    const summaryEl = document.getElementById('revise-summary');
+    summaryEl.textContent = body.summary || 'Here are the suggested changes.';
+    summaryEl.classList.remove('hidden');
+    const list = document.getElementById('revise-ops');
+    list.innerHTML = body.operations.length
+      ? body.operations.map((op, i) => `
+          <label class="flex items-start gap-3 border border-gray-200 rounded-lg p-3 cursor-pointer">
+            <input type="checkbox" class="revise-check mt-1 accent-teal" data-op-index="${i}" checked>
+            <span class="text-sm min-w-0">
+              <span class="block text-xs font-semibold text-teal uppercase tracking-wide">${REVISE_LABELS[op.type]}</span>
+              <span class="block text-navy">${describeReviseOp(op)}</span>
+              <span class="block text-xs text-gray-500 mt-0.5">${esc(op.reason || '')}</span>
+            </span>
+          </label>`).join('')
+      : '<p class="text-sm text-gray-500">No changes were proposed. Try describing what should change in more detail.</p>';
+    const actions = document.getElementById('revise-actions');
+    actions.classList.toggle('hidden', !body.operations.length);
+    actions.classList.toggle('flex', !!body.operations.length);
+    if (body.dropped) {
+      errEl.textContent = `${body.dropped} suggested change${body.dropped === 1 ? ' was' : 's were'} skipped because they didn't match your plan.`;
+      errEl.classList.remove('hidden');
+    }
+  } catch (e) {
+    errEl.textContent = '❌ ' + (e.message || 'Could not get a revision');
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Ask AI';
+  }
+}
+
+async function applyRevise() {
+  const checks = Array.from(document.querySelectorAll('.revise-check:checked'));
+  const ops = checks.map(c => APP.reviseOps[Number(c.dataset.opIndex)]);
+  if (!ops.length) { showToast('Tick at least one change to apply'); return; }
+  const btn = document.getElementById('revise-apply-btn');
+  btn.disabled = true;
+  btn.textContent = 'Applying…';
+  const projectId = APP.reviseProjectId;
+  try {
+    for (const op of ops) {
+      if (op.type === 'updateTask') {
+        await API.updateTask(op.taskId, op.fields);
+      } else if (op.type === 'addTask') {
+        await API.addTask({ ...op.task, projectId: op.phaseId });
+      } else if (op.type === 'renamePhase') {
+        await API.updateProject(op.phaseId, { title: op.title });
+      } else if (op.type === 'addPhase') {
+        const phase = await API.addProject({ title: op.title, parentId: projectId });
+        for (const task of op.tasks) await API.addTask({ ...task, projectId: phase.id });
+      }
+    }
+    closeModal('modal-revise');
+    showToast(`✅ Applied ${ops.length} change${ops.length === 1 ? '' : 's'}`);
+    renderProjectDetail(projectId);
+    updateSidebar();
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'Some changes could not be applied'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Apply selected';
   }
 }
 
