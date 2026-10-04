@@ -688,6 +688,7 @@ async function renderProjectDetail(projectId) {
     document.getElementById('btn-add-task-header').classList.toggle('hidden', !canEdit);
     document.getElementById('btn-edit-project').classList.toggle('hidden', !canEdit);
     document.getElementById('btn-revise-ai').classList.toggle('hidden', !canEdit || !!proj.parentId);
+    document.getElementById('btn-revise-tasks').classList.toggle('hidden', !canEdit || !!proj.parentId);
 
     // Chat only makes sense once there's someone else to talk to.
     document.getElementById('btn-project-chat').classList.toggle('hidden', proj.role === 'owner' && !proj.collaboratorCount);

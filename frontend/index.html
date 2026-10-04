@@ -951,6 +951,10 @@
         <button onclick="clearBulkSelection()" class="ml-auto text-white/60 hover:text-white text-xs font-semibold px-3 py-1.5">Clear selection</button>
       </div>
 
+      <div class="flex justify-end mb-2">
+        <button onclick="openReviseProject(APP.currentProjectId)" id="btn-revise-tasks" class="hidden bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-4 py-2 rounded-lg">✨ Edit tasks with AI</button>
+      </div>
+
       <!-- Task Table -->
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
@@ -1517,13 +1521,13 @@
 <div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-revise">
   <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-      <h3 class="text-base font-bold text-navy">✨ Revise this plan</h3>
+      <h3 class="text-base font-bold text-navy">✨ Edit with AI</h3>
       <button onclick="closeModal('modal-revise')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
     </div>
     <div class="p-6 overflow-y-auto flex-1 space-y-4">
       <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">What isn't working?</label>
-        <textarea id="revise-feedback" rows="3" maxlength="1000" placeholder="e.g. Phase 1 is too fast, give it two more weeks. Add a rest day each week." class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">What should change?</label>
+        <textarea id="revise-feedback" rows="3" maxlength="1000" placeholder="e.g. Give phase 1 two more weeks. Add a task to book the venue. Set the venue task to High priority." class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
         <p class="text-xs text-gray-400 mt-1">The AI only proposes changes. You choose which ones to apply.</p>
       </div>
       <div class="flex justify-end">
