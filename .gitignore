@@ -21,3 +21,5 @@ mobile/android/capacitor-cordova-android-plugins/build/
 mobile/android/.idea/
 mobile/android/*.iml
 mobile/android/app/*.iml
+# Scheduled database backups (local dev default location)
+backend/db/backups/

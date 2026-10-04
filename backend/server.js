@@ -13,6 +13,7 @@ const SqliteStore = require('better-sqlite3-session-store')(session);
 const { startDigestScheduler } = require('./email/digest');
 const { startPushReminderScheduler } = require('./push/scheduler');
 const { startCheckInScheduler } = require('./ai/checkIn');
+const { startBackupScheduler } = require('./backup');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -96,3 +97,4 @@ app.listen(PORT, () => {
 startDigestScheduler();
 startPushReminderScheduler();
 startCheckInScheduler();
+startBackupScheduler();

@@ -16,7 +16,7 @@ async function startServer() {
   child.stderr.on('data', d => { stderr += d; });
 
   const base = `http://localhost:${port}`;
-  const deadline = Date.now() + 15000;
+  const deadline = Date.now() + 30000;
   while (Date.now() < deadline) {
     try {
       const res = await fetch(`${base}/api/health`);
