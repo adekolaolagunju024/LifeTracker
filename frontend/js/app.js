@@ -484,6 +484,10 @@ async function renderDashboard() {
     document.getElementById('kpi-inprog').textContent = inprog;
     document.getElementById('hero-name').textContent  = profile.name.split(' ')[0];
 
+    // Momentum streak — consecutive days with >=1 completed task.
+    document.getElementById('streak-badge').classList.toggle('hidden', !profile.currentStreak);
+    document.getElementById('streak-count').textContent = profile.currentStreak || 0;
+
     // Goals Progress hero — overall task completion across every project,
     // regardless of type; goals are goals, whether Career, Health, etc.
     const goalsPct = pct(done, tasks.length);
@@ -2668,6 +2672,7 @@ function setPushRemindersButton(profile) {
   setPushTypeButton('push-type-overdue-btn', profile.pushOverdueEnabled);
   setPushTypeButton('push-type-duetoday-btn', profile.pushDueTodayEnabled);
   setPushTypeButton('push-type-focusnudge-btn', profile.pushFocusNudgeEnabled);
+  setPushTypeButton('push-type-streak-btn', profile.pushStreakEnabled);
   document.getElementById('focus-nudge-timing-row').classList.toggle('hidden', !profile.pushFocusNudgeEnabled);
 
   populateHourSelect('focus-nudge-start', profile.focusNudgeStartHour ?? 9);
@@ -2688,7 +2693,7 @@ function populateHourSelect(id, selectedHour) {
 }
 
 async function togglePushType(field) {
-  const idMap = { pushOverdueEnabled: 'push-type-overdue-btn', pushDueTodayEnabled: 'push-type-duetoday-btn', pushFocusNudgeEnabled: 'push-type-focusnudge-btn' };
+  const idMap = { pushOverdueEnabled: 'push-type-overdue-btn', pushDueTodayEnabled: 'push-type-duetoday-btn', pushFocusNudgeEnabled: 'push-type-focusnudge-btn', pushStreakEnabled: 'push-type-streak-btn' };
   const btn = document.getElementById(idMap[field]);
   const next = btn.dataset.enabled !== '1';
   try {
@@ -3374,6 +3379,7 @@ async function openTaskDetail(id) {
     document.getElementById('td-comment-viewonly').classList.toggle('hidden', canComment);
     APP.taskCommentCanReply = canComment;
     cancelCommentReply();
+    resetTinyStepUI(t, canEdit);
 
     document.getElementById('task-detail-backdrop').classList.remove('hidden');
     document.getElementById('task-detail-panel').classList.remove('translate-x-full');
@@ -3529,6 +3535,76 @@ function closeTaskDetail() {
   document.getElementById('task-detail-panel').classList.add('translate-x-full');
   APP_currentDetailTaskId = null;
   clearCommentAttachment();
+  stopTinyStepTimer();
+}
+
+// ── "JUST START" (2-minute timer + optional AI tiny-step suggestion) ──
+// Only for a task someone can edit that hasn't been started yet — the
+// whole point is lowering the activation energy to START, so it has
+// nothing to offer once a task is already In Progress or Completed.
+function resetTinyStepUI(task, canEdit) {
+  stopTinyStepTimer();
+  const show = canEdit && task.status === 'Not Started';
+  document.getElementById('td-tiny-step').classList.toggle('hidden', !show);
+  if (!show) return;
+  document.getElementById('td-tiny-step-suggestion').classList.add('hidden');
+  document.getElementById('td-tiny-step-suggestion').textContent = '';
+  document.getElementById('td-timer-start-btn').classList.remove('hidden');
+  document.getElementById('td-timer-display').classList.add('hidden');
+  document.getElementById('td-timer-done-btn').classList.add('hidden');
+}
+
+function stopTinyStepTimer() {
+  if (APP.tinyStepTimerHandle) { clearInterval(APP.tinyStepTimerHandle); APP.tinyStepTimerHandle = null; }
+}
+
+function startTwoMinuteTimer() {
+  document.getElementById('td-timer-start-btn').classList.add('hidden');
+  const display = document.getElementById('td-timer-display');
+  display.classList.remove('hidden');
+  let secondsLeft = 120;
+  const render = () => { display.textContent = `⏱ ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`; };
+  render();
+  APP.tinyStepTimerHandle = setInterval(() => {
+    secondsLeft--;
+    if (secondsLeft <= 0) {
+      stopTinyStepTimer();
+      display.textContent = '✅ Nice — you started.';
+      document.getElementById('td-timer-done-btn').classList.remove('hidden');
+      return;
+    }
+    render();
+  }, 1000);
+}
+
+async function markStartedFromTimer() {
+  if (!APP_currentDetailTaskId) return;
+  await updateTaskStatus(APP_currentDetailTaskId, 'In Progress', APP.detailTaskProjectId);
+  openTaskDetail(APP_currentDetailTaskId);
+}
+
+async function suggestTinyStep() {
+  const btn = document.getElementById('td-tiny-step-suggest-btn');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Thinking…';
+  try {
+    const res = await fetch('/api/ai/tiny-step', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId: APP_currentDetailTaskId }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Could not get a suggestion');
+    const el = document.getElementById('td-tiny-step-suggestion');
+    el.textContent = body.suggestion || "Couldn't come up with one — just try the 2-minute timer instead.";
+    el.classList.remove('hidden');
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'Failed to get a suggestion'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
 }
 
 function editTaskFromDetail() {

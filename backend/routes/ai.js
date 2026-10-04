@@ -238,4 +238,32 @@ router.post('/project-chat', async (req, res) => {
   }
 });
 
+// POST /api/ai/tiny-step — the "just start" affordance on a Not Started
+// task: one concrete, doable-in-two-minutes first action, not a full plan.
+// Loads the task server-side (never trusts a client-supplied title/notes
+// directly) so this can't be used as an open-ended prompt injection point.
+router.post('/tiny-step', async (req, res) => {
+  if (!isAIConfigured()) {
+    return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY (or GEMINI_API_KEY) to .env to enable it.' });
+  }
+  const task = db.getTaskById(req.session.userId, req.body.taskId);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  try {
+    const response = await callAI({
+      system: `You help someone who's stuck procrastinating on a task take the smallest possible first step. Given the task below, suggest ONE concrete, physical action that takes two minutes or less and clearly moves it forward — something so small there's no reason not to just do it right now. One short sentence, no preamble, no markdown, imperative mood (e.g. "Open a blank document and write just the title.").`,
+      messages: [{
+        role: 'user',
+        content: `Task: "${task.title}"${task.notes ? `\nNotes: ${task.notes}` : ''}`,
+      }],
+      maxTokens: 150,
+    });
+    res.json({ suggestion: response.text ? response.text.trim() : null });
+  } catch (e) {
+    console.error('AI tiny-step error:', e);
+    const apiMessage = e?.error?.error?.message || e?.message || 'Unknown error';
+    res.status(502).json({ error: apiMessage });
+  }
+});
+
 module.exports = router;

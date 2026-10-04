@@ -298,4 +298,17 @@ addColumnIfMissing('projects', "lastCheckInAt TEXT");
 // account that already has the other two notification types on.
 addColumnIfMissing('profile', "aiCheckInsEnabled INTEGER NOT NULL DEFAULT 0");
 
+// Momentum streak — consecutive days with at least one completed task,
+// the habit-loop mechanic behind the Dashboard's 🔥 badge and the evening
+// "don't lose your streak" push. completedAt is new: nothing previously
+// tracked WHEN a task was finished, only its current status.
+addColumnIfMissing('tasks', "completedAt TEXT");
+addColumnIfMissing('profile', "currentStreak INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('profile', "longestStreak INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('profile', "lastStreakDate TEXT");
+addColumnIfMissing('profile', "lastStreakNudgeDate TEXT");
+// 4th per-type push toggle, alongside pushOverdueEnabled/pushDueTodayEnabled/
+// pushFocusNudgeEnabled above.
+addColumnIfMissing('profile', "pushStreakEnabled INTEGER NOT NULL DEFAULT 1");
+
 module.exports = db;

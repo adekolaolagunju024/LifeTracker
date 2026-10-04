@@ -97,11 +97,33 @@ async function checkFocusNudges() {
   }
 }
 
+// 4. "Don't lose your streak" — once in the evening, only for someone with
+// an actual streak to protect who hasn't completed anything yet today.
+// Same once-daily dedup shape as checkDueTodayDigest, not the recurring
+// interval shape checkFocusNudges uses.
+async function checkStreakNudge() {
+  const todayKey = localDateKey(new Date());
+  for (const u of db.listUsersForPushReminders()) {
+    if (!u.pushStreakEnabled) continue;
+    if (!u.currentStreak) continue; // nothing to protect
+    if (u.lastStreakNudgeDate === todayKey) continue;
+    try {
+      if (db.hasCompletedTaskToday(u.userId, todayKey)) continue; // streak already safe today
+      await sendPushToUser(u.userId, {
+        title: '🔥 Don’t lose your streak!',
+        body: `${u.currentStreak}-day streak — complete one task today before it resets.`,
+        urgent: true,
+      });
+      db.setLastStreakNudgeDate(u.userId, todayKey);
+    } catch (e) { console.error(`Streak nudge failed for ${u.userId}:`, e.message); }
+  }
+}
+
 // Overdue alerts and focus nudges both want a frequent check (every 15
-// min); the due-today summary only wants to fire once, near the start of
-// the day. All three are no-ops for a user with push reminders off, and
-// the whole scheduler is harmless with zero subscriptions — sendPushToUser
-// just has nothing to send to.
+// min); the due-today summary and streak nudge only want to fire once, near
+// the start/end of the day respectively. All four are no-ops for a user
+// with push reminders off, and the whole scheduler is harmless with zero
+// subscriptions — sendPushToUser just has nothing to send to.
 function startPushReminderScheduler() {
   cron.schedule('*/15 * * * *', () => {
     checkOverdueAlerts().catch(e => console.error('Overdue check failed:', e.message));
@@ -110,6 +132,9 @@ function startPushReminderScheduler() {
   cron.schedule('0 8 * * *', () => {
     checkDueTodayDigest().catch(e => console.error('Due-today push failed:', e.message));
   });
+  cron.schedule('0 20 * * *', () => {
+    checkStreakNudge().catch(e => console.error('Streak nudge check failed:', e.message));
+  });
 }
 
-module.exports = { startPushReminderScheduler, checkOverdueAlerts, checkDueTodayDigest, checkFocusNudges };
+module.exports = { startPushReminderScheduler, checkOverdueAlerts, checkDueTodayDigest, checkFocusNudges, checkStreakNudge };

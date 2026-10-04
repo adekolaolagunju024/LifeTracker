@@ -58,6 +58,7 @@ function getProfile(userId) {
     pushDueTodayEnabled: !!row.pushDueTodayEnabled,
     pushFocusNudgeEnabled: !!row.pushFocusNudgeEnabled,
     aiCheckInsEnabled: !!row.aiCheckInsEnabled,
+    pushStreakEnabled: !!row.pushStreakEnabled,
   };
 }
 
@@ -66,11 +67,11 @@ function updateProfile(userId, patch) {
   const next = { ...current, ...patch };
   db.prepare(`
     UPDATE profile SET name=?, tagline=?, currency=?, targetNetWorth=?, targetDate=?, onboarded=?, emailDigestEnabled=?, pushRemindersEnabled=?, activityEmailsEnabled=?,
-      pushOverdueEnabled=?, pushDueTodayEnabled=?, pushFocusNudgeEnabled=?, focusNudgeStartHour=?, focusNudgeEndHour=?, focusNudgeIntervalMinutes=?, aiCheckInsEnabled=?
+      pushOverdueEnabled=?, pushDueTodayEnabled=?, pushFocusNudgeEnabled=?, focusNudgeStartHour=?, focusNudgeEndHour=?, focusNudgeIntervalMinutes=?, aiCheckInsEnabled=?, pushStreakEnabled=?
     WHERE userId = ?
   `).run(
     next.name, next.tagline, next.currency, next.targetNetWorth, next.targetDate, next.onboarded ? 1 : 0, next.emailDigestEnabled ? 1 : 0, next.pushRemindersEnabled ? 1 : 0, next.activityEmailsEnabled ? 1 : 0,
-    next.pushOverdueEnabled ? 1 : 0, next.pushDueTodayEnabled ? 1 : 0, next.pushFocusNudgeEnabled ? 1 : 0, next.focusNudgeStartHour, next.focusNudgeEndHour, next.focusNudgeIntervalMinutes, next.aiCheckInsEnabled ? 1 : 0,
+    next.pushOverdueEnabled ? 1 : 0, next.pushDueTodayEnabled ? 1 : 0, next.pushFocusNudgeEnabled ? 1 : 0, next.focusNudgeStartHour, next.focusNudgeEndHour, next.focusNudgeIntervalMinutes, next.aiCheckInsEnabled ? 1 : 0, next.pushStreakEnabled ? 1 : 0,
     userId
   );
   return getProfile(userId);
@@ -129,7 +130,8 @@ function listUsersForPushReminders() {
   return db.prepare(`
     SELECT u.id AS userId, p.name, p.lastPushDigestSentDate, p.lastFocusNudgeAt,
       p.pushOverdueEnabled, p.pushDueTodayEnabled, p.pushFocusNudgeEnabled,
-      p.focusNudgeStartHour, p.focusNudgeEndHour, p.focusNudgeIntervalMinutes
+      p.focusNudgeStartHour, p.focusNudgeEndHour, p.focusNudgeIntervalMinutes,
+      p.pushStreakEnabled, p.currentStreak, p.lastStreakNudgeDate
     FROM profile p JOIN users u ON u.id = p.userId
     WHERE p.pushRemindersEnabled = 1
   `).all();
@@ -142,6 +144,45 @@ function setLastFocusNudgeAt(userId, iso) {
 }
 function markTaskOverdueNotified(taskId, iso) {
   db.prepare('UPDATE tasks SET overdueNotifiedAt = ? WHERE id = ?').run(iso, taskId);
+}
+
+// ── MOMENTUM STREAK (consecutive days with >=1 completed task) ──
+function localDateKeyFromDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Called from updateTaskById whenever a task just transitioned into
+// Completed. Forward-only: un-completing a task later the same day never
+// retroactively decrements the streak — the point is positive
+// reinforcement, not a perfectly reversible counter.
+function recordStreakProgress(userId) {
+  const profile = getProfile(userId);
+  const today = new Date();
+  const todayKey = localDateKeyFromDate(today);
+  if (profile.lastStreakDate === todayKey) return; // already credited today
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = localDateKeyFromDate(yesterday);
+
+  const currentStreak = profile.lastStreakDate === yesterdayKey ? profile.currentStreak + 1 : 1;
+  const longestStreak = Math.max(profile.longestStreak, currentStreak);
+  setStreakState(userId, { currentStreak, longestStreak, lastStreakDate: todayKey });
+}
+
+function setStreakState(userId, { currentStreak, longestStreak, lastStreakDate }) {
+  db.prepare('UPDATE profile SET currentStreak = ?, longestStreak = ?, lastStreakDate = ? WHERE userId = ?')
+    .run(currentStreak, longestStreak, lastStreakDate, userId);
+}
+
+function setLastStreakNudgeDate(userId, dateStr) {
+  db.prepare('UPDATE profile SET lastStreakNudgeDate = ? WHERE userId = ?').run(dateStr, userId);
+}
+
+function hasCompletedTaskToday(userId, todayKey) {
+  return !!db.prepare(`
+    SELECT 1 FROM tasks WHERE userId = ? AND completedAt IS NOT NULL AND substr(completedAt, 1, 10) = ? LIMIT 1
+  `).get(userId, todayKey);
 }
 
 // ── AI GOAL ROADMAPS (projects.isGoal — see backend/ai/checkIn.js) ──
@@ -551,15 +592,21 @@ function updateTaskById(userId, id, patch) {
   // free to fire again if it genuinely becomes overdue a second time,
   // rather than staying silently suppressed forever.
   const overdueNotifiedAt = (next.endDate !== current.endDate || next.status !== current.status) ? null : current.overdueNotifiedAt;
+  // Tracks WHEN a task was finished (nothing did before) — the momentum
+  // streak needs this to know whether the user completed anything today.
+  // Cleared if a task is reopened, same as any other derived-from-status field.
+  const justCompleted = current.status !== 'Completed' && next.status === 'Completed';
+  const completedAt = justCompleted ? new Date().toISOString() : (next.status !== 'Completed' ? null : current.completedAt);
   db.prepare(`
-    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?, assigneeId=?, assigneeAssignedAt=?, targetCount=?, targetUnit=?, progressCount=?, overdueNotifiedAt=?
+    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?, assigneeId=?, assigneeAssignedAt=?, targetCount=?, targetUnit=?, progressCount=?, overdueNotifiedAt=?, completedAt=?
     WHERE id = ?
-  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, assigneeAssignedAt, targetCount, targetUnit, progressCount, overdueNotifiedAt, id);
+  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, assigneeAssignedAt, targetCount, targetUnit, progressCount, overdueNotifiedAt, completedAt, id);
+
+  if (justCompleted) recordStreakProgress(userId);
 
   // Completing a recurring task schedules its next occurrence automatically
   // — e.g. "apply to 5 jobs this week" comes back next week instead of
   // needing to be recreated by hand every time.
-  const justCompleted = current.status !== 'Completed' && next.status === 'Completed';
   if (justCompleted && next.recurrence && next.recurrence !== 'none') {
     createTask(userId, {
       id: uuid(),
@@ -1330,6 +1377,7 @@ module.exports = {
   getAppConfig, setAppConfig, addPushSubscription, removePushSubscription, removePushSubscriptionByEndpoint,
   listPushSubscriptionsForUser, listUsersForPushReminders, setLastPushDigestSentDate, setLastFocusNudgeAt, markTaskOverdueNotified,
   listTasksInProjectTree, listGoalProjectsForCheckIn, setProjectLastCheckInAt,
+  setLastStreakNudgeDate, hasCompletedTaskToday,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById, duplicateProject,
   getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, duplicateTask, bumpTaskProgress, reorderTasks,
