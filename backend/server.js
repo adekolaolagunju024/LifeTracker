@@ -2,6 +2,12 @@
 // self-promotional "tips" for the maintainers' other products on every boot.
 require('dotenv').config({ quiet: true });
 
+const Sentry = require('@sentry/node');
+// Error tracking is opt-in: with no SENTRY_DSN set, nothing is sent anywhere.
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'development', sendDefaultPii: false, tracesSampleRate: 0 });
+}
+
 const express = require('express');
 const session = require('express-session');
 const cors    = require('cors');
@@ -89,6 +95,8 @@ app.use('/api/push',     require('./routes/push'));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
+
+if (process.env.SENTRY_DSN) Sentry.setupExpressErrorHandler(app);
 
 app.listen(PORT, () => {
   console.log(`\n🚀 Waypoint running at http://localhost:${PORT}\n`);
