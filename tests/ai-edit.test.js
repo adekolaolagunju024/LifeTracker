@@ -5,15 +5,36 @@ const { EDIT_TOOL, validateOperations } = require('../backend/ai/edit');
 const index = {
   phaseIds: new Set(['goal', 'phase-1', 'phase-2']),
   subIds: new Set(['phase-1', 'phase-2']),
+  phaseTitles: new Map([['goal', 'Goal'], ['phase-1', 'Phase 1'], ['phase-2', 'Phase 2']]),
   taskById: new Map([
-    ['t-open', { id: 't-open', title: 'Open task', status: 'Not Started' }],
-    ['t-done', { id: 't-done', title: 'Done task', status: 'Completed' }],
+    ['t-open', { id: 't-open', title: 'Open task', status: 'Not Started', projectId: 'phase-1' }],
+    ['t-done', { id: 't-done', title: 'Done task', status: 'Completed', projectId: 'phase-1' }],
+    ['t-goal', { id: 't-goal', title: 'Top-level task', status: 'In Progress', projectId: 'goal' }],
   ]),
 };
 
+test('a task can be moved to another phase, with the phase title for review', () => {
+  const { operations, dropped } = validateOperations([
+    { type: 'moveTask', taskId: 't-open', phaseId: 'phase-2', reason: 'belongs later' },
+  ], index);
+  assert.equal(dropped, 0);
+  assert.equal(operations[0].toPhaseTitle, 'Phase 2');
+  assert.equal(operations[0].currentTitle, 'Open task');
+});
+
+test('moves are dropped for completed tasks, unknown phases, or a task already in that phase', () => {
+  const { operations, dropped } = validateOperations([
+    { type: 'moveTask', taskId: 't-done', phaseId: 'phase-2', reason: 'x' },
+    { type: 'moveTask', taskId: 't-open', phaseId: 'nowhere', reason: 'x' },
+    { type: 'moveTask', taskId: 't-open', phaseId: 'phase-1', reason: 'x' },
+  ], index);
+  assert.equal(operations.length, 0);
+  assert.equal(dropped, 3);
+});
+
 test('the edit tool cannot express a deletion', () => {
   const types = EDIT_TOOL.input_schema.properties.operations.items.properties.type.enum;
-  assert.deepEqual(types.sort(), ['addPhase', 'addTask', 'renamePhase', 'updateTask']);
+  assert.deepEqual(types.sort(), ['addPhase', 'addTask', 'moveTask', 'renamePhase', 'updateTask']);
 });
 
 test('an edit to an open task is kept, with its real title and only allowed fields', () => {

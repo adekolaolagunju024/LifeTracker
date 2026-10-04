@@ -21,7 +21,7 @@ const NEW_TASK_SCHEMA = {
 // deletion. Completed tasks are never offered as editable targets.
 const EDIT_TOOL = {
   name: 'propose_edits',
-  description: 'Propose changes to an existing plan. You may edit tasks, add tasks, rename phases, and add phases. You may not delete anything.',
+  description: 'Propose changes to an existing plan. You may edit tasks, add tasks, move tasks between phases, rename phases, and add phases. You may not delete anything.',
   input_schema: {
     type: 'object',
     properties: {
@@ -31,9 +31,9 @@ const EDIT_TOOL = {
         items: {
           type: 'object',
           properties: {
-            type: { type: 'string', enum: ['updateTask', 'addTask', 'renamePhase', 'addPhase'] },
+            type: { type: 'string', enum: ['updateTask', 'addTask', 'moveTask', 'renamePhase', 'addPhase'] },
             taskId: { type: 'string', description: 'For updateTask: an existing task id from the plan' },
-            phaseId: { type: 'string', description: 'For addTask and renamePhase: an existing phase id from the plan' },
+            phaseId: { type: 'string', description: 'For addTask: the phase to add to. For moveTask: the phase to move the task into. For renamePhase: the phase to rename. Always an existing phase id from the plan' },
             title: { type: 'string', description: 'For renamePhase and addPhase' },
             fields: {
               type: 'object',
@@ -67,6 +67,7 @@ function buildEditContext(userId, project) {
   const phaseIds = new Set([project.id, ...children.map(c => c.id)]);
   const taskById = new Map(tasks.map(t => [t.id, t]));
   const subIds = new Set(children.map(c => c.id));
+  const phaseTitles = new Map([[project.id, project.title], ...children.map(c => [c.id, c.title])]);
 
   const lines = [`Project: "${project.title}" (id: ${project.id})`];
   const describe = t => `  - task id:${t.id} | "${t.title}" | status:${t.status} | priority:${t.priority} | start:${t.startDate || 'none'} | due:${t.endDate || 'none'}`;
@@ -78,7 +79,7 @@ function buildEditContext(userId, project) {
     lines.push(...(phaseTasks.length ? phaseTasks.map(describe) : ['  (no tasks yet)']));
   }
 
-  return { text: lines.join('\n'), index: { phaseIds, subIds, taskById } };
+  return { text: lines.join('\n'), index: { phaseIds, subIds, taskById, phaseTitles } };
 }
 
 function validDate(value) {
@@ -121,6 +122,10 @@ function validateOperations(operations, index) {
       if (fields.title === '') delete fields.title;
       if (!Object.keys(fields).length) { dropped++; continue; }
       valid.push({ type: 'updateTask', taskId: task.id, currentTitle: task.title, fields, reason });
+    } else if (op.type === 'moveTask') {
+      const task = index.taskById.get(op.taskId);
+      if (!task || task.status === 'Completed' || !index.phaseIds.has(op.phaseId) || task.projectId === op.phaseId) { dropped++; continue; }
+      valid.push({ type: 'moveTask', taskId: task.id, currentTitle: task.title, toPhaseId: op.phaseId, toPhaseTitle: index.phaseTitles.get(op.phaseId), reason });
     } else if (op.type === 'addTask') {
       const task = sanitizeNewTask(op.task);
       if (!index.phaseIds.has(op.phaseId) || !task) { dropped++; continue; }

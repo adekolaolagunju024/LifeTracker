@@ -3981,6 +3981,7 @@ function openReviseProject(projectId) {
 const REVISE_LABELS = {
   updateTask: 'Change task',
   addTask: 'Add task',
+  moveTask: 'Move task',
   renamePhase: 'Rename phase',
   addPhase: 'Add phase',
 };
@@ -3991,6 +3992,7 @@ function describeReviseOp(op) {
     return `"${esc(op.currentTitle)}": ${esc(changes)}`;
   }
   if (op.type === 'addTask') return `"${esc(op.task.title)}" (${esc(op.task.priority)}${op.task.endDate ? ', due ' + esc(op.task.endDate) : ''})`;
+  if (op.type === 'moveTask') return `"${esc(op.currentTitle)}" to "${esc(op.toPhaseTitle)}"`;
   if (op.type === 'renamePhase') return `to "${esc(op.title)}"`;
   return `"${esc(op.title)}" with ${op.tasks.length} task${op.tasks.length === 1 ? '' : 's'}`;
 }
@@ -4055,6 +4057,8 @@ async function applyRevise() {
     for (const op of ops) {
       if (op.type === 'updateTask') {
         await API.updateTask(op.taskId, op.fields);
+      } else if (op.type === 'moveTask') {
+        await API.updateTask(op.taskId, { projectId: op.toPhaseId });
       } else if (op.type === 'addTask') {
         await API.addTask({ ...op.task, projectId: op.phaseId });
       } else if (op.type === 'renamePhase') {
