@@ -4046,16 +4046,26 @@ function setAssistantSpeak(on) {
 // speech is off), so the microphone can reopen without picking up the reply.
 // Replies are spoken when the user asked for it, and always after a spoken
 // message, so a voice conversation talks back without extra setup.
+// Some browsers drop long utterances or never fire their end event, so the
+// reply is spoken sentence by sentence and a timer always resolves the wait.
 function speakAssistant(text) {
   return new Promise(resolve => {
     const wanted = document.getElementById('assistant-speak').checked || APP.assistantVoiceTurn;
-    if (!wanted || !('speechSynthesis' in window)) return resolve();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = navigator.language || 'en-US';
-    utterance.onend = resolve;
-    utterance.onerror = resolve;
+    if (!wanted || !('speechSynthesis' in window) || !text.trim()) return resolve();
+    const sentences = (text.match(/[^.!?]+[.!?]*/g) || [text]).map(s => s.trim()).filter(Boolean);
+    let finished = false;
+    const finish = () => { if (!finished) { finished = true; clearTimeout(guard); resolve(); } };
+    const guard = setTimeout(finish, Math.max(4000, text.length * 90 + 3000));
     speechSynthesis.cancel();
-    speechSynthesis.speak(utterance);
+    sentences.forEach((sentence, i) => {
+      const utterance = new SpeechSynthesisUtterance(sentence);
+      utterance.lang = navigator.language || 'en-US';
+      if (i === sentences.length - 1) {
+        utterance.onend = finish;
+        utterance.onerror = finish;
+      }
+      speechSynthesis.speak(utterance);
+    });
   });
 }
 
