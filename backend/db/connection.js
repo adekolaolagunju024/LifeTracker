@@ -319,6 +319,23 @@ addColumnIfMissing('users', "acceptedTermsAt TEXT");
 // up an unbounded AI bill. Resets when aiCallsResetDate isn't today.
 addColumnIfMissing('profile', "aiCallsToday INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing('profile', "aiCallsResetDate TEXT");
+// Referrals: each account gets a personal invite code. A referred account
+// records who invited it, and a referral row tracks the reward.
+addColumnIfMissing('users', "referralCode TEXT");
+addColumnIfMissing('users', "referredBy TEXT");
+db.exec(`
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_users_referral_code ON users(referralCode);
+  CREATE TABLE IF NOT EXISTS referrals (
+    id TEXT PRIMARY KEY,
+    referrerId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    refereeId TEXT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL DEFAULT 'pending',
+    createdAt TEXT NOT NULL,
+    rewardedAt TEXT
+  );
+`);
+addColumnIfMissing('profile', "bonusAiCredits INTEGER NOT NULL DEFAULT 0");
+
 // The assistant is a conversation, so it gets its own, larger daily allowance.
 addColumnIfMissing('profile', "assistantCallsToday INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing('profile', "assistantCallsResetDate TEXT");

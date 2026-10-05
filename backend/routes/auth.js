@@ -52,6 +52,7 @@ router.post('/register', async (req, res) => {
     acceptedTermsAt: new Date().toISOString(),
   });
   db.logEvent(user.id, 'user_registered');
+  db.attachReferral(user.id, req.body.ref);
 
   req.session.userId = user.id;
   res.status(201).json({ email: user.email });

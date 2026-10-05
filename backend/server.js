@@ -90,6 +90,7 @@ app.use('/api/tags',     require('./routes/tags'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/uploads',  require('./routes/uploads'));
 app.use('/api/push',     require('./routes/push'));
+app.use('/api/referrals', require('./routes/referrals'));
 
 // ── CATCH ALL — serve frontend ──
 app.get('*', (req, res) => {

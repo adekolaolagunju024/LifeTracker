@@ -190,12 +190,79 @@ function consumeQuota(userId, kind) {
   const todayKey = localDateKeyFromDate(new Date());
   const profile = getProfile(userId);
   const used = profile[date] === todayKey ? profile[count] : 0;
-  if (used >= limit) return false;
+  if (used >= limit) {
+    // Once today's allowance is used up, referral bonus credits cover the rest.
+    if (!profile.bonusAiCredits) return false;
+    db.prepare('UPDATE profile SET bonusAiCredits = bonusAiCredits - 1 WHERE userId = ?').run(userId);
+    return true;
+  }
   db.prepare(`UPDATE profile SET ${count} = ?, ${date} = ? WHERE userId = ?`).run(used + 1, todayKey, userId);
   return true;
 }
 function consumeAiQuota(userId) { return consumeQuota(userId, 'ai'); }
 function consumeAssistantQuota(userId) { return consumeQuota(userId, 'assistant'); }
+
+// ── REFERRALS ───────────────────────────────────────────────────
+const REFERRAL_REWARD = 20;
+const REFERRER_REWARD_CAP = 25;
+const INVITES_PER_DAY = 20;
+const REFERRAL_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+
+function getReferralCode(userId) {
+  const existing = db.prepare('SELECT referralCode FROM users WHERE id = ?').get(userId)?.referralCode;
+  if (existing) return existing;
+  for (;;) {
+    const bytes = require('crypto').randomBytes(8);
+    let code = '';
+    for (const b of bytes) code += REFERRAL_ALPHABET[b % REFERRAL_ALPHABET.length];
+    try {
+      db.prepare('UPDATE users SET referralCode = ? WHERE id = ? AND referralCode IS NULL').run(code, userId);
+      const saved = db.prepare('SELECT referralCode FROM users WHERE id = ?').get(userId).referralCode;
+      if (saved) return saved;
+    } catch {
+      // Collided with another account's code; draw again.
+    }
+  }
+}
+
+// Ignores unknown codes and anyone trying to refer themselves.
+function attachReferral(refereeId, code) {
+  const referrer = code ? db.prepare('SELECT id FROM users WHERE referralCode = ?').get(String(code)) : null;
+  if (!referrer || referrer.id === refereeId) return false;
+  db.prepare('UPDATE users SET referredBy = ? WHERE id = ?').run(referrer.id, refereeId);
+  db.prepare('INSERT OR IGNORE INTO referrals (id, referrerId, refereeId, status, createdAt) VALUES (?,?,?,?,?)')
+    .run(uuid(), referrer.id, refereeId, 'pending', new Date().toISOString());
+  return true;
+}
+
+// Pays both sides once, when the referred account creates its first goal.
+function rewardReferralFor(refereeId) {
+  const row = db.prepare("SELECT id, referrerId FROM referrals WHERE refereeId = ? AND status = 'pending'").get(refereeId);
+  if (!row) return false;
+  const rewarded = db.prepare("SELECT COUNT(*) AS n FROM referrals WHERE referrerId = ? AND status = 'rewarded'").get(row.referrerId).n;
+  if (rewarded >= REFERRER_REWARD_CAP) return false;
+  db.transaction(() => {
+    db.prepare("UPDATE referrals SET status = 'rewarded', rewardedAt = ? WHERE id = ?").run(new Date().toISOString(), row.id);
+    db.prepare('UPDATE profile SET bonusAiCredits = bonusAiCredits + ? WHERE userId IN (?, ?)').run(REFERRAL_REWARD, row.referrerId, refereeId);
+  })();
+  return true;
+}
+
+function invitesSentToday(userId) {
+  const todayKey = localDateKeyFromDate(new Date());
+  return db.prepare("SELECT COUNT(*) AS n FROM analytics_events WHERE userId = ? AND event = 'invite_sent' AND substr(createdAt, 1, 10) = ?")
+    .get(userId, todayKey).n;
+}
+
+function getReferralStats(userId) {
+  const row = db.prepare("SELECT COUNT(*) AS joined, SUM(CASE WHEN status = 'rewarded' THEN 1 ELSE 0 END) AS rewarded FROM referrals WHERE referrerId = ?").get(userId);
+  return {
+    joined: row.joined,
+    rewarded: row.rewarded || 0,
+    bonusCredits: getProfile(userId).bonusAiCredits,
+    invitesLeftToday: Math.max(0, INVITES_PER_DAY - invitesSentToday(userId)),
+  };
+}
 
 function logEvent(userId, event) {
   db.prepare('INSERT INTO analytics_events (id, userId, event, createdAt) VALUES (?,?,?,?)')
@@ -1404,6 +1471,7 @@ module.exports = {
   listPushSubscriptionsForUser, listUsersForPushReminders, setLastPushDigestSentDate, setLastFocusNudgeAt, markTaskOverdueNotified,
   listTasksInProjectTree, listGoalProjectsForCheckIn, setProjectLastCheckInAt,
   setLastStreakNudgeDate, hasCompletedTaskToday, consumeAiQuota, consumeAssistantQuota, logEvent,
+  getReferralCode, attachReferral, rewardReferralFor, getReferralStats, invitesSentToday, INVITES_PER_DAY,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById, duplicateProject,
   getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, duplicateTask, bumpTaskProgress, reorderTasks,

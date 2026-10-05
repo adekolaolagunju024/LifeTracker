@@ -52,7 +52,10 @@ router.post('/', (req, res) => {
       createdAt: new Date().toISOString(),
       ...req.body,
     });
-    if (project.isGoal) db.logEvent(req.session.userId, 'goal_created');
+    if (project.isGoal) {
+      db.logEvent(req.session.userId, 'goal_created');
+      db.rewardReferralFor(req.session.userId);
+    }
     res.status(201).json(project);
   } catch (e) {
     res.status(400).json({ error: e.message });

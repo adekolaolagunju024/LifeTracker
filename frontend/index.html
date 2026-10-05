@@ -746,6 +746,7 @@
           <span class="hidden items-center gap-1 bg-orange-50 text-orange-600 text-sm font-bold px-2.5 py-1 rounded-full" id="streak-badge">🔥 <span id="streak-count">0</span></span>
         </h2>
         <p class="text-gray-500 text-sm mt-1">Here's your live snapshot across every goal you're tracking.</p>
+        <p class="hidden text-xs font-semibold text-teal mt-1" id="bonus-credits-line"></p>
       </div>
 
       <!-- The AI chat used to be one click deeper, inside "Create with AI"
@@ -1295,6 +1296,21 @@
           </div>
           <button onclick="toggleAiCheckIns()" class="ios-switch" id="ai-checkins-btn" role="switch" aria-label="Toggle weekly AI goal check-ins"><span class="ios-switch-knob"></span></button>
         </div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#0A7E8C22">🎁</span> Invite friends, get AI credits</h3>
+        <p class="text-xs text-gray-500 mb-3">Share your link or send a personal invite. When someone you invite creates their first goal, you both get 20 bonus AI credits.</p>
+        <div class="flex gap-2 mb-3">
+          <input type="text" id="referral-link" readonly class="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600 bg-gray-50">
+          <button onclick="copyReferralLink()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0">Copy</button>
+          <button onclick="shareReferralLink()" id="referral-share-btn" class="hidden bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0">Share</button>
+        </div>
+        <div class="flex gap-2 mb-2">
+          <input type="email" id="referral-email" placeholder="Friend's email" class="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          <button onclick="sendReferralInvite()" id="referral-send" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg flex-shrink-0">Send invite</button>
+        </div>
+        <p class="text-xs text-gray-400" id="referral-status"></p>
+        <p class="text-xs text-gray-500 mt-2" id="referral-stats"></p>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
         <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#0A7E8C22">👤</span> Your Profile</h3>

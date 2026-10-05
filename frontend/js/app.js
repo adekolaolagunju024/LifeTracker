@@ -484,6 +484,10 @@ async function renderDashboard() {
     document.getElementById('kpi-inprog').textContent = inprog;
     document.getElementById('hero-name').textContent  = profile.name.split(' ')[0];
 
+    const bonusLine = document.getElementById('bonus-credits-line');
+    bonusLine.textContent = profile.bonusAiCredits ? `🎁 ${profile.bonusAiCredits} bonus AI credits from invites` : '';
+    bonusLine.classList.toggle('hidden', !profile.bonusAiCredits);
+
     // Momentum streak — consecutive days with >=1 completed task.
     document.getElementById('streak-badge').classList.toggle('hidden', !profile.currentStreak);
     document.getElementById('streak-count').textContent = profile.currentStreak || 0;
@@ -2497,6 +2501,7 @@ async function renderSettings() {
     setPushRemindersButton(p);
     setActivityEmailsButton(p.activityEmailsEnabled);
     setAiCheckInsButton(p.aiCheckInsEnabled);
+    loadReferralCard();
     renderSettingsDrive();
     renderTrash();
     API.getMe().then(me => { document.getElementById('account-email').textContent = me.email; }).catch(() => {});
@@ -2844,8 +2849,11 @@ async function submitAuthRegister() {
   if (password !== confirm) return showAuthError('auth-register-error', 'Passwords do not match');
   const acceptTerms = document.getElementById('auth-register-terms').checked;
   if (!acceptTerms) return showAuthError('auth-register-error', 'Please agree to the Terms and Privacy Policy to create an account');
+  let ref = null;
+  try { ref = localStorage.getItem('waypointRef'); } catch {}
   try {
-    await API.register(email, password, acceptTerms);
+    await API.register(email, password, acceptTerms, ref || undefined);
+    try { localStorage.removeItem('waypointRef'); } catch {}
     offerToSaveCredential(email, password);
     closeAuth();
     await afterAuth();
@@ -4226,6 +4234,67 @@ async function applyAssistantEdits(btn) {
     showToast('❌ ' + (e.message || 'Some changes could not be applied'), 'error');
   }
 }
+
+// ── REFERRALS (invite friends, earn AI credits) ─────────────────
+let referralLink = '';
+
+async function loadReferralCard() {
+  try {
+    const r = await API.getReferral();
+    referralLink = r.link;
+    document.getElementById('referral-link').value = r.link;
+    document.getElementById('referral-stats').textContent =
+      `${r.joined} joined · ${r.rewarded} rewarded · ${r.bonusCredits} bonus credits · ${r.invitesLeftToday} invites left today`;
+    document.getElementById('referral-share-btn').classList.toggle('hidden', !navigator.share);
+  } catch {
+    // The card stays empty if the server can't be reached; nothing else depends on it.
+  }
+}
+
+async function copyReferralLink() {
+  try {
+    await navigator.clipboard.writeText(referralLink);
+    showToast('✅ Link copied');
+  } catch {
+    document.getElementById('referral-link').select();
+    showToast('Press Ctrl+C to copy the link');
+  }
+}
+
+async function shareReferralLink() {
+  try {
+    await navigator.share({ title: 'Waypoint', text: 'Join me on Waypoint', url: referralLink });
+  } catch {
+    // Cancelled by the user; nothing to report.
+  }
+}
+
+async function sendReferralInvite() {
+  const input = document.getElementById('referral-email');
+  const status = document.getElementById('referral-status');
+  const btn = document.getElementById('referral-send');
+  const email = input.value.trim();
+  if (!email) { status.textContent = 'Enter an email address.'; return; }
+  btn.disabled = true;
+  status.textContent = 'Sending…';
+  try {
+    const r = await API.sendReferralInvite(email);
+    input.value = '';
+    status.textContent = `✅ Invite sent. ${r.invitesLeftToday} left today.`;
+    loadReferralCard();
+  } catch (e) {
+    status.textContent = '❌ ' + (e.message || 'Could not send the invite');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// A friend's invite link opens the app with ?ref=CODE. Keep the code until
+// they sign up, so the signup can credit whoever invited them.
+try {
+  const ref = new URLSearchParams(location.search).get('ref');
+  if (ref) localStorage.setItem('waypointRef', ref);
+} catch {}
 
 function openAddProject() {
   document.getElementById('modal-project-title').textContent = 'New Project';

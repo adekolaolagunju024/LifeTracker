@@ -80,7 +80,9 @@ const API = {
   // ── AUTH ──
   getAuthStatus:   ()        => request('GET',  '/auth/status'),
   getMe:           ()        => request('GET',  '/auth/me'),
-  register:        (email, password, acceptTerms) => request('POST', '/auth/register', { email, password, acceptTerms }),
+  register:        (email, password, acceptTerms, ref) => request('POST', '/auth/register', { email, password, acceptTerms, ref }),
+  getReferral:     ()        => request('GET',    '/referrals/me'),
+  sendReferralInvite: (email) => request('POST', '/referrals/invite', { email }),
   login:           (email, password, remember = true) => request('POST', '/auth/login', { email, password, remember }),
   logout:          ()        => request('POST', '/auth/logout'),
   changePassword:  (currentPassword, newPassword) => request('PUT', '/auth/password', { currentPassword, newPassword }),
