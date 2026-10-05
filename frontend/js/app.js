@@ -4143,9 +4143,12 @@ function setAssistantSpeak(on) {
 
 // Resolves when the reply has finished being spoken (or straight away when
 // speech is off), so the microphone can reopen without picking up the reply.
+// Replies are spoken when the user asked for it, and always after a spoken
+// message, so a voice conversation talks back without extra setup.
 function speakAssistant(text) {
   return new Promise(resolve => {
-    if (!document.getElementById('assistant-speak').checked || !('speechSynthesis' in window)) return resolve();
+    const wanted = document.getElementById('assistant-speak').checked || APP.assistantVoiceTurn;
+    if (!wanted || !('speechSynthesis' in window)) return resolve();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = navigator.language || 'en-US';
     utterance.onend = resolve;
