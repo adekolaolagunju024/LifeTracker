@@ -1566,9 +1566,14 @@
         <button onclick="toggleAssistantListening()" id="assistant-mic" title="Speak" class="hidden bg-gray-100 hover:bg-gray-200 text-gray-700 w-10 h-10 rounded-lg flex items-center justify-center text-base flex-shrink-0">🎤</button>
         <button onclick="sendAssistantMessage()" id="assistant-send" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg flex-shrink-0">Send</button>
       </div>
-      <label class="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
-        <input type="checkbox" id="assistant-speak" onchange="setAssistantSpeak(this.checked)" class="accent-teal"> Speak replies aloud
-      </label>
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-1">
+        <label class="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+          <input type="checkbox" id="assistant-autosend" onchange="setAssistantAutoSend(this.checked)" class="accent-teal"> Send when I stop speaking
+        </label>
+        <label class="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+          <input type="checkbox" id="assistant-speak" onchange="setAssistantSpeak(this.checked)" class="accent-teal"> Speak replies aloud
+        </label>
+      </div>
     </div>
   </div>
 </div>

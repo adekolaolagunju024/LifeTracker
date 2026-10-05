@@ -4103,8 +4103,13 @@ function openAssistant(projectId) {
     : 'Create a goal, or ask for changes. Nothing changes until you approve it.';
   document.getElementById('assistant-mic').classList.toggle('hidden', !ASSISTANT_SpeechRecognition);
   let speak = false;
-  try { speak = localStorage.getItem('assistantSpeak') === '1'; } catch {}
+  let autoSend = false;
+  try {
+    speak = localStorage.getItem('assistantSpeak') === '1';
+    autoSend = localStorage.getItem('assistantAutoSend') === '1';
+  } catch {}
   document.getElementById('assistant-speak').checked = speak;
+  document.getElementById('assistant-autosend').checked = autoSend;
   assistantBubble('assistant', 'Hi! Tell me what you want to achieve, or what to change. You can type or tap the mic.');
   openModal('modal-assistant');
   document.getElementById('assistant-input').focus();
@@ -4125,6 +4130,10 @@ function assistantBubble(role, text) {
   wrap.appendChild(el);
   wrap.scrollTop = wrap.scrollHeight;
   return el;
+}
+
+function setAssistantAutoSend(on) {
+  try { localStorage.setItem('assistantAutoSend', on ? '1' : '0'); } catch {}
 }
 
 function setAssistantSpeak(on) {
@@ -4151,7 +4160,11 @@ function toggleAssistantListening() {
   rec.continuous = false;
   const base = input.value ? input.value + ' ' : '';
   rec.onresult = e => { input.value = base + Array.from(e.results).map(r => r[0].transcript).join(''); };
-  rec.onend = () => { assistantRecognition = null; mic.classList.remove('bg-red-100'); };
+  rec.onend = () => {
+    assistantRecognition = null;
+    mic.classList.remove('bg-red-100');
+    if (document.getElementById('assistant-autosend').checked && input.value.trim()) sendAssistantMessage();
+  };
   rec.onerror = () => { assistantRecognition = null; mic.classList.remove('bg-red-100'); assistantBubble('assistant', 'I could not hear that. You can type instead.'); };
   assistantRecognition = rec;
   mic.classList.add('bg-red-100');
