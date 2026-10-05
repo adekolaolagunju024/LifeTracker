@@ -4070,11 +4070,14 @@ function speakAssistant(text) {
 }
 
 // Hands-free: after a spoken message, keep listening for the next one.
+// Waits a moment after the reply so the microphone doesn't hear the end of it.
 function resumeAssistantListening() {
-  const open = document.getElementById('modal-assistant').classList.contains('open');
-  if (open && APP.assistantVoiceTurn && document.getElementById('assistant-autosend').checked && !assistantRecognition) {
-    toggleAssistantListening();
-  }
+  setTimeout(() => {
+    const open = document.getElementById('modal-assistant').classList.contains('open');
+    if (open && APP.assistantVoiceTurn && document.getElementById('assistant-autosend').checked && !assistantRecognition) {
+      toggleAssistantListening();
+    }
+  }, 3000);
 }
 
 function toggleAssistantListening() {
