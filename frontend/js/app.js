@@ -4077,7 +4077,7 @@ function resumeAssistantListening() {
     if (open && APP.assistantVoiceTurn && document.getElementById('assistant-autosend').checked && !assistantRecognition) {
       toggleAssistantListening();
     }
-  }, 3000);
+  }, 1000);
 }
 
 function toggleAssistantListening() {
