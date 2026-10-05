@@ -762,8 +762,7 @@
           </div>
         </div>
         <div class="flex gap-2 flex-shrink-0">
-          <button onclick="openAssistant()" class="bg-white hover:bg-gray-50 text-teal border border-teal/30 text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">🎙️ Assistant</button>
-          <button onclick="openImportProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">Start Chatting →</button>
+          <button onclick="openAssistant()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">🎙️ Start Chatting →</button>
         </div>
       </div>
 
@@ -847,7 +846,7 @@
           <p class="text-gray-500 text-sm mt-1">Each project is a collection of related goals and tasks.</p>
         </div>
         <div class="flex gap-3 flex-shrink-0">
-          <button onclick="openImportProject()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all">✨ Chat with AI</button>
+          <button onclick="openAssistant()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all">🎙️ Chat with AI</button>
           <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
         </div>
       </div>
@@ -881,7 +880,6 @@
         <div class="flex gap-2 ml-auto flex-wrap items-start">
           <button onclick="openAddTask(APP.currentProjectId)" id="btn-add-task-header" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">+ Add Task</button>
           <button onclick="openAssistant(APP.currentProjectId)" id="btn-assistant-project" class="hidden bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-4 py-2 rounded-lg">🎙️ Assistant</button>
-          <button onclick="openReviseProject(APP.currentProjectId)" id="btn-revise-ai" class="hidden bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-4 py-2 rounded-lg">✨ Revise with AI</button>
           <button onclick="openShareProject(APP.currentProjectId)" id="btn-share-project" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">👥 <span id="btn-share-label">Share</span></button>
           <div class="relative">
             <button onclick="toggleProjectDetailMenu(event)" id="detail-more-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg">⋯</button>
@@ -956,7 +954,7 @@
       </div>
 
       <div class="flex justify-end mb-2">
-        <button onclick="openReviseProject(APP.currentProjectId)" id="btn-revise-tasks" class="hidden bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-4 py-2 rounded-lg">✨ Edit tasks with AI</button>
+        <button onclick="openAssistant(APP.currentProjectId)" id="btn-revise-tasks" class="hidden bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-4 py-2 rounded-lg">✨ Edit tasks with AI</button>
       </div>
 
       <!-- Task Table -->
@@ -1521,33 +1519,6 @@
   </div>
 </div>
 
-<!-- REVISE PLAN WITH AI — proposes changes; nothing is written until ticked and applied -->
-<div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-revise">
-  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
-    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-      <h3 class="text-base font-bold text-navy">✨ Edit with AI</h3>
-      <button onclick="closeModal('modal-revise')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
-    </div>
-    <div class="p-6 overflow-y-auto flex-1 space-y-4">
-      <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">What should change?</label>
-        <textarea id="revise-feedback" rows="3" maxlength="1000" placeholder="e.g. Give phase 1 two more weeks. Add a task to book the venue. Set the venue task to High priority." class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
-        <p class="text-xs text-gray-400 mt-1">The AI only proposes changes. You choose which ones to apply.</p>
-      </div>
-      <div class="flex justify-end">
-        <button onclick="submitRevise()" id="revise-ask-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Ask AI</button>
-      </div>
-      <div id="revise-summary" class="hidden text-sm text-navy bg-teal/5 border border-teal/20 rounded-lg px-3 py-2"></div>
-      <div id="revise-ops" class="space-y-2"></div>
-      <p id="revise-error" class="hidden text-xs text-red-600"></p>
-    </div>
-    <div class="hidden justify-end gap-3 px-6 py-4 border-t border-gray-100" id="revise-actions">
-      <button onclick="closeModal('modal-revise')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
-      <button onclick="applyRevise()" id="revise-apply-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Apply selected</button>
-    </div>
-  </div>
-</div>
-
 <!-- WAYPOINT ASSISTANT — talk or type to create goals and change plans; every change is shown for approval first -->
 <div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-assistant">
   <div class="bg-white rounded-2xl w-full max-w-lg h-[80vh] flex flex-col shadow-2xl">
@@ -1560,9 +1531,16 @@
     </div>
     <div id="assistant-chat" class="flex-1 overflow-y-auto px-6 py-4 space-y-3"></div>
     <div class="border-t border-gray-100 px-6 py-3 space-y-2">
+      <div class="hidden items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2" id="assistant-attachment-chip">
+        <span class="text-base flex-shrink-0">📎</span>
+        <span class="text-xs text-gray-600 truncate flex-1" id="assistant-attachment-name"></span>
+        <button onclick="clearAssistantAttachment()" class="text-gray-400 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Remove attachment">✕</button>
+      </div>
       <div class="flex items-center gap-2">
         <input type="text" id="assistant-input" placeholder="Type, or tap the mic and speak…" onkeydown="if(event.key==='Enter'){event.preventDefault();sendAssistantMessage();}"
           class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        <input type="file" id="assistant-file-input" accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg" class="hidden" onchange="onAssistantFileSelected(this.files[0])">
+        <button onclick="document.getElementById('assistant-file-input').click()" title="Attach a plan, spreadsheet, or photo" class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-10 h-10 rounded-lg flex items-center justify-center text-base flex-shrink-0">📎</button>
         <button onclick="toggleAssistantListening()" id="assistant-mic" title="Speak" class="hidden bg-gray-100 hover:bg-gray-200 text-gray-700 w-10 h-10 rounded-lg flex items-center justify-center text-base flex-shrink-0">🎤</button>
         <button onclick="sendAssistantMessage()" id="assistant-send" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg flex-shrink-0">Send</button>
       </div>

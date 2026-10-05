@@ -687,7 +687,6 @@ async function renderProjectDetail(projectId) {
     document.getElementById('btn-new-subfolder').classList.toggle('hidden', !!proj.parentId || !canEdit);
     document.getElementById('btn-add-task-header').classList.toggle('hidden', !canEdit);
     document.getElementById('btn-edit-project').classList.toggle('hidden', !canEdit);
-    document.getElementById('btn-revise-ai').classList.toggle('hidden', !canEdit || !!proj.parentId);
     document.getElementById('btn-assistant-project').classList.toggle('hidden', !!proj.parentId);
     document.getElementById('btn-revise-tasks').classList.toggle('hidden', !canEdit || !!proj.parentId);
 
@@ -3671,18 +3670,6 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 // replies with a normal chat message to keep asking questions, or calls
 // propose_project once it has enough, whether that came from the
 // conversation, an attached file, or both.
-function openImportProject() {
-  document.getElementById('import-error').classList.add('hidden');
-  document.getElementById('import-step-upload').classList.remove('hidden');
-  document.getElementById('import-upload-actions').classList.remove('hidden');
-  document.getElementById('import-upload-actions').classList.add('flex');
-  document.getElementById('import-step-preview').classList.add('hidden');
-  document.getElementById('import-preview-actions').classList.add('hidden');
-  document.getElementById('import-preview-actions').classList.remove('flex');
-  resetProjectChat();
-  openModal('modal-import');
-  document.getElementById('chat-input').focus();
-}
 
 function resetProjectChat() {
   APP.projectChat = [];
@@ -3962,23 +3949,6 @@ async function enablePushRemindersFromNudge() {
   }
 }
 
-// ── REVISE PLAN WITH AI ───────────────────────────────────────────
-// The AI only proposes. Nothing is written until the user ticks changes and
-// applies them, and each change goes through the same endpoints the manual
-// UI uses, so permissions and validation still apply.
-function openReviseProject(projectId) {
-  APP.reviseProjectId = projectId;
-  APP.reviseOps = [];
-  document.getElementById('revise-feedback').value = '';
-  document.getElementById('revise-summary').classList.add('hidden');
-  document.getElementById('revise-ops').innerHTML = '';
-  document.getElementById('revise-error').classList.add('hidden');
-  document.getElementById('revise-actions').classList.add('hidden');
-  document.getElementById('revise-actions').classList.remove('flex');
-  openModal('modal-revise');
-  document.getElementById('revise-feedback').focus();
-}
-
 const REVISE_LABELS = {
   updateTask: 'Change task',
   addTask: 'Add task',
@@ -3996,54 +3966,6 @@ function describeReviseOp(op) {
   if (op.type === 'moveTask') return `"${esc(op.currentTitle)}" to "${esc(op.toPhaseTitle)}"`;
   if (op.type === 'renamePhase') return `to "${esc(op.title)}"`;
   return `"${esc(op.title)}" with ${op.tasks.length} task${op.tasks.length === 1 ? '' : 's'}`;
-}
-
-async function submitRevise() {
-  const feedback = document.getElementById('revise-feedback').value.trim();
-  const errEl = document.getElementById('revise-error');
-  errEl.classList.add('hidden');
-  if (!feedback) { errEl.textContent = 'Tell the AI what you want changed.'; errEl.classList.remove('hidden'); return; }
-  const btn = document.getElementById('revise-ask-btn');
-  btn.disabled = true;
-  btn.textContent = 'Thinking…';
-  try {
-    const res = await fetch('/api/ai/edit-project', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectId: APP.reviseProjectId, feedback }),
-    });
-    const body = await res.json();
-    if (!res.ok) throw new Error(body.error || 'Could not get a revision');
-    APP.reviseOps = body.operations;
-    const summaryEl = document.getElementById('revise-summary');
-    summaryEl.textContent = body.summary || 'Here are the suggested changes.';
-    summaryEl.classList.remove('hidden');
-    const list = document.getElementById('revise-ops');
-    list.innerHTML = body.operations.length
-      ? body.operations.map((op, i) => `
-          <label class="flex items-start gap-3 border border-gray-200 rounded-lg p-3 cursor-pointer">
-            <input type="checkbox" class="revise-check mt-1 accent-teal" data-op-index="${i}" checked>
-            <span class="text-sm min-w-0">
-              <span class="block text-xs font-semibold text-teal uppercase tracking-wide">${REVISE_LABELS[op.type]}</span>
-              <span class="block text-navy">${describeReviseOp(op)}</span>
-              <span class="block text-xs text-gray-500 mt-0.5">${esc(op.reason || '')}</span>
-            </span>
-          </label>`).join('')
-      : '<p class="text-sm text-gray-500">No changes were proposed. Try describing what should change in more detail.</p>';
-    const actions = document.getElementById('revise-actions');
-    actions.classList.toggle('hidden', !body.operations.length);
-    actions.classList.toggle('flex', !!body.operations.length);
-    if (body.dropped) {
-      errEl.textContent = `${body.dropped} suggested change${body.dropped === 1 ? ' was' : 's were'} skipped because they didn't match your plan.`;
-      errEl.classList.remove('hidden');
-    }
-  } catch (e) {
-    errEl.textContent = '❌ ' + (e.message || 'Could not get a revision');
-    errEl.classList.remove('hidden');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Ask AI';
-  }
 }
 
 // Applies reviewed operations through the same endpoints the manual UI uses,
@@ -4066,28 +3988,6 @@ async function applyOperations(projectId, ops) {
   }
 }
 
-async function applyRevise() {
-  const checks = Array.from(document.querySelectorAll('.revise-check:checked'));
-  const ops = checks.map(c => APP.reviseOps[Number(c.dataset.opIndex)]);
-  if (!ops.length) { showToast('Tick at least one change to apply'); return; }
-  const btn = document.getElementById('revise-apply-btn');
-  btn.disabled = true;
-  btn.textContent = 'Applying…';
-  const projectId = APP.reviseProjectId;
-  try {
-    await applyOperations(projectId, ops);
-    closeModal('modal-revise');
-    showToast(`✅ Applied ${ops.length} change${ops.length === 1 ? '' : 's'}`);
-    renderProjectDetail(projectId);
-    updateSidebar();
-  } catch (e) {
-    showToast('❌ ' + (e.message || 'Some changes could not be applied'), 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Apply selected';
-  }
-}
-
 // ── WAYPOINT ASSISTANT ─────────────────────────────────────────
 // One conversation that can propose a new goal or changes to the open project.
 // Every proposal is shown for approval; the assistant never writes on its own.
@@ -4097,6 +3997,7 @@ let assistantRecognition = null;
 function openAssistant(projectId) {
   APP.assistantProjectId = projectId || null;
   APP.assistantMessages = [];
+  clearAssistantAttachment();
   document.getElementById('assistant-chat').innerHTML = '';
   document.getElementById('assistant-context').textContent = projectId
     ? 'Ask about this project. Changes are shown for approval first.'
@@ -4188,14 +4089,48 @@ function toggleAssistantListening() {
   rec.start();
 }
 
+// Reads an attached plan, spreadsheet, or photo into the message, the same way
+// the old goal chat did, so the assistant can build a goal from it.
+async function onAssistantFileSelected(file) {
+  if (!file) return;
+  const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+  if (!CHAT_ATTACHMENT_MIME_FALLBACK[ext]) { assistantBubble('assistant', 'Unsupported file type. Attach a .xlsx, .pdf, .png, or .jpg.'); clearAssistantFileInput(); return; }
+  if (file.size > 15 * 1024 * 1024) { assistantBubble('assistant', 'That file is too large (max 15MB).'); clearAssistantFileInput(); return; }
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Could not read that file'));
+    reader.readAsDataURL(file);
+  });
+  APP.assistantAttachment = { name: file.name, mimetype: file.type || CHAT_ATTACHMENT_MIME_FALLBACK[ext], dataBase64: dataUrl.split(',')[1] };
+  document.getElementById('assistant-attachment-name').textContent = file.name;
+  document.getElementById('assistant-attachment-chip').classList.remove('hidden');
+  document.getElementById('assistant-attachment-chip').classList.add('flex');
+}
+
+function clearAssistantFileInput() {
+  document.getElementById('assistant-file-input').value = '';
+}
+
+function clearAssistantAttachment() {
+  APP.assistantAttachment = null;
+  clearAssistantFileInput();
+  document.getElementById('assistant-attachment-chip').classList.add('hidden');
+  document.getElementById('assistant-attachment-chip').classList.remove('flex');
+}
+
 async function sendAssistantMessage(viaVoice = false) {
   const input = document.getElementById('assistant-input');
   const text = input.value.trim();
-  if (!text) return;
+  const attachment = APP.assistantAttachment;
+  if (!text && !attachment) return;
   APP.assistantVoiceTurn = viaVoice;
   input.value = '';
-  APP.assistantMessages.push({ role: 'user', content: text });
-  assistantBubble('user', text);
+  const message = { role: 'user', content: text };
+  if (attachment) message.attachment = attachment;
+  APP.assistantMessages.push(message);
+  assistantBubble('user', (attachment ? '📎 ' + attachment.name + (text ? '\n' : '') : '') + text);
+  clearAssistantAttachment();
   const sendBtn = document.getElementById('assistant-send');
   input.disabled = true;
   sendBtn.disabled = true;

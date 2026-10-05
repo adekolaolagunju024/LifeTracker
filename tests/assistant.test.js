@@ -36,6 +36,14 @@ test('a conversation must start with the user', async () => {
   assert.equal(res.status, 400);
 });
 
+test('an attachment of an unsupported type is refused before any AI call', async () => {
+  const cookie = await signedIn();
+  const attachment = { name: 'notes.txt', mimetype: 'text/plain', dataBase64: Buffer.from('hello').toString('base64') };
+  const res = await post('/api/ai/assistant', { messages: [{ role: 'user', content: '', attachment }] }, cookie);
+  assert.equal(res.status, 502);
+  assert.match((await res.json()).error, /Unsupported file type/);
+});
+
 test('a project the user cannot see is not found', async () => {
   const cookie = await signedIn();
   const res = await post('/api/ai/assistant', { messages: [{ role: 'user', content: 'change it' }], projectId: 'nope' }, cookie);

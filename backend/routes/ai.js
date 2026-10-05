@@ -332,9 +332,8 @@ router.post('/assistant', aiQuota('assistant'), async (req, res) => {
   const userId = req.session.userId;
   const incoming = Array.isArray(req.body.messages) ? req.body.messages : [];
   const cleaned = incoming
-    .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
-    .slice(-20)
-    .map(m => ({ role: m.role, content: m.content.trim().slice(0, 2000) }));
+    .filter(m => m && (m.role === 'user' || m.role === 'assistant') && ((typeof m.content === 'string' && m.content.trim()) || m.attachment))
+    .slice(-20);
   if (!cleaned.length || cleaned[0].role !== 'user') {
     return res.status(400).json({ error: 'Say something to the assistant first' });
   }
@@ -357,7 +356,13 @@ router.post('/assistant', aiQuota('assistant'), async (req, res) => {
   }
 
   try {
-    const response = await callAI({ system, messages: cleaned, tools, maxTokens: 4000 });
+    const messages = await Promise.all(cleaned.map(async m => {
+      const text = String(m.content || '').trim().slice(0, 2000);
+      if (!m.attachment) return { role: m.role, content: text };
+      const blocks = await attachmentToContentBlocks(m.attachment);
+      return { role: m.role, content: [...blocks, { type: 'text', text: text || '(see attached file)' }] };
+    }));
+    const response = await callAI({ system, messages, tools, maxTokens: 4000 });
     if (response.type === 'tool_use' && response.name === 'propose_project') {
       return res.json({ type: 'proposal', proposal: response.input });
     }
