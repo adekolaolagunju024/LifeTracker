@@ -761,7 +761,10 @@
             <p class="text-xs text-gray-500 mt-0.5">Describe what you want to achieve — it'll ask a question or two, then propose a project with tasks for you to review</p>
           </div>
         </div>
-        <button onclick="openImportProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">Start Chatting →</button>
+        <div class="flex gap-2 flex-shrink-0">
+          <button onclick="openAssistant()" class="bg-white hover:bg-gray-50 text-teal border border-teal/30 text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">🎙️ Assistant</button>
+          <button onclick="openImportProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">Start Chatting →</button>
+        </div>
       </div>
 
       <!-- One combined stats hero (counts + overall progress) instead of 3
@@ -877,6 +880,7 @@
         </div>
         <div class="flex gap-2 ml-auto flex-wrap items-start">
           <button onclick="openAddTask(APP.currentProjectId)" id="btn-add-task-header" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">+ Add Task</button>
+          <button onclick="openAssistant(APP.currentProjectId)" id="btn-assistant-project" class="hidden bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-4 py-2 rounded-lg">🎙️ Assistant</button>
           <button onclick="openReviseProject(APP.currentProjectId)" id="btn-revise-ai" class="hidden bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-4 py-2 rounded-lg">✨ Revise with AI</button>
           <button onclick="openShareProject(APP.currentProjectId)" id="btn-share-project" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">👥 <span id="btn-share-label">Share</span></button>
           <div class="relative">
@@ -1540,6 +1544,31 @@
     <div class="hidden justify-end gap-3 px-6 py-4 border-t border-gray-100" id="revise-actions">
       <button onclick="closeModal('modal-revise')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
       <button onclick="applyRevise()" id="revise-apply-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Apply selected</button>
+    </div>
+  </div>
+</div>
+
+<!-- WAYPOINT ASSISTANT — talk or type to create goals and change plans; every change is shown for approval first -->
+<div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-assistant">
+  <div class="bg-white rounded-2xl w-full max-w-lg h-[80vh] flex flex-col shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <div>
+        <h3 class="text-base font-bold text-navy">🎙️ Waypoint assistant</h3>
+        <p class="text-xs text-gray-400" id="assistant-context">Create a goal, or ask for changes. Nothing changes until you approve it.</p>
+      </div>
+      <button onclick="closeAssistant()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+    </div>
+    <div id="assistant-chat" class="flex-1 overflow-y-auto px-6 py-4 space-y-3"></div>
+    <div class="border-t border-gray-100 px-6 py-3 space-y-2">
+      <div class="flex items-center gap-2">
+        <input type="text" id="assistant-input" placeholder="Type, or tap the mic and speak…" onkeydown="if(event.key==='Enter'){event.preventDefault();sendAssistantMessage();}"
+          class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        <button onclick="toggleAssistantListening()" id="assistant-mic" title="Speak" class="hidden bg-gray-100 hover:bg-gray-200 text-gray-700 w-10 h-10 rounded-lg flex items-center justify-center text-base flex-shrink-0">🎤</button>
+        <button onclick="sendAssistantMessage()" id="assistant-send" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg flex-shrink-0">Send</button>
+      </div>
+      <label class="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+        <input type="checkbox" id="assistant-speak" onchange="setAssistantSpeak(this.checked)" class="accent-teal"> Speak replies aloud
+      </label>
     </div>
   </div>
 </div>

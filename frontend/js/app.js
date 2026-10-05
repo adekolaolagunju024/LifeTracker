@@ -688,6 +688,7 @@ async function renderProjectDetail(projectId) {
     document.getElementById('btn-add-task-header').classList.toggle('hidden', !canEdit);
     document.getElementById('btn-edit-project').classList.toggle('hidden', !canEdit);
     document.getElementById('btn-revise-ai').classList.toggle('hidden', !canEdit || !!proj.parentId);
+    document.getElementById('btn-assistant-project').classList.toggle('hidden', !!proj.parentId);
     document.getElementById('btn-revise-tasks').classList.toggle('hidden', !canEdit || !!proj.parentId);
 
     // Chat only makes sense once there's someone else to talk to.
@@ -4045,6 +4046,26 @@ async function submitRevise() {
   }
 }
 
+// Applies reviewed operations through the same endpoints the manual UI uses,
+// so permissions and validation still apply. Shared by the revise panel and
+// the assistant.
+async function applyOperations(projectId, ops) {
+  for (const op of ops) {
+    if (op.type === 'updateTask') {
+      await API.updateTask(op.taskId, op.fields);
+    } else if (op.type === 'moveTask') {
+      await API.updateTask(op.taskId, { projectId: op.toPhaseId });
+    } else if (op.type === 'addTask') {
+      await API.addTask({ ...op.task, projectId: op.phaseId });
+    } else if (op.type === 'renamePhase') {
+      await API.updateProject(op.phaseId, { title: op.title });
+    } else if (op.type === 'addPhase') {
+      const phase = await API.addProject({ title: op.title, parentId: projectId });
+      for (const task of op.tasks) await API.addTask({ ...task, projectId: phase.id });
+    }
+  }
+}
+
 async function applyRevise() {
   const checks = Array.from(document.querySelectorAll('.revise-check:checked'));
   const ops = checks.map(c => APP.reviseOps[Number(c.dataset.opIndex)]);
@@ -4054,20 +4075,7 @@ async function applyRevise() {
   btn.textContent = 'Applying…';
   const projectId = APP.reviseProjectId;
   try {
-    for (const op of ops) {
-      if (op.type === 'updateTask') {
-        await API.updateTask(op.taskId, op.fields);
-      } else if (op.type === 'moveTask') {
-        await API.updateTask(op.taskId, { projectId: op.toPhaseId });
-      } else if (op.type === 'addTask') {
-        await API.addTask({ ...op.task, projectId: op.phaseId });
-      } else if (op.type === 'renamePhase') {
-        await API.updateProject(op.phaseId, { title: op.title });
-      } else if (op.type === 'addPhase') {
-        const phase = await API.addProject({ title: op.title, parentId: projectId });
-        for (const task of op.tasks) await API.addTask({ ...task, projectId: phase.id });
-      }
-    }
+    await applyOperations(projectId, ops);
     closeModal('modal-revise');
     showToast(`✅ Applied ${ops.length} change${ops.length === 1 ? '' : 's'}`);
     renderProjectDetail(projectId);
@@ -4077,6 +4085,166 @@ async function applyRevise() {
   } finally {
     btn.disabled = false;
     btn.textContent = 'Apply selected';
+  }
+}
+
+// ── WAYPOINT ASSISTANT ─────────────────────────────────────────
+// One conversation that can propose a new goal or changes to the open project.
+// Every proposal is shown for approval; the assistant never writes on its own.
+const ASSISTANT_SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let assistantRecognition = null;
+
+function openAssistant(projectId) {
+  APP.assistantProjectId = projectId || null;
+  APP.assistantMessages = [];
+  document.getElementById('assistant-chat').innerHTML = '';
+  document.getElementById('assistant-context').textContent = projectId
+    ? 'Ask about this project. Changes are shown for approval first.'
+    : 'Create a goal, or ask for changes. Nothing changes until you approve it.';
+  document.getElementById('assistant-mic').classList.toggle('hidden', !ASSISTANT_SpeechRecognition);
+  let speak = false;
+  try { speak = localStorage.getItem('assistantSpeak') === '1'; } catch {}
+  document.getElementById('assistant-speak').checked = speak;
+  assistantBubble('assistant', 'Hi! Tell me what you want to achieve, or what to change. You can type or tap the mic.');
+  openModal('modal-assistant');
+  document.getElementById('assistant-input').focus();
+}
+
+function closeAssistant() {
+  if (assistantRecognition) assistantRecognition.stop();
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  closeModal('modal-assistant');
+}
+
+function assistantBubble(role, text) {
+  const wrap = document.getElementById('assistant-chat');
+  const el = document.createElement('div');
+  el.className = 'max-w-[85%] text-sm rounded-2xl px-3 py-2 whitespace-pre-wrap ' +
+    (role === 'user' ? 'ml-auto bg-teal text-white rounded-br-sm' : 'bg-gray-100 text-navy rounded-bl-sm');
+  el.textContent = text;
+  wrap.appendChild(el);
+  wrap.scrollTop = wrap.scrollHeight;
+  return el;
+}
+
+function setAssistantSpeak(on) {
+  try { localStorage.setItem('assistantSpeak', on ? '1' : '0'); } catch {}
+  if (!on && 'speechSynthesis' in window) speechSynthesis.cancel();
+}
+
+function speakAssistant(text) {
+  if (!document.getElementById('assistant-speak').checked || !('speechSynthesis' in window)) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = navigator.language || 'en-US';
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utterance);
+}
+
+function toggleAssistantListening() {
+  if (!ASSISTANT_SpeechRecognition) return;
+  const mic = document.getElementById('assistant-mic');
+  if (assistantRecognition) { assistantRecognition.stop(); return; }
+  const input = document.getElementById('assistant-input');
+  const rec = new ASSISTANT_SpeechRecognition();
+  rec.lang = navigator.language || 'en-US';
+  rec.interimResults = true;
+  rec.continuous = false;
+  const base = input.value ? input.value + ' ' : '';
+  rec.onresult = e => { input.value = base + Array.from(e.results).map(r => r[0].transcript).join(''); };
+  rec.onend = () => { assistantRecognition = null; mic.classList.remove('bg-red-100'); };
+  rec.onerror = () => { assistantRecognition = null; mic.classList.remove('bg-red-100'); assistantBubble('assistant', 'I could not hear that. You can type instead.'); };
+  assistantRecognition = rec;
+  mic.classList.add('bg-red-100');
+  rec.start();
+}
+
+async function sendAssistantMessage() {
+  const input = document.getElementById('assistant-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  APP.assistantMessages.push({ role: 'user', content: text });
+  assistantBubble('user', text);
+  const sendBtn = document.getElementById('assistant-send');
+  input.disabled = true;
+  sendBtn.disabled = true;
+  const thinking = assistantBubble('assistant', 'Thinking…');
+  thinking.classList.add('opacity-60');
+  try {
+    const res = await fetch('/api/ai/assistant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: APP.assistantMessages, projectId: APP.assistantProjectId }),
+    });
+    const body = await res.json();
+    thinking.remove();
+    if (!res.ok) throw new Error(body.error || 'The assistant could not respond');
+    if (body.type === 'message') {
+      APP.assistantMessages.push({ role: 'assistant', content: body.text });
+      assistantBubble('assistant', body.text);
+      speakAssistant(body.text);
+    } else if (body.type === 'proposal') {
+      const title = body.proposal.title || 'your goal';
+      APP.assistantMessages.push({ role: 'assistant', content: `I drafted a goal: ${title}.` });
+      assistantBubble('assistant', `I've drafted "${title}". Review it, then create it when you're happy.`);
+      speakAssistant(`I've drafted ${title}. Review it, then create it when you're happy.`);
+      closeModal('modal-assistant');
+      openModal('modal-import');
+      showImportPreview(body.proposal);
+    } else if (body.type === 'edits') {
+      renderAssistantEdits(body);
+    }
+  } catch (e) {
+    thinking.remove();
+    assistantBubble('assistant', '⚠️ ' + (e.message || 'Something went wrong. Try again.'));
+  } finally {
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}
+
+function renderAssistantEdits(body) {
+  APP.assistantEdits = body.operations;
+  const summary = body.summary || 'Here are the changes I suggest.';
+  APP.assistantMessages.push({ role: 'assistant', content: summary });
+  const wrap = document.getElementById('assistant-chat');
+  const card = document.createElement('div');
+  card.className = 'bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2 text-sm';
+  const rows = body.operations.map((op, i) => `
+    <label class="flex items-start gap-2 bg-white border border-gray-200 rounded-lg p-2 cursor-pointer">
+      <input type="checkbox" class="assistant-check mt-1 accent-teal" data-op-index="${i}" checked>
+      <span class="min-w-0">
+        <span class="block text-xs font-semibold text-teal uppercase tracking-wide">${REVISE_LABELS[op.type]}</span>
+        <span class="block text-navy">${describeReviseOp(op)}</span>
+      </span>
+    </label>`).join('');
+  card.innerHTML = `<p class="text-navy">${esc(summary)}</p>` + (body.operations.length
+    ? rows + '<button onclick="applyAssistantEdits(this)" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Apply selected</button>'
+    : '<p class="text-gray-500">Nothing needed changing. Tell me more about what to change.</p>');
+  wrap.appendChild(card);
+  wrap.scrollTop = wrap.scrollHeight;
+  speakAssistant(summary);
+}
+
+async function applyAssistantEdits(btn) {
+  const card = btn.closest('div');
+  const ops = Array.from(card.querySelectorAll('.assistant-check:checked')).map(c => APP.assistantEdits[Number(c.dataset.opIndex)]);
+  if (!ops.length) { showToast('Tick at least one change to apply'); return; }
+  btn.disabled = true;
+  btn.textContent = 'Applying…';
+  const projectId = APP.assistantProjectId;
+  try {
+    await applyOperations(projectId, ops);
+    btn.remove();
+    card.querySelectorAll('input').forEach(i => { i.disabled = true; });
+    assistantBubble('assistant', `✅ Applied ${ops.length} change${ops.length === 1 ? '' : 's'}.`);
+    if (APP.currentProjectId === projectId) renderProjectDetail(projectId);
+    updateSidebar();
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Apply selected';
+    showToast('❌ ' + (e.message || 'Some changes could not be applied'), 'error');
   }
 }
 

@@ -181,15 +181,21 @@ function setLastStreakNudgeDate(userId, dateStr) {
 
 // Per-account daily cap on user-triggered AI calls. Returns false (and
 // spends nothing) once today's allowance is used up.
-const AI_DAILY_LIMIT = 15;
-function consumeAiQuota(userId) {
+const AI_QUOTAS = {
+  ai: { count: 'aiCallsToday', date: 'aiCallsResetDate', limit: 15 },
+  assistant: { count: 'assistantCallsToday', date: 'assistantCallsResetDate', limit: 40 },
+};
+function consumeQuota(userId, kind) {
+  const { count, date, limit } = AI_QUOTAS[kind];
   const todayKey = localDateKeyFromDate(new Date());
   const profile = getProfile(userId);
-  const used = profile.aiCallsResetDate === todayKey ? profile.aiCallsToday : 0;
-  if (used >= AI_DAILY_LIMIT) return false;
-  db.prepare('UPDATE profile SET aiCallsToday = ?, aiCallsResetDate = ? WHERE userId = ?').run(used + 1, todayKey, userId);
+  const used = profile[date] === todayKey ? profile[count] : 0;
+  if (used >= limit) return false;
+  db.prepare(`UPDATE profile SET ${count} = ?, ${date} = ? WHERE userId = ?`).run(used + 1, todayKey, userId);
   return true;
 }
+function consumeAiQuota(userId) { return consumeQuota(userId, 'ai'); }
+function consumeAssistantQuota(userId) { return consumeQuota(userId, 'assistant'); }
 
 function logEvent(userId, event) {
   db.prepare('INSERT INTO analytics_events (id, userId, event, createdAt) VALUES (?,?,?,?)')
@@ -1397,7 +1403,7 @@ module.exports = {
   getAppConfig, setAppConfig, addPushSubscription, removePushSubscription, removePushSubscriptionByEndpoint,
   listPushSubscriptionsForUser, listUsersForPushReminders, setLastPushDigestSentDate, setLastFocusNudgeAt, markTaskOverdueNotified,
   listTasksInProjectTree, listGoalProjectsForCheckIn, setProjectLastCheckInAt,
-  setLastStreakNudgeDate, hasCompletedTaskToday, consumeAiQuota, logEvent,
+  setLastStreakNudgeDate, hasCompletedTaskToday, consumeAiQuota, consumeAssistantQuota, logEvent,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById, duplicateProject,
   getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, duplicateTask, bumpTaskProgress, reorderTasks,

@@ -8,12 +8,15 @@ const { EDIT_TOOL, buildEditContext, validateOperations } = require('../ai/edit'
 // Every user-triggered AI route spends one unit of the account's daily
 // allowance. The configured check comes first so an unconfigured server
 // doesn't burn anyone's quota on a request that's going to 503 anyway.
-function aiQuota(req, res, next) {
-  if (!isAIConfigured()) return next();
-  if (!db.consumeAiQuota(req.session.userId)) {
-    return res.status(429).json({ error: "You've used today's AI allowance. It resets tomorrow — everything else in Waypoint still works." });
-  }
-  next();
+function aiQuota(kind = 'ai') {
+  return (req, res, next) => {
+    if (!isAIConfigured()) return next();
+    const spend = kind === 'assistant' ? db.consumeAssistantQuota : db.consumeAiQuota;
+    if (!spend(req.session.userId)) {
+      return res.status(429).json({ error: "You've used today's AI allowance. It resets tomorrow — everything else in Waypoint still works." });
+    }
+    next();
+  };
 }
 
 // GET /api/ai/status — lets the frontend show "not configured" without
@@ -24,7 +27,7 @@ router.get('/status', (req, res) => {
 
 // POST /api/ai/insights — sends the user's open tasks to the AI and asks
 // for a prioritized focus list plus a few suggested next-step tasks.
-router.post('/insights', aiQuota, async (req, res) => {
+router.post('/insights', aiQuota(), async (req, res) => {
   if (!isAIConfigured()) {
     return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY (or GEMINI_API_KEY) to .env to enable it.' });
   }
@@ -209,7 +212,7 @@ async function attachmentToContentBlocks({ name, mimetype, dataBase64 }) {
 // that context across later turns). Claude either replies with plain text
 // to keep the conversation going, or calls propose_project once it has
 // enough to finalize.
-router.post('/project-chat', aiQuota, async (req, res) => {
+router.post('/project-chat', aiQuota(), async (req, res) => {
   if (!isAIConfigured()) {
     return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY (or GEMINI_API_KEY) to .env to enable it.' });
   }
@@ -254,7 +257,7 @@ router.post('/project-chat', aiQuota, async (req, res) => {
 // task: one concrete, doable-in-two-minutes first action, not a full plan.
 // Loads the task server-side (never trusts a client-supplied title/notes
 // directly) so this can't be used as an open-ended prompt injection point.
-router.post('/tiny-step', aiQuota, async (req, res) => {
+router.post('/tiny-step', aiQuota(), async (req, res) => {
   if (!isAIConfigured()) {
     return res.status(503).json({ error: 'AI is not configured on this server. Add ANTHROPIC_API_KEY (or GEMINI_API_KEY) to .env to enable it.' });
   }
@@ -282,7 +285,7 @@ router.post('/tiny-step', aiQuota, async (req, res) => {
 // feedback message. Proposes changes only; nothing is written here. The
 // client shows them for review and applies whichever ones the user ticks,
 // through the same endpoints the manual UI uses.
-router.post('/edit-project', aiQuota, async (req, res) => {
+router.post('/edit-project', aiQuota(), async (req, res) => {
   if (!isAIConfigured()) {
     return res.status(503).json({ error: 'AI is not configured on this server.' });
   }
@@ -309,6 +312,62 @@ router.post('/edit-project', aiQuota, async (req, res) => {
     res.json({ summary: response.input.summary || '', operations, dropped });
   } catch (e) {
     console.error('AI edit-project error:', e);
+    const apiMessage = e?.error?.error?.message || e?.message || 'Unknown error';
+    res.status(502).json({ error: apiMessage });
+  }
+});
+
+// POST /api/ai/assistant — one conversation that can propose a new goal, or
+// proposed edits to a project the user can edit. Like the other AI routes it
+// only proposes: nothing is written here, and every proposal is shown for
+// review before anything changes.
+const ASSISTANT_SYSTEM = today => `You are Waypoint's assistant. You help the user set up goals and keep them on track. Today's date is ${today}.
+
+If the user describes a new goal and you have enough to plan it, call propose_project. If the user asks for changes to the project they have open, and that project's plan is included below, call propose_edits. Otherwise reply in one or two short sentences, asking a question if you need one. Never say you have made a change: you only propose changes, and the user approves them.`;
+
+router.post('/assistant', aiQuota('assistant'), async (req, res) => {
+  if (!isAIConfigured()) {
+    return res.status(503).json({ error: 'AI is not configured on this server.' });
+  }
+  const userId = req.session.userId;
+  const incoming = Array.isArray(req.body.messages) ? req.body.messages : [];
+  const cleaned = incoming
+    .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+    .slice(-20)
+    .map(m => ({ role: m.role, content: m.content.trim().slice(0, 2000) }));
+  if (!cleaned.length || cleaned[0].role !== 'user') {
+    return res.status(400).json({ error: 'Say something to the assistant first' });
+  }
+
+  let context = null;
+  if (req.body.projectId) {
+    const project = db.getProjectById(userId, req.body.projectId);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    if (!db.canEditProject(userId, project.id)) return res.status(403).json({ error: 'You need edit access to change this project' });
+    if (project.parentId) return res.status(400).json({ error: 'Open the top-level project to change its plan' });
+    context = buildEditContext(userId, project);
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const tools = [IMPORT_TOOL];
+  let system = ASSISTANT_SYSTEM(today);
+  if (context) {
+    tools.push(EDIT_TOOL);
+    system += `\n\nThe project the user has open:\n${context.text}`;
+  }
+
+  try {
+    const response = await callAI({ system, messages: cleaned, tools, maxTokens: 4000 });
+    if (response.type === 'tool_use' && response.name === 'propose_project') {
+      return res.json({ type: 'proposal', proposal: response.input });
+    }
+    if (response.type === 'tool_use' && response.name === 'propose_edits' && context) {
+      const { operations, dropped } = validateOperations(response.input.operations, context.index);
+      return res.json({ type: 'edits', summary: response.input.summary || '', operations, dropped });
+    }
+    res.json({ type: 'message', text: response.text || "Sorry, I didn't catch that — could you say more?" });
+  } catch (e) {
+    console.error('AI assistant error:', e);
     const apiMessage = e?.error?.error?.message || e?.message || 'Unknown error';
     res.status(502).json({ error: apiMessage });
   }

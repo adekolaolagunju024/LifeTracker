@@ -319,6 +319,9 @@ addColumnIfMissing('users', "acceptedTermsAt TEXT");
 // up an unbounded AI bill. Resets when aiCallsResetDate isn't today.
 addColumnIfMissing('profile', "aiCallsToday INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing('profile', "aiCallsResetDate TEXT");
+// The assistant is a conversation, so it gets its own, larger daily allowance.
+addColumnIfMissing('profile', "assistantCallsToday INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('profile', "assistantCallsResetDate TEXT");
 
 // Minimal first-party event log (signups, goals created, tasks completed) —
 // enough to answer "is anyone signing up or activating" without a third-party
