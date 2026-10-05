@@ -4141,12 +4141,26 @@ function setAssistantSpeak(on) {
   if (!on && 'speechSynthesis' in window) speechSynthesis.cancel();
 }
 
+// Resolves when the reply has finished being spoken (or straight away when
+// speech is off), so the microphone can reopen without picking up the reply.
 function speakAssistant(text) {
-  if (!document.getElementById('assistant-speak').checked || !('speechSynthesis' in window)) return;
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = navigator.language || 'en-US';
-  speechSynthesis.cancel();
-  speechSynthesis.speak(utterance);
+  return new Promise(resolve => {
+    if (!document.getElementById('assistant-speak').checked || !('speechSynthesis' in window)) return resolve();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = navigator.language || 'en-US';
+    utterance.onend = resolve;
+    utterance.onerror = resolve;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
+  });
+}
+
+// Hands-free: after a spoken message, keep listening for the next one.
+function resumeAssistantListening() {
+  const open = document.getElementById('modal-assistant').classList.contains('open');
+  if (open && APP.assistantVoiceTurn && document.getElementById('assistant-autosend').checked && !assistantRecognition) {
+    toggleAssistantListening();
+  }
 }
 
 function toggleAssistantListening() {
@@ -4163,7 +4177,7 @@ function toggleAssistantListening() {
   rec.onend = () => {
     assistantRecognition = null;
     mic.classList.remove('bg-red-100');
-    if (document.getElementById('assistant-autosend').checked && input.value.trim()) sendAssistantMessage();
+    if (document.getElementById('assistant-autosend').checked && input.value.trim()) sendAssistantMessage(true);
   };
   rec.onerror = () => { assistantRecognition = null; mic.classList.remove('bg-red-100'); assistantBubble('assistant', 'I could not hear that. You can type instead.'); };
   assistantRecognition = rec;
@@ -4171,10 +4185,11 @@ function toggleAssistantListening() {
   rec.start();
 }
 
-async function sendAssistantMessage() {
+async function sendAssistantMessage(viaVoice = false) {
   const input = document.getElementById('assistant-input');
   const text = input.value.trim();
   if (!text) return;
+  APP.assistantVoiceTurn = viaVoice;
   input.value = '';
   APP.assistantMessages.push({ role: 'user', content: text });
   assistantBubble('user', text);
@@ -4195,7 +4210,7 @@ async function sendAssistantMessage() {
     if (body.type === 'message') {
       APP.assistantMessages.push({ role: 'assistant', content: body.text });
       assistantBubble('assistant', body.text);
-      speakAssistant(body.text);
+      speakAssistant(body.text).then(resumeAssistantListening);
     } else if (body.type === 'proposal') {
       const title = body.proposal.title || 'your goal';
       APP.assistantMessages.push({ role: 'assistant', content: `I drafted a goal: ${title}.` });
@@ -4237,7 +4252,7 @@ function renderAssistantEdits(body) {
     : '<p class="text-gray-500">Nothing needed changing. Tell me more about what to change.</p>');
   wrap.appendChild(card);
   wrap.scrollTop = wrap.scrollHeight;
-  speakAssistant(summary);
+  speakAssistant(summary).then(resumeAssistantListening);
 }
 
 async function applyAssistantEdits(btn) {
