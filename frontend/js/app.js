@@ -4463,31 +4463,89 @@ function housePhaseLabel(frac) {
   return label;
 }
 
-function mountainCheckpoints(n) {
-  // Bottom-to-top zigzag scaffolding around the build site — kept within
-  // the house's own footprint (not climbing off into open sky the way the
-  // old mountain trail did), so the worker reads as working ON the house.
+// Bottom-to-top zigzag trail — kept within [topY, bottomY] so each theme can
+// keep the avatar close to whatever it's "climbing": tight around the
+// house's own footprint for the House stage, or the full scene height for
+// a distant mountain/cliff-top flag on the others.
+function mountainCheckpoints(n, topY = 40, bottomY = 88) {
   const points = [];
   for (let i = 0; i < n; i++) {
     const t = n > 1 ? i / (n - 1) : 1;
-    const spread = 22 - t * 10; // narrows a little higher up, near the roofline
+    const spread = 22 - t * 10; // narrows a little higher up
     const side = i % 2 === 0 ? -1 : 1;
-    points.push({ x: 50 + side * spread, y: 88 - t * 46 });
+    points.push({ x: 50 + side * spread, y: bottomY - t * (bottomY - topY) });
   }
   return points;
 }
 
-// Position along the scaffolding for a progress fraction (0 = empty lot, 1 = roofline).
-function mountainPointAt(points, frac) {
-  if (!points.length) return { x: 50, y: 90 };
-  if (frac <= 0) return { x: 50, y: 90 };
-  if (frac >= 1) return { x: 50, y: 40 };
+// Position along the trail for a progress fraction (0 = base, 1 = the top).
+function mountainPointAt(points, frac, topY = 40, bottomY = 88) {
+  if (!points.length) return { x: 50, y: bottomY };
+  if (frac <= 0) return { x: 50, y: bottomY };
+  if (frac >= 1) return { x: 50, y: topY };
   const idx = frac * (points.length - 1);
   const i0 = Math.floor(idx), i1 = Math.min(points.length - 1, i0 + 1);
   const f = idx - i0;
   const a = points[i0], b = points[i1];
   return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
 }
+
+// ── JOURNEY STAGES ──────────────────────────────────────────────
+// House is the default and the only one with progressive construction;
+// Road and Cliff are a static backdrop with the same moving-avatar/
+// checkpoint mechanic the old multi-theme version used — picked from the
+// dropdown in the view's own header, remembered per project.
+function journeyAvatarSvg(animated, { bodyColor = '#F59E0B', legColor = '#2563EB', headwear = 'hardhat', hammer = true } = {}) {
+  const hammerArm = hammer ? `
+    <g>
+      <rect x="3.3" y="-13.5" width="2.1" height="5.6" rx="1" fill="${bodyColor}"/>
+      <rect x="4" y="-18" width="4.4" height="1.7" rx="0.6" fill="#9CA3AF"/>
+      ${animated ? `<animateTransform attributeName="transform" type="rotate" values="-15 3 -8;40 3 -8;-15 3 -8" dur="0.6s" repeatCount="indefinite"/>` : ''}
+    </g>` : `<rect x="3.3" y="-13.5" width="2.1" height="5.6" rx="1" fill="${bodyColor}"/>`;
+  const hat = headwear === 'hardhat'
+    ? `<path d="M-3.3,-17.2 a3.3,3.3 0 0 1 6.6,0 z" fill="#FBBF24"/>`
+    : headwear === 'helmet'
+      ? `<path d="M-3.1,-17.4 a3.1,3.1 0 0 1 6.2,0 z" fill="#EF4444"/>`
+      : '';
+  const bob = animated ? `<animateTransform attributeName="transform" type="translate" values="0 0;0 -0.6;0 0" dur="1.2s" repeatCount="indefinite" additive="sum"/>` : '';
+  return `
+    <svg viewBox="-9 -20 18 23" width="30" height="38" style="overflow:visible">
+      <g>
+        ${bob}
+        <ellipse cx="0" cy="1.6" rx="5" ry="1.1" fill="#00000022"/>
+        <rect x="-3.2" y="-6" width="2.4" height="7.4" rx="1.1" fill="${legColor}"/>
+        <rect x="0.8" y="-6" width="2.4" height="7.4" rx="1.1" fill="${legColor}"/>
+        <rect x="-4.2" y="-13.5" width="8.4" height="8.3" rx="2.6" fill="${bodyColor}"/>
+        <rect x="-6.3" y="-12.6" width="2.2" height="5.4" rx="1" fill="${bodyColor}"/>
+        <circle cx="0" cy="-16" r="3.1" fill="#FBCFA0"/>
+        ${hat}
+        ${hammerArm}
+      </g>
+    </svg>`;
+}
+
+const JOURNEY_STAGES = {
+  house: {
+    label: '🏠 House Build', checkpointNoun: 'tasks', doneLabel: 'House complete', doneEmoji: '🏡',
+    topY: 40, bottomY: 88,
+    avatar: animated => journeyAvatarSvg(animated, { bodyColor: '#F59E0B', legColor: '#2563EB', headwear: 'hardhat', hammer: true }),
+  },
+  road: {
+    // Modeled on the "winding road up to a spotlit peak" reference — a
+    // business traveler walking a literal road (thick ribbon + dashed
+    // centerline) rather than a thin trail, toward a flag in a beam of light.
+    label: '🛣️ Road to the Goal', checkpointNoun: 'milestones', doneLabel: 'Reached the summit', doneEmoji: '🚩',
+    topY: 10, bottomY: 90,
+    avatar: animated => journeyAvatarSvg(animated, { bodyColor: '#1E3A8A', legColor: '#111827', headwear: 'none', hammer: false }),
+  },
+  cliff: {
+    // Modeled on the rope-climb references — a rocky cliff silhouette with
+    // a climbing rope running up to a flag at the top, pastel dawn sky.
+    label: '🧗 Cliff Climb', checkpointNoun: 'pitches', doneLabel: 'Summit reached', doneEmoji: '🏔️',
+    topY: 8, bottomY: 90,
+    avatar: animated => journeyAvatarSvg(animated, { bodyColor: '#EF4444', legColor: '#1E3A8A', headwear: 'helmet', hammer: false }),
+  },
+};
 
 // Entry point from a project's own header button — jumps to the Gantt
 // page, points its (shared) project filter at this project, and switches
@@ -4508,6 +4566,7 @@ async function renderJourneyView() {
   const titleEl = document.getElementById('mountain-title');
   const statusEl = document.getElementById('mountain-status');
   const competitorSel = document.getElementById('journey-competitor-select');
+  const stageSel = document.getElementById('journey-stage-select');
   if (!projectId) {
     titleEl.textContent = '🏗️ Journey';
     statusEl.textContent = 'Pick a specific project from the filter above — a Journey is one project at a time.';
@@ -4515,6 +4574,7 @@ async function renderJourneyView() {
     document.getElementById('mountain-tasklist').innerHTML = '';
     document.getElementById('mountain-celebrate').classList.add('hidden');
     if (competitorSel) competitorSel.classList.add('hidden');
+    if (stageSel) stageSel.classList.add('hidden');
     mountainState = null;
     API.getJourneyGaming().then(updateJourneyLevelBadge).catch(() => {});
     return;
@@ -4539,8 +4599,12 @@ async function renderJourneyView() {
     let competitor = 'schedule';
     try { competitor = localStorage.getItem('journeyCompetitor:' + projectId) || 'schedule'; } catch { /* private mode etc */ }
     if (competitor !== 'schedule' && !racers.some(r => r.userId === competitor)) competitor = 'schedule';
-    mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor', racers, competitor };
-    titleEl.textContent = `🏗️ ${project.icon || ''} ${project.title}`;
+    let stage = 'house';
+    try { stage = localStorage.getItem('journeyStage:' + projectId) || 'house'; } catch { /* private mode etc */ }
+    if (!JOURNEY_STAGES[stage]) stage = 'house';
+    mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor', racers, competitor, stage };
+    if (stageSel) { stageSel.classList.remove('hidden'); stageSel.value = stage; }
+    titleEl.textContent = `${JOURNEY_STAGES[stage].label.split(' ')[0]} ${project.icon || ''} ${project.title}`;
     if (competitorSel) {
       if (racers.length) {
         competitorSel.classList.remove('hidden');
@@ -4565,6 +4629,17 @@ function setJourneyCompetitor(value) {
   if (!mountainState) return;
   mountainState.competitor = value;
   try { localStorage.setItem('journeyCompetitor:' + mountainState.projectId, value); } catch { /* private mode etc */ }
+  renderMountainScene();
+}
+
+// Switching which scene this project's progress plays out in — House
+// Build, Road to the Goal, or Cliff Climb. Remembered per project, same as
+// the competitor choice, so different projects can each have their own look.
+function setJourneyStage(value) {
+  if (!mountainState || !JOURNEY_STAGES[value]) return;
+  mountainState.stage = value;
+  try { localStorage.setItem('journeyStage:' + mountainState.projectId, value); } catch { /* private mode etc */ }
+  document.getElementById('mountain-title').textContent = `${JOURNEY_STAGES[value].label.split(' ')[0]} ${mountainState.project.icon || ''} ${mountainState.project.title}`;
   renderMountainScene();
 }
 
@@ -4614,69 +4689,109 @@ function mountainExpectedFraction() {
   return Math.max(0, Math.min(1, (nowMs - startMs) / (endMs - startMs)));
 }
 
+// Static backdrop fragments for the non-House stages — unlike the house,
+// these don't assemble progressively; progress reads from the avatar's
+// position and the checkpoints alone, same mechanic the old multi-theme
+// version used.
+function roadBackdropSvg() {
+  return `
+    <circle cx="14" cy="12" r="0.5" fill="#fff" opacity="0.8"/><circle cx="24" cy="8" r="0.4" fill="#fff" opacity="0.7"/>
+    <circle cx="80" cy="10" r="0.5" fill="#fff" opacity="0.8"/><circle cx="90" cy="18" r="0.4" fill="#fff" opacity="0.6"/>
+    <polygon points="30,48 50,6 70,48" fill="#2F5A8A" opacity="0.55"/>
+    <polygon points="42,6 58,6 66,30 34,30" fill="#FFFFFF" opacity="0.3"/>
+    <line x1="50" y1="6" x2="50" y2="16" stroke="#fff" stroke-width="0.8"/>
+    <polygon points="50,6 50,11 56,8.5" fill="#EF4444"/>
+  `;
+}
+function cliffBackdropSvg() {
+  return `
+    <ellipse cx="20" cy="14" rx="7" ry="3" fill="#fff" opacity="0.8"/><ellipse cx="78" cy="10" rx="5.5" ry="2.5" fill="#fff" opacity="0.7"/>
+    <path d="M10,22 q3,-3.5 6,0 q3,-3.5 6,0" stroke="#5B4636" stroke-width="0.6" fill="none" opacity="0.7"/>
+    <path d="M70,16 q3,-3.5 6,0 q3,-3.5 6,0" stroke="#5B4636" stroke-width="0.6" fill="none" opacity="0.7"/>
+    <polygon points="0,100 0,30 48,6 100,50 100,100" fill="#A9826A"/>
+    <polygon points="0,100 0,46 40,24 62,62 100,78 100,100" fill="#8B6952"/>
+    <path d="M50,90 C44,68 56,46 49,10" stroke="#C9A063" stroke-width="1" fill="none" stroke-linecap="round"/>
+    <line x1="48" y1="6" x2="48" y2="16" stroke="#fff" stroke-width="0.8"/>
+    <polygon points="48,6 48,11 54,8.5" fill="#EF4444"/>
+  `;
+}
+
 function renderMountainScene() {
   const { tasks } = mountainState;
+  const stage = JOURNEY_STAGES[mountainState.stage] || JOURNEY_STAGES.house;
   const total = tasks.length;
   const done = tasks.filter(t => t.status === 'Completed').length;
   const youFrac = total ? done / total : 0;
   const competitor = total ? competitorFraction() : null;
   const expectedFrac = competitor ? competitor.frac : null;
-  const points = mountainCheckpoints(total);
+  const points = mountainCheckpoints(total, stage.topY, stage.bottomY);
 
   const checkpointsHtml = points.map((p, i) => {
     const t = tasks[i];
     const isDone = t.status === 'Completed';
     const isNext = !isDone && i === done;
+    const blocked = !!t.latestUpdateIsBlocker;
     return `<div class="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full text-[11px] font-bold border-2 transition-all duration-500 ${
       isDone ? 'bg-emerald-500 border-emerald-600 text-white w-7 h-7' : isNext ? 'bg-amber-300 border-amber-500 text-navy w-7 h-7 animate-pulse' : 'bg-white/80 border-gray-300 text-gray-400 w-6 h-6'
-    }" style="left:${p.x}%;top:${p.y}%" title="${esc(t.title)}">${isDone ? '✓' : i + 1}</div>`;
+    }" style="left:${p.x}%;top:${p.y}%" title="${esc(t.title)}${blocked ? ' — 🚧 blocked' : ''}">${isDone ? '✓' : i + 1}${blocked ? '<span class="absolute -top-2 -right-2 text-xs">🚧</span>' : ''}</div>`;
   }).join('');
 
-  const you = mountainPointAt(points, youFrac);
-  const ghost = expectedFrac === null ? null : mountainPointAt(points, expectedFrac);
+  const you = mountainPointAt(points, youFrac, stage.topY, stage.bottomY);
+  const ghost = expectedFrac === null ? null : mountainPointAt(points, expectedFrac, stage.topY, stage.bottomY);
   const summitLit = total > 0 && done === total;
+
+  const isHouse = mountainState.stage === 'house' || !mountainState.stage;
+  const trail = isHouse
+    ? `<polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#B7A68C" stroke-width="1.6" stroke-dasharray="3,2.4" stroke-linecap="round" opacity="0.75"/>`
+    : mountainState.stage === 'road'
+      ? `<polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#E8D9B5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+         <polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#fff" stroke-width="0.8" stroke-dasharray="2,2" stroke-linecap="round" opacity="0.9"/>`
+      : `<polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#FEF3C7" stroke-width="1.4" stroke-dasharray="2.4,2" stroke-linecap="round" opacity="0.85"/>`;
 
   document.getElementById('mountain-scene').innerHTML = `
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="absolute inset-0 w-full h-full">
       <defs>
         <linearGradient id="mtnSky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#BFE3F7"/>
-          <stop offset="100%" stop-color="#EAF6FB"/>
+          <stop offset="0%" stop-color="${isHouse ? '#BFE3F7' : mountainState.stage === 'road' ? '#4F8FD1' : '#F6C9B4'}"/>
+          <stop offset="100%" stop-color="${isHouse ? '#EAF6FB' : mountainState.stage === 'road' ? '#BFE0F5' : '#FDE8D8'}"/>
         </linearGradient>
       </defs>
       <rect x="0" y="0" width="100" height="100" fill="url(#mtnSky)"/>
-      <circle cx="84" cy="14" r="7" fill="#FDE68A" opacity="0.9"/>
-      <g opacity="0.85">
-        <ellipse cx="18" cy="16" rx="7" ry="3.2" fill="#fff"/><ellipse cx="24" cy="14" rx="5.5" ry="2.8" fill="#fff"/>
-        <animateTransform attributeName="transform" type="translate" values="0 0;6 0;0 0" dur="18s" repeatCount="indefinite"/>
-      </g>
-      <rect x="0" y="90" width="100" height="10" fill="#8FBF7A"/>
-      ${housePiecesAt(youFrac)}
-      <polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#B7A68C" stroke-width="1.6" stroke-dasharray="3,2.4" stroke-linecap="round" opacity="0.75"/>
+      ${isHouse ? `
+        <circle cx="84" cy="14" r="7" fill="#FDE68A" opacity="0.9"/>
+        <g opacity="0.85">
+          <ellipse cx="18" cy="16" rx="7" ry="3.2" fill="#fff"/><ellipse cx="24" cy="14" rx="5.5" ry="2.8" fill="#fff"/>
+          <animateTransform attributeName="transform" type="translate" values="0 0;6 0;0 0" dur="18s" repeatCount="indefinite"/>
+        </g>
+        <rect x="0" y="90" width="100" height="10" fill="#8FBF7A"/>
+        ${housePiecesAt(youFrac)}
+      ` : mountainState.stage === 'road' ? roadBackdropSvg() : cliffBackdropSvg()}
+      ${trail}
     </svg>
-    ${summitLit ? `<div class="absolute -translate-x-1/2 text-xl animate-bounce" style="left:50%;top:3%">🏡✨</div>` : ''}
+    ${summitLit ? `<div class="absolute -translate-x-1/2 text-xl animate-bounce" style="left:50%;top:3%">${stage.doneEmoji}✨</div>` : ''}
     ${checkpointsHtml}
     ${ghost ? `<div class="absolute -translate-x-1/2 -translate-y-full opacity-40 transition-all duration-700" style="left:${ghost.x}%;top:${ghost.y}%" title="${esc(competitor.label)}${competitor.isComputer ? ' — sticks exactly to the schedule' : ''}">
-      ${workerSvgMarkup(false)}
+      ${stage.avatar(false)}
       <span class="absolute -top-1 -right-1 text-[9px] leading-none bg-navy text-white rounded-full w-4 h-4 flex items-center justify-center font-bold">${competitor.isComputer ? '🖥️' : esc(competitor.label.charAt(0).toUpperCase())}</span>
     </div>` : ''}
-    <div class="absolute -translate-x-1/2 -translate-y-full transition-all duration-700 drop-shadow" style="left:${you.x}%;top:${you.y}%" title="You">${workerSvgMarkup(true)}</div>
+    <div class="absolute -translate-x-1/2 -translate-y-full transition-all duration-700 drop-shadow" style="left:${you.x}%;top:${you.y}%" title="You">${stage.avatar(true)}</div>
   `;
 
   const statusEl = document.getElementById('mountain-status');
-  const phase = housePhaseLabel(youFrac);
+  const phase = isHouse ? housePhaseLabel(youFrac) : null;
+  const noun = stage.checkpointNoun;
   if (!total) {
-    statusEl.textContent = 'Add tasks to this project to start building.';
+    statusEl.textContent = isHouse ? 'Add tasks to this project to start building.' : 'Add tasks to this project to start the journey.';
   } else if (summitLit) {
-    statusEl.textContent = `🏡 House complete — every task done!`;
+    statusEl.textContent = `${stage.doneEmoji} ${stage.doneLabel} — every task done!`;
   } else if (expectedFrac === null) {
-    statusEl.textContent = `${done} of ${total} tasks · ${phase} · no deadlines set, so just go at your own pace.`;
+    statusEl.textContent = `${done} of ${total} ${noun}${phase ? ' · ' + phase : ''} · no deadlines set, so just go at your own pace.`;
   } else if (youFrac > expectedFrac + 0.03) {
-    statusEl.textContent = `${done} of ${total} tasks · ${phase} · 🏆 you're ahead of ${competitor.label}!`;
+    statusEl.textContent = `${done} of ${total} ${noun}${phase ? ' · ' + phase : ''} · 🏆 you're ahead of ${competitor.label}!`;
   } else if (youFrac < expectedFrac - 0.03) {
-    statusEl.textContent = `${done} of ${total} tasks · ${phase} · ⏳ ${competitor.label} is a little ahead — keep going.`;
+    statusEl.textContent = `${done} of ${total} ${noun}${phase ? ' · ' + phase : ''} · ⏳ ${competitor.label} is a little ahead — keep going.`;
   } else {
-    statusEl.textContent = `${done} of ${total} tasks · ${phase} · 🤝 neck and neck with ${competitor.label}.`;
+    statusEl.textContent = `${done} of ${total} ${noun}${phase ? ' · ' + phase : ''} · 🤝 neck and neck with ${competitor.label}.`;
   }
 }
 
@@ -4704,7 +4819,8 @@ async function toggleMountainTask(checkbox) {
     updateSidebar();
     if (nowComplete) {
       const idx = mountainState.tasks.findIndex(x => x.id === taskId);
-      const point = mountainCheckpoints(mountainState.tasks.length)[idx];
+      const stage = JOURNEY_STAGES[mountainState.stage] || JOURNEY_STAGES.house;
+      const point = mountainCheckpoints(mountainState.tasks.length, stage.topY, stage.bottomY)[idx];
       const canvas = document.getElementById('mountain-confetti');
       const wrap = document.getElementById('mountain-scene-wrap');
       canvas.width = wrap.clientWidth;
@@ -4727,10 +4843,11 @@ async function toggleMountainTask(checkbox) {
 }
 
 function showMountainCelebration() {
+  const stage = JOURNEY_STAGES[mountainState.stage] || JOURNEY_STAGES.house;
   const competitor = competitorFraction();
   const title = document.getElementById('mountain-celebrate-title');
   const text = document.getElementById('mountain-celebrate-text');
-  title.textContent = `🏡 House complete!`;
+  title.textContent = `${stage.doneEmoji} ${stage.doneLabel}!`;
   if (competitor.frac === null) {
     text.textContent = `You finished every task in "${mountainState.project.title}". Great work!`;
   } else if (competitor.frac < 0.97) {
