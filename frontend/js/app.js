@@ -4522,6 +4522,13 @@ function mountainPointAt(points, frac, topY = 40, bottomY = 88) {
 // gradient ids (a module-level counter) so "you" and the pace-ghost, drawn
 // at the same time, never collide.
 let _journeyAvatarUid = 0;
+// A real contralateral walk cycle (left leg + right arm swing together,
+// right leg + left arm swing together — how actual walking balances), via
+// SMIL animateTransform rotate with an explicit pivot at each limb's own
+// attachment point (the hip or shoulder it's actually drawn from) so each
+// limb swings in its own natural arc rather than around the SVG origin.
+// The House worker stands planted and hammers instead of walking — that's
+// the more natural pose for someone working a build site.
 function journeyAvatarSvg(animated, opts = {}) {
   const {
     bodyColor = '#F59E0B', bodyColorDark = '#D97706',
@@ -4530,6 +4537,18 @@ function journeyAvatarSvg(animated, opts = {}) {
   } = opts;
   const uid = `ja${_journeyAvatarUid++}`;
   const outline = 'rgba(0,0,0,0.22)';
+  const walking = animated && !hammer;
+  const STEP = 0.36; // seconds per half-stride — a brisk, lively pace
+  const spline = 'calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"';
+  const limbSwing = (pivot, begin, deg) => walking
+    ? `<animateTransform attributeName="transform" type="rotate" values="-${deg} ${pivot};${deg} ${pivot};-${deg} ${pivot}" dur="${STEP * 2}s" begin="${begin}s" repeatCount="indefinite" ${spline}/>`
+    : '';
+
+  const leftLeg = `<g>${limbSwing('-2.2 -6.6', 0, 28)}<rect x="-3.6" y="-6.6" width="2.8" height="8" rx="1.3" fill="url(#jaLeg${uid})" stroke="${outline}" stroke-width="0.3"/></g>`;
+  const rightLeg = `<g>${limbSwing('2.2 -6.6', STEP, 28)}<rect x="0.8" y="-6.6" width="2.8" height="8" rx="1.3" fill="url(#jaLeg${uid})" stroke="${outline}" stroke-width="0.3"/></g>`;
+  // Left arm pairs with the right leg's phase, right arm with the left
+  // leg's — opposite limbs swinging together is what keeps a walk balanced.
+  const backArm = `<g>${limbSwing('-6.1 -14.6', STEP, 20)}<rect x="-7.4" y="-14.6" width="2.6" height="6.2" rx="1.3" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.3"/></g>`;
   const toolArm = hammer ? `
     <g>
       <rect x="3" y="-14.4" width="2.6" height="6.4" rx="1.3" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.3"/>
@@ -4537,16 +4556,17 @@ function journeyAvatarSvg(animated, opts = {}) {
       <rect x="4.6" y="-20.6" width="1.1" height="1.6" rx="0.2" fill="#6B7280"/>
       ${animated ? `<animateTransform attributeName="transform" type="rotate" values="-18 3 -9;48 3 -9;-18 3 -9" dur="0.55s" repeatCount="indefinite"/>` : ''}
     </g>` : `
-    <g>
-      <rect x="3" y="-14.4" width="2.6" height="6.2" rx="1.3" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.3"/>
-      ${animated ? `<animateTransform attributeName="transform" type="rotate" values="-6 3 -9;10 3 -9;-6 3 -9" dur="1.3s" repeatCount="indefinite"/>` : ''}
-    </g>`;
+    <g>${limbSwing('4.3 -14.4', 0, 20)}<rect x="3" y="-14.4" width="2.6" height="6.2" rx="1.3" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.3"/></g>`;
   const hat = headwear === 'hardhat'
     ? `<path d="M-4.3,-20.6 a4.3,4 0 0 1 8.6,0 z" fill="url(#jaHat${uid})" stroke="${outline}" stroke-width="0.3"/><rect x="-4.3" y="-17.3" width="8.6" height="1" fill="#D97706" opacity="0.5"/>`
     : headwear === 'helmet'
       ? `<path d="M-4,-20.8 a4,3.8 0 0 1 8,0 z" fill="url(#jaHat${uid})" stroke="${outline}" stroke-width="0.3"/><rect x="-4" y="-17.5" width="8" height="0.9" fill="#B91C1C" opacity="0.5"/>`
       : '';
-  const bob = animated ? `<animateTransform attributeName="transform" type="translate" values="0 0;0 -0.9;0 0" dur="1s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines="0.3 0 0.5 1;0.5 0 0.7 1"/>` : '';
+  // Two bounces per full stride (one each time a foot plants) while
+  // walking; a gentler single idle bob while standing and hammering.
+  const bob = !animated ? '' : walking
+    ? `<animateTransform attributeName="transform" type="translate" values="0 0;0 -0.8;0 0;0 -0.8;0 0" dur="${STEP * 2}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"/>`
+    : `<animateTransform attributeName="transform" type="translate" values="0 0;0 -0.9;0 0" dur="1s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines="0.3 0 0.5 1;0.5 0 0.7 1"/>`;
   return `
     <svg viewBox="-10 -22 20 25" width="32" height="40" style="overflow:visible">
       <defs>
@@ -4566,10 +4586,10 @@ function journeyAvatarSvg(animated, opts = {}) {
       <g>
         ${bob}
         <ellipse cx="0" cy="2" rx="5.6" ry="1.2" fill="#00000025"/>
-        <rect x="-3.6" y="-6.6" width="2.8" height="8" rx="1.3" fill="url(#jaLeg${uid})" stroke="${outline}" stroke-width="0.3"/>
-        <rect x="0.8" y="-6.6" width="2.8" height="8" rx="1.3" fill="url(#jaLeg${uid})" stroke="${outline}" stroke-width="0.3"/>
+        ${leftLeg}
+        ${rightLeg}
+        ${backArm}
         <rect x="-5.2" y="-15.5" width="10.4" height="9.6" rx="3.4" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.35"/>
-        <rect x="-7.4" y="-14.6" width="2.6" height="6.2" rx="1.3" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.3"/>
         <circle cx="0" cy="-18" r="4.3" fill="url(#jaHead${uid})" stroke="${outline}" stroke-width="0.35"/>
         <circle cx="-1.6" cy="-18.3" r="0.55" fill="#3A2E1F"/>
         <circle cx="1.6" cy="-18.3" r="0.55" fill="#3A2E1F"/>
