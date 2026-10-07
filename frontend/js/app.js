@@ -4394,6 +4394,28 @@ const JOURNEY_STARS = [
   { x: 95, y: 44, r: 0.4, o: 0.7 }, { x: 50, y: 10, r: 0.3, o: 0.6 }, { x: 72, y: 20, r: 0.4, o: 0.8 },
 ];
 
+// A row of rectangular crenellations (castle "teeth") between x1 and x2,
+// count merlons wide, from yBase up to yTop — returned as a run of SVG
+// polygon points meant to be spliced into a larger points="..." list
+// (the caller is expected to already be sitting at (x1, yBase)).
+function merlonPoints(x1, x2, yBase, yTop, count) {
+  const w = (x2 - x1) / (count * 2);
+  const pts = [];
+  for (let i = 0; i < count; i++) {
+    const xs = x1 + i * 2 * w;
+    pts.push(`${xs},${yTop}`, `${xs + w},${yTop}`, `${xs + w},${yBase}`, `${xs + 2 * w},${yBase}`);
+  }
+  return pts.join(' ');
+}
+// Two corner towers + a shorter connecting wall, each topped with
+// crenellations — built once as a plain string, not regenerated per render.
+const CASTLE_SILHOUETTE = [
+  '14,92', '14,20', merlonPoints(14, 30, 20, 14, 2),
+  '30,40', merlonPoints(30, 70, 40, 34, 4),
+  '70,20', merlonPoints(70, 86, 20, 14, 2),
+  '86,92',
+].join(' ');
+
 const JOURNEY_THEMES = {
   mountain: {
     label: '🏔️ Mountain', avatar: '🧗', ghost: '👻', flag: '🚩', labelColor: '#1F2937',
@@ -4433,6 +4455,25 @@ const JOURNEY_THEMES = {
       { label: 'Ridge Line', color: '#AEDA94' },
     ],
     extra: () => `<polygon points="22,92 26,76 30,92" fill="#436b39"/><polygon points="72,92 77,72 82,92" fill="#436b39"/><polygon points="50,92 54,66 58,92" fill="#355c2d"/>`,
+  },
+  castle: {
+    label: '🏰 Castle', avatar: '👷', ghost: '🧱', flag: '🏰', labelColor: '#3A2E1F',
+    sky: ['#E0D4F7', '#F7F3FC'], trailColor: '#ffffff',
+    checkpointNoun: 'phases', doneLabel: 'Castle complete', doneEmoji: '👑',
+    clipPoints: CASTLE_SILHOUETTE,
+    stages: [
+      { label: 'Foundation', color: '#EDE6D9' },
+      { label: 'Walls', color: '#E4D5BD' },
+      { label: 'Towers', color: '#D9C2A0' },
+      { label: 'Battlements', color: '#CBAE86' },
+    ],
+    extra: () => `
+      <rect x="44" y="78" width="12" height="14" fill="#6B4A2B"/>
+      <rect x="21" y="46" width="6" height="6" fill="#7DB8D9"/>
+      <rect x="73" y="46" width="6" height="6" fill="#7DB8D9"/>
+      <line x1="50" y1="14" x2="50" y2="4" stroke="#8B5E34" stroke-width="1"/>
+      <polygon points="50,4 50,9 57,6.5" fill="#EF4444"/>
+    `,
   },
 };
 
