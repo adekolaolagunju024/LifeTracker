@@ -1594,20 +1594,31 @@ function setGanttPageView(mode) {
   applyGanttPageView(mode);
 }
 
+const GANTT_PAGE_VIEWS = ['timeline', 'kanban', 'journey']; // left-to-right order of the toggle's 3 stops
+
 function applyGanttPageView(mode) {
+  if (!GANTT_PAGE_VIEWS.includes(mode)) mode = 'timeline';
   document.querySelectorAll('#gantt-page-view-toggle .gantt-switch-btn').forEach(b => b.classList.toggle('active', b.dataset.pageview === mode));
-  document.getElementById('gantt-switch-thumb').classList.toggle('kanban-active', mode === 'kanban');
+  const thumb = document.getElementById('gantt-switch-thumb');
+  thumb.style.transform = `translateX(${GANTT_PAGE_VIEWS.indexOf(mode) * 100}%)`;
   document.getElementById('gantt-timeline-view').classList.toggle('hidden', mode !== 'timeline');
   document.getElementById('gantt-kanban-view').classList.toggle('hidden', mode !== 'kanban');
+  document.getElementById('gantt-journey-view').classList.toggle('hidden', mode !== 'journey');
   // Zoom level and Print/Export only make sense for the timeline.
   document.getElementById('gantt-view-toggle').classList.toggle('hidden', mode !== 'timeline');
   document.getElementById('gantt-export-actions').classList.toggle('hidden', mode !== 'timeline');
 
-  document.getElementById('gantt-page-heading').textContent = mode === 'kanban' ? 'Kanban Board' : 'Gantt Chart';
-  document.getElementById('gantt-page-subtitle').textContent = mode === 'kanban'
-    ? 'Drag a card between columns to change its status.'
-    : 'Visual timeline of all tasks across every project.';
-  document.getElementById('topbar-title').textContent = mode === 'kanban' ? 'Kanban Board' : 'Gantt Chart';
+  const heading = { timeline: 'Gantt Chart', kanban: 'Kanban Board', journey: 'Journey' }[mode];
+  const subtitle = {
+    timeline: 'Visual timeline of all tasks across every project.',
+    kanban: 'Drag a card between columns to change its status.',
+    journey: 'Watch one project\'s progress as a game-like trail — pick it from the filter above.',
+  }[mode];
+  document.getElementById('gantt-page-heading').textContent = heading;
+  document.getElementById('gantt-page-subtitle').textContent = subtitle;
+  document.getElementById('topbar-title').textContent = heading;
+
+  if (mode === 'journey') renderJourneyView();
 }
 
 const PRIORITY_RANK = { High: 0, Medium: 1, Low: 2 };
@@ -4360,13 +4371,75 @@ try {
   if (ref) localStorage.setItem('waypointRef', ref);
 } catch {}
 
-// ── CLIMB VIEW ─────────────────────────────────────────────────
-// A playful, game-like progress view: each task is a checkpoint on a zigzag
-// mountain trail. "You" climb as tasks are completed; a translucent "pace"
-// figure climbs at the rate the plan's dates imply, so you can see whether
-// you're ahead, level, or behind your own schedule — without ever using
-// discouraging win/lose language, to stay consistent with the rest of the app.
-let mountainState = null; // { projectId, project, tasks, canEdit }
+// ── JOURNEY VIEW ───────────────────────────────────────────────
+// A playful, game-like progress view — a third stop on the Gantt page's own
+// Gantt/Kanban/Journey toggle, one project at a time (picked from that
+// page's existing project filter). Each task is a checkpoint on a zigzag
+// trail through a few named terrain stages; "you" advance as tasks are
+// completed, and a translucent "pace" figure advances at the rate the
+// plan's own dates imply, so you can see whether you're ahead, level, or
+// behind your own schedule — without ever using discouraging win/lose
+// language, to stay consistent with the rest of the app. The whole trail/
+// checkpoint geometry is theme-agnostic; a theme only swaps the backdrop,
+// avatar, and wording (see JOURNEY_THEMES) — pick one from the dropdown in
+// the view's own header, remembered per project.
+let mountainState = null; // { projectId, project, tasks, canEdit, theme }
+
+// Fixed (not random-per-render) star field for the Space theme, so the sky
+// doesn't visibly jump every time the scene redraws.
+const JOURNEY_STARS = [
+  { x: 8, y: 10, r: 0.5, o: 0.9 }, { x: 18, y: 22, r: 0.3, o: 0.7 }, { x: 28, y: 8, r: 0.4, o: 0.8 },
+  { x: 40, y: 16, r: 0.3, o: 0.6 }, { x: 6, y: 34, r: 0.4, o: 0.7 }, { x: 92, y: 12, r: 0.4, o: 0.8 },
+  { x: 86, y: 28, r: 0.3, o: 0.6 }, { x: 60, y: 6, r: 0.5, o: 0.9 }, { x: 15, y: 46, r: 0.3, o: 0.5 },
+  { x: 95, y: 44, r: 0.4, o: 0.7 }, { x: 50, y: 10, r: 0.3, o: 0.6 }, { x: 72, y: 20, r: 0.4, o: 0.8 },
+];
+
+const JOURNEY_THEMES = {
+  mountain: {
+    label: '🏔️ Mountain', avatar: '🧗', ghost: '👻', flag: '🚩', labelColor: '#1F2937',
+    sky: ['#bfe3f7', '#eaf6fb'], trailColor: '#ffffff',
+    checkpointNoun: 'checkpoints', doneLabel: 'Summit reached', doneEmoji: '🏆',
+    clipPoints: '50,6 86,92 14,92',
+    stages: [
+      { label: 'Base Camp', color: '#DCEFE1' },
+      { label: 'Forest Line', color: '#BEE3C6' },
+      { label: 'Rocky Ridge', color: '#9FD2B0' },
+      { label: 'Summit Push', color: '#F4FAF7' },
+    ],
+    extra: () => `<polygon points="50,6 60,24 40,24" fill="#ffffff" opacity="0.9"/>`,
+  },
+  space: {
+    label: '🚀 Space', avatar: '🚀', ghost: '🛸', flag: '🌕', labelColor: '#E5E7EB',
+    sky: ['#0B1026', '#272C5E'], trailColor: '#9CA3FF',
+    checkpointNoun: 'stages', doneLabel: 'Touchdown', doneEmoji: '🛰️',
+    clipPoints: null,
+    stages: [
+      { label: 'Launchpad', color: '#161B3A' },
+      { label: 'Atmosphere', color: '#1F244A' },
+      { label: 'Orbit', color: '#282E5C' },
+      { label: 'Deep Space', color: '#31386E' },
+    ],
+    extra: () => JOURNEY_STARS.map(s => `<circle cx="${s.x}" cy="${s.y}" r="${s.r}" fill="#fff" opacity="${s.o}"/>`).join('') + `<circle cx="78" cy="14" r="7" fill="#F4E8C1"/>`,
+  },
+  trail: {
+    label: '🌲 Forest Trail', avatar: '🚶', ghost: '👣', flag: '🏁', labelColor: '#1F2937',
+    sky: ['#FDEBC9', '#FFF9EC'], trailColor: '#ffffff',
+    checkpointNoun: 'waypoints', doneLabel: 'Reached the cabin', doneEmoji: '🏡',
+    clipPoints: '4,92 50,20 96,92',
+    stages: [
+      { label: 'Trailhead', color: '#EEF6DF' },
+      { label: 'Woodland', color: '#D7ECC2' },
+      { label: 'Hillside', color: '#C3E2AC' },
+      { label: 'Ridge Line', color: '#AEDA94' },
+    ],
+    extra: () => `<polygon points="22,92 26,76 30,92" fill="#436b39"/><polygon points="72,92 77,72 82,92" fill="#436b39"/><polygon points="50,92 54,66 58,92" fill="#355c2d"/>`,
+  },
+};
+
+function journeyTheme() {
+  const key = mountainState?.theme;
+  return JOURNEY_THEMES[key] || JOURNEY_THEMES.mountain;
+}
 
 function mountainCheckpoints(n) {
   // Bottom-to-top zigzag, narrowing toward the summit — same shape as a
@@ -4393,25 +4466,85 @@ function mountainPointAt(points, frac) {
   return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
 }
 
-async function openMountainView(projectId) {
-  document.getElementById('mountain-status').textContent = 'Loading…';
-  document.getElementById('mountain-scene').innerHTML = '';
-  document.getElementById('mountain-tasklist').innerHTML = '';
+// Entry point from a project's own header button — jumps to the Gantt
+// page, points its (shared) project filter at this project, and switches
+// its view toggle to Journey, so the filter dropdown and the toggle itself
+// both land in the state that produced this exact scene.
+function openJourneyFromProject(projectId) {
+  showPage('gantt');
+  setGanttProjectFilter(projectId);
+  setGanttPageView('journey');
+}
+
+// Re-renders the Journey sub-view for whatever project is currently
+// selected in the Gantt page's own filter — called by applyGanttPageView()
+// whenever that toggle lands on 'journey', including every time the
+// project filter changes while already there.
+async function renderJourneyView() {
+  const projectId = APP.ganttProjectFilter;
+  const titleEl = document.getElementById('mountain-title');
+  const statusEl = document.getElementById('mountain-status');
+  const themeSel = document.getElementById('journey-theme-select');
+  if (!projectId) {
+    titleEl.textContent = '🧭 Journey';
+    statusEl.textContent = 'Pick a specific project from the filter above — a Journey is one project at a time.';
+    document.getElementById('mountain-scene').innerHTML = '';
+    document.getElementById('mountain-tasklist').innerHTML = '';
+    document.getElementById('mountain-celebrate').classList.add('hidden');
+    if (themeSel) themeSel.classList.add('hidden');
+    mountainState = null;
+    return;
+  }
+  if (themeSel) themeSel.classList.remove('hidden');
+  statusEl.textContent = 'Loading…';
   document.getElementById('mountain-celebrate').classList.add('hidden');
-  openModal('modal-mountain');
   try {
     const [project, allProjects, allTasks] = await Promise.all([API.getProject(projectId), API.getProjects(), API.getTasks()]);
-    document.getElementById('mountain-title').textContent = `🏔️ ${project.icon || ''} ${project.title}`;
+    // The filter may have moved on to a different (or no) project while
+    // this fetch was in flight — drop the now-stale response rather than
+    // overwrite whatever's since become current.
+    if (APP.ganttProjectFilter !== projectId) return;
+    let theme = 'mountain';
+    try { theme = localStorage.getItem('journeyTheme:' + projectId) || 'mountain'; } catch { /* private mode etc */ }
+    if (!JOURNEY_THEMES[theme]) theme = 'mountain';
+    if (themeSel) themeSel.value = theme;
     const tasks = tasksInProjectTree(projectId, allProjects, allTasks)
       .slice()
       .sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999') || a.createdAt.localeCompare(b.createdAt));
-    mountainState = { projectId, project, tasks, canEdit: !!APP.detailCanEdit };
+    mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor', theme };
+    titleEl.textContent = `${JOURNEY_THEMES[theme].label.split(' ')[0]} ${project.icon || ''} ${project.title}`;
     renderMountainScene();
     renderMountainTaskList();
   } catch (e) {
-    document.getElementById('mountain-status').textContent = '⚠️ ' + (e.message || 'Could not load this project');
+    statusEl.textContent = '⚠️ ' + (e.message || 'Could not load this project');
   }
 }
+
+// Picking a theme from the dropdown — remembered per project, so different
+// projects can each have their own look.
+function setJourneyTheme(theme) {
+  if (!mountainState || !JOURNEY_THEMES[theme]) return;
+  mountainState.theme = theme;
+  try { localStorage.setItem('journeyTheme:' + mountainState.projectId, theme); } catch { /* private mode etc */ }
+  document.getElementById('mountain-title').textContent = `${JOURNEY_THEMES[theme].label.split(' ')[0]} ${mountainState.project.icon || ''} ${mountainState.project.title}`;
+  renderMountainScene();
+}
+
+// Literal whole-screen, via the Fullscreen API — the default already fills
+// the page's content area like the Gantt/Kanban views either side of it,
+// this goes further and drops the sidebar/topbar chrome too.
+function toggleJourneyFullscreen() {
+  const el = document.getElementById('gantt-journey-view');
+  if (!document.fullscreenElement) {
+    (el.requestFullscreen || el.webkitRequestFullscreen || function () {}).call(el);
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
+  }
+}
+document.addEventListener('fullscreenchange', () => {
+  const btn = document.getElementById('journey-fullscreen-btn');
+  if (btn) btn.textContent = document.fullscreenElement ? '✕ Exit Fullscreen' : '⛶ Fullscreen';
+});
 
 function mountainExpectedFraction() {
   const dated = mountainState.tasks.filter(t => t.endDate);
@@ -4426,6 +4559,7 @@ function mountainExpectedFraction() {
 
 function renderMountainScene() {
   const { tasks } = mountainState;
+  const theme = journeyTheme();
   const total = tasks.length;
   const done = tasks.filter(t => t.status === 'Completed').length;
   const youFrac = total ? done / total : 0;
@@ -4445,43 +4579,52 @@ function renderMountainScene() {
   const ghost = expectedFrac === null ? null : mountainPointAt(points, expectedFrac);
   const summitLit = total > 0 && done === total;
 
+  // 4 labeled terrain stages, evenly spaced bottom-to-top — same band
+  // geometry for every theme, clipped to that theme's silhouette (if it
+  // has one) so the colors read as elevation zones rather than plain bars.
+  const bandTop = 6, bandBottom = 92;
+  const bandH = (bandBottom - bandTop) / theme.stages.length;
+  const stageRectsHtml = theme.stages.map((s, i) => `<rect x="0" y="${bandBottom - (i + 1) * bandH}" width="100" height="${bandH}" fill="${s.color}"/>`).join('');
+  const stageLabelsHtml = theme.stages.map((s, i) => {
+    const yTop = bandBottom - (i + 1) * bandH;
+    return `<text x="2.5" y="${yTop + bandH / 2 + 1}" font-size="2.9" font-weight="700" fill="${theme.labelColor}" opacity="0.6">${esc(s.label)}</text>`;
+  }).join('');
+
   document.getElementById('mountain-scene').innerHTML = `
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="absolute inset-0 w-full h-full">
       <defs>
         <linearGradient id="mtnSky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#bfe3f7"/>
-          <stop offset="100%" stop-color="#eaf6fb"/>
+          <stop offset="0%" stop-color="${theme.sky[0]}"/>
+          <stop offset="100%" stop-color="${theme.sky[1]}"/>
         </linearGradient>
-        <linearGradient id="mtnBody" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#5fb98c"/>
-          <stop offset="100%" stop-color="#2f8f63"/>
-        </linearGradient>
+        ${theme.clipPoints ? `<clipPath id="mtnClip"><polygon points="${theme.clipPoints}"/></clipPath>` : ''}
       </defs>
       <rect x="0" y="0" width="100" height="100" fill="url(#mtnSky)"/>
-      <polygon points="50,6 86,92 14,92" fill="url(#mtnBody)"/>
-      <polygon points="50,6 62,28 38,28" fill="#f4faf7"/>
-      <polygon points="18,92 34,60 50,92" fill="#ffffff22"/>
-      <polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#C7FFE4" stroke-width="1.6" stroke-dasharray="3,2.4" stroke-linecap="round"/>
+      <g ${theme.clipPoints ? 'clip-path="url(#mtnClip)"' : ''}>${stageRectsHtml}</g>
+      ${theme.extra()}
+      ${stageLabelsHtml}
+      <polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="${theme.trailColor}" stroke-width="1.6" stroke-dasharray="3,2.4" stroke-linecap="round" opacity="0.8"/>
     </svg>
-    <div class="absolute -translate-x-1/2 text-xl ${summitLit ? 'animate-bounce' : ''}" style="left:50%;top:3%">🚩</div>
+    <div class="absolute -translate-x-1/2 text-xl ${summitLit ? 'animate-bounce' : ''}" style="left:50%;top:3%">${theme.flag}</div>
     ${checkpointsHtml}
-    ${ghost ? `<div class="absolute -translate-x-1/2 -translate-y-full text-2xl opacity-40 transition-all duration-700" style="left:${ghost.x}%;top:${ghost.y}%" title="Where your plan's pace would be today">👻</div>` : ''}
-    <div class="absolute -translate-x-1/2 -translate-y-full text-2xl transition-all duration-700 drop-shadow" style="left:${you.x}%;top:${you.y}%" title="You">🧗</div>
+    ${ghost ? `<div class="absolute -translate-x-1/2 -translate-y-full text-2xl opacity-40 transition-all duration-700" style="left:${ghost.x}%;top:${ghost.y}%" title="Where your plan's pace would be today">${theme.ghost}</div>` : ''}
+    <div class="absolute -translate-x-1/2 -translate-y-full text-2xl transition-all duration-700 drop-shadow" style="left:${you.x}%;top:${you.y}%" title="You">${theme.avatar}</div>
   `;
 
   const statusEl = document.getElementById('mountain-status');
+  const noun = theme.checkpointNoun;
   if (!total) {
-    statusEl.textContent = 'Add tasks to this project to start the climb.';
+    statusEl.textContent = 'Add tasks to this project to start the journey.';
   } else if (summitLit) {
-    statusEl.textContent = '🏆 Summit reached — every task complete!';
+    statusEl.textContent = `${theme.doneEmoji} ${theme.doneLabel} — every task complete!`;
   } else if (expectedFrac === null) {
-    statusEl.textContent = `${done} of ${total} checkpoints · no deadlines set, so just climb at your own pace.`;
+    statusEl.textContent = `${done} of ${total} ${noun} · no deadlines set, so just go at your own pace.`;
   } else if (youFrac > expectedFrac + 0.03) {
-    statusEl.textContent = `${done} of ${total} checkpoints · 🏆 you're ahead of your own pace!`;
+    statusEl.textContent = `${done} of ${total} ${noun} · 🏆 you're ahead of your own pace!`;
   } else if (youFrac < expectedFrac - 0.03) {
-    statusEl.textContent = `${done} of ${total} checkpoints · ⏳ your planned pace is a little ahead — keep climbing.`;
+    statusEl.textContent = `${done} of ${total} ${noun} · ⏳ your planned pace is a little ahead — keep going.`;
   } else {
-    statusEl.textContent = `${done} of ${total} checkpoints · 🤝 right on pace.`;
+    statusEl.textContent = `${done} of ${total} ${noun} · 🤝 right on pace.`;
   }
 }
 
@@ -4493,7 +4636,7 @@ function renderMountainTaskList() {
       <input type="checkbox" data-task-id="${t.id}" onchange="toggleMountainTask(this)" ${t.status === 'Completed' ? 'checked' : ''} ${canEdit ? '' : 'disabled'} class="accent-emerald-500 w-4 h-4 flex-shrink-0">
       <span class="${t.status === 'Completed' ? 'line-through text-gray-400' : 'text-navy'} truncate">${esc(t.title)}</span>
       ${t.endDate ? `<span class="text-xs text-gray-400 flex-shrink-0 ml-auto">${esc(t.endDate.slice(0, 10))}</span>` : ''}
-    </label>`).join('') : '<p class="text-xs text-gray-400 text-center py-2">No tasks on this climb yet.</p>';
+    </label>`).join('') : '<p class="text-xs text-gray-400 text-center py-2">No tasks on this journey yet.</p>';
 }
 
 async function toggleMountainTask(checkbox) {
@@ -4532,16 +4675,17 @@ async function toggleMountainTask(checkbox) {
 }
 
 function showMountainCelebration() {
+  const theme = journeyTheme();
   const expectedFrac = mountainExpectedFraction();
   const title = document.getElementById('mountain-celebrate-title');
   const text = document.getElementById('mountain-celebrate-text');
-  title.textContent = '🏆 Summit reached!';
+  title.textContent = `${theme.doneEmoji} ${theme.doneLabel}!`;
   if (expectedFrac === null) {
-    text.textContent = `You finished every task in "${mountainState.project.title}". Great climb!`;
+    text.textContent = `You finished every task in "${mountainState.project.title}". Great work!`;
   } else if (expectedFrac < 0.97) {
-    text.textContent = `You finished "${mountainState.project.title}" ahead of schedule. That's the whole mountain, done early!`;
+    text.textContent = `You finished "${mountainState.project.title}" ahead of schedule — done early!`;
   } else {
-    text.textContent = `You finished "${mountainState.project.title}". You reached the top — that's what counts!`;
+    text.textContent = `You finished "${mountainState.project.title}". You made it — that's what counts!`;
   }
   document.getElementById('mountain-celebrate').classList.remove('hidden');
   document.getElementById('mountain-celebrate').classList.add('flex');
@@ -4592,9 +4736,9 @@ function fireMountainConfetti(originX, originY, count) {
 
 // ── SCREEN-WIDE CELEBRATIONS ──────────────────────────────────
 // Fires from anywhere a task is completed — the task table, Kanban, Gantt,
-// task detail, bulk actions, the assistant — not just inside Climb View.
-// Climb View already celebrates at the checkpoint itself, so this layer
-// steps aside while that modal is open rather than doubling up.
+// task detail, bulk actions, the assistant — not just inside Journey view.
+// Journey view already celebrates at the checkpoint itself, so this layer
+// steps aside while that's the one on screen rather than doubling up.
 function fireScreenConfetti(originX, originY, count) {
   const canvas = document.getElementById('global-confetti');
   canvas.width = window.innerWidth;
@@ -4642,7 +4786,11 @@ function fireBigScreenConfetti() {
 }
 
 async function celebrateTaskCompletion(task) {
-  if (document.getElementById('modal-mountain').classList.contains('open')) return; // Climb View handles its own
+  // Journey view (a sub-view of the Gantt page) celebrates locally at its
+  // own checkpoint — stand aside rather than double up when it's the one
+  // currently on screen.
+  const journeyOnScreen = APP.currentPage === 'gantt' && !document.getElementById('gantt-journey-view').classList.contains('hidden');
+  if (journeyOnScreen) return;
   fireScreenConfetti(window.innerWidth / 2, window.innerHeight * 0.15, 60);
   showToast(`🎉 "${task.title}" complete!`);
 

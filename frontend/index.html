@@ -128,7 +128,12 @@
     .gantt-switch-btn { color: #6B7280; }
     .gantt-switch-btn.active { color: #0A7E8C; }
     .dark .gantt-switch-btn.active { color: #5EEAD4; }
-    #gantt-switch-thumb.kanban-active { transform: translateX(100%); }
+    /* Thumb position is set inline via JS (applyGanttPageView) since it now
+       slides between 3 stops (Gantt/Kanban/Journey) rather than a fixed 2. */
+    #gantt-journey-view:fullscreen { background: #fff; padding: 24px; overflow-y: auto; }
+    #gantt-journey-view:-webkit-full-screen { background: #fff; padding: 24px; overflow-y: auto; }
+    #gantt-journey-view:fullscreen #mountain-scene-wrap,
+    #gantt-journey-view:-webkit-full-screen #mountain-scene-wrap { height: calc(100vh - 160px) !important; }
 
     /* Native-feeling iOS toggle switch, reused anywhere a setting is a
        plain on/off (Dark Mode, email digest) instead of a button with a
@@ -880,7 +885,7 @@
         </div>
         <div class="flex gap-2 ml-auto flex-wrap items-start">
           <button onclick="openAddTask(APP.currentProjectId)" id="btn-add-task-header" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">+ Add Task</button>
-          <button onclick="openMountainView(APP.currentProjectId)" id="btn-mountain-view" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm">🏔️ Climb View</button>
+          <button onclick="openJourneyFromProject(APP.currentProjectId)" id="btn-mountain-view" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm">🧭 Journey</button>
           <button onclick="openAssistant(APP.currentProjectId)" id="btn-assistant-project" class="hidden bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-4 py-2 rounded-lg">🎙️ Assistant</button>
           <button onclick="openShareProject(APP.currentProjectId)" id="btn-share-project" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">👥 <span id="btn-share-label">Share</span></button>
           <div class="relative">
@@ -996,10 +1001,11 @@
             class="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
             <option value="">All Projects</option>
           </select>
-          <div class="relative flex bg-gray-100 rounded-full p-1" id="gantt-page-view-toggle" style="width:216px">
-            <div id="gantt-switch-thumb" class="absolute top-1 bottom-1 left-1 rounded-full bg-white shadow" style="width:calc(50% - 4px); transition:transform .2s ease-out"></div>
+          <div class="relative flex bg-gray-100 rounded-full p-1" id="gantt-page-view-toggle" style="width:320px">
+            <div id="gantt-switch-thumb" class="absolute top-1 bottom-1 left-1 rounded-full bg-white shadow" style="width:calc(33.333% - 4px); transition:transform .2s ease-out"></div>
             <button onclick="setGanttPageView('timeline')" data-pageview="timeline" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">📊 Gantt Chart</button>
             <button onclick="setGanttPageView('kanban')" data-pageview="kanban" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">📋 Kanban</button>
+            <button onclick="setGanttPageView('journey')" data-pageview="journey" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">🧭 Journey</button>
           </div>
           <div class="flex gap-1 bg-gray-100 rounded-lg p-1" id="gantt-view-toggle">
             <button onclick="setGanttViewMode('week')" data-mode="week" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Week</button>
@@ -1103,6 +1109,40 @@
           </label>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="kanban-board"></div>
+      </div>
+
+      <!-- ═══ JOURNEY VIEW ═══ — a playful, game-like progress visualization:
+           an avatar climbs a hand-drawn trail through distinct terrain stages
+           as one project's tasks are completed. One project at a time (pick
+           it from the filter above), fills the page like the other two views. -->
+      <div class="hidden" id="gantt-journey-view">
+        <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+          <div class="min-w-0">
+            <h3 class="text-sm font-black text-navy truncate" id="mountain-title">🧭 Journey</h3>
+            <p class="text-xs text-gray-500" id="mountain-status">Loading…</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <select id="journey-theme-select" onchange="setJourneyTheme(this.value)" class="hidden border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
+              <option value="mountain">🏔️ Mountain</option>
+              <option value="space">🚀 Space</option>
+              <option value="trail">🌲 Forest Trail</option>
+            </select>
+            <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
+          </div>
+        </div>
+        <div class="relative rounded-2xl overflow-hidden shadow-sm bg-sky-100" id="mountain-scene-wrap" style="height:min(70vh,640px); min-height:380px;">
+          <div class="absolute inset-0" id="mountain-scene"></div>
+          <canvas id="mountain-confetti" class="absolute inset-0 pointer-events-none"></canvas>
+          <div class="hidden absolute inset-0 z-20 items-center justify-center bg-black/40" id="mountain-celebrate">
+            <div class="bg-white rounded-2xl p-6 max-w-sm mx-4 text-center shadow-2xl">
+              <div class="text-5xl mb-2">🏆</div>
+              <h4 class="text-lg font-black text-navy mb-1" id="mountain-celebrate-title">Summit reached!</h4>
+              <p class="text-sm text-gray-600 mb-4" id="mountain-celebrate-text"></p>
+              <button onclick="document.getElementById('mountain-celebrate').classList.add('hidden')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-5 py-2 rounded-lg">Nice! 🎉</button>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-100 max-h-56 overflow-y-auto px-4 py-3 mt-3 space-y-1.5" id="mountain-tasklist"></div>
       </div>
     </div>
 
@@ -1573,34 +1613,6 @@
   </div>
 </div>
 
-<!-- CLIMB VIEW — a playful progress visualization: your avatar and a "pace"
-     ghost climb a zigzag mountain trail as tasks are completed -->
-<div class="modal-overlay fixed inset-0 bg-black/60 z-50 items-center justify-center p-3 sm:p-5" id="modal-mountain">
-  <div class="bg-gradient-to-b from-sky-200 to-sky-50 rounded-2xl w-full max-w-3xl h-[88vh] flex flex-col shadow-2xl overflow-hidden relative">
-    <div class="flex items-center justify-between px-5 py-3 bg-white/80 backdrop-blur border-b border-white/50 flex-shrink-0 relative z-10">
-      <div class="min-w-0">
-        <h3 class="text-sm font-black text-navy truncate" id="mountain-title">🏔️ Climb View</h3>
-        <p class="text-xs text-gray-500" id="mountain-status">Loading…</p>
-      </div>
-      <button onclick="closeModal('modal-mountain')" class="text-gray-500 hover:text-gray-700 text-xl leading-none px-1 flex-shrink-0">✕</button>
-    </div>
-    <div class="relative flex-1 overflow-hidden" id="mountain-scene-wrap">
-      <div class="absolute inset-0" id="mountain-scene"></div>
-      <canvas id="mountain-confetti" class="absolute inset-0 pointer-events-none"></canvas>
-    </div>
-    <div class="bg-white/90 backdrop-blur border-t border-white/50 max-h-[32%] overflow-y-auto px-4 py-3 flex-shrink-0 space-y-1.5" id="mountain-tasklist"></div>
-
-    <div class="hidden absolute inset-0 z-20 items-center justify-center bg-black/40" id="mountain-celebrate">
-      <div class="bg-white rounded-2xl p-6 max-w-sm mx-4 text-center shadow-2xl">
-        <div class="text-5xl mb-2">🏆</div>
-        <h4 class="text-lg font-black text-navy mb-1" id="mountain-celebrate-title">Summit reached!</h4>
-        <p class="text-sm text-gray-600 mb-4" id="mountain-celebrate-text"></p>
-        <button onclick="document.getElementById('mountain-celebrate').classList.add('hidden')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-5 py-2 rounded-lg">Nice! 🎉</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- TASK MODAL -->
 <div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-task">
   <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
@@ -1991,7 +2003,7 @@
 <div class="toast bg-navy text-white px-5 py-3 rounded-xl text-sm font-medium shadow-xl" id="toast"></div>
 
 <!-- Screen-wide celebration layer — fires from anywhere a task is completed,
-     not just inside Climb View. Always on top, never blocks clicks. -->
+     not just inside Journey view. Always on top, never blocks clicks. -->
 <canvas id="global-confetti" class="fixed inset-0 z-[9999] pointer-events-none"></canvas>
 
 <!-- SCRIPTS -->
