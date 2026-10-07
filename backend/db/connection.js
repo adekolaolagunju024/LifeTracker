@@ -352,4 +352,21 @@ db.exec(`
   );
 `);
 
+// Status updates: a short, timestamped "here's why" note a teammate posts
+// against a task — separate from the general discussion in task_comments
+// so "why is this still In Progress" stays scannable on its own instead of
+// buried in chit-chat. status snapshots the task's status at post time, so
+// the log reads as a trail ("Not Started" -> "In Progress" -> ...) even
+// after the task itself has since moved on.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS task_status_updates (
+    id TEXT PRIMARY KEY,
+    taskId TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    text TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+  );
+`);
+
 module.exports = db;

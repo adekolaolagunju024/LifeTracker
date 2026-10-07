@@ -130,6 +130,9 @@ const API = {
   getComments:    (taskId)       => request('GET',    `/tasks/${taskId}/comments`),
   addComment:     (taskId, text, attachmentId, replyToId) => request('POST', `/tasks/${taskId}/comments`, { text, attachmentId, replyToId }),
   deleteComment:  (commentId)    => request('DELETE', `/tasks/comments/${commentId}`),
+  getStatusUpdates:   (taskId)       => request('GET',    `/tasks/${taskId}/status-updates`),
+  addStatusUpdate:    (taskId, text) => request('POST', `/tasks/${taskId}/status-updates`, { text }),
+  deleteStatusUpdate: (updateId)     => request('DELETE', `/tasks/status-updates/${updateId}`),
 
   // ── PROJECT CHAT (project-wide) ──
   getProjectMessages:   (projectId)       => request('GET',    `/projects/${projectId}/messages`),

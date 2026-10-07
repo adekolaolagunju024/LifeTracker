@@ -561,6 +561,9 @@ const CHECKLIST_COUNT_COLUMNS = `
   (SELECT COUNT(*) FROM checklist_items WHERE taskId = t.id) AS checklistTotal,
   (SELECT COUNT(*) FROM checklist_items WHERE taskId = t.id AND completed = 1) AS checklistDone,
   (SELECT COUNT(*) FROM task_comments WHERE taskId = t.id) AS commentCount,
+  (SELECT text FROM task_status_updates WHERE taskId = t.id ORDER BY createdAt DESC LIMIT 1) AS latestUpdateText,
+  (SELECT createdAt FROM task_status_updates WHERE taskId = t.id ORDER BY createdAt DESC LIMIT 1) AS latestUpdateAt,
+  (SELECT p2.name FROM task_status_updates u2 JOIN profile p2 ON p2.userId = u2.userId WHERE u2.taskId = t.id ORDER BY u2.createdAt DESC LIMIT 1) AS latestUpdateAuthor,
   (SELECT p.name FROM profile p WHERE p.userId = t.assigneeId) AS assigneeName
 `;
 
@@ -1043,6 +1046,45 @@ function deleteComment(userId, commentId) {
   return true;
 }
 
+// ── TASK STATUS UPDATES ────────────────────────────────────────────
+// A dedicated, scannable log of "here's why" notes against a task —
+// separate from the general task_comments discussion — so a team member
+// can see why something is still Not Started or stuck In Progress without
+// reading through unrelated chat. Mirrors the comments functions above.
+function listStatusUpdates(userId, taskId) {
+  if (!getTaskById(userId, taskId)) return null;
+  return db.prepare(`
+    SELECT u.id, u.taskId, u.userId, u.status, u.text, u.createdAt, p.name AS authorName
+    FROM task_status_updates u
+    JOIN profile p ON p.userId = u.userId
+    WHERE u.taskId = ? ORDER BY u.createdAt ASC
+  `).all(taskId);
+}
+
+function addStatusUpdate(userId, taskId, text) {
+  const task = getTaskById(userId, taskId);
+  if (!task) return null;
+  assertCanComment(userId, task.projectId);
+  const clean = String(text || '').trim();
+  if (!clean) throw new Error('Update text is required');
+  const update = { id: uuid(), taskId, userId, status: task.status, text: clean, createdAt: new Date().toISOString() };
+  db.prepare('INSERT INTO task_status_updates (id, taskId, userId, status, text, createdAt) VALUES (?,?,?,?,?,?)')
+    .run(update.id, update.taskId, update.userId, update.status, update.text, update.createdAt);
+  return { ...update, authorName: getProfile(userId).name };
+}
+
+// The update's own author, or the project owner, can delete it — same
+// moderation boundary as task comments.
+function deleteStatusUpdate(userId, updateId) {
+  const update = db.prepare('SELECT * FROM task_status_updates WHERE id = ?').get(updateId);
+  if (!update) return false;
+  const task = db.prepare('SELECT projectId FROM tasks WHERE id = ?').get(update.taskId);
+  const authorized = update.userId === userId || (task && isProjectOwner(userId, task.projectId));
+  if (!authorized) return false;
+  db.prepare('DELETE FROM task_status_updates WHERE id = ?').run(updateId);
+  return true;
+}
+
 // A WhatsApp-style inbox: every shared project's chat in one list, most
 // recently active first, so you don't have to open each project just to
 // check for new messages. Only projects with someone else on them show up
@@ -1478,6 +1520,7 @@ module.exports = {
   listCollaborators, inviteCollaborator, updateCollaboratorRole, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, leaveProject, touchLastActive,
   extractMentionedUserIds, getTaskFollowers,
   listComments, addComment, deleteComment,
+  listStatusUpdates, addStatusUpdate, deleteStatusUpdate,
   listChatPreviews, listProjectMessages, addProjectMessage, deleteProjectMessage,
   getLiveStatus, startLiveSession, endLiveSession,
   listActiveStatuses, addStatus, deleteStatus,

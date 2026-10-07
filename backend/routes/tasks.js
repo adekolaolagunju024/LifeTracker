@@ -2,7 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const { v4: uuid } = require('uuid');
 const db = require('../db/db');
-const { notifyAssigned, notifyMentioned, notifyTaskComment } = require('../email/activity');
+const { notifyAssigned, notifyMentioned, notifyTaskComment, notifyStatusUpdate } = require('../email/activity');
 
 // GET /api/tasks?projectId=&status=&priority=&category=&search=
 router.get('/', (req, res) => {
@@ -154,6 +154,49 @@ router.post('/:id/comments', (req, res) => {
 router.delete('/comments/:commentId', (req, res) => {
   const ok = db.deleteComment(req.session.userId, req.params.commentId);
   if (!ok) return res.status(404).json({ error: 'Comment not found' });
+  res.json({ success: true });
+});
+
+// GET /api/tasks/:id/status-updates — the "why is this still stuck" log,
+// separate from general comments.
+router.get('/:id/status-updates', (req, res) => {
+  const updates = db.listStatusUpdates(req.session.userId, req.params.id);
+  if (updates === null) return res.status(404).json({ error: 'Task not found' });
+  res.json(updates);
+});
+
+// POST /api/tasks/:id/status-updates — { text }
+router.post('/:id/status-updates', (req, res) => {
+  try {
+    const update = db.addStatusUpdate(req.session.userId, req.params.id, req.body.text);
+    if (!update) return res.status(404).json({ error: 'Task not found' });
+    res.status(201).json(update);
+
+    // Same notification shape as task comments: anyone @mentioned gets the
+    // targeted email, everyone else following the task gets the generic
+    // "there's an update" one — never both.
+    const task = db.getTaskById(req.session.userId, req.params.id);
+    if (task && update.text) {
+      const project = db.getProjectById(req.session.userId, task.projectId);
+      const authorName = db.getProfile(req.session.userId).name;
+      const mentionedIds = new Set(db.extractMentionedUserIds(update.text, task.projectId).filter(id => id !== req.session.userId));
+      mentionedIds.forEach(userId => {
+        notifyMentioned(userId, authorName, update.text, { taskTitle: task.title }).catch(e => console.error('Mention email failed:', e.message));
+      });
+      db.getTaskFollowers(task.id, req.session.userId).forEach(userId => {
+        if (mentionedIds.has(userId)) return;
+        notifyStatusUpdate(userId, authorName, task, project?.title || '', update.text).catch(e => console.error('Status update email failed:', e.message));
+      });
+    }
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// DELETE /api/tasks/status-updates/:updateId
+router.delete('/status-updates/:updateId', (req, res) => {
+  const ok = db.deleteStatusUpdate(req.session.userId, req.params.updateId);
+  if (!ok) return res.status(404).json({ error: 'Update not found' });
   res.json({ success: true });
 });
 

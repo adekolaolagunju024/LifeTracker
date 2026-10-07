@@ -144,6 +144,16 @@ function commentCountBadge(t) {
   if (!t.commentCount) return '';
   return `<span class="text-[9px] text-gray-400 flex-shrink-0" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">💬 ${t.commentCount}</span>`;
 }
+// Same idea as the comment-count badge, but for the status-update log —
+// shows the latest "why it's stuck" note as a tooltip right on the Table
+// row, Kanban card and Gantt bar, so a teammate can see it without opening
+// the task at all.
+function statusUpdateBadge(t) {
+  if (!t.latestUpdateText) return '';
+  const snippet = t.latestUpdateText.length > 140 ? t.latestUpdateText.slice(0, 140) + '…' : t.latestUpdateText;
+  const title = `${t.latestUpdateAuthor ? t.latestUpdateAuthor + ': ' : ''}${snippet}`;
+  return `<span class="text-[9px] text-gray-400 flex-shrink-0" title="${esc(title)}">📝</span>`;
+}
 // A numeric progress target (e.g. "20 mock tests") — a lower-friction
 // alternative to a checklist for a repetitive goal made of identical
 // units: one tap logs a unit instead of typing out 20 separate items.
@@ -834,7 +844,7 @@ async function renderTaskTable(projectId) {
           <tr class="border-b border-gray-100 hover:bg-gray-50">
             ${canEdit ? `<td class="px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()"></td>` : ''}
             <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">
-              <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}${t.commentCount ? ` <span class="text-gray-400 font-normal text-xs" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">💬 ${t.commentCount}</span>` : ''}</div>
+              <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}${t.commentCount ? ` <span class="text-gray-400 font-normal text-xs" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">💬 ${t.commentCount}</span>` : ''}${statusUpdateBadge(t)}</div>
               ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
               ${taskProgressBarHTML(t)}
             </td>
@@ -1519,6 +1529,7 @@ async function renderGantt() {
               ${cardFields.schedule ? miniScheduleBadge(t) : ''}
               ${cardFields.assignee ? assigneeInitialBadge(t.assigneeName) : ''}
               ${commentCountBadge(t)}
+              ${statusUpdateBadge(t)}
               ${miniProgressBadge(t)}
               ${t.targetCount && t.status !== 'Completed' && canEditGroup ? `<button onclick="event.stopPropagation();bumpTaskProgressAction('${t.id}',1,'${t.projectId}')" class="flex-shrink-0 text-[10px] font-bold bg-teal/10 hover:bg-teal/20 text-teal px-1 rounded" title="Log one">+1</button>` : ''}
               <button onclick="addTaskToGoogleCalendar('${t.id}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Add to Google Calendar">📅</button>
@@ -1692,7 +1703,7 @@ function renderKanbanBoard(tasks, projectById) {
           </div>
           ${cardFields.tags && (t.tags || []).length ? `<div class="flex flex-wrap gap-1 mb-1.5">${miniTagBadges(t.tags)}</div>` : ''}
           <div class="flex items-center justify-between text-xs text-gray-400">
-            <span class="truncate flex items-center gap-1.5">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}</span>
+            <span class="truncate flex items-center gap-1.5">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}${statusUpdateBadge(t)}</span>
             ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
           </div>
           ${taskProgressBarHTML(t)}
@@ -3390,6 +3401,8 @@ async function openTaskDetail(id) {
     document.getElementById('btn-edit-task-detail').classList.toggle('hidden', !canEdit);
     document.getElementById('td-comment-box').classList.toggle('hidden', !canComment);
     document.getElementById('td-comment-viewonly').classList.toggle('hidden', canComment);
+    document.getElementById('td-status-update-box').classList.toggle('hidden', !canComment);
+    document.getElementById('td-status-update-viewonly').classList.toggle('hidden', canComment);
     APP.taskCommentCanReply = canComment;
     cancelCommentReply();
     resetTinyStepUI(t, canEdit);
@@ -3405,7 +3418,57 @@ async function openTaskDetail(id) {
       }).catch(() => {});
     }
     renderTaskComments(id);
+    renderStatusUpdates(id);
   } catch (e) { console.error('Task detail error:', e); }
+}
+
+// ── TASK STATUS UPDATES (side panel) ───────────────────────────────
+// A separate, scannable log of "why it's still at this status" notes —
+// distinct from the freeform Comments thread below it — rendered with the
+// task's status at post time so the trail reads like "Not Started" ->
+// "In Progress" -> ... even once the task itself has moved on.
+async function renderStatusUpdates(taskId) {
+  const wrap = document.getElementById('td-status-updates');
+  try {
+    const updates = await API.getStatusUpdates(taskId);
+    const names = APP.taskCommentPeopleNames || [];
+    wrap.innerHTML = updates.length
+      ? updates.map(u => `
+          <div class="group">
+            <div class="flex items-center justify-between gap-2">
+              <span class="flex items-center gap-1.5 flex-wrap">
+                <p class="text-xs font-semibold text-navy">${esc(u.authorName)}</p>
+                ${statusBadge(u.status)}
+              </span>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <span class="text-[10px] text-gray-400">${new Date(u.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                ${u.userId === APP.currentUserId ? `<button onclick="deleteStatusUpdateConfirm('${u.id}','${taskId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">🗑️</button>` : ''}
+              </div>
+            </div>
+            <p class="text-sm text-gray-700 whitespace-pre-wrap mt-0.5">${renderMentionText(u.text, names)}</p>
+          </div>`).join('')
+      : `<p class="text-xs text-gray-400">No status updates yet — post one to tell the team why this is still here.</p>`;
+  } catch (e) { console.error('Status updates error:', e); }
+}
+
+async function submitStatusUpdate() {
+  const input = document.getElementById('td-status-update-input');
+  const text = input.value.trim();
+  if (!text || !APP_currentDetailTaskId) return;
+  try {
+    await API.addStatusUpdate(APP_currentDetailTaskId, text);
+    input.value = '';
+    renderStatusUpdates(APP_currentDetailTaskId);
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to post update'), 'error'); }
+}
+
+function deleteStatusUpdateConfirm(updateId, taskId) {
+  confirmAction('Delete this status update?', async () => {
+    try {
+      await API.deleteStatusUpdate(updateId);
+      renderStatusUpdates(taskId);
+    } catch (e) { showToast('❌ ' + (e.message || 'Failed to delete'), 'error'); }
+  });
 }
 
 // ── TASK COMMENTS (side panel) ────────────────────────────────────

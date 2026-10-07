@@ -90,6 +90,14 @@ async function notifyTaskComment(userId, commenterName, task, projectTitle, text
   });
 }
 
+async function notifyStatusUpdate(userId, authorName, task, projectTitle, text) {
+  await sendActivityEmail(userId, {
+    subject: `📝 Update on "${task.title}"`,
+    heading: `${esc(authorName)} posted an update on a task you're on`,
+    bodyHtml: taskCardHtml(task, projectTitle) + `<div style="margin-top:8px;font-size:13px;color:#374151;white-space:pre-wrap;">${esc(text)}</div>`,
+  });
+}
+
 async function notifyInvited(userId, inviterName, projectTitle) {
   await sendActivityEmail(userId, {
     subject: `👥 ${inviterName} invited you to "${projectTitle}"`,
@@ -106,4 +114,4 @@ async function notifyCheckIn(userId, { projectTitle, message }) {
   });
 }
 
-module.exports = { notifyAssigned, notifyMentioned, notifyTaskComment, notifyInvited, notifyCheckIn };
+module.exports = { notifyAssigned, notifyMentioned, notifyTaskComment, notifyStatusUpdate, notifyInvited, notifyCheckIn };

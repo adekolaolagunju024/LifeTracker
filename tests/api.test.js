@@ -77,3 +77,45 @@ test('justCompleted is true only the moment a task crosses into Completed', asyn
   const editAgain = await (await put({ priority: 'High' })).json();
   assert.equal(editAgain.justCompleted, false, 'editing an already-completed task does not re-trigger it');
 });
+
+test('status updates: posted, listed with a status snapshot, and deletable by their author', async () => {
+  const reg = await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true }));
+  const cookie = sessionCookie(reg);
+  const project = await (await fetch(`${server.base}/api/projects`, json({ title: 'Status update check' }, cookie))).json();
+  const task = await (await fetch(`${server.base}/api/tasks`, json({ projectId: project.id, title: 'Task', status: 'Not Started', priority: 'Medium' }, cookie))).json();
+
+  const emptyList = await (await fetch(`${server.base}/api/tasks/${task.id}/status-updates`, { headers: { Cookie: cookie } })).json();
+  assert.deepEqual(emptyList, []);
+
+  const posted = await (await fetch(`${server.base}/api/tasks/${task.id}/status-updates`, json({ text: 'Waiting on client feedback' }, cookie))).json();
+  assert.equal(posted.text, 'Waiting on client feedback');
+  assert.equal(posted.status, 'Not Started', 'snapshots the status at post time');
+
+  const list = await (await fetch(`${server.base}/api/tasks/${task.id}/status-updates`, { headers: { Cookie: cookie } })).json();
+  assert.equal(list.length, 1);
+  assert.equal(list[0].id, posted.id);
+
+  const del = await fetch(`${server.base}/api/tasks/status-updates/${posted.id}`, { method: 'DELETE', headers: { Cookie: cookie } });
+  assert.equal(del.status, 200);
+  const afterDelete = await (await fetch(`${server.base}/api/tasks/${task.id}/status-updates`, { headers: { Cookie: cookie } })).json();
+  assert.deepEqual(afterDelete, []);
+});
+
+test('a viewer cannot post a status update, but can still read them', async () => {
+  const owner = await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true }));
+  const ownerCookie = sessionCookie(owner);
+  const project = await (await fetch(`${server.base}/api/projects`, json({ title: 'Viewer check' }, ownerCookie))).json();
+  const task = await (await fetch(`${server.base}/api/tasks`, json({ projectId: project.id, title: 'Task', status: 'In Progress', priority: 'Medium' }, ownerCookie))).json();
+
+  const viewerEmail = uniqueEmail();
+  const viewer = await fetch(`${server.base}/api/auth/register`, json({ email: viewerEmail, password: 'testpass123', acceptTerms: true }));
+  const viewerCookie = sessionCookie(viewer);
+  const invite = await (await fetch(`${server.base}/api/projects/${project.id}/collaborators`, json({ email: viewerEmail, role: 'viewer' }, ownerCookie))).json();
+  await fetch(`${server.base}/api/projects/invites/${invite.id}/accept`, { method: 'POST', headers: { Cookie: viewerCookie } });
+
+  const denied = await fetch(`${server.base}/api/tasks/${task.id}/status-updates`, json({ text: 'Trying anyway' }, viewerCookie));
+  assert.equal(denied.status, 400);
+
+  const read = await fetch(`${server.base}/api/tasks/${task.id}/status-updates`, { headers: { Cookie: viewerCookie } });
+  assert.equal(read.status, 200);
+});

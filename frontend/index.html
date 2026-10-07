@@ -1767,6 +1767,20 @@
       <p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed" id="td-notes">No notes for this task yet.</p>
     </div>
 
+    <div class="border-t border-gray-100 pt-4 mb-5">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Status Updates <span class="normal-case font-normal text-gray-300">— why it's still at this status</span></p>
+      <div id="td-status-updates" class="space-y-3 mb-3"></div>
+      <div class="flex gap-2" id="td-status-update-box">
+        <div class="relative flex-1">
+          <div class="hidden absolute bottom-full left-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-20 w-56" id="td-status-update-mention-list"></div>
+          <input type="text" id="td-status-update-input" placeholder="e.g. Waiting on client feedback… (@ to notify)" oninput="onMentionInput('td-status-update-input','td-status-update-mention-list')" onblur="hideMentionListDelayed('td-status-update-mention-list')" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitStatusUpdate();}"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        </div>
+        <button onclick="submitStatusUpdate()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0">Post</button>
+      </div>
+      <p class="hidden text-xs text-gray-400" id="td-status-update-viewonly">👁 View-only access — you can't post updates on this project.</p>
+    </div>
+
     <div class="border-t border-gray-100 pt-4">
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Comments</p>
       <div id="td-comments" class="space-y-3 mb-3"></div>
