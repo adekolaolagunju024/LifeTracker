@@ -1593,9 +1593,18 @@ async function renderGantt() {
 const KANBAN_COLUMNS = ['Not Started', 'In Progress', 'Completed'];
 const KANBAN_COLUMN_COLOR = { 'Not Started': '#6B7280', 'In Progress': '#C0642A', 'Completed': '#1A7A4A' };
 
+// Switching tabs is also the one moment the destination tab needs to be
+// guaranteed fresh — e.g. completing a task from Journey's checklist, then
+// clicking over to Kanban, should show it in the Done column, not whatever
+// was last drawn there. Timeline and Kanban share one re-fetch (renderGantt
+// already redraws both, and calls applyGanttPageView itself); Journey
+// already re-fetches on its own inside renderJourneyView, so a direct
+// applyGanttPageView is enough there — calling the heavier renderGantt
+// would just redraw Timeline/Kanban pointlessly while they're hidden.
 function setGanttPageView(mode) {
   try { localStorage.setItem('ganttPageView', mode); } catch { /* private mode etc */ }
-  applyGanttPageView(mode);
+  if (mode === 'journey') applyGanttPageView(mode);
+  else renderGantt();
 }
 
 const GANTT_PAGE_VIEWS = ['timeline', 'kanban', 'journey']; // left-to-right order of the toggle's 3 stops
