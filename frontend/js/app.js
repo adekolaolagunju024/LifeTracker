@@ -152,7 +152,11 @@ function statusUpdateBadge(t) {
   if (!t.latestUpdateText) return '';
   const snippet = t.latestUpdateText.length > 140 ? t.latestUpdateText.slice(0, 140) + '…' : t.latestUpdateText;
   const title = `${t.latestUpdateAuthor ? t.latestUpdateAuthor + ': ' : ''}${snippet}`;
-  return `<span class="text-[9px] text-gray-400 flex-shrink-0" title="${esc(title)}">📝</span>`;
+  // A blocker gets a visually distinct red icon so a stuck task stands out
+  // from an ordinary progress note without opening it.
+  return t.latestUpdateIsBlocker
+    ? `<span class="text-[9px] flex-shrink-0" title="🚧 Blocker — ${esc(title)}">🚧</span>`
+    : `<span class="text-[9px] text-gray-400 flex-shrink-0" title="${esc(title)}">📝</span>`;
 }
 // A numeric progress target (e.g. "20 mock tests") — a lower-friction
 // alternative to a checklist for a repetitive goal made of identical
@@ -3450,6 +3454,7 @@ async function renderStatusUpdates(taskId) {
               <span class="flex items-center gap-1.5 flex-wrap">
                 <p class="text-xs font-semibold text-navy">${esc(u.authorName)}</p>
                 ${statusBadge(u.status)}
+                ${u.isBlocker ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">🚧 Blocker</span>` : ''}
               </span>
               <div class="flex items-center gap-2 flex-shrink-0">
                 <span class="text-[10px] text-gray-400">${new Date(u.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
@@ -3464,11 +3469,13 @@ async function renderStatusUpdates(taskId) {
 
 async function submitStatusUpdate() {
   const input = document.getElementById('td-status-update-input');
+  const blockerCheckbox = document.getElementById('td-status-update-blocker');
   const text = input.value.trim();
   if (!text || !APP_currentDetailTaskId) return;
   try {
-    await API.addStatusUpdate(APP_currentDetailTaskId, text);
+    await API.addStatusUpdate(APP_currentDetailTaskId, text, blockerCheckbox.checked);
     input.value = '';
+    blockerCheckbox.checked = false;
     renderStatusUpdates(APP_currentDetailTaskId);
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to post update'), 'error'); }
 }
