@@ -688,6 +688,7 @@ async function renderProjectDetail(projectId) {
 
     // Sub-folders can't themselves have sub-folders (one level of nesting only)
     const canEdit = proj.role === 'owner' || proj.role === 'editor';
+    APP.detailCanEdit = canEdit;
     document.getElementById('btn-new-subfolder').classList.toggle('hidden', !!proj.parentId || !canEdit);
     document.getElementById('btn-add-task-header').classList.toggle('hidden', !canEdit);
     document.getElementById('btn-edit-project').classList.toggle('hidden', !canEdit);
@@ -4295,6 +4296,236 @@ try {
   const ref = new URLSearchParams(location.search).get('ref');
   if (ref) localStorage.setItem('waypointRef', ref);
 } catch {}
+
+// ── CLIMB VIEW ─────────────────────────────────────────────────
+// A playful, game-like progress view: each task is a checkpoint on a zigzag
+// mountain trail. "You" climb as tasks are completed; a translucent "pace"
+// figure climbs at the rate the plan's dates imply, so you can see whether
+// you're ahead, level, or behind your own schedule — without ever using
+// discouraging win/lose language, to stay consistent with the rest of the app.
+let mountainState = null; // { projectId, project, tasks, canEdit }
+
+function mountainCheckpoints(n) {
+  // Bottom-to-top zigzag, narrowing toward the summit — same shape as a
+  // switchback trail. Percentages, relative to the scene container.
+  const points = [];
+  for (let i = 0; i < n; i++) {
+    const t = n > 1 ? i / (n - 1) : 1;
+    const spread = 30 - t * 18; // narrows near the top
+    const side = i % 2 === 0 ? -1 : 1;
+    points.push({ x: 50 + side * spread, y: 86 - t * 70 });
+  }
+  return points;
+}
+
+// Position along the trail for a progress fraction (0 = base camp, 1 = summit).
+function mountainPointAt(points, frac) {
+  if (!points.length) return { x: 50, y: 92 };
+  if (frac <= 0) return { x: 50, y: 94 };
+  if (frac >= 1) return { x: 50, y: 10 };
+  const idx = frac * (points.length - 1);
+  const i0 = Math.floor(idx), i1 = Math.min(points.length - 1, i0 + 1);
+  const f = idx - i0;
+  const a = points[i0], b = points[i1];
+  return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+}
+
+async function openMountainView(projectId) {
+  document.getElementById('mountain-status').textContent = 'Loading…';
+  document.getElementById('mountain-scene').innerHTML = '';
+  document.getElementById('mountain-tasklist').innerHTML = '';
+  document.getElementById('mountain-celebrate').classList.add('hidden');
+  openModal('modal-mountain');
+  try {
+    const [project, allProjects, allTasks] = await Promise.all([API.getProject(projectId), API.getProjects(), API.getTasks()]);
+    document.getElementById('mountain-title').textContent = `🏔️ ${project.icon || ''} ${project.title}`;
+    const tasks = tasksInProjectTree(projectId, allProjects, allTasks)
+      .slice()
+      .sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999') || a.createdAt.localeCompare(b.createdAt));
+    mountainState = { projectId, project, tasks, canEdit: !!APP.detailCanEdit };
+    renderMountainScene();
+    renderMountainTaskList();
+  } catch (e) {
+    document.getElementById('mountain-status').textContent = '⚠️ ' + (e.message || 'Could not load this project');
+  }
+}
+
+function mountainExpectedFraction() {
+  const dated = mountainState.tasks.filter(t => t.endDate);
+  if (!dated.length) return null;
+  const starts = mountainState.tasks.map(t => t.startDate).filter(Boolean).sort();
+  const start = starts[0] || mountainState.project.startDate || mountainState.project.createdAt.slice(0, 10);
+  const end = dated.map(t => t.endDate).sort().slice(-1)[0];
+  const startMs = new Date(start).getTime(), endMs = new Date(end).getTime(), nowMs = Date.now();
+  if (!(endMs > startMs)) return null;
+  return Math.max(0, Math.min(1, (nowMs - startMs) / (endMs - startMs)));
+}
+
+function renderMountainScene() {
+  const { tasks } = mountainState;
+  const total = tasks.length;
+  const done = tasks.filter(t => t.status === 'Completed').length;
+  const youFrac = total ? done / total : 0;
+  const expectedFrac = total ? mountainExpectedFraction() : null;
+  const points = mountainCheckpoints(total);
+
+  const checkpointsHtml = points.map((p, i) => {
+    const t = tasks[i];
+    const isDone = t.status === 'Completed';
+    const isNext = !isDone && i === done;
+    return `<div class="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full text-[11px] font-bold border-2 transition-all duration-500 ${
+      isDone ? 'bg-emerald-500 border-emerald-600 text-white w-7 h-7' : isNext ? 'bg-amber-300 border-amber-500 text-navy w-7 h-7 animate-pulse' : 'bg-white/80 border-gray-300 text-gray-400 w-6 h-6'
+    }" style="left:${p.x}%;top:${p.y}%" title="${esc(t.title)}">${isDone ? '✓' : i + 1}</div>`;
+  }).join('');
+
+  const you = mountainPointAt(points, youFrac);
+  const ghost = expectedFrac === null ? null : mountainPointAt(points, expectedFrac);
+  const summitLit = total > 0 && done === total;
+
+  document.getElementById('mountain-scene').innerHTML = `
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="absolute inset-0 w-full h-full">
+      <defs>
+        <linearGradient id="mtnSky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#bfe3f7"/>
+          <stop offset="100%" stop-color="#eaf6fb"/>
+        </linearGradient>
+        <linearGradient id="mtnBody" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#5fb98c"/>
+          <stop offset="100%" stop-color="#2f8f63"/>
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="100" height="100" fill="url(#mtnSky)"/>
+      <polygon points="50,6 86,92 14,92" fill="url(#mtnBody)"/>
+      <polygon points="50,6 62,28 38,28" fill="#f4faf7"/>
+      <polygon points="18,92 34,60 50,92" fill="#ffffff22"/>
+      <polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#C7FFE4" stroke-width="1.6" stroke-dasharray="3,2.4" stroke-linecap="round"/>
+    </svg>
+    <div class="absolute -translate-x-1/2 text-xl ${summitLit ? 'animate-bounce' : ''}" style="left:50%;top:3%">🚩</div>
+    ${checkpointsHtml}
+    ${ghost ? `<div class="absolute -translate-x-1/2 -translate-y-full text-2xl opacity-40 transition-all duration-700" style="left:${ghost.x}%;top:${ghost.y}%" title="Where your plan's pace would be today">👻</div>` : ''}
+    <div class="absolute -translate-x-1/2 -translate-y-full text-2xl transition-all duration-700 drop-shadow" style="left:${you.x}%;top:${you.y}%" title="You">🧗</div>
+  `;
+
+  const statusEl = document.getElementById('mountain-status');
+  if (!total) {
+    statusEl.textContent = 'Add tasks to this project to start the climb.';
+  } else if (summitLit) {
+    statusEl.textContent = '🏆 Summit reached — every task complete!';
+  } else if (expectedFrac === null) {
+    statusEl.textContent = `${done} of ${total} checkpoints · no deadlines set, so just climb at your own pace.`;
+  } else if (youFrac > expectedFrac + 0.03) {
+    statusEl.textContent = `${done} of ${total} checkpoints · 🏆 you're ahead of your own pace!`;
+  } else if (youFrac < expectedFrac - 0.03) {
+    statusEl.textContent = `${done} of ${total} checkpoints · ⏳ your planned pace is a little ahead — keep climbing.`;
+  } else {
+    statusEl.textContent = `${done} of ${total} checkpoints · 🤝 right on pace.`;
+  }
+}
+
+function renderMountainTaskList() {
+  const { tasks, canEdit } = mountainState;
+  const wrap = document.getElementById('mountain-tasklist');
+  wrap.innerHTML = tasks.length ? tasks.map(t => `
+    <label class="flex items-center gap-2.5 text-sm ${canEdit ? 'cursor-pointer' : 'cursor-default'}">
+      <input type="checkbox" data-task-id="${t.id}" onchange="toggleMountainTask(this)" ${t.status === 'Completed' ? 'checked' : ''} ${canEdit ? '' : 'disabled'} class="accent-emerald-500 w-4 h-4 flex-shrink-0">
+      <span class="${t.status === 'Completed' ? 'line-through text-gray-400' : 'text-navy'} truncate">${esc(t.title)}</span>
+      ${t.endDate ? `<span class="text-xs text-gray-400 flex-shrink-0 ml-auto">${esc(t.endDate.slice(0, 10))}</span>` : ''}
+    </label>`).join('') : '<p class="text-xs text-gray-400 text-center py-2">No tasks on this climb yet.</p>';
+}
+
+async function toggleMountainTask(checkbox) {
+  const taskId = checkbox.dataset.taskId;
+  const task = mountainState.tasks.find(t => t.id === taskId);
+  const nowComplete = checkbox.checked;
+  checkbox.disabled = true;
+  try {
+    await API.updateTask(taskId, { status: nowComplete ? 'Completed' : 'Not Started' });
+    task.status = nowComplete ? 'Completed' : 'Not Started';
+    renderMountainScene();
+    renderMountainTaskList();
+    updateSidebar();
+    if (nowComplete) {
+      const idx = mountainState.tasks.findIndex(x => x.id === taskId);
+      const point = mountainCheckpoints(mountainState.tasks.length)[idx];
+      const canvas = document.getElementById('mountain-confetti');
+      const wrap = document.getElementById('mountain-scene-wrap');
+      canvas.width = wrap.clientWidth;
+      canvas.height = wrap.clientHeight;
+      fireMountainConfetti(point.x / 100 * canvas.width, point.y / 100 * canvas.height, 36);
+      const total = mountainState.tasks.length;
+      const done = mountainState.tasks.filter(x => x.status === 'Completed').length;
+      if (done === total) {
+        setTimeout(() => showMountainCelebration(), 500);
+      } else {
+        showToast(`🎉 Nice! "${task.title}" done.`);
+      }
+    }
+  } catch (e) {
+    checkbox.checked = !nowComplete;
+    showToast('❌ ' + (e.message || 'Could not update that task'), 'error');
+  } finally {
+    checkbox.disabled = !mountainState.canEdit;
+  }
+}
+
+function showMountainCelebration() {
+  const expectedFrac = mountainExpectedFraction();
+  const title = document.getElementById('mountain-celebrate-title');
+  const text = document.getElementById('mountain-celebrate-text');
+  title.textContent = '🏆 Summit reached!';
+  if (expectedFrac === null) {
+    text.textContent = `You finished every task in "${mountainState.project.title}". Great climb!`;
+  } else if (expectedFrac < 0.97) {
+    text.textContent = `You finished "${mountainState.project.title}" ahead of schedule. That's the whole mountain, done early!`;
+  } else {
+    text.textContent = `You finished "${mountainState.project.title}". You reached the top — that's what counts!`;
+  }
+  document.getElementById('mountain-celebrate').classList.remove('hidden');
+  document.getElementById('mountain-celebrate').classList.add('flex');
+  const canvas = document.getElementById('mountain-confetti');
+  const wrap = document.getElementById('mountain-scene-wrap');
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  fireMountainConfetti(canvas.width / 2, canvas.height * 0.15, 140);
+}
+
+function fireMountainConfetti(originX, originY, count) {
+  const canvas = document.getElementById('mountain-confetti');
+  const wrap = document.getElementById('mountain-scene-wrap');
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  const ctx = canvas.getContext('2d');
+  const colors = ['#0A7E8C', '#F59E0B', '#EF4444', '#22C55E', '#3B82F6', '#EC4899'];
+  const particles = Array.from({ length: count }, () => ({
+    x: originX, y: originY,
+    vx: (Math.random() - 0.5) * 9,
+    vy: -(Math.random() * 9 + 3),
+    size: Math.random() * 5 + 3,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    rot: Math.random() * 360,
+    vrot: (Math.random() - 0.5) * 22,
+    life: 1,
+  }));
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    particles.forEach(p => {
+      p.vy += 0.3; p.x += p.vx; p.y += p.vy; p.rot += p.vrot; p.life -= 0.012;
+      if (p.life > 0) {
+        alive = true;
+        ctx.save();
+        ctx.globalAlpha = Math.max(p.life, 0);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot * Math.PI / 180);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+        ctx.restore();
+      }
+    });
+    if (alive) requestAnimationFrame(tick); else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  tick();
+}
 
 function openAddProject() {
   document.getElementById('modal-project-title').textContent = 'New Project';
