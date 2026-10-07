@@ -54,7 +54,10 @@ router.put('/:id', (req, res) => {
     const before = db.getTaskById(req.session.userId, req.params.id);
     const task = db.updateTaskById(req.session.userId, req.params.id, req.body);
     if (!task) return res.status(404).json({ error: 'Task not found' });
-    res.json(task);
+    // Lets the client celebrate a completion without re-deriving it itself —
+    // true only the moment a task crosses into Completed, not on every edit.
+    const justCompleted = before && before.status !== 'Completed' && task.status === 'Completed';
+    res.json({ ...task, justCompleted });
     const assigneeChanged = task.assigneeId && task.assigneeId !== before?.assigneeId;
     if (assigneeChanged && task.assigneeId !== req.session.userId) {
       const project = db.getProjectById(req.session.userId, task.projectId);

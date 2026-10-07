@@ -59,3 +59,21 @@ test('AI endpoints require a session', async () => {
   const res = await fetch(`${server.base}/api/ai/insights`, json({}));
   assert.equal(res.status, 401);
 });
+
+test('justCompleted is true only the moment a task crosses into Completed', async () => {
+  const reg = await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true }));
+  const cookie = sessionCookie(reg);
+  const project = await (await fetch(`${server.base}/api/projects`, json({ title: 'Celebration check' }, cookie))).json();
+  const task = await (await fetch(`${server.base}/api/tasks`, json({ projectId: project.id, title: 'Task', status: 'Not Started', priority: 'Medium' }, cookie))).json();
+
+  const put = (patch) => fetch(`${server.base}/api/tasks/${task.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(patch) });
+
+  const toProgress = await (await put({ status: 'In Progress' })).json();
+  assert.equal(toProgress.justCompleted, false);
+
+  const completed = await (await put({ status: 'Completed' })).json();
+  assert.equal(completed.justCompleted, true);
+
+  const editAgain = await (await put({ priority: 'High' })).json();
+  assert.equal(editAgain.justCompleted, false, 'editing an already-completed task does not re-trigger it');
+});

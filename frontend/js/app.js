@@ -4527,6 +4527,90 @@ function fireMountainConfetti(originX, originY, count) {
   tick();
 }
 
+// ── SCREEN-WIDE CELEBRATIONS ──────────────────────────────────
+// Fires from anywhere a task is completed — the task table, Kanban, Gantt,
+// task detail, bulk actions, the assistant — not just inside Climb View.
+// Climb View already celebrates at the checkpoint itself, so this layer
+// steps aside while that modal is open rather than doubling up.
+function fireScreenConfetti(originX, originY, count) {
+  const canvas = document.getElementById('global-confetti');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const colors = ['#0A7E8C', '#F59E0B', '#EF4444', '#22C55E', '#3B82F6', '#EC4899', '#A855F7'];
+  const particles = Array.from({ length: count }, () => ({
+    x: originX, y: originY,
+    vx: (Math.random() - 0.5) * 11,
+    vy: -(Math.random() * 11 + 4),
+    size: Math.random() * 6 + 3,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    rot: Math.random() * 360,
+    vrot: (Math.random() - 0.5) * 24,
+    life: 1,
+  }));
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    particles.forEach(p => {
+      p.vy += 0.32; p.x += p.vx; p.y += p.vy; p.rot += p.vrot; p.life -= 0.009;
+      if (p.life > 0) {
+        alive = true;
+        ctx.save();
+        ctx.globalAlpha = Math.max(p.life, 0);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot * Math.PI / 180);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+        ctx.restore();
+      }
+    });
+    if (alive) requestAnimationFrame(tick); else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  tick();
+}
+
+// A handful of bursts spread across the top of the screen, for the bigger,
+// whole-project moment.
+function fireBigScreenConfetti() {
+  const w = window.innerWidth;
+  [0.2, 0.5, 0.8].forEach((xFrac, i) => {
+    setTimeout(() => fireScreenConfetti(w * xFrac, window.innerHeight * 0.18, 90), i * 180);
+  });
+}
+
+async function celebrateTaskCompletion(task) {
+  if (document.getElementById('modal-mountain').classList.contains('open')) return; // Climb View handles its own
+  fireScreenConfetti(window.innerWidth / 2, window.innerHeight * 0.15, 60);
+  showToast(`🎉 "${task.title}" complete!`);
+
+  // A task finishing off every task in its project gets a bigger moment.
+  try {
+    const project = await API.getProject(task.projectId);
+    const topId = project.parentId || project.id;
+    const [allProjects, allTasks] = await Promise.all([API.getProjects(), API.getTasks()]);
+    const tree = tasksInProjectTree(topId, allProjects, allTasks);
+    if (tree.length && tree.every(t => t.status === 'Completed')) {
+      const top = project.parentId ? await API.getProject(topId) : project;
+      setTimeout(() => {
+        fireBigScreenConfetti();
+        showToast(`🏆 Project complete: "${top.title}"! Incredible work.`);
+      }, 400);
+    }
+  } catch {
+    // Non-critical: the per-task celebration already happened either way.
+  }
+}
+
+// Wrapping the one shared API call means every place in the app that
+// completes a task gets this for free, with nothing to change at any of
+// those call sites.
+const _updateTaskRaw = API.updateTask;
+API.updateTask = async function (id, patch) {
+  const result = await _updateTaskRaw(id, patch);
+  if (result && result.justCompleted) celebrateTaskCompletion(result);
+  return result;
+};
+
 function openAddProject() {
   document.getElementById('modal-project-title').textContent = 'New Project';
   document.getElementById('proj-id').value     = '';

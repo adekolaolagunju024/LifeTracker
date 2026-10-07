@@ -1976,6 +1976,10 @@
 <!-- TOAST -->
 <div class="toast bg-navy text-white px-5 py-3 rounded-xl text-sm font-medium shadow-xl" id="toast"></div>
 
+<!-- Screen-wide celebration layer — fires from anywhere a task is completed,
+     not just inside Climb View. Always on top, never blocks clicks. -->
+<canvas id="global-confetti" class="fixed inset-0 z-[9999] pointer-events-none"></canvas>
+
 <!-- SCRIPTS -->
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
