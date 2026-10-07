@@ -368,5 +368,28 @@ db.exec(`
     createdAt TEXT NOT NULL
   );
 `);
+// A status update can be flagged as a blocker — "this needs help/tools to
+// move" — so it stands out from an ordinary progress note wherever updates
+// are shown (task row badge, the panel itself).
+addColumnIfMissing('task_status_updates', "isBlocker INTEGER NOT NULL DEFAULT 0");
+
+// Journey gaming: XP accrues per account (not per project) as real tasks
+// are completed anywhere — the same worker/house "levels up" across every
+// project's Journey view. Deliberately not project-scoped: the point is to
+// reward real work, not to reset progress per project.
+addColumnIfMissing('profile', "journeyXp INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('profile', "journeyTasksCompleted INTEGER NOT NULL DEFAULT 0");
+
+// Unlocked achievements — a small, fixed set of codes (see JOURNEY_ACHIEVEMENTS
+// in backend/journey.js); one row per account per code, granted once.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS journey_achievements (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code TEXT NOT NULL,
+    unlockedAt TEXT NOT NULL,
+    UNIQUE(userId, code)
+  );
+`);
 
 module.exports = db;

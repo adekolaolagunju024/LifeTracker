@@ -1121,9 +1121,15 @@
             <h3 class="text-sm font-black text-navy truncate" id="mountain-title">🧭 Journey</h3>
             <p class="text-xs text-gray-500" id="mountain-status">Loading…</p>
           </div>
-          <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="openJourneyTrophyCase()" id="journey-level-badge" class="hidden items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap">⭐ Lv.1</button>
+            <select id="journey-competitor-select" onchange="setJourneyCompetitor(this.value)" class="hidden border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
+              <option value="schedule">🖥️ The Schedule</option>
+            </select>
+            <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
+          </div>
         </div>
-        <div class="relative rounded-2xl overflow-hidden shadow-sm bg-sky-100" id="mountain-scene-wrap" style="height:min(70vh,640px); min-height:380px;">
+        <div class="relative rounded-2xl overflow-hidden shadow-sm bg-sky-100 cursor-pointer" id="mountain-scene-wrap" style="height:min(70vh,640px); min-height:380px;" onclick="journeyHammerBurst(event)" title="Tap for a spark — real progress still only comes from finishing tasks below">
           <div class="absolute inset-0" id="mountain-scene"></div>
           <canvas id="mountain-confetti" class="absolute inset-0 pointer-events-none"></canvas>
           <div class="hidden absolute inset-0 z-20 items-center justify-center bg-black/40" id="mountain-celebrate">
@@ -1602,6 +1608,28 @@
           <input type="checkbox" id="assistant-speak" onchange="setAssistantSpeak(this.checked)" class="accent-teal"> Speak replies aloud
         </label>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- JOURNEY TROPHY CASE — XP, level, and achievement badges earned from
+     real task completions across every project (see backend/journey.js) -->
+<div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-journey-trophy">
+  <div class="bg-white rounded-2xl w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <h3 class="text-sm font-black text-navy">🏆 Trophy Case</h3>
+      <button onclick="closeModal('modal-journey-trophy')" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+    </div>
+    <div class="p-6">
+      <div class="text-center mb-5">
+        <p class="text-3xl font-black text-navy" id="trophy-level-text">Level 1</p>
+        <div class="w-full bg-gray-100 rounded-full h-2.5 mt-2 overflow-hidden">
+          <div class="bg-amber-400 h-full rounded-full transition-all duration-500" id="trophy-xp-bar" style="width:0%"></div>
+        </div>
+        <p class="text-xs text-gray-400 mt-1" id="trophy-xp-text">0 / 80 XP</p>
+      </div>
+      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Achievements</p>
+      <div class="grid grid-cols-2 gap-3" id="trophy-achievements"></div>
     </div>
   </div>
 </div>

@@ -4491,19 +4491,24 @@ async function renderJourneyView() {
   const projectId = APP.ganttProjectFilter;
   const titleEl = document.getElementById('mountain-title');
   const statusEl = document.getElementById('mountain-status');
+  const competitorSel = document.getElementById('journey-competitor-select');
   if (!projectId) {
     titleEl.textContent = '🏗️ Journey';
     statusEl.textContent = 'Pick a specific project from the filter above — a Journey is one project at a time.';
     document.getElementById('mountain-scene').innerHTML = '';
     document.getElementById('mountain-tasklist').innerHTML = '';
     document.getElementById('mountain-celebrate').classList.add('hidden');
+    if (competitorSel) competitorSel.classList.add('hidden');
     mountainState = null;
+    API.getJourneyGaming().then(updateJourneyLevelBadge).catch(() => {});
     return;
   }
   statusEl.textContent = 'Loading…';
   document.getElementById('mountain-celebrate').classList.add('hidden');
   try {
-    const [project, allProjects, allTasks] = await Promise.all([API.getProject(projectId), API.getProjects(), API.getTasks()]);
+    const [project, allProjects, allTasks, collaborators] = await Promise.all([
+      API.getProject(projectId), API.getProjects(), API.getTasks(), API.getCollaborators(projectId).catch(() => []),
+    ]);
     // The filter may have moved on to a different (or no) project while
     // this fetch was in flight — drop the now-stale response rather than
     // overwrite whatever's since become current.
@@ -4511,13 +4516,59 @@ async function renderJourneyView() {
     const tasks = tasksInProjectTree(projectId, allProjects, allTasks)
       .slice()
       .sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999') || a.createdAt.localeCompare(b.createdAt));
-    mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor' };
+    // Who's available to race: accepted collaborators other than yourself.
+    // Picking one swaps the pace-ghost for their own progress on whatever
+    // of these tasks is assigned to them, instead of the schedule's pace.
+    const racers = collaborators.filter(c => c.joinedAt && c.userId !== APP.currentUserId);
+    let competitor = 'schedule';
+    try { competitor = localStorage.getItem('journeyCompetitor:' + projectId) || 'schedule'; } catch { /* private mode etc */ }
+    if (competitor !== 'schedule' && !racers.some(r => r.userId === competitor)) competitor = 'schedule';
+    mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor', racers, competitor };
     titleEl.textContent = `🏗️ ${project.icon || ''} ${project.title}`;
+    if (competitorSel) {
+      if (racers.length) {
+        competitorSel.classList.remove('hidden');
+        competitorSel.innerHTML = `<option value="schedule">🖥️ The Schedule</option>` + racers.map(r => `<option value="${r.userId}">🏁 ${esc(r.name)}</option>`).join('');
+        competitorSel.value = competitor;
+      } else {
+        competitorSel.classList.add('hidden');
+      }
+    }
     renderMountainScene();
     renderMountainTaskList();
+    API.getJourneyGaming().then(updateJourneyLevelBadge).catch(() => {});
   } catch (e) {
     statusEl.textContent = '⚠️ ' + (e.message || 'Could not load this project');
   }
+}
+
+// Switching who you're racing — "The Schedule" (a computer pacer that
+// sticks exactly to the plan's own dates) or a teammate, racing on their
+// own assigned tasks in this same project. Remembered per project.
+function setJourneyCompetitor(value) {
+  if (!mountainState) return;
+  mountainState.competitor = value;
+  try { localStorage.setItem('journeyCompetitor:' + mountainState.projectId, value); } catch { /* private mode etc */ }
+  renderMountainScene();
+}
+
+// Resolves the current competitor to a progress fraction + display label —
+// a teammate's own completion rate on whatever of these tasks is assigned
+// to them, or (the default, and the fallback if they have none assigned
+// here) the schedule's implied pace.
+function competitorFraction() {
+  const { tasks, racers, competitor } = mountainState;
+  if (competitor && competitor !== 'schedule') {
+    const racer = racers.find(r => r.userId === competitor);
+    if (racer) {
+      const theirs = tasks.filter(t => t.assigneeId === competitor);
+      if (theirs.length) {
+        const theirDone = theirs.filter(t => t.status === 'Completed').length;
+        return { frac: theirDone / theirs.length, label: racer.name, isComputer: false };
+      }
+    }
+  }
+  return { frac: mountainExpectedFraction(), label: 'The Schedule', isComputer: true };
 }
 
 // Literal whole-screen, via the Fullscreen API — the default already fills
@@ -4552,7 +4603,8 @@ function renderMountainScene() {
   const total = tasks.length;
   const done = tasks.filter(t => t.status === 'Completed').length;
   const youFrac = total ? done / total : 0;
-  const expectedFrac = total ? mountainExpectedFraction() : null;
+  const competitor = total ? competitorFraction() : null;
+  const expectedFrac = competitor ? competitor.frac : null;
   const points = mountainCheckpoints(total);
 
   const checkpointsHtml = points.map((p, i) => {
@@ -4588,7 +4640,10 @@ function renderMountainScene() {
     </svg>
     ${summitLit ? `<div class="absolute -translate-x-1/2 text-xl animate-bounce" style="left:50%;top:3%">🏡✨</div>` : ''}
     ${checkpointsHtml}
-    ${ghost ? `<div class="absolute -translate-x-1/2 -translate-y-full opacity-40 transition-all duration-700" style="left:${ghost.x}%;top:${ghost.y}%" title="Where your plan's pace would be today">${workerSvgMarkup(false)}</div>` : ''}
+    ${ghost ? `<div class="absolute -translate-x-1/2 -translate-y-full opacity-40 transition-all duration-700" style="left:${ghost.x}%;top:${ghost.y}%" title="${esc(competitor.label)}${competitor.isComputer ? ' — sticks exactly to the schedule' : ''}">
+      ${workerSvgMarkup(false)}
+      <span class="absolute -top-1 -right-1 text-[9px] leading-none bg-navy text-white rounded-full w-4 h-4 flex items-center justify-center font-bold">${competitor.isComputer ? '🖥️' : esc(competitor.label.charAt(0).toUpperCase())}</span>
+    </div>` : ''}
     <div class="absolute -translate-x-1/2 -translate-y-full transition-all duration-700 drop-shadow" style="left:${you.x}%;top:${you.y}%" title="You">${workerSvgMarkup(true)}</div>
   `;
 
@@ -4601,11 +4656,11 @@ function renderMountainScene() {
   } else if (expectedFrac === null) {
     statusEl.textContent = `${done} of ${total} tasks · ${phase} · no deadlines set, so just go at your own pace.`;
   } else if (youFrac > expectedFrac + 0.03) {
-    statusEl.textContent = `${done} of ${total} tasks · ${phase} · 🏆 you're ahead of your own pace!`;
+    statusEl.textContent = `${done} of ${total} tasks · ${phase} · 🏆 you're ahead of ${competitor.label}!`;
   } else if (youFrac < expectedFrac - 0.03) {
-    statusEl.textContent = `${done} of ${total} tasks · ${phase} · ⏳ your planned pace is a little ahead — keep going.`;
+    statusEl.textContent = `${done} of ${total} tasks · ${phase} · ⏳ ${competitor.label} is a little ahead — keep going.`;
   } else {
-    statusEl.textContent = `${done} of ${total} tasks · ${phase} · 🤝 right on pace.`;
+    statusEl.textContent = `${done} of ${total} tasks · ${phase} · 🤝 neck and neck with ${competitor.label}.`;
   }
 }
 
@@ -4656,14 +4711,14 @@ async function toggleMountainTask(checkbox) {
 }
 
 function showMountainCelebration() {
-  const expectedFrac = mountainExpectedFraction();
+  const competitor = competitorFraction();
   const title = document.getElementById('mountain-celebrate-title');
   const text = document.getElementById('mountain-celebrate-text');
   title.textContent = `🏡 House complete!`;
-  if (expectedFrac === null) {
+  if (competitor.frac === null) {
     text.textContent = `You finished every task in "${mountainState.project.title}". Great work!`;
-  } else if (expectedFrac < 0.97) {
-    text.textContent = `You finished "${mountainState.project.title}" ahead of schedule — done early!`;
+  } else if (competitor.frac < 0.97) {
+    text.textContent = `You finished "${mountainState.project.title}" before ${competitor.label} — you won the race!`;
   } else {
     text.textContent = `You finished "${mountainState.project.title}". You made it — that's what counts!`;
   }
@@ -4766,6 +4821,10 @@ function fireBigScreenConfetti() {
 }
 
 async function celebrateTaskCompletion(task) {
+  // XP/level-up/achievement toasts matter regardless of which view is open
+  // — they're not Journey-view-local the way the confetti below is.
+  announceJourneyReward(task.journeyReward);
+
   // Journey view (a sub-view of the Gantt page) celebrates locally at its
   // own checkpoint — stand aside rather than double up when it's the one
   // currently on screen.
@@ -4790,6 +4849,60 @@ async function celebrateTaskCompletion(task) {
   } catch {
     // Non-critical: the per-task celebration already happened either way.
   }
+}
+
+// Journey gaming toasts — XP, a level-up, any newly unlocked achievements.
+// Fires from the same reward payload the backend already computed (see
+// backend/journey.js), so there's nothing to re-derive client-side.
+function announceJourneyReward(reward) {
+  if (!reward) return;
+  if (reward.leveledUp) {
+    setTimeout(() => showToast(`⭐ Level up! You're now Level ${reward.level}.`), 250);
+  }
+  (reward.newAchievements || []).forEach((a, i) => {
+    setTimeout(() => showToast(`🏆 Achievement unlocked: ${a.icon} ${a.name}`), 600 + i * 900);
+  });
+  updateJourneyLevelBadge({ level: reward.level });
+}
+
+function updateJourneyLevelBadge(g) {
+  const badge = document.getElementById('journey-level-badge');
+  if (!badge || !g) return;
+  badge.textContent = `⭐ Lv.${g.level}`;
+  badge.classList.remove('hidden');
+  badge.classList.add('flex');
+}
+
+async function openJourneyTrophyCase() {
+  openModal('modal-journey-trophy');
+  try {
+    const g = await API.getJourneyGaming();
+    document.getElementById('trophy-level-text').textContent = `Level ${g.level}`;
+    const { floor, ceiling } = g.levelProgress;
+    const pct = ceiling > floor ? Math.round(((g.xp - floor) / (ceiling - floor)) * 100) : 100;
+    document.getElementById('trophy-xp-bar').style.width = pct + '%';
+    document.getElementById('trophy-xp-text').textContent = `${g.xp - floor} / ${ceiling - floor} XP to Level ${g.level + 1}`;
+    document.getElementById('trophy-achievements').innerHTML = g.achievements.map(a => `
+      <div class="flex flex-col items-center text-center p-3 rounded-xl border ${a.unlocked ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-gray-50 opacity-50'}">
+        <span class="text-2xl mb-1">${a.unlocked ? a.icon : '🔒'}</span>
+        <span class="text-xs font-bold text-navy">${esc(a.name)}</span>
+        <span class="text-[10px] text-gray-400 mt-0.5">${esc(a.desc)}</span>
+      </div>`).join('');
+    updateJourneyLevelBadge(g);
+  } catch (e) { console.error('Journey gaming error:', e); }
+}
+
+// Purely cosmetic — a small spark wherever you tap the build scene. Real
+// progress (XP, the house itself) only ever comes from actually completing
+// a task below, never from clicking here, so this can't be farmed.
+function journeyHammerBurst(e) {
+  const wrap = document.getElementById('mountain-scene-wrap');
+  const rect = wrap.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  const canvas = document.getElementById('mountain-confetti');
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  fireMountainConfetti(x, y, 10);
 }
 
 // Wrapping the one shared API call means every place in the app that

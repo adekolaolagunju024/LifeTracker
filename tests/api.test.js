@@ -119,3 +119,51 @@ test('a viewer cannot post a status update, but can still read them', async () =
   const read = await fetch(`${server.base}/api/tasks/${task.id}/status-updates`, { headers: { Cookie: viewerCookie } });
   assert.equal(read.status, 200);
 });
+
+test('a status update can be flagged as a blocker', async () => {
+  const reg = await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true }));
+  const cookie = sessionCookie(reg);
+  const project = await (await fetch(`${server.base}/api/projects`, json({ title: 'Blocker check' }, cookie))).json();
+  const task = await (await fetch(`${server.base}/api/tasks`, json({ projectId: project.id, title: 'Task', status: 'In Progress', priority: 'Medium' }, cookie))).json();
+
+  const posted = await (await fetch(`${server.base}/api/tasks/${task.id}/status-updates`, json({ text: 'Waiting on design assets', isBlocker: true }, cookie))).json();
+  assert.equal(posted.isBlocker, true);
+
+  const list = await (await fetch(`${server.base}/api/tasks/${task.id}/status-updates`, { headers: { Cookie: cookie } })).json();
+  assert.equal(list[0].isBlocker, true);
+
+  const tableRow = await (await fetch(`${server.base}/api/tasks?projectId=${project.id}`, { headers: { Cookie: cookie } })).json();
+  assert.equal(tableRow[0].latestUpdateIsBlocker, 1, 'the row-level badge data reflects the blocker flag too');
+
+  const ordinary = await (await fetch(`${server.base}/api/tasks/${task.id}/status-updates`, json({ text: 'Just a note' }, cookie))).json();
+  assert.equal(ordinary.isBlocker, false, 'isBlocker defaults to false when not passed');
+});
+
+test('completing a task awards Journey XP and reports it on the response', async () => {
+  const reg = await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true }));
+  const cookie = sessionCookie(reg);
+  const project = await (await fetch(`${server.base}/api/projects`, json({ title: 'XP check' }, cookie))).json();
+  const task = await (await fetch(`${server.base}/api/tasks`, json({ projectId: project.id, title: 'Task', status: 'Not Started', priority: 'High' }, cookie))).json();
+
+  const before = await (await fetch(`${server.base}/api/journey-gaming/me`, { headers: { Cookie: cookie } })).json();
+  assert.equal(before.xp, 0);
+  assert.equal(before.level, 1);
+  assert.ok(before.achievements.every(a => !a.unlocked));
+
+  const put = await fetch(`${server.base}/api/tasks/${task.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify({ status: 'Completed' }) });
+  const completed = await put.json();
+  assert.equal(completed.journeyReward.xpAwarded, 15, 'High priority awards more XP than the default');
+  assert.equal(completed.journeyReward.xp, 15);
+  assert.deepEqual(completed.journeyReward.newAchievements.map(a => a.code), ['first_task', 'first_house'], 'finishing the only task also finishes the whole project');
+
+  const after = await (await fetch(`${server.base}/api/journey-gaming/me`, { headers: { Cookie: cookie } })).json();
+  assert.equal(after.xp, 15);
+  const firstTask = after.achievements.find(a => a.code === 'first_task');
+  assert.equal(firstTask.unlocked, true);
+
+  // Editing an already-completed task (not a fresh completion) awards nothing more.
+  const editAgain = await (await fetch(`${server.base}/api/tasks/${task.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify({ priority: 'Low' }) })).json();
+  assert.equal(editAgain.journeyReward, null);
+  const stillSame = await (await fetch(`${server.base}/api/journey-gaming/me`, { headers: { Cookie: cookie } })).json();
+  assert.equal(stillSame.xp, 15);
+});

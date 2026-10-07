@@ -175,6 +175,41 @@ function setStreakState(userId, { currentStreak, longestStreak, lastStreakDate }
     .run(currentStreak, longestStreak, lastStreakDate, userId);
 }
 
+// ── JOURNEY GAMING (see backend/journey.js) ────────────────────────
+function addJourneyXp(userId, amount) {
+  db.prepare('UPDATE profile SET journeyXp = journeyXp + ? WHERE userId = ?').run(amount, userId);
+  return db.prepare('SELECT journeyXp FROM profile WHERE userId = ?').get(userId).journeyXp;
+}
+function bumpJourneyTasksCompleted(userId) {
+  db.prepare('UPDATE profile SET journeyTasksCompleted = journeyTasksCompleted + 1 WHERE userId = ?').run(userId);
+  return db.prepare('SELECT journeyTasksCompleted FROM profile WHERE userId = ?').get(userId).journeyTasksCompleted;
+}
+// Returns true the first time this code is granted to this account, false
+// if they already had it — relies on the UNIQUE(userId, code) constraint
+// rather than a SELECT-then-INSERT race.
+function grantJourneyAchievement(userId, code) {
+  try {
+    db.prepare('INSERT INTO journey_achievements (id, userId, code, unlockedAt) VALUES (?,?,?,?)')
+      .run(uuid(), userId, code, new Date().toISOString());
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+function listJourneyAchievements(userId) {
+  return db.prepare('SELECT code, unlockedAt FROM journey_achievements WHERE userId = ? ORDER BY unlockedAt ASC').all(userId);
+}
+// Every task in a project's tree (itself + direct sub-projects), regardless
+// of who created or is assigned it — true only once there's at least one
+// task and every one of them is Completed.
+function isProjectTreeComplete(projectId) {
+  const childIds = db.prepare('SELECT id FROM projects WHERE parentId = ? AND deletedAt IS NULL').all(projectId).map(r => r.id);
+  const ids = [projectId, ...childIds];
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = db.prepare(`SELECT status FROM tasks WHERE deletedAt IS NULL AND projectId IN (${placeholders})`).all(...ids);
+  return rows.length > 0 && rows.every(r => r.status === 'Completed');
+}
+
 function setLastStreakNudgeDate(userId, dateStr) {
   db.prepare('UPDATE profile SET lastStreakNudgeDate = ? WHERE userId = ?').run(dateStr, userId);
 }
@@ -564,6 +599,7 @@ const CHECKLIST_COUNT_COLUMNS = `
   (SELECT text FROM task_status_updates WHERE taskId = t.id ORDER BY createdAt DESC LIMIT 1) AS latestUpdateText,
   (SELECT createdAt FROM task_status_updates WHERE taskId = t.id ORDER BY createdAt DESC LIMIT 1) AS latestUpdateAt,
   (SELECT p2.name FROM task_status_updates u2 JOIN profile p2 ON p2.userId = u2.userId WHERE u2.taskId = t.id ORDER BY u2.createdAt DESC LIMIT 1) AS latestUpdateAuthor,
+  (SELECT isBlocker FROM task_status_updates WHERE taskId = t.id ORDER BY createdAt DESC LIMIT 1) AS latestUpdateIsBlocker,
   (SELECT p.name FROM profile p WHERE p.userId = t.assigneeId) AS assigneeName
 `;
 
@@ -1054,23 +1090,26 @@ function deleteComment(userId, commentId) {
 function listStatusUpdates(userId, taskId) {
   if (!getTaskById(userId, taskId)) return null;
   return db.prepare(`
-    SELECT u.id, u.taskId, u.userId, u.status, u.text, u.createdAt, p.name AS authorName
+    SELECT u.id, u.taskId, u.userId, u.status, u.text, u.createdAt, u.isBlocker, p.name AS authorName
     FROM task_status_updates u
     JOIN profile p ON p.userId = u.userId
     WHERE u.taskId = ? ORDER BY u.createdAt ASC
-  `).all(taskId);
+  `).all(taskId).map(u => ({ ...u, isBlocker: !!u.isBlocker }));
 }
 
-function addStatusUpdate(userId, taskId, text) {
+// isBlocker flags an update as "this needs help/tools to move" rather than
+// an ordinary progress note — shown as a distinct badge wherever updates
+// surface (task row, the panel itself).
+function addStatusUpdate(userId, taskId, text, isBlocker = false) {
   const task = getTaskById(userId, taskId);
   if (!task) return null;
   assertCanComment(userId, task.projectId);
   const clean = String(text || '').trim();
   if (!clean) throw new Error('Update text is required');
-  const update = { id: uuid(), taskId, userId, status: task.status, text: clean, createdAt: new Date().toISOString() };
-  db.prepare('INSERT INTO task_status_updates (id, taskId, userId, status, text, createdAt) VALUES (?,?,?,?,?,?)')
-    .run(update.id, update.taskId, update.userId, update.status, update.text, update.createdAt);
-  return { ...update, authorName: getProfile(userId).name };
+  const update = { id: uuid(), taskId, userId, status: task.status, text: clean, isBlocker: isBlocker ? 1 : 0, createdAt: new Date().toISOString() };
+  db.prepare('INSERT INTO task_status_updates (id, taskId, userId, status, text, isBlocker, createdAt) VALUES (?,?,?,?,?,?,?)')
+    .run(update.id, update.taskId, update.userId, update.status, update.text, update.isBlocker, update.createdAt);
+  return { ...update, isBlocker: !!update.isBlocker, authorName: getProfile(userId).name };
 }
 
 // The update's own author, or the project owner, can delete it — same
@@ -1513,6 +1552,7 @@ module.exports = {
   listPushSubscriptionsForUser, listUsersForPushReminders, setLastPushDigestSentDate, setLastFocusNudgeAt, markTaskOverdueNotified,
   listTasksInProjectTree, listGoalProjectsForCheckIn, setProjectLastCheckInAt,
   setLastStreakNudgeDate, hasCompletedTaskToday, consumeAiQuota, consumeAssistantQuota, logEvent,
+  addJourneyXp, bumpJourneyTasksCompleted, grantJourneyAchievement, listJourneyAchievements, isProjectTreeComplete,
   getReferralCode, attachReferral, rewardReferralFor, getReferralStats, invitesSentToday, INVITES_PER_DAY,
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById, duplicateProject,
   getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,

@@ -121,6 +121,7 @@ const API = {
   acceptInvite:         (inviteId)     => request('POST',   `/projects/invites/${inviteId}/accept`),
   declineInvite:        (inviteId)     => request('POST',   `/projects/invites/${inviteId}/decline`),
   getCollaborators:     (projectId)    => request('GET',    `/projects/${projectId}/collaborators`),
+  getJourneyGaming:     ()             => request('GET',    `/journey-gaming/me`),
   inviteCollaborator:   (projectId, email, role) => request('POST', `/projects/${projectId}/collaborators`, { email, role }),
   updateCollaboratorRole: (projectId, userId, role) => request('PUT', `/projects/${projectId}/collaborators/${userId}`, { role }),
   removeCollaborator:   (projectId, userId) => request('DELETE', `/projects/${projectId}/collaborators/${userId}`),

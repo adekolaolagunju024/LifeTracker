@@ -3,6 +3,7 @@ const router  = express.Router();
 const { v4: uuid } = require('uuid');
 const db = require('../db/db');
 const { notifyAssigned, notifyMentioned, notifyTaskComment, notifyStatusUpdate } = require('../email/activity');
+const journey = require('../journey');
 
 // GET /api/tasks?projectId=&status=&priority=&category=&search=
 router.get('/', (req, res) => {
@@ -57,7 +58,10 @@ router.put('/:id', (req, res) => {
     // Lets the client celebrate a completion without re-deriving it itself —
     // true only the moment a task crosses into Completed, not on every edit.
     const justCompleted = before && before.status !== 'Completed' && task.status === 'Completed';
-    res.json({ ...task, justCompleted });
+    // Journey gaming (XP/level/achievements) — computed from this exact
+    // signal, never from a UI click, so it can't be farmed. See backend/journey.js.
+    const journeyReward = justCompleted ? journey.applyTaskCompletionRewards(req.session.userId, task) : null;
+    res.json({ ...task, justCompleted, journeyReward });
     const assigneeChanged = task.assigneeId && task.assigneeId !== before?.assigneeId;
     if (assigneeChanged && task.assigneeId !== req.session.userId) {
       const project = db.getProjectById(req.session.userId, task.projectId);
@@ -165,10 +169,10 @@ router.get('/:id/status-updates', (req, res) => {
   res.json(updates);
 });
 
-// POST /api/tasks/:id/status-updates — { text }
+// POST /api/tasks/:id/status-updates — { text, isBlocker }
 router.post('/:id/status-updates', (req, res) => {
   try {
-    const update = db.addStatusUpdate(req.session.userId, req.params.id, req.body.text);
+    const update = db.addStatusUpdate(req.session.userId, req.params.id, req.body.text, !!req.body.isBlocker);
     if (!update) return res.status(404).json({ error: 'Task not found' });
     res.status(201).json(update);
 
