@@ -4374,132 +4374,98 @@ try {
 // ── JOURNEY VIEW ───────────────────────────────────────────────
 // A playful, game-like progress view — a third stop on the Gantt page's own
 // Gantt/Kanban/Journey toggle, one project at a time (picked from that
-// page's existing project filter). Each task is a checkpoint on a zigzag
-// trail through a few named terrain stages; "you" advance as tasks are
-// completed, and a translucent "pace" figure advances at the rate the
-// plan's own dates imply, so you can see whether you're ahead, level, or
-// behind your own schedule — without ever using discouraging win/lose
-// language, to stay consistent with the rest of the app. The whole trail/
-// checkpoint geometry is theme-agnostic; a theme only swaps the backdrop,
-// avatar, and wording (see JOURNEY_THEMES) — pick one from the dropdown in
-// the view's own header, remembered per project.
-let mountainState = null; // { projectId, project, tasks, canEdit, theme }
+// page's existing project filter). One scene: a cartoon worker builds a
+// house as tasks are completed — the house itself assembles in 4 real
+// phases (foundation, walls, roof, finishing touches), not just a color
+// change. Each task is still a numbered checkpoint on the scaffolding
+// trail; a translucent "pace" figure advances at the rate the plan's own
+// dates imply, so you can see whether you're ahead, level, or behind your
+// own schedule — without ever using discouraging win/lose language, to
+// stay consistent with the rest of the app.
+let mountainState = null; // { projectId, project, tasks, canEdit }
 
-// Fixed (not random-per-render) star field for the Space theme, so the sky
-// doesn't visibly jump every time the scene redraws.
-const JOURNEY_STARS = [
-  { x: 8, y: 10, r: 0.5, o: 0.9 }, { x: 18, y: 22, r: 0.3, o: 0.7 }, { x: 28, y: 8, r: 0.4, o: 0.8 },
-  { x: 40, y: 16, r: 0.3, o: 0.6 }, { x: 6, y: 34, r: 0.4, o: 0.7 }, { x: 92, y: 12, r: 0.4, o: 0.8 },
-  { x: 86, y: 28, r: 0.3, o: 0.6 }, { x: 60, y: 6, r: 0.5, o: 0.9 }, { x: 15, y: 46, r: 0.3, o: 0.5 },
-  { x: 95, y: 44, r: 0.4, o: 0.7 }, { x: 50, y: 10, r: 0.3, o: 0.6 }, { x: 72, y: 20, r: 0.4, o: 0.8 },
-];
-
-// A row of rectangular crenellations (castle "teeth") between x1 and x2,
-// count merlons wide, from yBase up to yTop — returned as a run of SVG
-// polygon points meant to be spliced into a larger points="..." list
-// (the caller is expected to already be sitting at (x1, yBase)).
-function merlonPoints(x1, x2, yBase, yTop, count) {
-  const w = (x2 - x1) / (count * 2);
-  const pts = [];
-  for (let i = 0; i < count; i++) {
-    const xs = x1 + i * 2 * w;
-    pts.push(`${xs},${yTop}`, `${xs + w},${yTop}`, `${xs + w},${yBase}`, `${xs + 2 * w},${yBase}`);
-  }
-  return pts.join(' ');
+// A small animated cartoon builder, drawn once as a reusable SVG fragment —
+// the hammer arm swings on a loop (SMIL <animateTransform>, simplest way to
+// rotate around a fixed local pivot without fighting CSS transform-origin
+// on nested SVG groups). animated=false draws the same figure without the
+// swing, used for the still, translucent "pace" ghost.
+function workerSvgMarkup(animated) {
+  const hammer = animated
+    ? `<animateTransform attributeName="transform" type="rotate" values="-15 3 -8;40 3 -8;-15 3 -8" dur="0.6s" repeatCount="indefinite"/>`
+    : '';
+  const bob = animated
+    ? `<animateTransform attributeName="transform" type="translate" values="0 0;0 -0.6;0 0" dur="1.2s" repeatCount="indefinite" additive="sum"/>`
+    : '';
+  return `
+    <svg viewBox="-9 -20 18 23" width="30" height="38" style="overflow:visible">
+      <g>
+        ${bob}
+        <ellipse cx="0" cy="1.6" rx="5" ry="1.1" fill="#00000022"/>
+        <rect x="-3.2" y="-6" width="2.4" height="7.4" rx="1.1" fill="#2563EB"/>
+        <rect x="0.8" y="-6" width="2.4" height="7.4" rx="1.1" fill="#2563EB"/>
+        <rect x="-4.2" y="-13.5" width="8.4" height="8.3" rx="2.6" fill="#F59E0B"/>
+        <rect x="-6.3" y="-12.6" width="2.2" height="5.4" rx="1" fill="#F59E0B"/>
+        <circle cx="0" cy="-16" r="3.1" fill="#FBCFA0"/>
+        <path d="M-3.3,-17.2 a3.3,3.3 0 0 1 6.6,0 z" fill="#FBBF24"/>
+        <g>
+          <rect x="3.3" y="-13.5" width="2.1" height="5.6" rx="1" fill="#F59E0B"/>
+          <rect x="4" y="-18" width="4.4" height="1.7" rx="0.6" fill="#9CA3AF"/>
+          ${hammer}
+        </g>
+      </g>
+    </svg>`;
 }
-// Two corner towers + a shorter connecting wall, each topped with
-// crenellations — built once as a plain string, not regenerated per render.
-const CASTLE_SILHOUETTE = [
-  '14,92', '14,20', merlonPoints(14, 30, 20, 14, 2),
-  '30,40', merlonPoints(30, 70, 40, 34, 4),
-  '70,20', merlonPoints(70, 86, 20, 14, 2),
-  '86,92',
-].join(' ');
 
-const JOURNEY_THEMES = {
-  mountain: {
-    label: '🏔️ Mountain', avatar: '🧗', ghost: '👻', flag: '🚩', labelColor: '#1F2937',
-    sky: ['#bfe3f7', '#eaf6fb'], trailColor: '#ffffff',
-    checkpointNoun: 'checkpoints', doneLabel: 'Summit reached', doneEmoji: '🏆',
-    clipPoints: '50,6 86,92 14,92',
-    stages: [
-      { label: 'Base Camp', color: '#DCEFE1' },
-      { label: 'Forest Line', color: '#BEE3C6' },
-      { label: 'Rocky Ridge', color: '#9FD2B0' },
-      { label: 'Summit Push', color: '#F4FAF7' },
-    ],
-    extra: () => `<polygon points="50,6 60,24 40,24" fill="#ffffff" opacity="0.9"/>`,
-  },
-  space: {
-    label: '🚀 Space', avatar: '🚀', ghost: '🛸', flag: '🌕', labelColor: '#E5E7EB',
-    sky: ['#0B1026', '#272C5E'], trailColor: '#9CA3FF',
-    checkpointNoun: 'stages', doneLabel: 'Touchdown', doneEmoji: '🛰️',
-    clipPoints: null,
-    stages: [
-      { label: 'Launchpad', color: '#161B3A' },
-      { label: 'Atmosphere', color: '#1F244A' },
-      { label: 'Orbit', color: '#282E5C' },
-      { label: 'Deep Space', color: '#31386E' },
-    ],
-    extra: () => JOURNEY_STARS.map(s => `<circle cx="${s.x}" cy="${s.y}" r="${s.r}" fill="#fff" opacity="${s.o}"/>`).join('') + `<circle cx="78" cy="14" r="7" fill="#F4E8C1"/>`,
-  },
-  trail: {
-    label: '🌲 Forest Trail', avatar: '🚶', ghost: '👣', flag: '🏁', labelColor: '#1F2937',
-    sky: ['#FDEBC9', '#FFF9EC'], trailColor: '#ffffff',
-    checkpointNoun: 'waypoints', doneLabel: 'Reached the cabin', doneEmoji: '🏡',
-    clipPoints: '4,92 50,20 96,92',
-    stages: [
-      { label: 'Trailhead', color: '#EEF6DF' },
-      { label: 'Woodland', color: '#D7ECC2' },
-      { label: 'Hillside', color: '#C3E2AC' },
-      { label: 'Ridge Line', color: '#AEDA94' },
-    ],
-    extra: () => `<polygon points="22,92 26,76 30,92" fill="#436b39"/><polygon points="72,92 77,72 82,92" fill="#436b39"/><polygon points="50,92 54,66 58,92" fill="#355c2d"/>`,
-  },
-  castle: {
-    label: '🏰 Castle', avatar: '👷', ghost: '🧱', flag: '🏰', labelColor: '#3A2E1F',
-    sky: ['#E0D4F7', '#F7F3FC'], trailColor: '#ffffff',
-    checkpointNoun: 'phases', doneLabel: 'Castle complete', doneEmoji: '👑',
-    clipPoints: CASTLE_SILHOUETTE,
-    stages: [
-      { label: 'Foundation', color: '#EDE6D9' },
-      { label: 'Walls', color: '#E4D5BD' },
-      { label: 'Towers', color: '#D9C2A0' },
-      { label: 'Battlements', color: '#CBAE86' },
-    ],
-    extra: () => `
-      <rect x="44" y="78" width="12" height="14" fill="#6B4A2B"/>
-      <rect x="21" y="46" width="6" height="6" fill="#7DB8D9"/>
-      <rect x="73" y="46" width="6" height="6" fill="#7DB8D9"/>
-      <line x1="50" y1="14" x2="50" y2="4" stroke="#8B5E34" stroke-width="1"/>
-      <polygon points="50,4 50,9 57,6.5" fill="#EF4444"/>
-    `,
-  },
-};
-
-function journeyTheme() {
-  const key = mountainState?.theme;
-  return JOURNEY_THEMES[key] || JOURNEY_THEMES.mountain;
+// 4 real construction phases, keyed to overall progress (0 → 1) rather than
+// a fixed per-task step, so the house assembles smoothly regardless of how
+// many tasks the project has. Each returns the SVG pieces visible once
+// progress reaches it, plus the phase's own label for the status line.
+const HOUSE_PHASES = [
+  { at: 0, label: 'Laying the foundation', pieces: () => `<rect x="30" y="86" width="40" height="5" rx="1" fill="#9CA3AF"/>` },
+  { at: 0.25, label: 'Raising the walls', pieces: () => `<rect x="32" y="62" width="36" height="24" fill="#FDE9C8" stroke="#D9B178" stroke-width="0.6"/>` },
+  { at: 0.5, label: 'Putting up the roof', pieces: () => `<polygon points="27,63 50,41 73,63" fill="#B45309"/><rect x="26" y="61.5" width="48" height="2.2" fill="#8B3E05"/>` },
+  { at: 0.75, label: 'Finishing touches', pieces: () => `
+      <rect x="44" y="72" width="12" height="14" fill="#7C4A26"/>
+      <circle cx="54" cy="79" r="0.6" fill="#FBBF24"/>
+      <rect x="36" y="67" width="6" height="6" fill="#BFE3F7" stroke="#8B5E34" stroke-width="0.5"/>
+      <rect x="58" y="67" width="6" height="6" fill="#BFE3F7" stroke="#8B5E34" stroke-width="0.5"/>
+      <rect x="60" y="46" width="5" height="10" fill="#8B5E34"/>
+      <circle cx="62.5" cy="43" r="1.6" fill="#E5E7EB" opacity="0.8"><animate attributeName="cy" values="43;30;43" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0;0.8" dur="2.4s" repeatCount="indefinite"/></circle>
+      <circle cx="62.5" cy="43" r="1.2" fill="#E5E7EB" opacity="0.6"><animate attributeName="cy" values="43;33;43" dur="2.4s" begin="0.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" begin="0.8s" repeatCount="indefinite"/></circle>
+    ` },
+];
+function housePiecesAt(frac) {
+  // Strictly greater-than at every phase, including the foundation (at: 0)
+  // — so an untouched project shows an empty lot, not a foundation slab
+  // nobody's poured yet.
+  return HOUSE_PHASES.filter(p => frac > p.at).map(p => p.pieces()).join('');
+}
+function housePhaseLabel(frac) {
+  if (frac >= 1) return 'House complete';
+  let label = 'Not started yet';
+  HOUSE_PHASES.forEach(p => { if (frac > p.at) label = p.label; });
+  return label;
 }
 
 function mountainCheckpoints(n) {
-  // Bottom-to-top zigzag, narrowing toward the summit — same shape as a
-  // switchback trail. Percentages, relative to the scene container.
+  // Bottom-to-top zigzag scaffolding around the build site — kept within
+  // the house's own footprint (not climbing off into open sky the way the
+  // old mountain trail did), so the worker reads as working ON the house.
   const points = [];
   for (let i = 0; i < n; i++) {
     const t = n > 1 ? i / (n - 1) : 1;
-    const spread = 30 - t * 18; // narrows near the top
+    const spread = 22 - t * 10; // narrows a little higher up, near the roofline
     const side = i % 2 === 0 ? -1 : 1;
-    points.push({ x: 50 + side * spread, y: 86 - t * 70 });
+    points.push({ x: 50 + side * spread, y: 88 - t * 46 });
   }
   return points;
 }
 
-// Position along the trail for a progress fraction (0 = base camp, 1 = summit).
+// Position along the scaffolding for a progress fraction (0 = empty lot, 1 = roofline).
 function mountainPointAt(points, frac) {
-  if (!points.length) return { x: 50, y: 92 };
-  if (frac <= 0) return { x: 50, y: 94 };
-  if (frac >= 1) return { x: 50, y: 10 };
+  if (!points.length) return { x: 50, y: 90 };
+  if (frac <= 0) return { x: 50, y: 90 };
+  if (frac >= 1) return { x: 50, y: 40 };
   const idx = frac * (points.length - 1);
   const i0 = Math.floor(idx), i1 = Math.min(points.length - 1, i0 + 1);
   const f = idx - i0;
@@ -4525,18 +4491,15 @@ async function renderJourneyView() {
   const projectId = APP.ganttProjectFilter;
   const titleEl = document.getElementById('mountain-title');
   const statusEl = document.getElementById('mountain-status');
-  const themeSel = document.getElementById('journey-theme-select');
   if (!projectId) {
-    titleEl.textContent = '🧭 Journey';
+    titleEl.textContent = '🏗️ Journey';
     statusEl.textContent = 'Pick a specific project from the filter above — a Journey is one project at a time.';
     document.getElementById('mountain-scene').innerHTML = '';
     document.getElementById('mountain-tasklist').innerHTML = '';
     document.getElementById('mountain-celebrate').classList.add('hidden');
-    if (themeSel) themeSel.classList.add('hidden');
     mountainState = null;
     return;
   }
-  if (themeSel) themeSel.classList.remove('hidden');
   statusEl.textContent = 'Loading…';
   document.getElementById('mountain-celebrate').classList.add('hidden');
   try {
@@ -4545,30 +4508,16 @@ async function renderJourneyView() {
     // this fetch was in flight — drop the now-stale response rather than
     // overwrite whatever's since become current.
     if (APP.ganttProjectFilter !== projectId) return;
-    let theme = 'mountain';
-    try { theme = localStorage.getItem('journeyTheme:' + projectId) || 'mountain'; } catch { /* private mode etc */ }
-    if (!JOURNEY_THEMES[theme]) theme = 'mountain';
-    if (themeSel) themeSel.value = theme;
     const tasks = tasksInProjectTree(projectId, allProjects, allTasks)
       .slice()
       .sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999') || a.createdAt.localeCompare(b.createdAt));
-    mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor', theme };
-    titleEl.textContent = `${JOURNEY_THEMES[theme].label.split(' ')[0]} ${project.icon || ''} ${project.title}`;
+    mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor' };
+    titleEl.textContent = `🏗️ ${project.icon || ''} ${project.title}`;
     renderMountainScene();
     renderMountainTaskList();
   } catch (e) {
     statusEl.textContent = '⚠️ ' + (e.message || 'Could not load this project');
   }
-}
-
-// Picking a theme from the dropdown — remembered per project, so different
-// projects can each have their own look.
-function setJourneyTheme(theme) {
-  if (!mountainState || !JOURNEY_THEMES[theme]) return;
-  mountainState.theme = theme;
-  try { localStorage.setItem('journeyTheme:' + mountainState.projectId, theme); } catch { /* private mode etc */ }
-  document.getElementById('mountain-title').textContent = `${JOURNEY_THEMES[theme].label.split(' ')[0]} ${mountainState.project.icon || ''} ${mountainState.project.title}`;
-  renderMountainScene();
 }
 
 // Literal whole-screen, via the Fullscreen API — the default already fills
@@ -4600,7 +4549,6 @@ function mountainExpectedFraction() {
 
 function renderMountainScene() {
   const { tasks } = mountainState;
-  const theme = journeyTheme();
   const total = tasks.length;
   const done = tasks.filter(t => t.status === 'Completed').length;
   const youFrac = total ? done / total : 0;
@@ -4620,52 +4568,44 @@ function renderMountainScene() {
   const ghost = expectedFrac === null ? null : mountainPointAt(points, expectedFrac);
   const summitLit = total > 0 && done === total;
 
-  // 4 labeled terrain stages, evenly spaced bottom-to-top — same band
-  // geometry for every theme, clipped to that theme's silhouette (if it
-  // has one) so the colors read as elevation zones rather than plain bars.
-  const bandTop = 6, bandBottom = 92;
-  const bandH = (bandBottom - bandTop) / theme.stages.length;
-  const stageRectsHtml = theme.stages.map((s, i) => `<rect x="0" y="${bandBottom - (i + 1) * bandH}" width="100" height="${bandH}" fill="${s.color}"/>`).join('');
-  const stageLabelsHtml = theme.stages.map((s, i) => {
-    const yTop = bandBottom - (i + 1) * bandH;
-    return `<text x="2.5" y="${yTop + bandH / 2 + 1}" font-size="2.9" font-weight="700" fill="${theme.labelColor}" opacity="0.6">${esc(s.label)}</text>`;
-  }).join('');
-
   document.getElementById('mountain-scene').innerHTML = `
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="absolute inset-0 w-full h-full">
       <defs>
         <linearGradient id="mtnSky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${theme.sky[0]}"/>
-          <stop offset="100%" stop-color="${theme.sky[1]}"/>
+          <stop offset="0%" stop-color="#BFE3F7"/>
+          <stop offset="100%" stop-color="#EAF6FB"/>
         </linearGradient>
-        ${theme.clipPoints ? `<clipPath id="mtnClip"><polygon points="${theme.clipPoints}"/></clipPath>` : ''}
       </defs>
       <rect x="0" y="0" width="100" height="100" fill="url(#mtnSky)"/>
-      <g ${theme.clipPoints ? 'clip-path="url(#mtnClip)"' : ''}>${stageRectsHtml}</g>
-      ${theme.extra()}
-      ${stageLabelsHtml}
-      <polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="${theme.trailColor}" stroke-width="1.6" stroke-dasharray="3,2.4" stroke-linecap="round" opacity="0.8"/>
+      <circle cx="84" cy="14" r="7" fill="#FDE68A" opacity="0.9"/>
+      <g opacity="0.85">
+        <ellipse cx="18" cy="16" rx="7" ry="3.2" fill="#fff"/><ellipse cx="24" cy="14" rx="5.5" ry="2.8" fill="#fff"/>
+        <animateTransform attributeName="transform" type="translate" values="0 0;6 0;0 0" dur="18s" repeatCount="indefinite"/>
+      </g>
+      <rect x="0" y="90" width="100" height="10" fill="#8FBF7A"/>
+      ${housePiecesAt(youFrac)}
+      <polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#B7A68C" stroke-width="1.6" stroke-dasharray="3,2.4" stroke-linecap="round" opacity="0.75"/>
     </svg>
-    <div class="absolute -translate-x-1/2 text-xl ${summitLit ? 'animate-bounce' : ''}" style="left:50%;top:3%">${theme.flag}</div>
+    ${summitLit ? `<div class="absolute -translate-x-1/2 text-xl animate-bounce" style="left:50%;top:3%">🏡✨</div>` : ''}
     ${checkpointsHtml}
-    ${ghost ? `<div class="absolute -translate-x-1/2 -translate-y-full text-2xl opacity-40 transition-all duration-700" style="left:${ghost.x}%;top:${ghost.y}%" title="Where your plan's pace would be today">${theme.ghost}</div>` : ''}
-    <div class="absolute -translate-x-1/2 -translate-y-full text-2xl transition-all duration-700 drop-shadow" style="left:${you.x}%;top:${you.y}%" title="You">${theme.avatar}</div>
+    ${ghost ? `<div class="absolute -translate-x-1/2 -translate-y-full opacity-40 transition-all duration-700" style="left:${ghost.x}%;top:${ghost.y}%" title="Where your plan's pace would be today">${workerSvgMarkup(false)}</div>` : ''}
+    <div class="absolute -translate-x-1/2 -translate-y-full transition-all duration-700 drop-shadow" style="left:${you.x}%;top:${you.y}%" title="You">${workerSvgMarkup(true)}</div>
   `;
 
   const statusEl = document.getElementById('mountain-status');
-  const noun = theme.checkpointNoun;
+  const phase = housePhaseLabel(youFrac);
   if (!total) {
-    statusEl.textContent = 'Add tasks to this project to start the journey.';
+    statusEl.textContent = 'Add tasks to this project to start building.';
   } else if (summitLit) {
-    statusEl.textContent = `${theme.doneEmoji} ${theme.doneLabel} — every task complete!`;
+    statusEl.textContent = `🏡 House complete — every task done!`;
   } else if (expectedFrac === null) {
-    statusEl.textContent = `${done} of ${total} ${noun} · no deadlines set, so just go at your own pace.`;
+    statusEl.textContent = `${done} of ${total} tasks · ${phase} · no deadlines set, so just go at your own pace.`;
   } else if (youFrac > expectedFrac + 0.03) {
-    statusEl.textContent = `${done} of ${total} ${noun} · 🏆 you're ahead of your own pace!`;
+    statusEl.textContent = `${done} of ${total} tasks · ${phase} · 🏆 you're ahead of your own pace!`;
   } else if (youFrac < expectedFrac - 0.03) {
-    statusEl.textContent = `${done} of ${total} ${noun} · ⏳ your planned pace is a little ahead — keep going.`;
+    statusEl.textContent = `${done} of ${total} tasks · ${phase} · ⏳ your planned pace is a little ahead — keep going.`;
   } else {
-    statusEl.textContent = `${done} of ${total} ${noun} · 🤝 right on pace.`;
+    statusEl.textContent = `${done} of ${total} tasks · ${phase} · 🤝 right on pace.`;
   }
 }
 
@@ -4716,11 +4656,10 @@ async function toggleMountainTask(checkbox) {
 }
 
 function showMountainCelebration() {
-  const theme = journeyTheme();
   const expectedFrac = mountainExpectedFraction();
   const title = document.getElementById('mountain-celebrate-title');
   const text = document.getElementById('mountain-celebrate-text');
-  title.textContent = `${theme.doneEmoji} ${theme.doneLabel}!`;
+  title.textContent = `🏡 House complete!`;
   if (expectedFrac === null) {
     text.textContent = `You finished every task in "${mountainState.project.title}". Great work!`;
   } else if (expectedFrac < 0.97) {
