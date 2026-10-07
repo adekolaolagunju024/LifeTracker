@@ -4437,18 +4437,39 @@ function workerSvgMarkup(animated) {
 // many tasks the project has. Each returns the SVG pieces visible once
 // progress reaches it, plus the phase's own label for the status line.
 const HOUSE_PHASES = [
-  { at: 0, label: 'Laying the foundation', pieces: () => `<rect x="30" y="86" width="40" height="5" rx="1" fill="#9CA3AF"/>` },
-  { at: 0.25, label: 'Raising the walls', pieces: () => `<rect x="32" y="62" width="36" height="24" fill="#FDE9C8" stroke="#D9B178" stroke-width="0.6"/>` },
-  { at: 0.5, label: 'Putting up the roof', pieces: () => `<polygon points="27,63 50,41 73,63" fill="#B45309"/><rect x="26" y="61.5" width="48" height="2.2" fill="#8B3E05"/>` },
+  { at: 0, label: 'Laying the foundation', pieces: () => `
+    <g>
+      <animateTransform attributeName="transform" type="translate" values="0,-5;0,1;0,-0.3;0,0" keyTimes="0;0.6;0.85;1" dur="0.5s" fill="freeze"/>
+      <rect x="30" y="86" width="40" height="5" rx="1.2" fill="url(#houseFoundation)" stroke="#6B7280" stroke-width="0.4"/>
+      <rect x="30" y="86" width="40" height="1.5" rx="0.6" fill="#ffffff" opacity="0.25"/>
+    </g>` },
+  { at: 0.25, label: 'Raising the walls', pieces: () => `
+    <g>
+      <animateTransform attributeName="transform" type="translate" values="0,-8;0,1;0,-0.3;0,0" keyTimes="0;0.6;0.85;1" dur="0.55s" fill="freeze"/>
+      <rect x="32" y="62" width="36" height="24" fill="url(#houseWall)" stroke="#C9A063" stroke-width="0.6"/>
+      <rect x="32" y="62" width="36" height="3" fill="#ffffff" opacity="0.25"/>
+      <line x1="50" y1="62" x2="50" y2="86" stroke="#D9B178" stroke-width="0.4" opacity="0.6"/>
+    </g>` },
+  { at: 0.5, label: 'Putting up the roof', pieces: () => `
+    <g>
+      <animateTransform attributeName="transform" type="translate" values="0,-8;0,1;0,-0.3;0,0" keyTimes="0;0.6;0.85;1" dur="0.55s" fill="freeze"/>
+      <polygon points="26,63 50,40 74,63" fill="url(#houseRoof)" stroke="#7C3A0C" stroke-width="0.6"/>
+      <polygon points="50,40 62,56 50,56" fill="#ffffff" opacity="0.15"/>
+      <rect x="25" y="61.5" width="50" height="2.4" rx="0.6" fill="#8B3E05"/>
+    </g>` },
   { at: 0.75, label: 'Finishing touches', pieces: () => `
-      <rect x="44" y="72" width="12" height="14" fill="#7C4A26"/>
-      <circle cx="54" cy="79" r="0.6" fill="#FBBF24"/>
-      <rect x="36" y="67" width="6" height="6" fill="#BFE3F7" stroke="#8B5E34" stroke-width="0.5"/>
-      <rect x="58" y="67" width="6" height="6" fill="#BFE3F7" stroke="#8B5E34" stroke-width="0.5"/>
-      <rect x="60" y="46" width="5" height="10" fill="#8B5E34"/>
-      <circle cx="62.5" cy="43" r="1.6" fill="#E5E7EB" opacity="0.8"><animate attributeName="cy" values="43;30;43" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0;0.8" dur="2.4s" repeatCount="indefinite"/></circle>
-      <circle cx="62.5" cy="43" r="1.2" fill="#E5E7EB" opacity="0.6"><animate attributeName="cy" values="43;33;43" dur="2.4s" begin="0.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.6;0;0.6" dur="2.4s" begin="0.8s" repeatCount="indefinite"/></circle>
-    ` },
+    <g>
+      <animateTransform attributeName="transform" type="translate" values="0,-6;0,1;0,-0.3;0,0" keyTimes="0;0.6;0.85;1" dur="0.5s" fill="freeze"/>
+      <rect x="44" y="72" width="12" height="14" rx="0.8" fill="url(#houseDoor)" stroke="#5B3A1D" stroke-width="0.5"/>
+      <circle cx="53.5" cy="79" r="0.7" fill="#FBBF24"/>
+      <rect x="35.5" y="66.5" width="7" height="7" rx="0.8" fill="url(#houseWindow)" stroke="#8B5E34" stroke-width="0.5"/>
+      <line x1="39" y1="66.5" x2="39" y2="73.5" stroke="#8B5E34" stroke-width="0.35"/><line x1="35.5" y1="70" x2="42.5" y2="70" stroke="#8B5E34" stroke-width="0.35"/>
+      <rect x="57.5" y="66.5" width="7" height="7" rx="0.8" fill="url(#houseWindow)" stroke="#8B5E34" stroke-width="0.5"/>
+      <line x1="61" y1="66.5" x2="61" y2="73.5" stroke="#8B5E34" stroke-width="0.35"/><line x1="57.5" y1="70" x2="64.5" y2="70" stroke="#8B5E34" stroke-width="0.35"/>
+      <rect x="60" y="44" width="5.5" height="12" fill="url(#houseChimney)" stroke="#5B3A1D" stroke-width="0.4"/>
+      <circle cx="62.7" cy="41" r="1.2" fill="#E5E7EB" opacity="0"><animate attributeName="cy" values="41;26;41" dur="2.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0.75;0" dur="2.6s" repeatCount="indefinite"/><animate attributeName="r" values="1.2;2.4;1.2" dur="2.6s" repeatCount="indefinite"/></circle>
+      <circle cx="62.7" cy="41" r="1" fill="#E5E7EB" opacity="0"><animate attributeName="cy" values="41;29;41" dur="2.6s" begin="0.9s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0.6;0" dur="2.6s" begin="0.9s" repeatCount="indefinite"/><animate attributeName="r" values="1;2;1" dur="2.6s" begin="0.9s" repeatCount="indefinite"/></circle>
+    </g>` },
 ];
 function housePiecesAt(frac) {
   // Strictly greater-than at every phase, including the foundation (at: 0)
@@ -4495,31 +4516,68 @@ function mountainPointAt(points, frac, topY = 40, bottomY = 88) {
 // Road and Cliff are a static backdrop with the same moving-avatar/
 // checkpoint mechanic the old multi-theme version used — picked from the
 // dropdown in the view's own header, remembered per project.
-function journeyAvatarSvg(animated, { bodyColor = '#F59E0B', legColor = '#2563EB', headwear = 'hardhat', hammer = true } = {}) {
-  const hammerArm = hammer ? `
+// A cute, chibi-proportioned character (big head, gradient-shaded body,
+// simple face, dark "ink line" outline) in the mobile-game style, rather
+// than the flat geometric figure this started as. Each call gets its own
+// gradient ids (a module-level counter) so "you" and the pace-ghost, drawn
+// at the same time, never collide.
+let _journeyAvatarUid = 0;
+function journeyAvatarSvg(animated, opts = {}) {
+  const {
+    bodyColor = '#F59E0B', bodyColorDark = '#D97706',
+    legColor = '#2563EB', legColorDark = '#1D4ED8',
+    headwear = 'hardhat', hammer = true,
+  } = opts;
+  const uid = `ja${_journeyAvatarUid++}`;
+  const outline = 'rgba(0,0,0,0.22)';
+  const toolArm = hammer ? `
     <g>
-      <rect x="3.3" y="-13.5" width="2.1" height="5.6" rx="1" fill="${bodyColor}"/>
-      <rect x="4" y="-18" width="4.4" height="1.7" rx="0.6" fill="#9CA3AF"/>
-      ${animated ? `<animateTransform attributeName="transform" type="rotate" values="-15 3 -8;40 3 -8;-15 3 -8" dur="0.6s" repeatCount="indefinite"/>` : ''}
-    </g>` : `<rect x="3.3" y="-13.5" width="2.1" height="5.6" rx="1" fill="${bodyColor}"/>`;
+      <rect x="3" y="-14.4" width="2.6" height="6.4" rx="1.3" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.3"/>
+      <rect x="3.4" y="-19.6" width="5.2" height="2.1" rx="0.8" fill="#B0B8C1" stroke="${outline}" stroke-width="0.3"/>
+      <rect x="4.6" y="-20.6" width="1.1" height="1.6" rx="0.2" fill="#6B7280"/>
+      ${animated ? `<animateTransform attributeName="transform" type="rotate" values="-18 3 -9;48 3 -9;-18 3 -9" dur="0.55s" repeatCount="indefinite"/>` : ''}
+    </g>` : `
+    <g>
+      <rect x="3" y="-14.4" width="2.6" height="6.2" rx="1.3" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.3"/>
+      ${animated ? `<animateTransform attributeName="transform" type="rotate" values="-6 3 -9;10 3 -9;-6 3 -9" dur="1.3s" repeatCount="indefinite"/>` : ''}
+    </g>`;
   const hat = headwear === 'hardhat'
-    ? `<path d="M-3.3,-17.2 a3.3,3.3 0 0 1 6.6,0 z" fill="#FBBF24"/>`
+    ? `<path d="M-4.3,-20.6 a4.3,4 0 0 1 8.6,0 z" fill="url(#jaHat${uid})" stroke="${outline}" stroke-width="0.3"/><rect x="-4.3" y="-17.3" width="8.6" height="1" fill="#D97706" opacity="0.5"/>`
     : headwear === 'helmet'
-      ? `<path d="M-3.1,-17.4 a3.1,3.1 0 0 1 6.2,0 z" fill="#EF4444"/>`
+      ? `<path d="M-4,-20.8 a4,3.8 0 0 1 8,0 z" fill="url(#jaHat${uid})" stroke="${outline}" stroke-width="0.3"/><rect x="-4" y="-17.5" width="8" height="0.9" fill="#B91C1C" opacity="0.5"/>`
       : '';
-  const bob = animated ? `<animateTransform attributeName="transform" type="translate" values="0 0;0 -0.6;0 0" dur="1.2s" repeatCount="indefinite" additive="sum"/>` : '';
+  const bob = animated ? `<animateTransform attributeName="transform" type="translate" values="0 0;0 -0.9;0 0" dur="1s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines="0.3 0 0.5 1;0.5 0 0.7 1"/>` : '';
   return `
-    <svg viewBox="-9 -20 18 23" width="30" height="38" style="overflow:visible">
+    <svg viewBox="-10 -22 20 25" width="32" height="40" style="overflow:visible">
+      <defs>
+        <linearGradient id="jaBody${uid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${bodyColor}"/><stop offset="100%" stop-color="${bodyColorDark}"/>
+        </linearGradient>
+        <linearGradient id="jaLeg${uid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${legColor}"/><stop offset="100%" stop-color="${legColorDark}"/>
+        </linearGradient>
+        <linearGradient id="jaHat${uid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${headwear === 'helmet' ? '#F87171' : '#FCD34D'}"/><stop offset="100%" stop-color="${headwear === 'helmet' ? '#DC2626' : '#F59E0B'}"/>
+        </linearGradient>
+        <radialGradient id="jaHead${uid}" cx="35%" cy="30%" r="75%">
+          <stop offset="0%" stop-color="#FFE3C2"/><stop offset="100%" stop-color="#F6C89A"/>
+        </radialGradient>
+      </defs>
       <g>
         ${bob}
-        <ellipse cx="0" cy="1.6" rx="5" ry="1.1" fill="#00000022"/>
-        <rect x="-3.2" y="-6" width="2.4" height="7.4" rx="1.1" fill="${legColor}"/>
-        <rect x="0.8" y="-6" width="2.4" height="7.4" rx="1.1" fill="${legColor}"/>
-        <rect x="-4.2" y="-13.5" width="8.4" height="8.3" rx="2.6" fill="${bodyColor}"/>
-        <rect x="-6.3" y="-12.6" width="2.2" height="5.4" rx="1" fill="${bodyColor}"/>
-        <circle cx="0" cy="-16" r="3.1" fill="#FBCFA0"/>
+        <ellipse cx="0" cy="2" rx="5.6" ry="1.2" fill="#00000025"/>
+        <rect x="-3.6" y="-6.6" width="2.8" height="8" rx="1.3" fill="url(#jaLeg${uid})" stroke="${outline}" stroke-width="0.3"/>
+        <rect x="0.8" y="-6.6" width="2.8" height="8" rx="1.3" fill="url(#jaLeg${uid})" stroke="${outline}" stroke-width="0.3"/>
+        <rect x="-5.2" y="-15.5" width="10.4" height="9.6" rx="3.4" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.35"/>
+        <rect x="-7.4" y="-14.6" width="2.6" height="6.2" rx="1.3" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.3"/>
+        <circle cx="0" cy="-18" r="4.3" fill="url(#jaHead${uid})" stroke="${outline}" stroke-width="0.35"/>
+        <circle cx="-1.6" cy="-18.3" r="0.55" fill="#3A2E1F"/>
+        <circle cx="1.6" cy="-18.3" r="0.55" fill="#3A2E1F"/>
+        <path d="M-1.3,-16.6 q1.3,1 2.6,0" stroke="#B5703F" stroke-width="0.4" fill="none" stroke-linecap="round"/>
+        <circle cx="-2.3" cy="-17.1" r="0.7" fill="#FCA5A5" opacity="0.55"/>
+        <circle cx="2.3" cy="-17.1" r="0.7" fill="#FCA5A5" opacity="0.55"/>
         ${hat}
-        ${hammerArm}
+        ${toolArm}
       </g>
     </svg>`;
 }
@@ -4528,7 +4586,7 @@ const JOURNEY_STAGES = {
   house: {
     label: '🏠 House Build', checkpointNoun: 'tasks', doneLabel: 'House complete', doneEmoji: '🏡',
     topY: 40, bottomY: 88,
-    avatar: animated => journeyAvatarSvg(animated, { bodyColor: '#F59E0B', legColor: '#2563EB', headwear: 'hardhat', hammer: true }),
+    avatar: animated => journeyAvatarSvg(animated, { bodyColor: '#FBBF24', bodyColorDark: '#D97706', legColor: '#3B82F6', legColorDark: '#1D4ED8', headwear: 'hardhat', hammer: true }),
   },
   road: {
     // Modeled on the "winding road up to a spotlit peak" reference — a
@@ -4536,14 +4594,14 @@ const JOURNEY_STAGES = {
     // centerline) rather than a thin trail, toward a flag in a beam of light.
     label: '🛣️ Road to the Goal', checkpointNoun: 'milestones', doneLabel: 'Reached the summit', doneEmoji: '🚩',
     topY: 10, bottomY: 90,
-    avatar: animated => journeyAvatarSvg(animated, { bodyColor: '#1E3A8A', legColor: '#111827', headwear: 'none', hammer: false }),
+    avatar: animated => journeyAvatarSvg(animated, { bodyColor: '#3B5FC4', bodyColorDark: '#1E3A8A', legColor: '#1F2937', legColorDark: '#0B0F19', headwear: 'none', hammer: false }),
   },
   cliff: {
     // Modeled on the rope-climb references — a rocky cliff silhouette with
     // a climbing rope running up to a flag at the top, pastel dawn sky.
     label: '🧗 Cliff Climb', checkpointNoun: 'pitches', doneLabel: 'Summit reached', doneEmoji: '🏔️',
     topY: 8, bottomY: 90,
-    avatar: animated => journeyAvatarSvg(animated, { bodyColor: '#EF4444', legColor: '#1E3A8A', headwear: 'helmet', hammer: false }),
+    avatar: animated => journeyAvatarSvg(animated, { bodyColor: '#F87171', bodyColorDark: '#DC2626', legColor: '#3B5FC4', legColorDark: '#1E3A8A', headwear: 'helmet', hammer: false }),
   },
 };
 
@@ -4693,26 +4751,53 @@ function mountainExpectedFraction() {
 // these don't assemble progressively; progress reads from the avatar's
 // position and the checkpoints alone, same mechanic the old multi-theme
 // version used.
+const ROAD_STARS = [
+  { x: 10, y: 10, r: 0.5 }, { x: 22, y: 6, r: 0.35 }, { x: 4, y: 20, r: 0.4 }, { x: 16, y: 26, r: 0.3 },
+  { x: 88, y: 8, r: 0.5 }, { x: 94, y: 18, r: 0.35 }, { x: 78, y: 22, r: 0.4 }, { x: 96, y: 28, r: 0.3 },
+];
 function roadBackdropSvg() {
+  const stars = ROAD_STARS.map((s, i) => `<circle cx="${s.x}" cy="${s.y}" r="${s.r}" fill="#fff"><animate attributeName="opacity" values="0.3;1;0.3" dur="${2.2 + (i % 3) * 0.6}s" begin="${i * 0.3}s" repeatCount="indefinite"/></circle>`).join('');
   return `
-    <circle cx="14" cy="12" r="0.5" fill="#fff" opacity="0.8"/><circle cx="24" cy="8" r="0.4" fill="#fff" opacity="0.7"/>
-    <circle cx="80" cy="10" r="0.5" fill="#fff" opacity="0.8"/><circle cx="90" cy="18" r="0.4" fill="#fff" opacity="0.6"/>
-    <polygon points="30,48 50,6 70,48" fill="#2F5A8A" opacity="0.55"/>
-    <polygon points="42,6 58,6 66,30 34,30" fill="#FFFFFF" opacity="0.3"/>
-    <line x1="50" y1="6" x2="50" y2="16" stroke="#fff" stroke-width="0.8"/>
-    <polygon points="50,6 50,11 56,8.5" fill="#EF4444"/>
+    ${stars}
+    <polygon points="22,52 50,14 78,52" fill="url(#roadMtnBack)"/>
+    <polygon points="34,52 50,24 66,52" fill="url(#roadMtnFront)"/>
+    <polygon points="34,52 50,24 50,52" fill="#ffffff" opacity="0.08"/>
+    <g opacity="0.85">
+      <circle cx="50" cy="16" r="14" fill="url(#roadGlow)"/>
+      <circle cx="50" cy="16" r="7" fill="url(#roadGlow)"/>
+    </g>
+    <polygon points="43,14 57,14 65,36 35,36" fill="#FFFFFF" opacity="0.22"/>
+    <g>
+      <animateTransform attributeName="transform" type="translate" values="0 0;8 0;0 0" dur="20s" repeatCount="indefinite"/>
+      <ellipse cx="14" cy="34" rx="6" ry="2.6" fill="#fff" opacity="0.8"/><ellipse cx="19" cy="32" rx="4.5" ry="2.2" fill="#fff" opacity="0.7"/>
+    </g>
+    <line x1="50" y1="6" x2="50" y2="16" stroke="#E5E7EB" stroke-width="0.8"/>
+    <polygon points="50,6 50,11 56,8.5" fill="#EF4444" stroke="#991B1B" stroke-width="0.3">
+      <animate attributeName="points" values="50,6 50,11 56,8.5;50,6 50,11 54.5,9.5;50,6 50,11 56,8.5" dur="1.4s" repeatCount="indefinite"/>
+    </polygon>
   `;
 }
+
+const CLIFF_BIRDS = [{ x: 18, y: 18 }, { x: 76, y: 14 }, { x: 60, y: 24 }];
 function cliffBackdropSvg() {
+  const birds = CLIFF_BIRDS.map((b, i) => `
+    <g>
+      <animateTransform attributeName="transform" type="translate" values="0 0;${10 + i * 3} -1.5;0 0" dur="${9 + i * 2}s" repeatCount="indefinite"/>
+      <path d="M${b.x},${b.y} q3,-3.3 6,0 q3,-3.3 6,0" stroke="#5B4636" stroke-width="0.6" fill="none" opacity="0.75" stroke-linecap="round"/>
+    </g>`).join('');
   return `
-    <ellipse cx="20" cy="14" rx="7" ry="3" fill="#fff" opacity="0.8"/><ellipse cx="78" cy="10" rx="5.5" ry="2.5" fill="#fff" opacity="0.7"/>
-    <path d="M10,22 q3,-3.5 6,0 q3,-3.5 6,0" stroke="#5B4636" stroke-width="0.6" fill="none" opacity="0.7"/>
-    <path d="M70,16 q3,-3.5 6,0 q3,-3.5 6,0" stroke="#5B4636" stroke-width="0.6" fill="none" opacity="0.7"/>
-    <polygon points="0,100 0,30 48,6 100,50 100,100" fill="#A9826A"/>
-    <polygon points="0,100 0,46 40,24 62,62 100,78 100,100" fill="#8B6952"/>
-    <path d="M50,90 C44,68 56,46 49,10" stroke="#C9A063" stroke-width="1" fill="none" stroke-linecap="round"/>
-    <line x1="48" y1="6" x2="48" y2="16" stroke="#fff" stroke-width="0.8"/>
-    <polygon points="48,6 48,11 54,8.5" fill="#EF4444"/>
+    <circle cx="86" cy="16" r="6.5" fill="url(#cliffSun)" opacity="0.9"/>
+    <ellipse cx="20" cy="14" rx="7" ry="3" fill="#fff" opacity="0.85"/><ellipse cx="26" cy="12" rx="5" ry="2.4" fill="#fff" opacity="0.7"/>
+    ${birds}
+    <polygon points="0,100 0,30 48,6 100,50 100,100" fill="url(#cliffBack)"/>
+    <polygon points="0,100 0,46 40,24 62,62 100,78 100,100" fill="url(#cliffFront)"/>
+    <polygon points="0,46 40,24 44,30 4,52" fill="#ffffff" opacity="0.12"/>
+    <path d="M50,90 C44,68 56,46 49,10" stroke="#8B6952" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+    <path d="M50,90 C44,68 56,46 49,10" stroke="#D9BE92" stroke-width="0.5" fill="none" stroke-linecap="round" stroke-dasharray="1.2,1.4"/>
+    <line x1="48" y1="6" x2="48" y2="16" stroke="#E5E7EB" stroke-width="0.8"/>
+    <polygon points="48,6 48,11 54,8.5" fill="#EF4444" stroke="#991B1B" stroke-width="0.3">
+      <animate attributeName="points" values="48,6 48,11 54,8.5;48,6 48,11 52.5,9.5;48,6 48,11 54,8.5" dur="1.4s" repeatCount="indefinite"/>
+    </polygon>
   `;
 }
 
@@ -4726,14 +4811,21 @@ function renderMountainScene() {
   const expectedFrac = competitor ? competitor.frac : null;
   const points = mountainCheckpoints(total, stage.topY, stage.bottomY);
 
+  // Glossy, slightly-3D checkpoint "buttons" — a radial highlight near the
+  // top-left plus a drop shadow, the classic mobile-game puck look, instead
+  // of a flat Tailwind fill.
   const checkpointsHtml = points.map((p, i) => {
     const t = tasks[i];
     const isDone = t.status === 'Completed';
     const isNext = !isDone && i === done;
     const blocked = !!t.latestUpdateIsBlocker;
-    return `<div class="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full text-[11px] font-bold border-2 transition-all duration-500 ${
-      isDone ? 'bg-emerald-500 border-emerald-600 text-white w-7 h-7' : isNext ? 'bg-amber-300 border-amber-500 text-navy w-7 h-7 animate-pulse' : 'bg-white/80 border-gray-300 text-gray-400 w-6 h-6'
-    }" style="left:${p.x}%;top:${p.y}%" title="${esc(t.title)}${blocked ? ' — 🚧 blocked' : ''}">${isDone ? '✓' : i + 1}${blocked ? '<span class="absolute -top-2 -right-2 text-xs">🚧</span>' : ''}</div>`;
+    const bg = isDone
+      ? 'radial-gradient(circle at 32% 28%, #6EE7A8, #10B981 55%, #047857)'
+      : isNext
+        ? 'radial-gradient(circle at 32% 28%, #FDE68A, #FBBF24 55%, #D97706)'
+        : 'radial-gradient(circle at 32% 28%, #ffffff, #E5E7EB 65%, #CBD5E1)';
+    const size = isDone || isNext ? 'w-7 h-7' : 'w-6 h-6';
+    return `<div class="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full text-[11px] font-bold border transition-all duration-500 ${size} ${isDone ? 'text-white border-emerald-700' : isNext ? 'text-navy border-amber-600 animate-pulse' : 'text-gray-400 border-gray-300'}" style="left:${p.x}%;top:${p.y}%;background:${bg};box-shadow:0 2px 3px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.6);" title="${esc(t.title)}${blocked ? ' — 🚧 blocked' : ''}">${isDone ? '✓' : i + 1}${blocked ? '<span class="absolute -top-2 -right-2 text-xs drop-shadow">🚧</span>' : ''}</div>`;
   }).join('');
 
   const you = mountainPointAt(points, youFrac, stage.topY, stage.bottomY);
@@ -4752,18 +4844,43 @@ function renderMountainScene() {
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="absolute inset-0 w-full h-full">
       <defs>
         <linearGradient id="mtnSky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${isHouse ? '#BFE3F7' : mountainState.stage === 'road' ? '#4F8FD1' : '#F6C9B4'}"/>
-          <stop offset="100%" stop-color="${isHouse ? '#EAF6FB' : mountainState.stage === 'road' ? '#BFE0F5' : '#FDE8D8'}"/>
+          <stop offset="0%" stop-color="${isHouse ? '#8FCBF2' : mountainState.stage === 'road' ? '#2F5FA8' : '#F4A989'}"/>
+          <stop offset="100%" stop-color="${isHouse ? '#E3F5FC' : mountainState.stage === 'road' ? '#A9D3F0' : '#FCE0C8'}"/>
         </linearGradient>
+        <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#FFF4CC"/><stop offset="60%" stop-color="#FDE68A"/><stop offset="100%" stop-color="#FDE68A" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#9BDB7E"/><stop offset="100%" stop-color="#6FB859"/>
+        </linearGradient>
+        <linearGradient id="houseFoundation" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#B6BDC6"/><stop offset="100%" stop-color="#8D95A0"/></linearGradient>
+        <linearGradient id="houseWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFF2D6"/><stop offset="100%" stop-color="#F3D29C"/></linearGradient>
+        <linearGradient id="houseRoof" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#D2691E"/><stop offset="100%" stop-color="#9A4A0E"/></linearGradient>
+        <linearGradient id="houseDoor" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9C6B3F"/><stop offset="100%" stop-color="#6B4423"/></linearGradient>
+        <linearGradient id="houseWindow" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#E0F4FF"/><stop offset="100%" stop-color="#8FCBEA"/></linearGradient>
+        <linearGradient id="houseChimney" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9C6B3F"/><stop offset="100%" stop-color="#6B4423"/></linearGradient>
+        <linearGradient id="roadMtnBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6E9BD6"/><stop offset="100%" stop-color="#3B5F96"/></linearGradient>
+        <linearGradient id="roadMtnFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4C75AE"/><stop offset="100%" stop-color="#2A4670"/></linearGradient>
+        <radialGradient id="roadGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+        <radialGradient id="cliffSun" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFF0DD"/><stop offset="100%" stop-color="#FDBE85" stop-opacity="0.2"/></radialGradient>
+        <linearGradient id="cliffBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#C79B7D"/><stop offset="100%" stop-color="#A9826A"/></linearGradient>
+        <linearGradient id="cliffFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#A3785D"/><stop offset="100%" stop-color="#7C5A43"/></linearGradient>
       </defs>
       <rect x="0" y="0" width="100" height="100" fill="url(#mtnSky)"/>
       ${isHouse ? `
-        <circle cx="84" cy="14" r="7" fill="#FDE68A" opacity="0.9"/>
-        <g opacity="0.85">
-          <ellipse cx="18" cy="16" rx="7" ry="3.2" fill="#fff"/><ellipse cx="24" cy="14" rx="5.5" ry="2.8" fill="#fff"/>
+        <circle cx="84" cy="14" r="13" fill="url(#sunGlow)"/>
+        <circle cx="84" cy="14" r="5.5" fill="#FDE68A"/>
+        <g opacity="0.9">
           <animateTransform attributeName="transform" type="translate" values="0 0;6 0;0 0" dur="18s" repeatCount="indefinite"/>
+          <ellipse cx="18" cy="16" rx="7" ry="3.2" fill="#fff"/><ellipse cx="24" cy="14" rx="5.5" ry="2.8" fill="#fff"/>
         </g>
-        <rect x="0" y="90" width="100" height="10" fill="#8FBF7A"/>
+        <g opacity="0.75">
+          <animateTransform attributeName="transform" type="translate" values="0 0;-5 0;0 0" dur="24s" repeatCount="indefinite"/>
+          <ellipse cx="60" cy="10" rx="5.5" ry="2.4" fill="#fff"/><ellipse cx="65" cy="8.5" rx="4" ry="2" fill="#fff"/>
+        </g>
+        <rect x="0" y="90" width="100" height="10" fill="url(#grassGrad)"/>
+        <rect x="0" y="89.6" width="100" height="1" fill="#ffffff" opacity="0.3"/>
+        ${[8, 18, 78, 92, 15, 85].map((x, i) => `<circle cx="${x}" cy="${91.5 + (i % 2)}" r="0.5" fill="${i % 3 === 0 ? '#FDE68A' : '#FFFFFF'}" opacity="0.8"/>`).join('')}
         ${housePiecesAt(youFrac)}
       ` : mountainState.stage === 'road' ? roadBackdropSvg() : cliffBackdropSvg()}
       ${trail}
