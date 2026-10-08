@@ -448,14 +448,16 @@ const JourneyGame = (() => {
     // Drawn once; never rebuilt, since the cliff itself doesn't change —
     // only what's happening on it does.
     buildCliffFace() {
-      // One continuous cliff massif filling nearly the whole frame — a
-      // single rising ridge with minor natural bumps, not a repeating
-      // row of mountain-range peaks with sky showing through between
-      // them. The climbing route runs up the middle of this one wall.
+      // A side-on view of the cliff — looking along the top of the
+      // plateau edge-on, the way the reference image does, rather than
+      // up at a peaked hillside. That top edge is close to flat (only
+      // small natural variation), not a rising-and-falling ridge line,
+      // because a cliff's top surface is roughly level; what makes it a
+      // cliff is the near-vertical drop below it, not the shape on top.
       const silhouette = [
-        { x: -5, y: 100 }, { x: -5, y: 34 }, { x: 14, y: 26 }, { x: 30, y: 16 },
-        { x: 44, y: 11 }, { x: 56, y: 15 }, { x: 68, y: 9 }, { x: 82, y: 14 },
-        { x: 105, y: 20 }, { x: 105, y: 100 },
+        { x: -5, y: 100 }, { x: -5, y: 21 }, { x: 18, y: 18.5 }, { x: 36, y: 20 },
+        { x: 50, y: 16.5 }, { x: 64, y: 19 }, { x: 80, y: 17 }, { x: 94, y: 19.5 },
+        { x: 105, y: 18 }, { x: 105, y: 100 },
       ];
       this.cliffGfx.fillGradientStyle(0xae6a4e, 0xae6a4e, 0x6b3f30, 0x6b3f30, 1);
       this.cliffGfx.fillPoints(silhouette, true);
@@ -468,14 +470,20 @@ const JourneyGame = (() => {
       this.cliffGfx.fillStyle(0x8a4e3a, 0.35);
       this.cliffGfx.fillPoints([{ x: 40, y: 62 }, { x: 75, y: 55 }, { x: 80, y: 90 }, { x: 45, y: 100 }, { x: 40, y: 90 }], true);
 
-      // A grassy cliff-top edge, following the jagged silhouette line.
-      this.cliffGfx.lineStyle(2.4, 0x5a8a3d, 1);
+      // A grassy plateau top with real depth — a flat-ish top surface
+      // plus the short front lip where it meets the rock — rather than
+      // just a painted line along the silhouette, so looking at it from
+      // the side actually reads as a ledge, not a hairline border.
+      const ridge = silhouette.slice(1, -1);
+      const GRASS_THICK = 2.1;
+      const top = ridge.map(p => ({ x: p.x, y: p.y - GRASS_THICK }));
+      this.cliffGfx.fillStyle(0x5a8a3d, 1);
+      this.cliffGfx.fillPoints([...top, ...ridge.slice().reverse()], true);
+      this.cliffGfx.fillStyle(0x8fc25e, 0.9);
+      this.cliffGfx.fillPoints([...top, ...top.map(p => ({ x: p.x, y: p.y + 0.9 })).reverse()], true);
+      this.cliffGfx.lineStyle(0.35, 0x3f6b2a, 0.8);
       this.cliffGfx.beginPath();
-      silhouette.slice(1, -1).forEach((p, i) => { if (i === 0) this.cliffGfx.moveTo(p.x, p.y); else this.cliffGfx.lineTo(p.x, p.y); });
-      this.cliffGfx.strokePath();
-      this.cliffGfx.lineStyle(1, 0x7fb858, 1);
-      this.cliffGfx.beginPath();
-      silhouette.slice(1, -1).forEach((p, i) => { if (i === 0) this.cliffGfx.moveTo(p.x, p.y - 0.6); else this.cliffGfx.lineTo(p.x, p.y - 0.6); });
+      ridge.forEach((p, i) => { if (i === 0) this.cliffGfx.moveTo(p.x, p.y); else this.cliffGfx.lineTo(p.x, p.y); });
       this.cliffGfx.strokePath();
     }
 
