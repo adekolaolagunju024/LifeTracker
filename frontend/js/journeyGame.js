@@ -281,13 +281,13 @@ const JourneyGame = (() => {
     for (let i = 0; i < n; i++) {
       const t = n > 1 ? i / (n - 1) : 1;
       const y = BOTTOM_Y - t * (BOTTOM_Y - TOP_Y);
-      const amp = 2.6 - t * 1.4;
+      const amp = 6 - t * 3;
       const side = i % 2 === 0 ? -1 : 1;
       points.push({ x: CENTER_X + side * amp, y });
     }
     return points;
   }
-  function checkpointRadius(n) { return Math.max(1.5, Math.min(3.4, 28 / Math.max(1, n))); }
+  function checkpointRadius(n) { return Math.max(1.8, Math.min(4.2, 34 / Math.max(1, n))); }
   function positionAt(points, frac) {
     if (!points.length) return { x: CENTER_X, y: BOTTOM_Y };
     if (frac <= 0) return points[0];
@@ -571,20 +571,22 @@ const JourneyGame = (() => {
     drawRope(points) {
       this.ropeGfx.clear();
       const all = [{ x: CENTER_X, y: BOTTOM_Y + 6 }, ...points, { x: CENTER_X, y: TOP_Y - 5 }];
-      this.ropeGfx.lineStyle(0.95, 0x6b5a46, 0.95);
-      this.ropeGfx.beginPath(); this.ropeGfx.moveTo(all[0].x, all[0].y);
-      all.slice(1).forEach(p => this.ropeGfx.lineTo(p.x, p.y));
-      this.ropeGfx.strokePath();
-      this.ropeGfx.lineStyle(0.32, 0xff8a42, 1);
-      this.ropeGfx.beginPath(); this.ropeGfx.moveTo(all[0].x, all[0].y);
-      all.slice(1).forEach(p => this.ropeGfx.lineTo(p.x, p.y));
-      this.ropeGfx.strokePath();
-      // A thin offset highlight stripe — gives the rope a round, lit
-      // cross-section instead of reading as a flat ribbon.
-      this.ropeGfx.lineStyle(0.14, 0xffd9a8, 0.8);
-      this.ropeGfx.beginPath(); this.ropeGfx.moveTo(all[0].x - 0.25, all[0].y);
-      all.slice(1).forEach(p => this.ropeGfx.lineTo(p.x - 0.25, p.y));
-      this.ropeGfx.strokePath();
+      const stroke = (w, col, a, dx) => {
+        this.ropeGfx.lineStyle(w, col, a);
+        this.ropeGfx.beginPath(); this.ropeGfx.moveTo(all[0].x + (dx || 0), all[0].y);
+        all.slice(1).forEach(p => this.ropeGfx.lineTo(p.x + (dx || 0), p.y));
+        this.ropeGfx.strokePath();
+      };
+      // A dark halo stroke first — makes the rope read clearly against
+      // *any* patch of the rock texture behind it, not just the ones it
+      // happens to contrast with. Then a light manila-rope tan (not a
+      // dark brown that blends straight into the cliff) with a shadow
+      // stripe and a bright highlight stripe either side for a round,
+      // twisted-fiber look instead of a flat ribbon.
+      stroke(1.8, 0x241a12, 0.45);
+      stroke(1.15, 0xe4d2a0, 1);
+      stroke(0.4, 0xb08f58, 0.85, 0.3);
+      stroke(0.22, 0xfff6e0, 0.95, -0.28);
 
       // A summit anchor — the piton the rope is actually fixed to.
       const anchor = all[all.length - 1];
