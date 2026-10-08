@@ -4459,17 +4459,13 @@ function workerSvgMarkup(animated) {
     </svg>`;
 }
 
-// ── JOURNEY ──────────────────────────────────────────────────────
-// Two selectable stages (remembered per project), each a full scene
-// rendered by the Phaser game in frontend/js/journeyGame.js: a climber
-// rope-ascending a cliff, or a car switchbacking up a mountain road.
-// Picking one from the dropdown in the view's own header swaps the whole
-// backdrop and avatar; this object is just metadata for the status line
-// and title — all actual drawing lives in journeyGame.js.
-const JOURNEY_STAGES = {
-  cliff: { label: '🧗 Cliff Climb', checkpointNoun: 'tasks', doneLabel: 'Summit reached', doneEmoji: '🚩' },
-  mountain: { label: '🚗 Mountain Drive', checkpointNoun: 'tasks', doneLabel: 'You made it to the summit', doneEmoji: '🏔️' },
-};
+// ── JOURNEY ("Launch to Orbit") ────────────────────────────────────
+// A single scene — no stage picker. A rocket lifts off from a launchpad
+// and climbs straight up toward a space station, one burn per completed
+// task. All actual drawing (the rocket, the stars, the station, the
+// burn animation, particles) lives in the Phaser scene in
+// frontend/js/journeyGame.js; this is just metadata for the status line.
+const JOURNEY_META = { checkpointNoun: 'tasks', doneLabel: 'Docked at the station', doneEmoji: '🛰️' };
 
 // Entry point from a project's own header button — jumps to the Gantt
 // page, points its (shared) project filter at this project, and switches
@@ -4491,16 +4487,14 @@ async function renderJourneyView() {
   const statusEl = document.getElementById('mountain-status');
   const competitorSel = document.getElementById('journey-competitor-select');
   const resetBtn = document.getElementById('journey-reset-btn');
-  const stageSel = document.getElementById('journey-stage-select');
   if (!projectId) {
-    titleEl.textContent = '🧭 Journey';
+    titleEl.textContent = '🚀 Journey';
     statusEl.textContent = 'Pick a specific project from the filter above — a Journey is one project at a time.';
     JourneyGame.destroy();
     document.getElementById('mountain-tasklist').innerHTML = '';
     document.getElementById('mountain-celebrate').classList.add('hidden');
     if (competitorSel) competitorSel.classList.add('hidden');
     if (resetBtn) resetBtn.classList.add('hidden');
-    if (stageSel) stageSel.classList.add('hidden');
     mountainState = null;
     API.getJourneyGaming().then(updateJourneyLevelBadge).catch(() => {});
     return;
@@ -4525,12 +4519,8 @@ async function renderJourneyView() {
     let competitor = 'schedule';
     try { competitor = localStorage.getItem('journeyCompetitor:' + projectId) || 'schedule'; } catch { /* private mode etc */ }
     if (competitor !== 'schedule' && !racers.some(r => r.userId === competitor)) competitor = 'schedule';
-    let stage = 'cliff';
-    try { stage = localStorage.getItem('journeyStage:' + projectId) || 'cliff'; } catch { /* private mode etc */ }
-    if (!JOURNEY_STAGES[stage]) stage = 'cliff';
-    mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor', racers, competitor, stage };
-    titleEl.textContent = `${JOURNEY_STAGES[stage].label.split(' ')[0]} ${project.icon || ''} ${project.title}`;
-    if (stageSel) { stageSel.classList.remove('hidden'); stageSel.value = stage; }
+    mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor', racers, competitor };
+    titleEl.textContent = `🚀 ${project.icon || ''} ${project.title}`;
     if (resetBtn) resetBtn.classList.toggle('hidden', !mountainState.canEdit);
     if (competitorSel) {
       if (racers.length) {
@@ -4556,17 +4546,6 @@ function setJourneyCompetitor(value) {
   if (!mountainState) return;
   mountainState.competitor = value;
   try { localStorage.setItem('journeyCompetitor:' + mountainState.projectId, value); } catch { /* private mode etc */ }
-  renderMountainScene();
-}
-
-// Switching which scene this project's progress plays out in — Cliff
-// Climb or Mountain Drive. Remembered per project, same as the
-// competitor choice, so different projects can each have their own look.
-function setJourneyStage(value) {
-  if (!mountainState || !JOURNEY_STAGES[value]) return;
-  mountainState.stage = value;
-  try { localStorage.setItem('journeyStage:' + mountainState.projectId, value); } catch { /* private mode etc */ }
-  document.getElementById('mountain-title').textContent = `${JOURNEY_STAGES[value].label.split(' ')[0]} ${mountainState.project.icon || ''} ${mountainState.project.title}`;
   renderMountainScene();
 }
 
@@ -4623,8 +4602,6 @@ function mountainExpectedFraction() {
 // rendering instead of a hand-built SVG string.
 function renderMountainScene() {
   const { tasks } = mountainState;
-  const stage = JOURNEY_STAGES[mountainState.stage] || JOURNEY_STAGES.cliff;
-  const stageKey = mountainState.stage || 'cliff';
   const total = tasks.length;
   const done = tasks.filter(t => t.status === 'Completed').length;
   const youFrac = total ? done / total : 0;
@@ -4634,7 +4611,7 @@ function renderMountainScene() {
 
   const container = document.getElementById('mountain-scene');
   JourneyGame.sync(container, {
-    stageKey, tasks, youFrac, summitLit,
+    tasks, youFrac, summitLit,
     // Null when there's nothing to actually pace against (no dates set, or
     // a teammate with none of these tasks assigned) — showing a ghost
     // frozen at the start forever would just read as a second character
@@ -4644,12 +4621,12 @@ function renderMountainScene() {
   });
 
   const statusEl = document.getElementById('mountain-status');
-  const phase = JourneyGame.buildPhaseLabel(youFrac, stageKey);
-  const noun = stage.checkpointNoun;
+  const phase = JourneyGame.buildPhaseLabel(youFrac);
+  const noun = JOURNEY_META.checkpointNoun;
   if (!total) {
-    statusEl.textContent = stageKey === 'mountain' ? 'Add tasks to this project to start the drive.' : 'Add tasks to this project to start the climb.';
+    statusEl.textContent = 'Add tasks to this project to start the launch sequence.';
   } else if (summitLit) {
-    statusEl.textContent = `${stage.doneEmoji} ${stage.doneLabel} — every task done!`;
+    statusEl.textContent = `${JOURNEY_META.doneEmoji} ${JOURNEY_META.doneLabel} — every task done!`;
   } else if (expectedFrac === null) {
     statusEl.textContent = `${done} of ${total} ${noun} · ${phase} · no deadlines set, so just go at your own pace.`;
   } else if (youFrac > expectedFrac + 0.03) {
@@ -4734,12 +4711,11 @@ function resetJourneyProgress() {
 // automatically from renderMountainScene's sync once it detects every
 // checkpoint just went done) — this only owns the DOM modal.
 // Uses the same full-screen swipe-to-dismiss overlay the rest of the app
-// shows for a whole-project completion, flavored with the current stage's
-// wording and whatever the competitor race looked like — rather than its
-// own separate small in-scene modal, so finishing a project reads the
-// same way everywhere, not just inside Journey.
+// shows for a whole-project completion, flavored with whatever the
+// competitor race looked like — rather than its own separate small
+// in-scene modal, so finishing a project reads the same way everywhere,
+// not just inside Journey.
 function showMountainCelebration() {
-  const stage = JOURNEY_STAGES[mountainState.stage] || JOURNEY_STAGES.cliff;
   const competitor = competitorFraction();
   let message;
   if (competitor.frac === null) {
@@ -4749,7 +4725,7 @@ function showMountainCelebration() {
   } else {
     message = `You finished "${mountainState.project.title}". You made it — that's what counts!`;
   }
-  showProjectCompleteOverlay(mountainState.project.title, { message, heading: `${stage.doneLabel}!`, emoji: stage.doneEmoji });
+  showProjectCompleteOverlay(mountainState.project.title, { message, heading: `${JOURNEY_META.doneLabel}!`, emoji: JOURNEY_META.doneEmoji });
 }
 
 // ── SCREEN-WIDE CELEBRATIONS ──────────────────────────────────
