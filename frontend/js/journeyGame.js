@@ -448,10 +448,14 @@ const JourneyGame = (() => {
     // Drawn once; never rebuilt, since the cliff itself doesn't change —
     // only what's happening on it does.
     buildCliffFace() {
+      // One continuous cliff massif filling nearly the whole frame — a
+      // single rising ridge with minor natural bumps, not a repeating
+      // row of mountain-range peaks with sky showing through between
+      // them. The climbing route runs up the middle of this one wall.
       const silhouette = [
-        { x: -5, y: 100 }, { x: -5, y: 34 }, { x: 8, y: 26 }, { x: 20, y: 31 },
-        { x: 33, y: 20 }, { x: 46, y: 27 }, { x: 58, y: 17 }, { x: 72, y: 25 },
-        { x: 85, y: 18 }, { x: 105, y: 28 }, { x: 105, y: 100 },
+        { x: -5, y: 100 }, { x: -5, y: 34 }, { x: 14, y: 26 }, { x: 30, y: 16 },
+        { x: 44, y: 11 }, { x: 56, y: 15 }, { x: 68, y: 9 }, { x: 82, y: 14 },
+        { x: 105, y: 20 }, { x: 105, y: 100 },
       ];
       this.cliffGfx.fillGradientStyle(0xae6a4e, 0xae6a4e, 0x6b3f30, 0x6b3f30, 1);
       this.cliffGfx.fillPoints(silhouette, true);
