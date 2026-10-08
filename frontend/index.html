@@ -2033,9 +2033,13 @@
 <!-- TOAST -->
 <div class="toast bg-navy text-white px-5 py-3 rounded-xl text-sm font-medium shadow-xl" id="toast"></div>
 
-<!-- Screen-wide celebration layer — fires from anywhere a task is completed,
-     not just inside Journey view. Always on top, never blocks clicks. -->
+<!-- Screen-wide celebration layers — fire from anywhere a task (or a whole
+     project) is completed, not just inside Journey view. Always on top,
+     never blocks clicks. Balloons get their own canvas so their rise-and-
+     clear loop doesn't fight confetti's independent fall-and-clear loop
+     if both are animating at once (the whole-project moment). -->
 <canvas id="global-confetti" class="fixed inset-0 z-[9999] pointer-events-none"></canvas>
+<canvas id="global-balloons" class="fixed inset-0 z-[9999] pointer-events-none"></canvas>
 
 <!-- SCRIPTS -->
 <script src="js/api.js"></script>

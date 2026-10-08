@@ -150,6 +150,25 @@ const JourneyGame = (() => {
       this._lastSummit = false;
       this._lastHouseFrac = -1;
 
+      // Small reusable particle textures, generated once at runtime — no
+      // external art, same principle as every other shape in this scene.
+      // Drawn in plain white so each particle's own `tint` config recolors
+      // it correctly (tint is a multiply against the source pixels).
+      if (!this.textures.exists('journeyDot')) {
+        const dotG = this.add.graphics();
+        dotG.fillStyle(0xffffff, 1); dotG.fillRect(0, 0, 4, 4);
+        dotG.generateTexture('journeyDot', 4, 4);
+        dotG.destroy();
+      }
+      if (!this.textures.exists('journeyBalloon')) {
+        const balloonG = this.add.graphics();
+        balloonG.fillStyle(0xffffff, 1);
+        balloonG.fillEllipse(6, 7, 9, 12);
+        balloonG.fillTriangle(6, 12.5, 4.3, 14.5, 7.7, 14.5);
+        balloonG.generateTexture('journeyBalloon', 12, 16);
+        balloonG.destroy();
+      }
+
       this.input.on('pointerdown', (p) => {
         if (!this.root.scaleX) return;
         this.burst(p.x / this.root.scaleX, p.y / this.root.scaleY, 9, null);
@@ -452,6 +471,7 @@ const JourneyGame = (() => {
         this.burst(50, 8, 90, pal.trail);
         this.burst(30, 20, 60, pal.trail);
         this.burst(70, 20, 60, pal.trail);
+        this.burstBalloons(10);
       }
       this._lastSummit = state.summitLit;
     }
@@ -471,6 +491,28 @@ const JourneyGame = (() => {
       this.fxLayer.add(emitter);
       emitter.explode(count);
       this.time.delayedCall(900, () => emitter.destroy());
+    }
+
+    // Balloons rising from the base of the scene — the whole-project
+    // moment only, never a per-checkpoint one. Opposite physics from
+    // confetti (gentle upward drift, slight sway, no gravity) rather than
+    // a fast gravity-driven burst.
+    burstBalloons(count) {
+      const colors = [0xEF4444, 0xF59E0B, 0x22C55E, 0x3B82F6, 0xEC4899, 0xA855F7, 0x0A7E8C];
+      const emitter = this.add.particles(50, 95, 'journeyBalloon', {
+        x: { min: 15, max: 85 },
+        speedY: { min: -26, max: -16 },
+        speedX: { min: -4, max: 4 },
+        lifespan: 2600,
+        scale: { start: 1, end: 0.85 },
+        alpha: { start: 1, end: 0 },
+        quantity: count,
+        tint: colors,
+        emitting: false,
+      });
+      this.fxLayer.add(emitter);
+      emitter.explode(count);
+      this.time.delayedCall(2700, () => emitter.destroy());
     }
     };
     return JourneySceneClass;

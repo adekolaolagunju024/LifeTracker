@@ -4787,6 +4787,69 @@ function fireBigScreenConfetti() {
   });
 }
 
+// Balloons rising from the bottom of the screen — the opposite physics
+// from confetti (up and gentle instead of down and fast), reserved for the
+// bigger whole-project moment. Its own canvas (see index.html) so its
+// clear-and-redraw loop doesn't fight confetti's independent one if both
+// are animating at the same time.
+function fireBalloons(count) {
+  const canvas = document.getElementById('global-balloons');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx = canvas.getContext('2d');
+  const colors = ['#EF4444', '#F59E0B', '#22C55E', '#3B82F6', '#EC4899', '#A855F7', '#0A7E8C'];
+  const balloons = Array.from({ length: count }, () => ({
+    x: Math.random() * canvas.width,
+    y: canvas.height + Math.random() * 300,
+    vy: -(Math.random() * 1.3 + 1.1),
+    sway: Math.random() * 1.6 + 0.6,
+    swayFreq: Math.random() * 0.02 + 0.015,
+    phase: Math.random() * Math.PI * 2,
+    size: Math.random() * 12 + 20,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    t: 0,
+  }));
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    balloons.forEach(b => {
+      b.t += 1;
+      b.y += b.vy;
+      b.x += Math.sin(b.t * b.swayFreq + b.phase) * b.sway * 0.1;
+      if (b.y > -60) {
+        alive = true;
+        const fadeTop = canvas.height * 0.12; // fade out as it nears the top
+        const alpha = b.y < fadeTop ? Math.max(0, b.y / fadeTop) : 1;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = b.color;
+        // Balloon body
+        ctx.beginPath();
+        ctx.ellipse(b.x, b.y, b.size * 0.42, b.size * 0.52, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Knot
+        ctx.beginPath();
+        ctx.moveTo(b.x - 3, b.y + b.size * 0.48);
+        ctx.lineTo(b.x + 3, b.y + b.size * 0.48);
+        ctx.lineTo(b.x, b.y + b.size * 0.58);
+        ctx.closePath();
+        ctx.fill();
+        // String
+        ctx.strokeStyle = b.color;
+        ctx.globalAlpha = alpha * 0.5;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(b.x, b.y + b.size * 0.58);
+        ctx.lineTo(b.x + Math.sin(b.t * 0.05) * 3, b.y + b.size * 0.58 + 18);
+        ctx.stroke();
+        ctx.restore();
+      }
+    });
+    if (alive) requestAnimationFrame(tick); else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  tick();
+}
+
 async function celebrateTaskCompletion(task) {
   // XP/level-up/achievement toasts matter regardless of which view is open
   // — they're not Journey-view-local the way the confetti below is.
@@ -4810,6 +4873,7 @@ async function celebrateTaskCompletion(task) {
       const top = project.parentId ? await API.getProject(topId) : project;
       setTimeout(() => {
         fireBigScreenConfetti();
+        fireBalloons(14);
         showToast(`🏆 Project complete: "${top.title}"! Incredible work.`);
       }, 400);
     }
