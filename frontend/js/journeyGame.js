@@ -16,6 +16,15 @@
 // JourneyGame.sync({...}) with the derived values each time something
 // changes; this module owns only rendering and animation, diffing the
 // new state against the last sync to decide what should animate.
+//
+// Deliberately minimal backdrops: an earlier version layered rock/snow
+// texture, crack lines, a rim-light sweep, several cloud clusters,
+// ambient birds, and per-milestone drawings (ledges, eagles, pine
+// clusters) on top of each other — individually each seemed reasonable,
+// together it read as cluttered. The backdrop here is a flat gradient
+// plus the path and checkpoints; progress is told through the avatar's
+// motion and the status line's text, not through more things drawn on
+// screen. Resist adding another decorative layer without removing one.
 const JourneyGame = (() => {
   // Falls back to jsDelivr if cdnjs is unreachable (a network filter or ad
   // blocker blocking one CDN but not the other is common enough to be
@@ -74,21 +83,6 @@ const JourneyGame = (() => {
     const label = sc.add.text(x, y, str, { fontSize: FONT_PX + 'px', fontStyle: fontWeight || 'bold', fontFamily: 'Arial, sans-serif', color }).setOrigin(0.5);
     label.setScale(targetSize / FONT_PX);
     return label;
-  }
-
-  // A distant bird: an open gull-wing stroke (two shallow V's meeting in
-  // the middle) — the classic small-bird mark, legible at a glance.
-  // A *filled* triangle at this size reads as an arrowhead or debris
-  // instead, so this is a stroke, never a fill.
-  function drawBird(g, x, y, s, alpha) {
-    g.lineStyle(0.35 * s, 0x3a2f28, alpha != null ? alpha : 0.8);
-    g.beginPath();
-    g.moveTo(x - 2.4 * s, y + 0.3 * s);
-    g.lineTo(x - 0.6 * s, y - 1 * s);
-    g.lineTo(x, y - 0.2 * s);
-    g.lineTo(x + 0.6 * s, y - 1 * s);
-    g.lineTo(x + 2.4 * s, y + 0.3 * s);
-    g.strokePath();
   }
 
   // ── THE CLIMBER — a chibi figure clinging to the rock, Container-per-
@@ -401,9 +395,12 @@ const JourneyGame = (() => {
     return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
   }
 
-  // ── CLIFF MILESTONE FLOURISHES — a handful of real additions keyed to
-  // overall progress (not a fixed per-task step) so the climb reads as
-  // more than just the route itself, regardless of task count.
+  // ── CLIFF MILESTONE LABELS — status-line text only, no scene drawing.
+  // An earlier version rendered a ledge/eagle/cloud-bank/flag for each of
+  // these, layered on an already-detailed rock face; the combination was
+  // the single biggest source of visual clutter in the whole scene. The
+  // narrative progression is worth keeping as *text* (it costs nothing to
+  // look at), the drawings weren't.
   const CLIFF_FLOURISHES = [
     { at: 0.14, label: 'Chalking up and clipping in' },
     { at: 0.32, label: 'Resting on a ledge' },
@@ -411,51 +408,6 @@ const JourneyGame = (() => {
     { at: 0.72, label: 'Breaking through the clouds' },
     { at: 0.90, label: 'Summit in sight' },
   ];
-  function drawCliffFlourish(g, index, sc) {
-    switch (index) {
-      case 0: { // chalk bag glint + first anchor sparkle, drawn near the base
-        const p = { x: CENTER_X + 15, y: BOTTOM_Y - 10 };
-        g.fillStyle(0xffffff, 0.5); g.fillCircle(p.x, p.y, 1.1);
-        break;
-      }
-      case 1: { // a jutting resting ledge — a few shades lighter than the
-        // surrounding rock bands, with a dark underside, so it reads as a
-        // real outcrop rather than blending into the cliff texture.
-        const y = BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.34;
-        g.fillStyle(0x3a322a, 0.4); g.fillEllipse(CENTER_X - 6, y + 2.6, 21, 3.2); // contact shadow
-        g.fillStyle(0x5c4f3f, 1); g.fillEllipse(CENTER_X - 6, y + 1.6, 20, 3); // underside
-        g.fillStyle(0xe0c49a, 1); g.fillEllipse(CENTER_X - 6, y, 20, 3.4); // top surface
-        g.fillStyle(0xfff0d0, 0.8); g.fillEllipse(CENTER_X - 10, y - 0.6, 7, 1.6); // sunlit highlight
-        g.lineStyle(0.25, 0xfff6e2, 0.7); g.beginPath(); g.moveTo(CENTER_X - 15.5, y - 1.2); g.lineTo(CENTER_X + 3.5, y - 1.2); g.strokePath(); // glossy rim
-        g.fillStyle(0x4a6b3a, 0.85); g.fillEllipse(CENTER_X - 13, y - 0.9, 3.4, 1.5); // tuft of grass
-        g.fillStyle(0x5c8a4c, 0.85); g.fillEllipse(CENTER_X + 2, y - 0.8, 2.6, 1.2);
-        break;
-      }
-      case 2: { // an eagle, same gull-wing mark as the ambient birds, larger
-        const p = { x: CENTER_X + 24, y: BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.56 };
-        drawBird(g, p.x, p.y, 2.2, 0.9);
-        if (sc) sc._eagle = p;
-        break;
-      }
-      case 3: { // a soft cloud bank drifting right past the climber —
-        // same punchier cloud palette as the ambient sky clouds.
-        const y = BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.68;
-        [[-18, 0], [-6, 1.5], [10, -1], [20, 1]].forEach(([dx, dy], i) => {
-          g.fillStyle(i % 2 ? 0xffcdb0 : 0xffb894, 0.9); g.fillEllipse(CENTER_X + dx, y + dy, 13, 4.2);
-          g.fillStyle(0xfff0e2, 0.55); g.fillEllipse(CENTER_X + dx - 2, y + dy - 1.4, 6, 1.8);
-        });
-        break;
-      }
-      case 4: { // a small glossy marker flag just below the summit
-        const y = TOP_Y + 5;
-        g.fillStyle(0x6b5d4f, 1); g.fillRect(CENTER_X + 20 - 0.15, y - 4, 0.3, 4);
-        g.fillStyle(0xff9d2e, 1); g.fillTriangle(CENTER_X + 20.15, y - 4, CENTER_X + 20.15, y - 2.3, CENTER_X + 23, y - 3.15);
-        g.fillStyle(0xffe2ad, 0.6); g.fillTriangle(CENTER_X + 20.15, y - 4, CENTER_X + 20.15, y - 3.3, CENTER_X + 21.6, y - 3.65);
-        break;
-      }
-      default: break;
-    }
-  }
 
   // ── MOUNTAIN ROUTE — a switchback road, one bend per task. A road
   // (unlike a taut rope) genuinely zigzags, so this uses a much wider
@@ -472,8 +424,7 @@ const JourneyGame = (() => {
     return points;
   }
 
-  // ── MOUNTAIN MILESTONE FLOURISHES — the driving equivalent of the
-  // cliff's ledge/eagle/clouds beats.
+  // ── MOUNTAIN MILESTONE LABELS — same change as the cliff's: text only.
   const MOUNTAIN_FLOURISHES = [
     { at: 0.14, label: 'Leaving the trailhead' },
     { at: 0.32, label: 'Through the pine forest' },
@@ -481,47 +432,6 @@ const JourneyGame = (() => {
     { at: 0.72, label: 'Into the clouds' },
     { at: 0.90, label: 'Snow on the road ahead' },
   ];
-  function pineTree(g, x, y, s) {
-    g.fillStyle(0x6b4a2e, 1); g.fillRect(x - 0.3 * s, y - 0.5 * s, 0.6 * s, 1.6 * s);
-    g.fillStyle(0x2f6b3a, 1); g.fillTriangle(x - 2.6 * s, y - 0.4 * s, x, y - 6.2 * s, x + 2.6 * s, y - 0.4 * s);
-    g.fillStyle(0x3f8a4a, 1); g.fillTriangle(x - 2.0 * s, y - 2.2 * s, x, y - 7.2 * s, x + 2.0 * s, y - 2.2 * s);
-    g.fillStyle(0x58a85e, 0.7); g.fillTriangle(x - 1.1 * s, y - 4.6 * s, x, y - 7.2 * s, x + 0.3 * s, y - 4.6 * s);
-  }
-  function drawMountainFlourish(g, index, sc) {
-    switch (index) {
-      case 0: { // a cluster of roadside pines near the trailhead
-        [[-16, 0], [-12, 1.2], [14, -0.5]].forEach(([dx, dy]) => pineTree(g, CENTER_X + dx, BOTTOM_Y - 4 + dy, 1.1));
-        break;
-      }
-      case 1: { // a denser pine forest band beside the road
-        const y = BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.3;
-        [[-22, 0], [-18, 2], [20, -1], [24, 1.5], [-26, 3]].forEach(([dx, dy]) => pineTree(g, CENTER_X + dx, y + dy, 1.3));
-        break;
-      }
-      case 2: { // a hawk, same mark as the cliff's eagle
-        const p = { x: CENTER_X - 22, y: BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.56 };
-        drawBird(g, p.x, p.y, 2.2, 0.9);
-        if (sc) sc._eagle = p;
-        break;
-      }
-      case 3: { // a cloud bank the road climbs into
-        const y = BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.68;
-        [[-18, 0], [-6, 1.5], [10, -1], [20, 1]].forEach(([dx, dy], i) => {
-          g.fillStyle(i % 2 ? 0xf4f8fc : 0xe3eef5, 0.9); g.fillEllipse(CENTER_X + dx, y + dy, 13, 4.2);
-          g.fillStyle(0xffffff, 0.6); g.fillEllipse(CENTER_X + dx - 2, y + dy - 1.4, 6, 1.8);
-        });
-        break;
-      }
-      case 4: { // the first dusting of snow beside the road
-        const y = BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.86;
-        [[-16, 0], [-10, 1.5], [18, -1], [12, 1]].forEach(([dx, dy]) => {
-          g.fillStyle(0xffffff, 0.9); g.fillEllipse(CENTER_X + dx, y + dy, 5, 2);
-        });
-        break;
-      }
-      default: break;
-    }
-  }
 
   let game = null, scene = null, pendingState = null, ro = null, mountEl = null;
 
@@ -535,19 +445,17 @@ const JourneyGame = (() => {
       this.sky = this.add.graphics();
       this.bgGfx = this.add.graphics();
       this.decor = this.add.container(0, 0);
-      this.flourishGfx = this.add.graphics();
       this.pathGfx = this.add.graphics();
       this.checkpointsLayer = this.add.container(0, 0);
       this.ghostLayer = this.add.container(0, 0);
       this.climberLayer = this.add.container(0, 0);
       this.fxLayer = this.add.container(0, 0);
-      this.root = this.add.container(0, 0, [this.sky, this.bgGfx, this.decor, this.flourishGfx, this.pathGfx, this.checkpointsLayer, this.ghostLayer, this.climberLayer, this.fxLayer]);
+      this.root = this.add.container(0, 0, [this.sky, this.bgGfx, this.decor, this.pathGfx, this.checkpointsLayer, this.ghostLayer, this.climberLayer, this.fxLayer]);
 
       this._lastYouFrac = null;
       this._lastStageKey = null;
       this._lastDoneIds = new Set();
       this._lastSummit = false;
-      this._lastFlourishFrac = -1;
       this._moving = false;
 
       if (!this.textures.exists('journeyDot')) {
@@ -600,70 +508,30 @@ const JourneyGame = (() => {
       if (stageKey === 'mountain') this.buildMountainStatic(); else this.buildCliffStatic();
     }
 
-    // A warm dawn gradient sky, soft pink clouds drifting below the
-    // climber (the "high enough to be above the weather" read), a few
-    // ambient birds, and the rock face itself — drawn once and left
-    // alone; progress is expressed through the climber, the rope, and the
-    // milestone flourishes, not by rebuilding the mountain. Flat, bold
-    // color blocks over busy texture — a stylized illustration, not a
-    // photo-real cliff.
+    // A plain sky, one simple sun, the rock face, and nothing else —
+    // deliberately minimal. An earlier version layered rock texture,
+    // crack lines, a rim-light sweep, five cloud clusters, and ambient
+    // birds on top of each other here; the combination was the clutter,
+    // not any one piece of it. Progress is expressed through the
+    // climber, the rope, and the checkpoints — the backdrop's job is
+    // just to not fight with any of that for attention.
     buildCliffStatic() {
-      // A punchier, more saturated dawn gradient — the muted version read
-      // as flat/washed-out; mobile-game skies lean vivid.
-      this.sky.fillGradientStyle(0x2f5fb0, 0x2f5fb0, 0xff9d6e, 0xff9d6e, 1);
+      this.sky.fillGradientStyle(0x4a7fc4, 0x4a7fc4, 0xf4c99a, 0xf4c99a, 1);
       this.sky.fillRect(0, 0, 100, 100);
 
-      // A small, contained glossy sun — layered rings, but kept tight so
-      // it reads as a bright disc, not a wash over a quarter of the sky.
-      const sun = this.add.container(84, 14);
-      [[7, 0xffe8b0, 0.3], [4.6, 0xffd98a, 0.5], [2.8, 0xfff3cf, 0.9], [1.6, 0xffffff, 1]].forEach(([r, col, a]) => sun.add(this.add.circle(0, 0, r, col, a)));
+      const sun = this.add.circle(84, 14, 4, 0xfff3cf, 1);
       this.decor.add(sun);
-      this.tweens.add({ targets: sun.list[0], scale: 1.2, alpha: 0.18, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-
-      // Soft pink/peach cloud clusters, lower in the frame so the climber
-      // reads as above them — each a handful of overlapping ellipses with
-      // a brighter top lobe for a touch of gloss.
-      const cloudAt = (cx, cy, scale, tint, hi) => {
-        const g = this.add.graphics();
-        g.fillStyle(tint, 0.92);
-        [[-7, 0.5, 6.5, 3], [-2, -1.2, 7, 3.6], [4, 0.3, 6, 3], [9, 1, 5, 2.6]].forEach(([dx, dy, w, h]) => g.fillEllipse(dx * scale, dy * scale, w * scale, h * scale));
-        g.fillStyle(hi, 0.55);
-        g.fillEllipse(-1 * scale, -2.1 * scale, 5 * scale, 2 * scale);
-        g.setPosition(cx, cy);
-        return g;
-      };
-      this.decor.add(cloudAt(20, 62, 1.1, 0xffc19f, 0xffe9d8));
-      this.decor.add(cloudAt(85, 70, 1.3, 0xffcdb0, 0xfff0e2));
-      this.decor.add(cloudAt(14, 80, 0.9, 0xffe4d2, 0xfffaf4));
-      this.decor.add(cloudAt(60, 85, 1.1, 0xffc19f, 0xffe9d8));
-      this.decor.add(cloudAt(92, 40, 0.7, 0xffe4d2, 0xfffaf4));
-
-      // A few ambient birds, purely atmospheric.
-      [[30, 22, 1], [40, 30, 0.75], [15, 35, 0.85], [68, 15, 0.95]].forEach(([x, y, s]) => {
-        const g = this.add.graphics();
-        drawBird(g, 0, 0, s);
-        g.setPosition(x, y);
-        this.decor.add(g);
-      });
 
       this.buildCliffFace();
 
-      // Base camp — a small glossy tent + flag at the foot of the climb.
+      // Base camp — a simple flat flag at the foot of the climb.
       const base = this.add.graphics();
-      base.fillStyle(0x000000, 0.18); base.fillEllipse(CENTER_X - 22, BOTTOM_Y + 9, 9, 1.8); // contact shadow
-      base.fillStyle(0x14b8a6, 1); base.fillTriangle(CENTER_X - 22, BOTTOM_Y + 4, CENTER_X - 26, BOTTOM_Y + 8.5, CENTER_X - 18, BOTTOM_Y + 8.5);
-      base.fillStyle(0x0f766e, 1); base.fillTriangle(CENTER_X - 22, BOTTOM_Y + 4, CENTER_X - 22, BOTTOM_Y + 8.5, CENTER_X - 18, BOTTOM_Y + 8.5);
-      base.fillStyle(0x5eead4, 0.6); base.fillTriangle(CENTER_X - 22, BOTTOM_Y + 4, CENTER_X - 25, BOTTOM_Y + 8.5, CENTER_X - 23, BOTTOM_Y + 8.5);
       base.fillStyle(0x374151, 1); base.fillRect(CENTER_X - 22.15, BOTTOM_Y - 1, 0.3, 5);
-      base.fillStyle(0xff5a4e, 1); base.fillTriangle(CENTER_X - 21.85, BOTTOM_Y - 1, CENTER_X - 21.85, BOTTOM_Y + 0.6, CENTER_X - 19.6, BOTTOM_Y - 0.2);
-      base.fillStyle(0xffb3ab, 0.5); base.fillTriangle(CENTER_X - 21.85, BOTTOM_Y - 1, CENTER_X - 21.85, BOTTOM_Y - 0.5, CENTER_X - 20.7, BOTTOM_Y - 0.65);
+      base.fillStyle(0xef4444, 1); base.fillTriangle(CENTER_X - 21.85, BOTTOM_Y - 1, CENTER_X - 21.85, BOTTOM_Y + 0.6, CENTER_X - 19.6, BOTTOM_Y - 0.2);
       this.decor.add(base);
     }
 
-    // A warm terracotta rock face — a clean gradient block with a couple
-    // of broad soft highlight sweeps, and a grassy green edge where it
-    // meets the sky, rather than literal striped strata/cracks/moss. The
-    // stylized-illustration look over a busy, photo-real texture pass.
+    // The rock face — one gradient fill plus a flat grass strip on top.
     // Drawn once; never rebuilt, since the cliff itself doesn't change —
     // only what's happening on it does.
     buildCliffFace() {
@@ -678,119 +546,40 @@ const JourneyGame = (() => {
         { x: 50, y: 16.5 }, { x: 64, y: 19 }, { x: 80, y: 17 }, { x: 94, y: 19.5 },
         { x: 105, y: 18 }, { x: 105, y: 100 },
       ];
-      // A richer, more saturated terracotta — the muted version read as
-      // washed-out next to a vivid sky.
       this.bgGfx.fillGradientStyle(0xc4744f, 0xc4744f, 0x6b3a28, 0x6b3a28, 1);
       this.bgGfx.fillPoints(silhouette, true);
 
-      // A modest, soft glow suggesting the sun catches this corner of the
-      // rock — small and low-alpha so it reads as light, not a wash.
-      this.bgGfx.fillStyle(0xffcf9a, 0.14);
-      this.bgGfx.fillCircle(90, 22, 20);
-
-      // Real rock texture: a field of small soft blotches in varying
-      // warm tones (sunlit bumps, shadowed pockets) instead of a couple
-      // of large flat-shaded panels — this is what actually reads as
-      // "rock" rather than "a few big triangles of slightly different
-      // brown". Seeded so the texture is stable for this scene instance.
-      let seed = 1337;
-      const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed % 10000) / 10000; };
-      const tones = [[0xe8a870, 0.34], [0xdd8f5c, 0.34], [0x8a4e3a, 0.3], [0x6f3c2b, 0.28], [0xc47f51, 0.24], [0xffe2b8, 0.18]];
-      for (let i = 0; i < 90; i++) {
-        const x = -3 + rand() * 106;
-        const y = 23 + rand() * 76;
-        const r = 1.6 + rand() * 4.4;
-        const [color, alpha] = tones[Math.floor(rand() * tones.length)];
-        this.bgGfx.fillStyle(color, alpha * (0.6 + rand() * 0.5));
-        this.bgGfx.fillCircle(x, y, r);
-      }
-      // A handful of thin crack lines for grit, low-opacity so they read
-      // as detail rather than damage.
-      this.bgGfx.lineStyle(0.22, 0x3a2a20, 0.3);
-      [[22, 40, 28, 62], [66, 34, 60, 58], [38, 68, 44, 92], [84, 44, 90, 76]].forEach(([x1, y1, x2, y2]) => {
-        this.bgGfx.beginPath(); this.bgGfx.moveTo(x1, y1);
-        this.bgGfx.lineTo((x1 + x2) / 2 + 1.5, (y1 + y2) / 2); this.bgGfx.lineTo(x2, y2); this.bgGfx.strokePath();
-      });
-
-      // A bright rim-light along the sun-facing (right) side of the
-      // cliff's silhouette — the single highest-impact "polished mobile
-      // game" trick: a saturated light edge where a form turns away from
-      // the light, instead of flat, evenly-lit color everywhere.
-      this.bgGfx.lineStyle(0.9, 0xffe1b0, 0.55);
-      this.bgGfx.beginPath();
-      this.bgGfx.moveTo(64, 19); this.bgGfx.lineTo(80, 17); this.bgGfx.lineTo(94, 19.5); this.bgGfx.lineTo(105, 18);
-      this.bgGfx.strokePath();
-
-      // A grassy plateau top with real depth — a flat-ish top surface
-      // plus the short front lip where it meets the rock — rather than
-      // just a painted line along the silhouette, so looking at it from
-      // the side actually reads as a ledge, not a hairline border.
+      // A flat two-tone grass strip along the top edge.
       const ridge = silhouette.slice(1, -1);
-      const GRASS_THICK = 2.1;
-      const top = ridge.map(p => ({ x: p.x, y: p.y - GRASS_THICK }));
+      const top = ridge.map(p => ({ x: p.x, y: p.y - 2.1 }));
       this.bgGfx.fillStyle(0x4a7a2d, 1);
       this.bgGfx.fillPoints([...top, ...ridge.slice().reverse()], true);
-      this.bgGfx.fillStyle(0x7fd14a, 0.95);
+      this.bgGfx.fillStyle(0x6cb847, 1);
       this.bgGfx.fillPoints([...top, ...top.map(p => ({ x: p.x, y: p.y + 0.9 })).reverse()], true);
-      // A thin glossy highlight along the very top edge of the grass.
-      this.bgGfx.lineStyle(0.3, 0xc8f08a, 0.7);
-      this.bgGfx.beginPath();
-      top.forEach((p, i) => { if (i === 0) this.bgGfx.moveTo(p.x, p.y); else this.bgGfx.lineTo(p.x, p.y); });
-      this.bgGfx.strokePath();
-      this.bgGfx.lineStyle(0.35, 0x3f6b2a, 0.8);
-      this.bgGfx.beginPath();
-      ridge.forEach((p, i) => { if (i === 0) this.bgGfx.moveTo(p.x, p.y); else this.bgGfx.lineTo(p.x, p.y); });
-      this.bgGfx.strokePath();
     }
 
     // "Mountain Drive" — a clear-day sky (a different mood from the
     // cliff's dawn, so the two stages don't just look like recolors of
     // each other) over a snow-capped peak the road switches back up.
+    // Same deliberately-minimal approach as the cliff.
     buildMountainStatic() {
       this.sky.fillGradientStyle(0x2a6fb0, 0x2a6fb0, 0xcfeaf7, 0xcfeaf7, 1);
       this.sky.fillRect(0, 0, 100, 100);
 
-      const sun = this.add.container(18, 13);
-      [[7, 0xffffff, 0.25], [4.6, 0xfff9e0, 0.5], [2.8, 0xffffff, 0.9], [1.6, 0xffffff, 1]].forEach(([r, col, a]) => sun.add(this.add.circle(0, 0, r, col, a)));
+      const sun = this.add.circle(18, 13, 4, 0xffffff, 1);
       this.decor.add(sun);
-      this.tweens.add({ targets: sun.list[0], scale: 1.2, alpha: 0.15, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-
-      const cloudAt = (cx, cy, scale, tint, hi) => {
-        const g = this.add.graphics();
-        g.fillStyle(tint, 0.92);
-        [[-7, 0.5, 6.5, 3], [-2, -1.2, 7, 3.6], [4, 0.3, 6, 3], [9, 1, 5, 2.6]].forEach(([dx, dy, w, h]) => g.fillEllipse(dx * scale, dy * scale, w * scale, h * scale));
-        g.fillStyle(hi, 0.6); g.fillEllipse(-1 * scale, -2.1 * scale, 5 * scale, 2 * scale);
-        g.setPosition(cx, cy);
-        return g;
-      };
-      this.decor.add(cloudAt(80, 20, 1.1, 0xffffff, 0xffffff));
-      this.decor.add(cloudAt(60, 60, 0.9, 0xe9f3f8, 0xffffff));
-      this.decor.add(cloudAt(90, 72, 1.2, 0xe9f3f8, 0xffffff));
-      this.decor.add(cloudAt(10, 45, 0.7, 0xf2f8fb, 0xffffff));
-
-      [[30, 22, 1], [40, 30, 0.75], [68, 15, 0.95]].forEach(([x, y, s]) => {
-        const g = this.add.graphics();
-        drawBird(g, 0, 0, s);
-        g.setPosition(x, y);
-        this.decor.add(g);
-      });
 
       this.buildMountainFace();
 
-      // A trailhead sign at the foot of the road.
+      // A simple trailhead sign at the foot of the road.
       const base = this.add.graphics();
-      base.fillStyle(0x000000, 0.18); base.fillEllipse(CENTER_X - 22, BOTTOM_Y + 9, 7, 1.6);
       base.fillStyle(0x6b4a2e, 1); base.fillRect(CENTER_X - 22.15, BOTTOM_Y - 1, 0.3, 9);
       base.fillStyle(0xd1d5db, 1); base.fillRoundedRect(CENTER_X - 25.5, BOTTOM_Y - 1.5, 7, 3.4, 0.5);
-      base.fillStyle(0xffffff, 0.4); base.fillRoundedRect(CENTER_X - 25.5, BOTTOM_Y - 1.5, 3, 3.4, 0.5);
       this.decor.add(base);
     }
 
-    // A snow-capped peak — a gradient from forest green at the base
-    // through bare rock to white snow at the summit, built from one
-    // gradient fill (always stays inside the silhouette, unlike separate
-    // inset polygons) plus a rocky texture band and a brighter snow cap
-    // cluster so the transition actually reads as three zones.
+    // A snow-capped peak — one gradient fill from forest green at the
+    // base to white at the summit. Drawn once; never rebuilt.
     buildMountainFace() {
       const silhouette = [
         { x: -5, y: 100 }, { x: -5, y: 86 }, { x: 18, y: 48 }, { x: 34, y: 62 },
@@ -798,40 +587,6 @@ const JourneyGame = (() => {
       ];
       this.bgGfx.fillGradientStyle(0xf4f8fc, 0xf4f8fc, 0x3f6b35, 0x3f6b35, 1);
       this.bgGfx.fillPoints(silhouette, true);
-
-      // A rocky gray texture band across the middle third, the same
-      // "scattered soft blotches" trick as the cliff's rock texture.
-      let seed = 777;
-      const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed % 10000) / 10000; };
-      const tones = [[0x8a8f94, 0.3], [0x6f757b, 0.3], [0xa3a8ad, 0.22], [0x5c6066, 0.26]];
-      for (let i = 0; i < 55; i++) {
-        const x = 10 + rand() * 80;
-        const y = 32 + rand() * 32;
-        const r = 1.6 + rand() * 3.6;
-        const [color, alpha] = tones[Math.floor(rand() * tones.length)];
-        this.bgGfx.fillStyle(color, alpha * (0.6 + rand() * 0.5));
-        this.bgGfx.fillCircle(x, y, r);
-      }
-
-      // A brighter snow-cap cluster right at the peak, so the gradient's
-      // natural white-at-top isn't the only thing selling "snow".
-      [[50, 16, 9], [43, 24, 6], [57, 23, 6.5], [50, 30, 5]].forEach(([x, y, r]) => {
-        this.bgGfx.fillStyle(0xffffff, 0.85); this.bgGfx.fillCircle(x, y, r);
-      });
-      this.bgGfx.fillStyle(0xdbe9f2, 0.5); this.bgGfx.fillCircle(46, 20, 4);
-
-      // Rim-light along the sun-facing (left, where this stage's sun
-      // sits) slope.
-      this.bgGfx.lineStyle(0.9, 0xffffff, 0.5);
-      this.bgGfx.beginPath();
-      this.bgGfx.moveTo(18, 48); this.bgGfx.lineTo(34, 62); this.bgGfx.lineTo(50, 10);
-      this.bgGfx.strokePath();
-
-      // Green foothill texture near the base.
-      [[15, 80], [30, 88], [70, 86], [88, 82]].forEach(([x, y]) => {
-        this.bgGfx.fillStyle(0x2f6b3a, 0.5); this.bgGfx.fillEllipse(x, y, 8, 3.4);
-        this.bgGfx.fillStyle(0x3f8a4a, 0.5); this.bgGfx.fillEllipse(x + 1.5, y + 1, 5, 2.2);
-      });
     }
 
     // One real rope, fixed at a summit anchor and run straight down past
@@ -848,16 +603,10 @@ const JourneyGame = (() => {
         all.slice(1).forEach(p => this.pathGfx.lineTo(p.x + (dx || 0), p.y));
         this.pathGfx.strokePath();
       };
-      // A dark halo stroke first — makes the rope read clearly against
-      // *any* patch of the rock texture behind it, not just the ones it
-      // happens to contrast with. Then a light manila-rope tan (not a
-      // dark brown that blends straight into the cliff) with a shadow
-      // stripe and a bright highlight stripe either side for a round,
-      // twisted-fiber look instead of a flat ribbon.
+      // A dark halo stroke first — makes the rope read clearly against the
+      // rock behind it — then a light manila-rope tan on top.
       stroke(1.8, 0x241a12, 0.45);
       stroke(1.15, 0xe4d2a0, 1);
-      stroke(0.4, 0xb08f58, 0.85, 0.3);
-      stroke(0.22, 0xfff6e0, 0.95, -0.28);
 
       // A summit anchor — the piton the rope is actually fixed to.
       const anchor = all[all.length - 1];
@@ -876,9 +625,8 @@ const JourneyGame = (() => {
         all.slice(1).forEach(p => fn.lineTo(p.x, p.y));
         fn.strokePath();
       };
-      this.pathGfx.lineStyle(4.6, 0x000000, 0.22); path(this.pathGfx); // contact shadow, offset-free (good enough at this scale)
+      this.pathGfx.lineStyle(4.6, 0x000000, 0.2); path(this.pathGfx); // contact shadow
       this.pathGfx.lineStyle(4, 0x4b5259, 1); path(this.pathGfx); // asphalt
-      this.pathGfx.lineStyle(2.4, 0x5c646b, 0.6); path(this.pathGfx); // center sheen
 
       // A dashed yellow centerline, built per-segment so the dashes stay
       // evenly spaced along each bend rather than one continuous stroke.
@@ -895,12 +643,6 @@ const JourneyGame = (() => {
           this.pathGfx.strokePath();
         }
       }
-
-      // Guardrail posts along the outer edge of each bend.
-      points.forEach((p) => {
-        const side = p.x > CENTER_X ? 1 : -1;
-        this.pathGfx.fillStyle(0xe5e7eb, 0.95); this.pathGfx.fillRoundedRect(p.x + side * 2.3 - 0.25, p.y - 1, 0.5, 2, 0.2);
-      });
 
       // A summit gate — the arrival marker the road's own checkpoint
       // circle sits in front of.
@@ -938,14 +680,12 @@ const JourneyGame = (() => {
           parts.push(glow);
           this.tweens.add({ targets: glow, scale: 1.25, alpha: 0.12, duration: 750, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         }
-        // A piton/anchor look: a bright metal ring behind a solid disc,
-        // rather than a plain dot — plus a strong specular highlight for
-        // a glossy, lit-from-above read.
-        const ring = this.add.circle(0, 0, r * 1.22, 0x9aa3ad, 0.95);
+        // A plain disc with one soft highlight — enough to read as a
+        // marker, not a layered "game node" with a ring, a glow, and two
+        // separate specular highlights competing for attention.
         const base = this.add.circle(0, 0, r, color);
-        const hi = this.add.circle(-r * 0.32, -r * 0.35, r * 0.46, 0xffffff, 0.75);
-        const hi2 = this.add.circle(r * 0.28, r * 0.15, r * 0.14, 0xffffff, 0.4);
-        parts.push(ring, base, hi, hi2);
+        const hi = this.add.circle(-r * 0.32, -r * 0.35, r * 0.4, 0xffffff, 0.55);
+        parts.push(base, hi);
         c.add(parts);
         if (showLabel) {
           const labelColor = isDone ? '#ffffff' : isNext ? '#3a2a00' : '#4B5563';
@@ -957,26 +697,6 @@ const JourneyGame = (() => {
         c.setScale(1, this.roundFix || 1);
         this.checkpointsLayer.add(c);
       });
-    }
-
-    buildFlourishesAt(stageKey, frac) {
-      this.flourishGfx.clear();
-      const list = stageKey === 'mountain' ? MOUNTAIN_FLOURISHES : CLIFF_FLOURISHES;
-      const drawFn = stageKey === 'mountain' ? drawMountainFlourish : drawCliffFlourish;
-      list.forEach((f, i) => { if (frac > f.at) drawFn(this.flourishGfx, i, this); });
-      // The circling bird (eagle/hawk) gets a gentle drift once it exists.
-      if (this._eagle && frac > list[2].at) {
-        if (!this._eagleTween) {
-          this._eagleAngle = 0;
-          this._eagleTween = this.tweens.addCounter({ from: 0, to: Math.PI * 2, duration: 6000, repeat: -1, onUpdate: (tw) => {
-            this._eagleAngle = tw.getValue();
-            this.flourishGfx.clear();
-            list.forEach((f2, i2) => { if (frac > f2.at && i2 !== 2) drawFn(this.flourishGfx, i2, this); });
-            const ex = this._eagle.x + Math.cos(this._eagleAngle) * 6, ey = this._eagle.y + Math.sin(this._eagleAngle) * 2.2;
-            drawBird(this.flourishGfx, ex, ey, 2.2, 0.85);
-          } });
-        }
-      }
     }
 
     applyState(state) {
@@ -994,14 +714,8 @@ const JourneyGame = (() => {
         const avatar = stageKey === 'mountain' ? buildVehicle(this, true) : buildClimber(this, true);
         avatar.setScale(1, this.roundFix || 1);
         this.climberLayer.add(avatar);
-        if (this._eagleTween) { this._eagleTween.remove(); this._eagleTween = null; }
-        this._eagle = null;
-        this._lastFlourishFrac = -1;
       }
       this._lastStageKey = stageKey;
-
-      this.buildFlourishesAt(stageKey, state.youFrac);
-      this._lastFlourishFrac = state.youFrac;
 
       const points = stageKey === 'mountain' ? mountainRoute(state.tasks.length) : climbRoute(state.tasks.length);
       const doneCount = state.tasks.filter(t => t.status === 'Completed').length;
