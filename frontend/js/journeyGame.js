@@ -109,19 +109,26 @@ const JourneyGame = (() => {
     const rightLeg = sc.add.container(2.6, -7.2, [legGeom(-1.4, true)]);
     rightLeg.setAngle(12);
 
+    // Long enough that, rotated ~165° from its hanging-down rest
+    // direction, the hand clears well above the head to grip the rope
+    // instead of crossing in front of the face.
     const armGeom = (x) => {
       const g = sc.add.graphics();
-      g.fillStyle(C.jacketDark, 1); g.fillRoundedRect(x, 0, 2.6, 6.4, 1.3);
-      g.fillStyle(C.jacket, 1); g.fillRoundedRect(x, 0, 2.6, 3.9, 1.3);
-      g.fillStyle(C.skin, 1); g.fillCircle(x + 1.3, 6.4, 1.55); // gripping hand
-      outline(g); g.strokeRoundedRect(x, 0, 2.6, 6.4, 1.3);
+      g.fillStyle(C.jacketDark, 1); g.fillRoundedRect(x, 0, 2.6, 8.6, 1.3);
+      g.fillStyle(C.jacket, 1); g.fillRoundedRect(x, 0, 2.6, 4.6, 1.3);
+      g.fillStyle(C.skin, 1); g.fillCircle(x + 1.3, 8.6, 1.55); // gripping hand
+      outline(g); g.strokeRoundedRect(x, 0, 2.6, 8.6, 1.3);
       return g;
     };
-    // Both arms reach upward to holds, one higher than the other.
-    const backArm = sc.add.container(-5.6, -16.8, [armGeom(-1.3)]);
-    backArm.setAngle(-48);
-    const frontArm = sc.add.container(4.6, -15.2, [armGeom(-1.3)]);
-    frontArm.setAngle(58);
+    // Both hands grip the rope itself, nearly overhead — a rope ascent,
+    // not a reach for scattered rock holds — one hand higher than the
+    // other, hand-over-hand. (The arm's local "rest" direction points
+    // straight down from its shoulder pivot at angle 0, so ~130° of
+    // rotation is what actually swings the hand up above the head.)
+    const backArm = sc.add.container(-3.4, -16.6, [armGeom(-1.3)]);
+    backArm.setAngle(-165);
+    const frontArm = sc.add.container(3.6, -15.4, [armGeom(-1.3)]);
+    frontArm.setAngle(165);
 
     const body = sc.add.graphics();
     body.fillStyle(C.jacketDark, 1); body.fillRoundedRect(-5.0, -15.8, 10.0, 9.4, 3.2);
@@ -172,8 +179,8 @@ const JourneyGame = (() => {
       // small continuous grip adjustments, independently timed per limb
       // so it doesn't read as a mechanical loop.
       const idle = { ease: 'Sine.easeInOut', yoyo: true, repeat: -1 };
-      sc.tweens.add({ targets: backArm, angle: { from: -48, to: -41 }, duration: 900, ...idle });
-      sc.tweens.add({ targets: frontArm, angle: { from: 58, to: 51 }, duration: 760, delay: 180, ...idle });
+      sc.tweens.add({ targets: backArm, angle: { from: -165, to: -158 }, duration: 900, ...idle });
+      sc.tweens.add({ targets: frontArm, angle: { from: 165, to: 158 }, duration: 760, delay: 180, ...idle });
       sc.tweens.add({ targets: leftLeg, angle: { from: -34, to: -27 }, duration: 1100, delay: 320, ...idle });
       sc.tweens.add({ targets: rightLeg, angle: { from: 12, to: 18 }, duration: 980, delay: 90, ...idle });
       sc.tweens.add({ targets: art, y: { from: 0, to: -0.6 }, duration: 1400, ...idle });
@@ -182,10 +189,10 @@ const JourneyGame = (() => {
     return root;
   }
 
-  // A real three-beat climbing action instead of a sliding tween: reach
-  // for the next hold, pull up to it, settle. Called once per newly
-  // completed task so progress is something the climber visibly *does*,
-  // not just a position that changes.
+  // A real three-beat rope-ascent action instead of a sliding tween:
+  // reach higher up the rope, pull the body up hand-over-hand, settle.
+  // Called once per newly completed task so progress is something the
+  // climber visibly *does*, not just a position that changes.
   function climbMove(sc, climber, toX, toY, onComplete) {
     const p = climber._parts;
     if (!p) { sc.tweens.add({ targets: climber, x: toX, y: toY, duration: 700, ease: 'Sine.easeInOut', onComplete }); return; }
@@ -193,31 +200,31 @@ const JourneyGame = (() => {
     const fromX = climber.x, fromY = climber.y;
     const liftX = fromX + (toX - fromX) * 0.35, liftY = fromY - 4;
     const tl = [];
-    // Beat 1 — reach: front arm extends further up, back leg drives up
-    // for a foothold.
+    // Beat 1 — reach: the front hand slides further up the rope, back leg
+    // drives up against the rock for the push.
     tl.push(() => {
-      sc.tweens.add({ targets: p.frontArm, angle: 80, duration: 260, ease: 'Sine.easeOut' });
+      sc.tweens.add({ targets: p.frontArm, angle: 178, duration: 260, ease: 'Sine.easeOut' });
       sc.tweens.add({ targets: p.rightLeg, angle: -10, duration: 260, ease: 'Sine.easeOut' });
-      sc.tweens.add({ targets: p.effortBrow || p.body, duration: 1 }); // no-op guard if absent
       sc.time.delayedCall(260, run.bind(null, 1));
     });
-    // Beat 2 — pull: the whole body arcs up to the next hold while limbs
-    // contract, with a small chalk-puff where the new hold is grabbed.
+    // Beat 2 — pull: hand-over-hand up the rope while the body rises —
+    // the back hand releases and drops toward the chest as the body
+    // passes it — with a small chalk-puff at the new grip.
     tl.push(() => {
       sc.tweens.add({ targets: climber, x: liftX, y: liftY, duration: 210, ease: 'Sine.easeIn' });
       sc.tweens.add({
         targets: climber, x: toX, y: toY, duration: 300, delay: 210, ease: 'Sine.easeOut',
-        onComplete: () => { chalkPuff(sc, climber.x, climber.y - 9); },
+        onComplete: () => { chalkPuff(sc, climber.x, climber.y - 11); },
       });
-      sc.tweens.add({ targets: p.backArm, angle: -30, duration: 480, ease: 'Sine.easeInOut' });
+      sc.tweens.add({ targets: p.backArm, angle: -105, duration: 480, ease: 'Sine.easeInOut' });
       sc.tweens.add({ targets: p.leftLeg, angle: -46, duration: 480, ease: 'Sine.easeInOut' });
       sc.time.delayedCall(510, run.bind(null, 2));
     });
-    // Beat 3 — settle: limbs ease back to the resting cling pose and the
-    // idle sway resumes.
+    // Beat 3 — settle: limbs ease back to the resting rope-grip pose and
+    // the idle sway resumes.
     tl.push(() => {
-      sc.tweens.add({ targets: p.backArm, angle: -48, duration: 260, ease: 'Sine.easeOut' });
-      sc.tweens.add({ targets: p.frontArm, angle: 58, duration: 260, ease: 'Sine.easeOut' });
+      sc.tweens.add({ targets: p.backArm, angle: -165, duration: 260, ease: 'Sine.easeOut' });
+      sc.tweens.add({ targets: p.frontArm, angle: 165, duration: 260, ease: 'Sine.easeOut' });
       sc.tweens.add({ targets: p.leftLeg, angle: -34, duration: 260, ease: 'Sine.easeOut' });
       sc.tweens.add({ targets: p.rightLeg, angle: 12, duration: 260, ease: 'Sine.easeOut',
         onComplete: () => { startIdleSway(sc, p); if (onComplete) onComplete(); } });
@@ -227,8 +234,8 @@ const JourneyGame = (() => {
   }
   function startIdleSway(sc, p) {
     const idle = { ease: 'Sine.easeInOut', yoyo: true, repeat: -1 };
-    sc.tweens.add({ targets: p.backArm, angle: { from: -48, to: -41 }, duration: 900, ...idle });
-    sc.tweens.add({ targets: p.frontArm, angle: { from: 58, to: 51 }, duration: 760, delay: 180, ...idle });
+    sc.tweens.add({ targets: p.backArm, angle: { from: -165, to: -158 }, duration: 900, ...idle });
+    sc.tweens.add({ targets: p.frontArm, angle: { from: 165, to: 158 }, duration: 760, delay: 180, ...idle });
     sc.tweens.add({ targets: p.leftLeg, angle: { from: -34, to: -27 }, duration: 1100, delay: 320, ...idle });
     sc.tweens.add({ targets: p.rightLeg, angle: { from: 12, to: 18 }, duration: 980, delay: 90, ...idle });
   }
@@ -240,17 +247,17 @@ const JourneyGame = (() => {
     sc.time.delayedCall(450, () => emitter.destroy());
   }
 
-  // ── THE ROUTE — a zigzag line of anchor points up the rock face, one
-  // per task. Both the vertical reach and the side-to-side amplitude are
-  // fixed to the cliff's own height; only the marker size and count
-  // adapt, via checkpointRadius(), so a long task list still fits without
-  // anchors overlapping.
+  // ── THE ROUTE — one rope, anchored at the summit and run straight down
+  // to the base, with a clip point per task. A real rope hangs close to
+  // vertical under its own tension, so the per-point sideways jitter is
+  // small — just enough that the clips don't all stack on one line —
+  // rather than the wide switchback a walking trail would use.
   function climbRoute(n) {
     const points = [];
     for (let i = 0; i < n; i++) {
       const t = n > 1 ? i / (n - 1) : 1;
       const y = BOTTOM_Y - t * (BOTTOM_Y - TOP_Y);
-      const amp = 9 - t * 6;
+      const amp = 2.6 - t * 1.4;
       const side = i % 2 === 0 ? -1 : 1;
       points.push({ x: CENTER_X + side * amp, y });
     }
@@ -468,20 +475,27 @@ const JourneyGame = (() => {
       this.cliffGfx.strokePath();
     }
 
-    // The rope: taut and bright for the stretch already climbed, slack
-    // and dull for what's still ahead — visually splitting "done" from
-    // "left to go" the same way the checkpoint colors do.
-    drawRope(points, doneCount) {
+    // One real rope, fixed at a summit anchor and run straight down past
+    // every clip point to the base — not a trail that changes color as
+    // you go, since it's a single physical rope that's already fully
+    // rigged top to bottom. A twisted-fiber look (a dark base strand plus
+    // a thinner warm highlight strand) instead of a flat line.
+    drawRope(points) {
       this.ropeGfx.clear();
-      const all = [{ x: CENTER_X, y: BOTTOM_Y + 6 }, ...points, { x: CENTER_X, y: TOP_Y - 4 }];
-      for (let i = 0; i < all.length - 1; i++) {
-        const a = all[i], b = all[i + 1];
-        const climbed = i < doneCount;
-        this.ropeGfx.lineStyle(0.85, climbed ? 0x7a7265 : 0xd8cdb8, climbed ? 0.95 : 0.8);
-        this.ropeGfx.beginPath(); this.ropeGfx.moveTo(a.x, a.y); this.ropeGfx.lineTo(b.x, b.y); this.ropeGfx.strokePath();
-        this.ropeGfx.lineStyle(0.3, climbed ? 0xe8722f : 0xb8ab93, climbed ? 1 : 0.85);
-        this.ropeGfx.beginPath(); this.ropeGfx.moveTo(a.x, a.y); this.ropeGfx.lineTo(b.x, b.y); this.ropeGfx.strokePath();
-      }
+      const all = [{ x: CENTER_X, y: BOTTOM_Y + 6 }, ...points, { x: CENTER_X, y: TOP_Y - 5 }];
+      this.ropeGfx.lineStyle(0.95, 0x6b5a46, 0.95);
+      this.ropeGfx.beginPath(); this.ropeGfx.moveTo(all[0].x, all[0].y);
+      all.slice(1).forEach(p => this.ropeGfx.lineTo(p.x, p.y));
+      this.ropeGfx.strokePath();
+      this.ropeGfx.lineStyle(0.32, 0xe8722f, 1);
+      this.ropeGfx.beginPath(); this.ropeGfx.moveTo(all[0].x, all[0].y);
+      all.slice(1).forEach(p => this.ropeGfx.lineTo(p.x, p.y));
+      this.ropeGfx.strokePath();
+
+      // A summit anchor — the piton the rope is actually fixed to.
+      const anchor = all[all.length - 1];
+      this.ropeGfx.fillStyle(0x4b5563, 1); this.ropeGfx.fillRoundedRect(anchor.x - 0.5, anchor.y - 1.6, 1, 2.2, 0.3);
+      this.ropeGfx.lineStyle(0.3, 0x374151, 1); this.ropeGfx.strokeCircle(anchor.x, anchor.y - 1.6, 1.1);
     }
 
     buildCheckpoints(points, tasks, doneCount) {
@@ -540,7 +554,7 @@ const JourneyGame = (() => {
 
       const points = climbRoute(state.tasks.length);
       const doneCount = state.tasks.filter(t => t.status === 'Completed').length;
-      this.drawRope(points, doneCount);
+      this.drawRope(points);
       this.buildCheckpoints(points, state.tasks, doneCount);
 
       // Celebrate any checkpoint that's newly done since the last sync —
