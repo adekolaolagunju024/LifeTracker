@@ -50,7 +50,13 @@ const JourneyGame = (() => {
   }
 
   const DONE_COLOR = 0x10b981, NEXT_COLOR = 0xfbbf24, PENDING_COLOR = 0xcbd5c8;
-  const TOP_Y = 16, BOTTOM_Y = 90, CENTER_X = 50;
+  // TOP_Y leaves real headroom above the final checkpoint — the avatar's
+  // own head/roof and the summit anchor/gate decorations all extend
+  // further up than their checkpoint's own y, and at 16 that extension
+  // routinely pushed them above y=0 and off the top of the canvas
+  // entirely (confirmed from a user screenshot: the car and the summit
+  // gate were both visibly cropped at full completion).
+  const TOP_Y = 27, BOTTOM_Y = 90, CENTER_X = 50;
 
   function shade(color, factor) {
     const c = Phaser.Display.Color.ValueToColor(color);
@@ -98,6 +104,11 @@ const JourneyGame = (() => {
     helmet: 0xfbbf24, helmetDark: 0xd99e1a, harness: 0x1f2937,
   };
   function outline(g, col) { g.lineStyle(0.3, col || 0x1a2230, 0.3); }
+  // Drawn in profile, facing right — a silhouette with depth (back limbs
+  // drawn behind the torso, front limbs in front of it) rather than a
+  // front-facing figure with mirrored arms/legs. A side view reads the
+  // climbing motion far better: the reach-and-pull is something you see
+  // happen in front of the body, not a symmetric pose facing the camera.
   function buildClimber(sc, animated) {
     // `root` is a bare position handle — applyState()/climbMove() tween
     // its x/y to move the climber up the rope, and the caller applies the
@@ -109,104 +120,102 @@ const JourneyGame = (() => {
     art.setScale(0.46);
     root.add(art);
 
-    const legGeom = (x, flip) => {
+    const legGeom = (toeFwd) => {
       const g = sc.add.graphics();
-      g.fillStyle(C.pantsDark, 1); g.fillRoundedRect(x, 0, 2.8, 7.6, 1.2);
-      g.fillStyle(C.pants, 1); g.fillRoundedRect(x, 0, 2.8, 5, 1.2);
-      g.fillStyle(C.shoe, 1); g.fillRoundedRect(x - (flip ? 0.6 : 0.1), 6.4, 3.3, 2, 1);
-      outline(g); g.strokeRoundedRect(x, 0, 2.8, 7.6, 1.2);
+      g.fillStyle(C.pantsDark, 1); g.fillRoundedRect(-1.4, 0, 2.8, 7.6, 1.2);
+      g.fillStyle(C.pants, 1); g.fillRoundedRect(-1.4, 0, 2.8, 5, 1.2);
+      g.fillStyle(C.shoe, 1); g.fillRoundedRect(toeFwd ? -0.6 : -1.9, 6.4, 3.4, 2, 1);
+      outline(g); g.strokeRoundedRect(-1.4, 0, 2.8, 7.6, 1.2);
       return g;
     };
-    // Cling pose: one knee driven up onto a foothold, the other braced
-    // lower — not a neutral standing stance.
-    const leftLeg = sc.add.container(-2.4, -6.2, [legGeom(-1.4, false)]);
-    leftLeg.setAngle(-34);
-    const rightLeg = sc.add.container(2.6, -7.2, [legGeom(-1.4, true)]);
-    rightLeg.setAngle(12);
+    // Cling pose, side-on: the front (right, facing-direction) leg driven
+    // up onto a foothold, the back (left) leg trailing down and behind.
+    const backLeg = sc.add.container(-1.0, -6.0, [legGeom(false)]);
+    backLeg.setAngle(-16);
+    const frontLeg = sc.add.container(2.2, -7.2, [legGeom(true)]);
+    frontLeg.setAngle(-46);
 
     // Long enough that, rotated ~165° from its hanging-down rest
     // direction, the hand clears well above the head to grip the rope
     // instead of crossing in front of the face.
-    const armGeom = (x) => {
+    const armGeom = () => {
       const g = sc.add.graphics();
-      g.fillStyle(C.jacketDark, 1); g.fillRoundedRect(x, 0, 2.6, 8.6, 1.3);
-      g.fillStyle(C.jacket, 1); g.fillRoundedRect(x, 0, 2.6, 4.6, 1.3);
-      g.fillStyle(C.skin, 1); g.fillCircle(x + 1.3, 8.6, 1.55); // gripping hand
-      outline(g); g.strokeRoundedRect(x, 0, 2.6, 8.6, 1.3);
+      g.fillStyle(C.jacketDark, 1); g.fillRoundedRect(-1.3, 0, 2.6, 8.6, 1.3);
+      g.fillStyle(C.jacket, 1); g.fillRoundedRect(-1.3, 0, 2.6, 4.6, 1.3);
+      g.fillStyle(C.skin, 1); g.fillCircle(0, 8.6, 1.55); // gripping hand
+      outline(g); g.strokeRoundedRect(-1.3, 0, 2.6, 8.6, 1.3);
       return g;
     };
     // Both hands grip the rope itself, nearly overhead — a rope ascent,
-    // not a reach for scattered rock holds — one hand higher than the
-    // other, hand-over-hand. (The arm's local "rest" direction points
-    // straight down from its shoulder pivot at angle 0, so ~130° of
-    // rotation is what actually swings the hand up above the head.)
-    const backArm = sc.add.container(-3.4, -16.6, [armGeom(-1.3)]);
-    backArm.setAngle(-165);
-    const frontArm = sc.add.container(3.6, -15.4, [armGeom(-1.3)]);
-    frontArm.setAngle(165);
+    // not a reach for scattered rock holds — the front arm higher than
+    // the back, hand-over-hand.
+    const backArm = sc.add.container(-1.8, -15.6, [armGeom()]);
+    backArm.setAngle(-160);
+    const frontArm = sc.add.container(2.4, -16.4, [armGeom()]);
+    frontArm.setAngle(170);
 
     // A soft shadow the climber casts onto the rock behind them — reads
     // as "a few inches off the wall", not pasted flat onto it.
-    const wallShadow = sc.add.ellipse(1.6, -11, 9, 13, 0x000000, 0.2);
+    const wallShadow = sc.add.ellipse(1.2, -11, 8, 13, 0x000000, 0.2);
 
+    // Torso — narrower and centered a touch forward than the old
+    // front-facing build, since in profile we only see its depth, not
+    // its full width.
     const body = sc.add.graphics();
-    body.fillStyle(C.jacketDark, 1); body.fillRoundedRect(-5.0, -15.8, 10.0, 9.4, 3.2);
-    body.fillStyle(C.jacket, 1); body.fillRoundedRect(-5.0, -15.8, 10.0, 5.6, 3.2);
-    body.fillStyle(C.jacketLight, 0.5); body.fillRoundedRect(-5.0, -15.8, 4.0, 5.6, 3.2);
-    outline(body); body.strokeRoundedRect(-5.0, -15.8, 10.0, 9.4, 3.2);
-    // Rim-light — a bright stroke down the sun-facing edge, matching the
-    // cliff's own rim-light so the whole scene reads as one light source.
+    body.fillStyle(C.jacketDark, 1); body.fillRoundedRect(-4.2, -15.8, 8.6, 9.4, 3.0);
+    body.fillStyle(C.jacket, 1); body.fillRoundedRect(-4.2, -15.8, 8.6, 5.6, 3.0);
+    body.fillStyle(C.jacketLight, 0.5); body.fillRoundedRect(-4.2, -15.8, 3.4, 5.6, 3.0);
+    outline(body); body.strokeRoundedRect(-4.2, -15.8, 8.6, 9.4, 3.0);
+    // Rim-light — a bright stroke down the sun-facing (front) edge,
+    // matching the cliff's own rim-light so the whole scene reads as one
+    // light source.
     body.lineStyle(0.45, 0xffe6c0, 0.75);
-    body.beginPath(); body.moveTo(4.9, -15); body.lineTo(4.9, -6.6); body.strokePath();
+    body.beginPath(); body.moveTo(4.1, -15); body.lineTo(4.1, -6.6); body.strokePath();
     // Harness belt + a hanging loop the rope "clips" into — the one
     // detail that most says "climbing gear" at a glance.
     const harness = sc.add.graphics();
-    harness.fillStyle(C.harness, 1); harness.fillRoundedRect(-5.1, -8.0, 10.2, 1.6, 0.6);
-    harness.fillStyle(0xd1d5db, 1); harness.fillCircle(0, -5.6, 0.9);
-    harness.lineStyle(0.3, 0x9ca3af, 1); harness.lineBetween(0, -7.0, 0, -6.4);
+    harness.fillStyle(C.harness, 1); harness.fillRoundedRect(-4.3, -8.0, 8.6, 1.6, 0.6);
+    harness.fillStyle(0xd1d5db, 1); harness.fillCircle(0.6, -5.6, 0.9);
+    harness.lineStyle(0.3, 0x9ca3af, 1); harness.lineBetween(0.6, -7.0, 0.6, -6.4);
 
+    // Head, in profile: one eye, a nose bump on the facing (right) side,
+    // hair mass on the trailing (left/back) side.
     const headG = sc.add.graphics();
-    headG.fillStyle(C.skin, 1); headG.fillCircle(0, -18, 4.3);
-    headG.fillStyle(C.skinLight, 1); headG.fillCircle(-0.9, -19, 3.1);
-    outline(headG); headG.strokeCircle(0, -18, 4.3);
-    headG.fillStyle(C.hair, 1); headG.fillTriangle(-3.8, -19.6, -1.6, -22.2, 0.5, -19.9);
+    headG.fillStyle(C.skin, 1); headG.fillCircle(0.6, -18, 4.0);
+    headG.fillStyle(C.skinLight, 1); headG.fillCircle(1.6, -18.8, 2.6);
+    headG.fillStyle(C.skin, 1); headG.fillRoundedRect(4.0, -17.4, 1.4, 1.4, 0.6); // nose bump
+    outline(headG); headG.strokeCircle(0.6, -18, 4.0);
+    headG.fillStyle(C.hair, 1);
+    headG.beginPath(); headG.arc(0.3, -19.4, 4.1, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(10), true); headG.closePath(); headG.fillPath();
     // Helmet — the climbing-specific silhouette swap that makes this read
     // as "on a cliff", not just "a person standing somewhere".
     headG.fillStyle(C.helmetDark, 1);
-    headG.beginPath(); headG.arc(0, -19.2, 4.55, Phaser.Math.DegToRad(190), Phaser.Math.DegToRad(-10)); headG.closePath(); headG.fillPath();
+    headG.beginPath(); headG.arc(0.6, -19.1, 4.3, Phaser.Math.DegToRad(195), Phaser.Math.DegToRad(5)); headG.closePath(); headG.fillPath();
     headG.fillStyle(C.helmet, 1);
-    headG.beginPath(); headG.arc(0.2, -19.5, 4.2, Phaser.Math.DegToRad(188), Phaser.Math.DegToRad(-8)); headG.closePath(); headG.fillPath();
-    headG.fillStyle(0xffffff, 0.45); headG.fillEllipse(1.4, -22.2, 2.2, 0.9);
-    headG.lineStyle(0.3, C.helmetDark, 0.6); headG.strokeEllipse(0.2, -19.5, 8.4, 4.0);
-    headG.lineStyle(0.35, 0xfff3d6, 0.7); headG.beginPath(); headG.arc(0.2, -19.5, 4.2, Phaser.Math.DegToRad(-8), Phaser.Math.DegToRad(30)); headG.strokePath();
+    headG.beginPath(); headG.arc(0.8, -19.4, 4.0, Phaser.Math.DegToRad(193), Phaser.Math.DegToRad(3)); headG.closePath(); headG.fillPath();
+    headG.fillStyle(0xffffff, 0.45); headG.fillEllipse(2.0, -22.0, 2.2, 0.9);
+    headG.lineStyle(0.3, C.helmetDark, 0.6); headG.strokeEllipse(0.8, -19.4, 8.0, 3.8);
+    headG.lineStyle(0.35, 0xfff3d6, 0.7); headG.beginPath(); headG.arc(0.8, -19.4, 4.0, Phaser.Math.DegToRad(-5), Phaser.Math.DegToRad(35)); headG.strokePath();
 
-    const eyeL = sc.add.ellipse(-1.6, -18.1, 1.1, 1.3, 0x2b2320);
-    const eyeR = sc.add.ellipse(1.6, -18.1, 1.1, 1.3, 0x2b2320);
-    const eyeShineL = sc.add.ellipse(-1.9, -18.5, 0.4, 0.4, 0xffffff, 0.9);
-    const eyeShineR = sc.add.ellipse(1.3, -18.5, 0.4, 0.4, 0xffffff, 0.9);
-    const blushL = sc.add.ellipse(-2.3, -16.9, 1.3, 1.3, 0xfca5a5, 0.5);
-    const blushR = sc.add.ellipse(2.3, -16.9, 1.3, 1.3, 0xfca5a5, 0.5);
+    const eye = sc.add.ellipse(2.3, -18.2, 1.1, 1.3, 0x2b2320);
+    const eyeShine = sc.add.ellipse(2.0, -18.6, 0.4, 0.4, 0xffffff, 0.9);
+    const blush = sc.add.ellipse(1.3, -16.9, 1.3, 1.1, 0xfca5a5, 0.5);
     const smile = sc.add.graphics();
-    smile.lineStyle(0.45, 0xb5703f, 1); smile.beginPath(); smile.arc(0, -16.8, 1.25, Phaser.Math.DegToRad(15), Phaser.Math.DegToRad(165)); smile.strokePath();
-    // Clenched-jaw determination line for a "working hard" read, under
-    // the smile only while actively mid-move (toggled by climbMove()).
-    const effortBrow = sc.add.graphics();
-    effortBrow.lineStyle(0.45, 0x4a2f1e, 0); effortBrow.lineBetween(-2.6, -20.3, -0.8, -20.0);
-    effortBrow.lineBetween(0.8, -20.0, 2.6, -20.3);
+    smile.lineStyle(0.45, 0xb5703f, 1); smile.beginPath(); smile.arc(1.4, -16.9, 1.1, Phaser.Math.DegToRad(10), Phaser.Math.DegToRad(110)); smile.strokePath();
 
-    art.add([wallShadow, rightLeg, leftLeg, backArm, body, harness, headG, eyeL, eyeR, eyeShineL, eyeShineR, blushL, blushR, smile, effortBrow, frontArm]);
+    art.add([wallShadow, backLeg, backArm, body, frontLeg, harness, headG, eye, eyeShine, blush, smile, frontArm]);
 
-    const parts = { art, leftLeg, rightLeg, backArm, frontArm, body };
+    const parts = { art, backLeg, frontLeg, backArm, frontArm, body };
 
     if (animated) {
       // A climber clinging to a rock face is never perfectly still —
       // small continuous grip adjustments, independently timed per limb
       // so it doesn't read as a mechanical loop.
       const idle = { ease: 'Sine.easeInOut', yoyo: true, repeat: -1 };
-      sc.tweens.add({ targets: backArm, angle: { from: -165, to: -158 }, duration: 900, ...idle });
-      sc.tweens.add({ targets: frontArm, angle: { from: 165, to: 158 }, duration: 760, delay: 180, ...idle });
-      sc.tweens.add({ targets: leftLeg, angle: { from: -34, to: -27 }, duration: 1100, delay: 320, ...idle });
-      sc.tweens.add({ targets: rightLeg, angle: { from: 12, to: 18 }, duration: 980, delay: 90, ...idle });
+      sc.tweens.add({ targets: backArm, angle: { from: -160, to: -153 }, duration: 900, ...idle });
+      sc.tweens.add({ targets: frontArm, angle: { from: 170, to: 163 }, duration: 760, delay: 180, ...idle });
+      sc.tweens.add({ targets: backLeg, angle: { from: -16, to: -9 }, duration: 1100, delay: 320, ...idle });
+      sc.tweens.add({ targets: frontLeg, angle: { from: -46, to: -40 }, duration: 980, delay: 90, ...idle });
       sc.tweens.add({ targets: art, y: { from: 0, to: -0.6 }, duration: 1400, ...idle });
     }
     root._parts = parts;
@@ -220,37 +229,37 @@ const JourneyGame = (() => {
   function climbMove(sc, climber, toX, toY, onComplete) {
     const p = climber._parts;
     if (!p) { sc.tweens.add({ targets: climber, x: toX, y: toY, duration: 700, ease: 'Sine.easeInOut', onComplete }); return; }
-    sc.tweens.killTweensOf([p.backArm, p.frontArm, p.leftLeg, p.rightLeg, p.art, climber]);
+    sc.tweens.killTweensOf([p.backArm, p.frontArm, p.backLeg, p.frontLeg, p.art, climber]);
     const fromX = climber.x, fromY = climber.y;
     const liftX = fromX + (toX - fromX) * 0.35, liftY = fromY - 4;
     const tl = [];
-    // Beat 1 — reach: the front hand slides further up the rope, back leg
+    // Beat 1 — reach: the front hand slides further up the rope, front leg
     // drives up against the rock for the push.
     tl.push(() => {
-      sc.tweens.add({ targets: p.frontArm, angle: 178, duration: 260, ease: 'Sine.easeOut' });
-      sc.tweens.add({ targets: p.rightLeg, angle: -10, duration: 260, ease: 'Sine.easeOut' });
+      sc.tweens.add({ targets: p.frontArm, angle: 183, duration: 260, ease: 'Sine.easeOut' });
+      sc.tweens.add({ targets: p.frontLeg, angle: -66, duration: 260, ease: 'Sine.easeOut' });
       sc.time.delayedCall(260, run.bind(null, 1));
     });
     // Beat 2 — pull: hand-over-hand up the rope while the body rises —
-    // the back hand releases and drops toward the chest as the body
-    // passes it — with a small chalk-puff at the new grip.
+    // the back hand releases and trails as the body passes it — with a
+    // small chalk-puff at the new grip.
     tl.push(() => {
       sc.tweens.add({ targets: climber, x: liftX, y: liftY, duration: 210, ease: 'Sine.easeIn' });
       sc.tweens.add({
         targets: climber, x: toX, y: toY, duration: 300, delay: 210, ease: 'Sine.easeOut',
         onComplete: () => { chalkPuff(sc, climber.x, climber.y - 11); },
       });
-      sc.tweens.add({ targets: p.backArm, angle: -105, duration: 480, ease: 'Sine.easeInOut' });
-      sc.tweens.add({ targets: p.leftLeg, angle: -46, duration: 480, ease: 'Sine.easeInOut' });
+      sc.tweens.add({ targets: p.backArm, angle: -100, duration: 480, ease: 'Sine.easeInOut' });
+      sc.tweens.add({ targets: p.backLeg, angle: -36, duration: 480, ease: 'Sine.easeInOut' });
       sc.time.delayedCall(510, run.bind(null, 2));
     });
     // Beat 3 — settle: limbs ease back to the resting rope-grip pose and
     // the idle sway resumes.
     tl.push(() => {
-      sc.tweens.add({ targets: p.backArm, angle: -165, duration: 260, ease: 'Sine.easeOut' });
-      sc.tweens.add({ targets: p.frontArm, angle: 165, duration: 260, ease: 'Sine.easeOut' });
-      sc.tweens.add({ targets: p.leftLeg, angle: -34, duration: 260, ease: 'Sine.easeOut' });
-      sc.tweens.add({ targets: p.rightLeg, angle: 12, duration: 260, ease: 'Sine.easeOut',
+      sc.tweens.add({ targets: p.backArm, angle: -160, duration: 260, ease: 'Sine.easeOut' });
+      sc.tweens.add({ targets: p.frontArm, angle: 170, duration: 260, ease: 'Sine.easeOut' });
+      sc.tweens.add({ targets: p.backLeg, angle: -16, duration: 260, ease: 'Sine.easeOut' });
+      sc.tweens.add({ targets: p.frontLeg, angle: -46, duration: 260, ease: 'Sine.easeOut',
         onComplete: () => { startIdleSway(sc, p); if (onComplete) onComplete(); } });
     });
     function run(i) { tl[i](); }
@@ -258,10 +267,10 @@ const JourneyGame = (() => {
   }
   function startIdleSway(sc, p) {
     const idle = { ease: 'Sine.easeInOut', yoyo: true, repeat: -1 };
-    sc.tweens.add({ targets: p.backArm, angle: { from: -165, to: -158 }, duration: 900, ...idle });
-    sc.tweens.add({ targets: p.frontArm, angle: { from: 165, to: 158 }, duration: 760, delay: 180, ...idle });
-    sc.tweens.add({ targets: p.leftLeg, angle: { from: -34, to: -27 }, duration: 1100, delay: 320, ...idle });
-    sc.tweens.add({ targets: p.rightLeg, angle: { from: 12, to: 18 }, duration: 980, delay: 90, ...idle });
+    sc.tweens.add({ targets: p.backArm, angle: { from: -160, to: -153 }, duration: 900, ...idle });
+    sc.tweens.add({ targets: p.frontArm, angle: { from: 170, to: 163 }, duration: 760, delay: 180, ...idle });
+    sc.tweens.add({ targets: p.backLeg, angle: { from: -16, to: -9 }, duration: 1100, delay: 320, ...idle });
+    sc.tweens.add({ targets: p.frontLeg, angle: { from: -46, to: -40 }, duration: 980, delay: 90, ...idle });
   }
   function chalkPuff(sc, x, y) {
     const emitter = sc.add.particles(x, y, 'journeyDot', {
@@ -917,12 +926,17 @@ const JourneyGame = (() => {
         const c = this.add.container(pt.x, pt.y);
         const shadow = this.add.circle(0.3, 0.5, r, 0x000000, 0.25);
         const parts = [shadow];
-        // A soft colored glow behind the live markers — done/next — the
-        // glossy "game node" halo, not just a flat disc.
-        if (isDone || isNext) {
+        // A soft pulsing glow — only on the single "next" marker, drawing
+        // the eye to the current objective. Giving every *done* marker
+        // the same permanent halo too (the previous behavior) meant a
+        // closely-spaced route turned into a solid green wash once a
+        // handful of checkpoints were complete, burying the rope/road
+        // under overlapping glows instead of just showing clean
+        // checkmarks.
+        if (isNext) {
           const glow = this.add.circle(0, 0, r * 1.8, color, 0.3);
           parts.push(glow);
-          if (isNext) this.tweens.add({ targets: glow, scale: 1.25, alpha: 0.12, duration: 750, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+          this.tweens.add({ targets: glow, scale: 1.25, alpha: 0.12, duration: 750, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
         }
         // A piton/anchor look: a bright metal ring behind a solid disc,
         // rather than a plain dot — plus a strong specular highlight for
