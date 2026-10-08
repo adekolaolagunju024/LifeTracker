@@ -4487,6 +4487,7 @@ async function renderJourneyView() {
   const titleEl = document.getElementById('mountain-title');
   const statusEl = document.getElementById('mountain-status');
   const competitorSel = document.getElementById('journey-competitor-select');
+  const resetBtn = document.getElementById('journey-reset-btn');
   if (!projectId) {
     titleEl.textContent = '🧗 Journey';
     statusEl.textContent = 'Pick a specific project from the filter above — a Journey is one project at a time.';
@@ -4494,6 +4495,7 @@ async function renderJourneyView() {
     document.getElementById('mountain-tasklist').innerHTML = '';
     document.getElementById('mountain-celebrate').classList.add('hidden');
     if (competitorSel) competitorSel.classList.add('hidden');
+    if (resetBtn) resetBtn.classList.add('hidden');
     mountainState = null;
     API.getJourneyGaming().then(updateJourneyLevelBadge).catch(() => {});
     return;
@@ -4520,6 +4522,7 @@ async function renderJourneyView() {
     if (competitor !== 'schedule' && !racers.some(r => r.userId === competitor)) competitor = 'schedule';
     mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor', racers, competitor };
     titleEl.textContent = `🧗 ${project.icon || ''} ${project.title}`;
+    if (resetBtn) resetBtn.classList.toggle('hidden', !mountainState.canEdit);
     if (competitorSel) {
       if (racers.length) {
         competitorSel.classList.remove('hidden');
@@ -4677,6 +4680,32 @@ async function toggleMountainTask(checkbox) {
   } finally {
     checkbox.disabled = !mountainState.canEdit;
   }
+}
+
+// Restarts the climb — sets every task on this Journey back to Not
+// Started, same as unchecking each one from the task list, just all at
+// once. A real, hard-to-reverse change to live task data, so it goes
+// through the same confirm-modal pattern as a bulk delete rather than
+// firing immediately on click.
+function resetJourneyProgress() {
+  if (!mountainState || !mountainState.canEdit) return;
+  const toReset = mountainState.tasks.filter(t => t.status !== 'Not Started');
+  if (!toReset.length) { showToast('Already at the start — nothing to reset.'); return; }
+  confirmAction(
+    `Restart this climb? All ${mountainState.tasks.length} task${mountainState.tasks.length === 1 ? '' : 's'} in "${mountainState.project.title}" will be set back to Not Started. This can't be undone.`,
+    async () => {
+      try {
+        await Promise.all(toReset.map(t => API.updateTask(t.id, { status: 'Not Started' })));
+        toReset.forEach(t => { t.status = 'Not Started'; });
+        renderMountainScene();
+        renderMountainTaskList();
+        updateSidebar();
+        showToast('↺ Climb restarted — back to the bottom.');
+      } catch (e) {
+        showToast('❌ ' + (e.message || 'Could not reset this climb'), 'error');
+      }
+    },
+  );
 }
 
 // The modal text + the Phaser scene's own big particle burst (fired
