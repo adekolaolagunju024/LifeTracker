@@ -1111,23 +1111,19 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="kanban-board"></div>
       </div>
 
-      <!-- ═══ JOURNEY VIEW ═══ — a playful, game-like progress visualization:
-           an avatar climbs a hand-drawn trail through distinct terrain stages
-           as one project's tasks are completed. One project at a time (pick
-           it from the filter above), fills the page like the other two views. -->
+      <!-- ═══ JOURNEY VIEW ═══ — "Cliff Climb": a climber works their way up
+           a rock face on a rope, clipping into a new anchor as each of one
+           project's tasks is completed, with a flag at the summit. One
+           project at a time (pick it from the filter above), fills the page
+           like the other two views. -->
       <div class="hidden" id="gantt-journey-view">
         <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <div class="min-w-0">
-            <h3 class="text-sm font-black text-navy truncate" id="mountain-title">🧭 Journey</h3>
+            <h3 class="text-sm font-black text-navy truncate" id="mountain-title">🧗 Journey</h3>
             <p class="text-xs text-gray-500" id="mountain-status">Loading…</p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <button onclick="openJourneyTrophyCase()" id="journey-level-badge" class="hidden items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap">⭐ Lv.1</button>
-            <select id="journey-stage-select" onchange="setJourneyStage(this.value)" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
-              <option value="house">🏠 House Build</option>
-              <option value="road">🛣️ Road to the Goal</option>
-              <option value="cliff">🧗 Cliff Climb</option>
-            </select>
             <select id="journey-competitor-select" onchange="setJourneyCompetitor(this.value)" class="hidden border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
               <option value="schedule">🖥️ The Schedule</option>
             </select>

@@ -4459,62 +4459,14 @@ function workerSvgMarkup(animated) {
     </svg>`;
 }
 
-// 4 real construction phases, keyed to overall progress (0 → 1) rather than
-// a fixed per-task step, so the house assembles smoothly regardless of how
-// many tasks the project has. The actual pieces are drawn by the Phaser
-// scene (see frontend/js/journeyGame.js); this just labels the status line.
-const HOUSE_PHASES = [
-  { at: 0, label: 'Laying the foundation' },
-  { at: 0.25, label: 'Raising the walls' },
-  { at: 0.5, label: 'Putting up the roof' },
-  { at: 0.75, label: 'Finishing touches' },
-];
-function housePhaseLabel(frac) {
-  if (frac >= 1) return 'House complete';
-  let label = 'Not started yet';
-  HOUSE_PHASES.forEach(p => { if (frac > p.at) label = p.label; });
-  return label;
-}
-
-// Bottom-to-top zigzag trail — kept within [topY, bottomY] so each theme can
-// keep the avatar close to whatever it's "climbing": tight around the
-// house's own footprint for the House stage, or the full scene height for
-// a distant mountain/cliff-top flag on the others.
-function mountainCheckpoints(n, topY = 40, bottomY = 88) {
-  const points = [];
-  for (let i = 0; i < n; i++) {
-    const t = n > 1 ? i / (n - 1) : 1;
-    const spread = 22 - t * 10; // narrows a little higher up
-    const side = i % 2 === 0 ? -1 : 1;
-    points.push({ x: 50 + side * spread, y: bottomY - t * (bottomY - topY) });
-  }
-  return points;
-}
-
-// Position along the trail for a progress fraction (0 = base, 1 = the top).
-function mountainPointAt(points, frac, topY = 40, bottomY = 88) {
-  if (!points.length) return { x: 50, y: bottomY };
-  if (frac <= 0) return { x: 50, y: bottomY };
-  if (frac >= 1) return { x: 50, y: topY };
-  const idx = frac * (points.length - 1);
-  const i0 = Math.floor(idx), i1 = Math.min(points.length - 1, i0 + 1);
-  const f = idx - i0;
-  const a = points[i0], b = points[i1];
-  return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
-}
-
-// ── JOURNEY STAGES ──────────────────────────────────────────────
-// House is the default and the only one with progressive construction;
-// Road and Cliff are a static backdrop with the same moving-avatar/
-// checkpoint mechanic — picked from the dropdown in the view's own
-// header, remembered per project. All actual drawing (backdrop, avatar,
-// walk cycle, particles) now lives in the Phaser scene in
-// frontend/js/journeyGame.js; this object is just metadata.
-const JOURNEY_STAGES = {
-  house: { label: '🏠 House Build', checkpointNoun: 'tasks', doneLabel: 'House complete', doneEmoji: '🏡', topY: 40, bottomY: 88 },
-  road: { label: '🛣️ Road to the Goal', checkpointNoun: 'milestones', doneLabel: 'Reached the summit', doneEmoji: '🚩', topY: 10, bottomY: 90 },
-  cliff: { label: '🧗 Cliff Climb', checkpointNoun: 'pitches', doneLabel: 'Summit reached', doneEmoji: '🏔️', topY: 8, bottomY: 90 },
-};
+// ── JOURNEY ("Cliff Climb") ──────────────────────────────────────
+// A single scene — no stage picker. A climber works their way up a rock
+// face on a rope, clipping into a new anchor as each task completes, with
+// a flag waiting at the summit. All actual drawing (the cliff, the rope,
+// the climber and their climb animation, particles) lives in the Phaser
+// scene in frontend/js/journeyGame.js; this is just metadata for the
+// status line.
+const JOURNEY_META = { checkpointNoun: 'tasks', doneLabel: 'Summit reached', doneEmoji: '🚩' };
 
 // Entry point from a project's own header button — jumps to the Gantt
 // page, points its (shared) project filter at this project, and switches
@@ -4535,15 +4487,13 @@ async function renderJourneyView() {
   const titleEl = document.getElementById('mountain-title');
   const statusEl = document.getElementById('mountain-status');
   const competitorSel = document.getElementById('journey-competitor-select');
-  const stageSel = document.getElementById('journey-stage-select');
   if (!projectId) {
-    titleEl.textContent = '🏗️ Journey';
+    titleEl.textContent = '🧗 Journey';
     statusEl.textContent = 'Pick a specific project from the filter above — a Journey is one project at a time.';
     JourneyGame.destroy();
     document.getElementById('mountain-tasklist').innerHTML = '';
     document.getElementById('mountain-celebrate').classList.add('hidden');
     if (competitorSel) competitorSel.classList.add('hidden');
-    if (stageSel) stageSel.classList.add('hidden');
     mountainState = null;
     API.getJourneyGaming().then(updateJourneyLevelBadge).catch(() => {});
     return;
@@ -4568,12 +4518,8 @@ async function renderJourneyView() {
     let competitor = 'schedule';
     try { competitor = localStorage.getItem('journeyCompetitor:' + projectId) || 'schedule'; } catch { /* private mode etc */ }
     if (competitor !== 'schedule' && !racers.some(r => r.userId === competitor)) competitor = 'schedule';
-    let stage = 'house';
-    try { stage = localStorage.getItem('journeyStage:' + projectId) || 'house'; } catch { /* private mode etc */ }
-    if (!JOURNEY_STAGES[stage]) stage = 'house';
-    mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor', racers, competitor, stage };
-    if (stageSel) { stageSel.classList.remove('hidden'); stageSel.value = stage; }
-    titleEl.textContent = `${JOURNEY_STAGES[stage].label.split(' ')[0]} ${project.icon || ''} ${project.title}`;
+    mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor', racers, competitor };
+    titleEl.textContent = `🧗 ${project.icon || ''} ${project.title}`;
     if (competitorSel) {
       if (racers.length) {
         competitorSel.classList.remove('hidden');
@@ -4598,17 +4544,6 @@ function setJourneyCompetitor(value) {
   if (!mountainState) return;
   mountainState.competitor = value;
   try { localStorage.setItem('journeyCompetitor:' + mountainState.projectId, value); } catch { /* private mode etc */ }
-  renderMountainScene();
-}
-
-// Switching which scene this project's progress plays out in — House
-// Build, Road to the Goal, or Cliff Climb. Remembered per project, same as
-// the competitor choice, so different projects can each have their own look.
-function setJourneyStage(value) {
-  if (!mountainState || !JOURNEY_STAGES[value]) return;
-  mountainState.stage = value;
-  try { localStorage.setItem('journeyStage:' + mountainState.projectId, value); } catch { /* private mode etc */ }
-  document.getElementById('mountain-title').textContent = `${JOURNEY_STAGES[value].label.split(' ')[0]} ${mountainState.project.icon || ''} ${mountainState.project.title}`;
   renderMountainScene();
 }
 
@@ -4665,8 +4600,6 @@ function mountainExpectedFraction() {
 // rendering instead of a hand-built SVG string.
 function renderMountainScene() {
   const { tasks } = mountainState;
-  const stage = JOURNEY_STAGES[mountainState.stage] || JOURNEY_STAGES.house;
-  const stageKey = mountainState.stage || 'house';
   const total = tasks.length;
   const done = tasks.filter(t => t.status === 'Completed').length;
   const youFrac = total ? done / total : 0;
@@ -4676,27 +4609,30 @@ function renderMountainScene() {
 
   const container = document.getElementById('mountain-scene');
   JourneyGame.sync(container, {
-    stageKey, tasks, topY: stage.topY, bottomY: stage.bottomY, youFrac, summitLit,
-    ghost: competitor ? { frac: competitor.frac, label: competitor.label, isComputer: competitor.isComputer } : null,
+    tasks, youFrac, summitLit,
+    // Null when there's nothing to actually pace against (no dates set, or
+    // a teammate with none of these tasks assigned) — showing a ghost
+    // frozen at the start forever would just read as a second character
+    // standing around, not as "you're ahead/behind".
+    ghost: (competitor && competitor.frac !== null) ? { frac: competitor.frac, label: competitor.label, isComputer: competitor.isComputer } : null,
     celebrationsEnabled: celebrationsEnabled(),
   });
 
   const statusEl = document.getElementById('mountain-status');
-  const isHouse = stageKey === 'house';
-  const phase = isHouse ? housePhaseLabel(youFrac) : null;
-  const noun = stage.checkpointNoun;
+  const phase = JourneyGame.buildPhaseLabel(youFrac);
+  const noun = JOURNEY_META.checkpointNoun;
   if (!total) {
-    statusEl.textContent = isHouse ? 'Add tasks to this project to start building.' : 'Add tasks to this project to start the journey.';
+    statusEl.textContent = 'Add tasks to this project to start the climb.';
   } else if (summitLit) {
-    statusEl.textContent = `${stage.doneEmoji} ${stage.doneLabel} — every task done!`;
+    statusEl.textContent = `${JOURNEY_META.doneEmoji} ${JOURNEY_META.doneLabel} — every task done!`;
   } else if (expectedFrac === null) {
-    statusEl.textContent = `${done} of ${total} ${noun}${phase ? ' · ' + phase : ''} · no deadlines set, so just go at your own pace.`;
+    statusEl.textContent = `${done} of ${total} ${noun} · ${phase} · no deadlines set, so just go at your own pace.`;
   } else if (youFrac > expectedFrac + 0.03) {
-    statusEl.textContent = `${done} of ${total} ${noun}${phase ? ' · ' + phase : ''} · 🏆 you're ahead of ${competitor.label}!`;
+    statusEl.textContent = `${done} of ${total} ${noun} · ${phase} · 🏆 you're ahead of ${competitor.label}!`;
   } else if (youFrac < expectedFrac - 0.03) {
-    statusEl.textContent = `${done} of ${total} ${noun}${phase ? ' · ' + phase : ''} · ⏳ ${competitor.label} is a little ahead — keep going.`;
+    statusEl.textContent = `${done} of ${total} ${noun} · ${phase} · ⏳ ${competitor.label} is a little ahead — keep going.`;
   } else {
-    statusEl.textContent = `${done} of ${total} ${noun}${phase ? ' · ' + phase : ''} · 🤝 neck and neck with ${competitor.label}.`;
+    statusEl.textContent = `${done} of ${total} ${noun} · ${phase} · 🤝 neck and neck with ${competitor.label}.`;
   }
 }
 
@@ -4752,7 +4688,6 @@ async function toggleMountainTask(checkbox) {
 // own separate small in-scene modal, so finishing a project reads the
 // same way everywhere, not just inside Journey.
 function showMountainCelebration() {
-  const stage = JOURNEY_STAGES[mountainState.stage] || JOURNEY_STAGES.house;
   const competitor = competitorFraction();
   let message;
   if (competitor.frac === null) {
@@ -4762,7 +4697,7 @@ function showMountainCelebration() {
   } else {
     message = `You finished "${mountainState.project.title}". You made it — that's what counts!`;
   }
-  showProjectCompleteOverlay(mountainState.project.title, { message, heading: `${stage.doneLabel}!`, emoji: stage.doneEmoji });
+  showProjectCompleteOverlay(mountainState.project.title, { message, heading: `${JOURNEY_META.doneLabel}!`, emoji: JOURNEY_META.doneEmoji });
 }
 
 // ── SCREEN-WIDE CELEBRATIONS ──────────────────────────────────
