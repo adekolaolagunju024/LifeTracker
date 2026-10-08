@@ -78,7 +78,7 @@ const JourneyGame = (() => {
   // once per completed task instead of just sliding a dot along a line.
   const C = {
     jacket: 0xe25c3f, jacketDark: 0xb6432b, jacketLight: 0xf2886e,
-    pants: 0x2c3e50, pantsDark: 0x1a2533, shoe: 0x14213d,
+    pants: 0x3b6ea5, pantsDark: 0x274d79, shoe: 0xf2ece0,
     skin: 0xf6c89a, skinLight: 0xffe3c2, hair: 0x4a2f1e,
     helmet: 0xfbbf24, helmetDark: 0xd99e1a, harness: 0x1f2937,
   };
@@ -305,10 +305,10 @@ const JourneyGame = (() => {
         if (sc) sc._eagle = p;
         break;
       }
-      case 3: { // a soft cloud bank drifting below the climber
+      case 3: { // a soft pink cloud bank drifting right past the climber
         const y = BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.68;
-        [[-18, 0], [-6, 1.5], [10, -1], [20, 1]].forEach(([dx, dy]) => {
-          g.fillStyle(0xffffff, 0.75); g.fillEllipse(CENTER_X + dx, y + dy, 13, 4.2);
+        [[-18, 0], [-6, 1.5], [10, -1], [20, 1]].forEach(([dx, dy], i) => {
+          g.fillStyle(i % 2 ? 0xffe3d4 : 0xffc9b4, 0.85); g.fillEllipse(CENTER_X + dx, y + dy, 13, 4.2);
         });
         break;
       }
@@ -332,7 +332,6 @@ const JourneyGame = (() => {
 
     create() {
       this.sky = this.add.graphics();
-      this.farPeaks = this.add.graphics();
       this.cliffGfx = this.add.graphics();
       this.decor = this.add.container(0, 0);
       this.flourishGfx = this.add.graphics();
@@ -341,7 +340,7 @@ const JourneyGame = (() => {
       this.ghostLayer = this.add.container(0, 0);
       this.climberLayer = this.add.container(0, 0);
       this.fxLayer = this.add.container(0, 0);
-      this.root = this.add.container(0, 0, [this.sky, this.farPeaks, this.cliffGfx, this.decor, this.flourishGfx, this.ropeGfx, this.checkpointsLayer, this.ghostLayer, this.climberLayer, this.fxLayer]);
+      this.root = this.add.container(0, 0, [this.sky, this.cliffGfx, this.decor, this.flourishGfx, this.ropeGfx, this.checkpointsLayer, this.ghostLayer, this.climberLayer, this.fxLayer]);
 
       this._lastYouFrac = null;
       this._lastDoneIds = new Set();
@@ -388,24 +387,41 @@ const JourneyGame = (() => {
 
     clearContainer(c) { c.each(child => child.destroy()); c.removeAll(); }
 
-    // Sky gradient, sun, distant parallax peaks, and the rock face itself
-    // — drawn once and left alone; progress is expressed through the
-    // climber, the rope, and the milestone flourishes, not by rebuilding
-    // the mountain.
+    // A warm dawn gradient sky, soft pink clouds drifting below the
+    // climber (the "high enough to be above the weather" read), a few
+    // ambient birds, and the rock face itself — drawn once and left
+    // alone; progress is expressed through the climber, the rope, and the
+    // milestone flourishes, not by rebuilding the mountain. Flat, bold
+    // color blocks over busy texture — a stylized illustration, not a
+    // photo-real cliff.
     buildStaticScene() {
-      this.sky.fillGradientStyle(0x4a6fa5, 0x4a6fa5, 0xffe3b8, 0xbcd9ec, 1);
+      this.sky.fillGradientStyle(0x5a87c4, 0x5a87c4, 0xffc9a6, 0xffc9a6, 1);
       this.sky.fillRect(0, 0, 100, 100);
 
-      const glow = this.add.circle(78, 16, 11, 0xfff2c9, 0.55);
-      const sun = this.add.circle(78, 16, 4.6, 0xffe08a, 1);
-      this.decor.add([glow, sun]);
-      this.tweens.add({ targets: glow, scale: 1.18, alpha: 0.35, duration: 2400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+      // Soft pink/peach cloud clusters, lower in the frame so the climber
+      // reads as above them — each a handful of overlapping ellipses.
+      const cloudAt = (cx, cy, scale, tint) => {
+        const g = this.add.graphics();
+        g.fillStyle(tint, 0.9);
+        [[-7, 0.5, 6.5, 3], [-2, -1.2, 7, 3.6], [4, 0.3, 6, 3], [9, 1, 5, 2.6]].forEach(([dx, dy, w, h]) => g.fillEllipse(dx * scale, dy * scale, w * scale, h * scale));
+        g.setPosition(cx, cy);
+        return g;
+      };
+      this.decor.add(cloudAt(20, 62, 1.1, 0xffcdb8));
+      this.decor.add(cloudAt(85, 70, 1.3, 0xffd9c8));
+      this.decor.add(cloudAt(14, 80, 0.9, 0xfff0e4));
+      this.decor.add(cloudAt(60, 85, 1.1, 0xffcdb8));
+      this.decor.add(cloudAt(92, 40, 0.7, 0xfff0e4));
 
-      // Distant parallax peaks — two translucent layers for depth.
-      this.farPeaks.fillStyle(0x7f9bc2, 0.45);
-      this.farPeaks.fillPoints([{ x: -5, y: 46 }, { x: 18, y: 24 }, { x: 34, y: 40 }, { x: 52, y: 18 }, { x: 68, y: 38 }, { x: 88, y: 20 }, { x: 105, y: 44 }, { x: 105, y: 100 }, { x: -5, y: 100 }], true);
-      this.farPeaks.fillStyle(0x6684ad, 0.6);
-      this.farPeaks.fillPoints([{ x: -5, y: 58 }, { x: 24, y: 38 }, { x: 46, y: 54 }, { x: 70, y: 34 }, { x: 105, y: 56 }, { x: 105, y: 100 }, { x: -5, y: 100 }], true);
+      // A few ambient birds — simple double-arcs, purely atmospheric.
+      [[30, 22, 1], [40, 30, 0.7], [15, 35, 0.8], [68, 15, 0.9]].forEach(([x, y, s]) => {
+        const g = this.add.graphics();
+        g.fillStyle(0x3a2f28, 0.75);
+        g.fillTriangle(-2.6 * s, 0, 0, -1 * s, -0.4 * s, 0.4 * s);
+        g.fillTriangle(2.6 * s, 0, 0, -1 * s, 0.4 * s, 0.4 * s);
+        g.setPosition(x, y);
+        this.decor.add(g);
+      });
 
       this.buildCliffFace();
 
@@ -418,45 +434,38 @@ const JourneyGame = (() => {
       this.decor.add(base);
     }
 
-    // A jagged rock face with layered strata, crack lines, and moss near
-    // the base — the texture pass that separates "a gray triangle" from a
-    // cliff. Drawn once; never rebuilt, since the cliff itself doesn't
-    // change — only what's happening on it does.
+    // A warm terracotta rock face — a clean gradient block with a couple
+    // of broad soft highlight sweeps, and a grassy green edge where it
+    // meets the sky, rather than literal striped strata/cracks/moss. The
+    // stylized-illustration look over a busy, photo-real texture pass.
+    // Drawn once; never rebuilt, since the cliff itself doesn't change —
+    // only what's happening on it does.
     buildCliffFace() {
       const silhouette = [
         { x: -5, y: 100 }, { x: -5, y: 34 }, { x: 8, y: 26 }, { x: 20, y: 31 },
         { x: 33, y: 20 }, { x: 46, y: 27 }, { x: 58, y: 17 }, { x: 72, y: 25 },
         { x: 85, y: 18 }, { x: 105, y: 28 }, { x: 105, y: 100 },
       ];
-      this.cliffGfx.fillGradientStyle(0x9c8a76, 0x9c8a76, 0x5f5346, 0x5f5346, 1);
+      this.cliffGfx.fillGradientStyle(0xae6a4e, 0xae6a4e, 0x6b3f30, 0x6b3f30, 1);
       this.cliffGfx.fillPoints(silhouette, true);
 
-      // Strata bands — slightly wavy horizontal layers in alternating
-      // tones, each a touch darker moving down the face.
-      const bands = [[34, 0xaa9983], [46, 0x9a876f], [58, 0x8a7865], [70, 0x7a6a58], [82, 0x6a5c4c], [94, 0x5c5041]];
-      bands.forEach(([y, color], i) => {
-        this.cliffGfx.fillStyle(color, 0.85);
-        const wob = i % 2 === 0 ? 1.6 : -1.6;
-        this.cliffGfx.fillPoints([{ x: -5, y: y + wob }, { x: 30, y: y - wob * 0.5 }, { x: 60, y: y + wob }, { x: 105, y: y - wob }, { x: 105, y: y + 11 }, { x: -5, y: y + 11 }], true);
-      });
+      // Broad soft highlight sweeps — sunlit faces, not literal strata.
+      this.cliffGfx.fillStyle(0xcf8a66, 0.4);
+      this.cliffGfx.fillPoints([{ x: 50, y: 20 }, { x: 105, y: 30 }, { x: 105, y: 58 }, { x: 62, y: 34 }], true);
+      this.cliffGfx.fillStyle(0xd99b76, 0.3);
+      this.cliffGfx.fillPoints([{ x: 5, y: 40 }, { x: 35, y: 48 }, { x: 28, y: 72 }, { x: -5, y: 64 }, { x: -5, y: 40 }], true);
+      this.cliffGfx.fillStyle(0x8a4e3a, 0.35);
+      this.cliffGfx.fillPoints([{ x: 40, y: 62 }, { x: 75, y: 55 }, { x: 80, y: 90 }, { x: 45, y: 100 }, { x: 40, y: 90 }], true);
 
-      // Crack lines — thin dark strokes following a rough diagonal path.
-      this.cliffGfx.lineStyle(0.3, 0x3a322a, 0.4);
-      [[18, 40, 24, 70], [62, 32, 54, 66], [40, 55, 46, 88], [80, 36, 86, 80]].forEach(([x1, y1, x2, y2]) => {
-        this.cliffGfx.beginPath(); this.cliffGfx.moveTo(x1, y1);
-        this.cliffGfx.lineTo((x1 + x2) / 2 + 2, (y1 + y2) / 2); this.cliffGfx.lineTo(x2, y2); this.cliffGfx.strokePath();
-      });
-
-      // Moss patches near the base, where it's shadier and damper.
-      [[12, 88], [30, 92], [66, 90], [88, 86], [20, 76]].forEach(([x, y]) => {
-        this.cliffGfx.fillStyle(0x5c7a4a, 0.55); this.cliffGfx.fillEllipse(x, y, 7, 3);
-        this.cliffGfx.fillStyle(0x4a6639, 0.5); this.cliffGfx.fillEllipse(x + 1.5, y + 1, 4, 2);
-      });
-
-      // A soft highlight sweep for a sunlit face (upper-right catches the
-      // light from the sun's position).
-      this.cliffGfx.fillStyle(0xffe9b0, 0.12);
-      this.cliffGfx.fillPoints([{ x: 55, y: 18 }, { x: 105, y: 30 }, { x: 105, y: 55 }, { x: 70, y: 32 }], true);
+      // A grassy cliff-top edge, following the jagged silhouette line.
+      this.cliffGfx.lineStyle(2.4, 0x5a8a3d, 1);
+      this.cliffGfx.beginPath();
+      silhouette.slice(1, -1).forEach((p, i) => { if (i === 0) this.cliffGfx.moveTo(p.x, p.y); else this.cliffGfx.lineTo(p.x, p.y); });
+      this.cliffGfx.strokePath();
+      this.cliffGfx.lineStyle(1, 0x7fb858, 1);
+      this.cliffGfx.beginPath();
+      silhouette.slice(1, -1).forEach((p, i) => { if (i === 0) this.cliffGfx.moveTo(p.x, p.y - 0.6); else this.cliffGfx.lineTo(p.x, p.y - 0.6); });
+      this.cliffGfx.strokePath();
     }
 
     // The rope: taut and bright for the stretch already climbed, slack
