@@ -373,7 +373,14 @@ const JourneyGame = (() => {
     }
     return points;
   }
-  function checkpointRadius(n) { return Math.max(1.8, Math.min(4.2, 34 / Math.max(1, n))); }
+  // Capped well below what a low task count's spacing would technically
+  // allow — at 4.2 a 3-5 task project's markers dwarfed the avatar
+  // (checkpoint diameter nearly double its shoulder width), which read as
+  // a scene with badly mismatched proportions rather than just "big
+  // circles". 3.0 keeps markers comfortably larger than a blocker badge
+  // needs to be, without ever outgrowing the character standing next to
+  // them.
+  function checkpointRadius(n) { return Math.max(1.6, Math.min(3.0, 34 / Math.max(1, n))); }
   function positionAt(points, frac) {
     if (!points.length) return { x: CENTER_X, y: BOTTOM_Y };
     if (frac <= 0) return points[0];
