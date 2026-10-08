@@ -16,18 +16,35 @@
 // changes; this module owns only rendering and animation, diffing the
 // new state against the last sync to decide what should animate.
 const JourneyGame = (() => {
-  const PHASER_URL = 'https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js';
+  // Falls back to jsDelivr if cdnjs is unreachable (a network filter or ad
+  // blocker blocking one CDN but not the other is common enough to be
+  // worth a real fallback, not just a single point of failure).
+  const PHASER_URLS = [
+    'https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js',
+    'https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js',
+  ];
   let loadPromise = null;
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('script load failed: ' + src));
+      document.head.appendChild(s);
+    });
+  }
   function loadPhaser() {
     if (window.Phaser) return Promise.resolve();
     if (loadPromise) return loadPromise;
-    loadPromise = new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = PHASER_URL;
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('Could not load the Journey game engine'));
-      document.head.appendChild(s);
-    });
+    loadPromise = loadScript(PHASER_URLS[0])
+      .catch(() => loadScript(PHASER_URLS[1]))
+      .catch(() => {
+        // A real failure (not just one mirror down) — let the next call
+        // try again from scratch instead of staying permanently broken
+        // for the rest of the session over one transient network hiccup.
+        loadPromise = null;
+        throw new Error('Could not load the Journey game engine — check your connection');
+      });
     return loadPromise;
   }
 
@@ -493,7 +510,20 @@ const JourneyGame = (() => {
     sync(container, state) {
       return ensureGame(container).then(() => {
         if (scene) scene.applyState(state); else pendingState = state;
-      }).catch(e => console.error('Journey game error:', e));
+      }).catch(e => {
+        console.error('Journey game error:', e);
+        // Visible, not just logged — a blocked CDN script otherwise fails
+        // silently and the scene area just stays blank, which looks
+        // indistinguishable from "nothing happening".
+        container.innerHTML = `
+          <div class="absolute inset-0 flex items-center justify-center p-6 text-center">
+            <div>
+              <p class="text-sm font-semibold text-gray-600 mb-2">⚠️ Couldn't load Journey's graphics</p>
+              <p class="text-xs text-gray-400 mb-3">This is usually a network filter or ad blocker blocking the game engine's script. Everything else in the app is unaffected.</p>
+              <button onclick="renderMountainScene()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">Try again</button>
+            </div>
+          </div>`;
+      });
     },
     pause() { if (game) game.loop.sleep(); },
     resume() { if (game) game.loop.wake(); },
