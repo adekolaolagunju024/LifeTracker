@@ -994,7 +994,11 @@ const JourneyGame = (() => {
       const nowDoneIds = new Set(state.tasks.filter(t => t.status === 'Completed').map(t => t.id));
       state.tasks.forEach((t, i) => {
         if (t.status === 'Completed' && !this._lastDoneIds.has(t.id) && celebrate) {
-          this.burst(points[i].x, points[i].y, 24, 0xe8d9b5);
+          // No tint override — falls back to burst()'s own vibrant
+          // multi-color palette. A single pale tan tint here used to make
+          // this almost invisible against the scene; a real confetti
+          // burst needs real contrast, not a near-background color.
+          this.burst(points[i].x, points[i].y, 24);
         }
       });
       this._lastDoneIds = nowDoneIds;
@@ -1033,9 +1037,9 @@ const JourneyGame = (() => {
       this._lastYouFrac = state.youFrac;
 
       if (state.summitLit && !this._lastSummit && celebrate) {
-        this.burst(CENTER_X, TOP_Y - 2, 90, 0xe8d9b5);
-        this.burst(CENTER_X - 14, TOP_Y + 6, 60, 0xe8d9b5);
-        this.burst(CENTER_X + 14, TOP_Y + 6, 60, 0xe8d9b5);
+        this.burst(CENTER_X, TOP_Y - 2, 90);
+        this.burst(CENTER_X - 14, TOP_Y + 6, 60);
+        this.burst(CENTER_X + 14, TOP_Y + 6, 60);
         this.burstBalloons(10);
       }
       this._lastSummit = state.summitLit;
