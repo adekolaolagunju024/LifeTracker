@@ -270,6 +270,92 @@ const JourneyGame = (() => {
     });
     sc.time.delayedCall(450, () => emitter.destroy());
   }
+  function dustPuff(sc, x, y) {
+    const emitter = sc.add.particles(x, y, 'journeyDot', {
+      speed: { min: 6, max: 20 }, angle: { min: 160, max: 380 }, gravityY: 4,
+      scale: { start: 1.3, end: 0 }, alpha: { start: 0.6, end: 0 }, lifespan: 500, quantity: 10, tint: [0xc9b89a, 0x9c8a6e],
+    });
+    sc.time.delayedCall(550, () => emitter.destroy());
+  }
+
+  // ── THE CAR — "Mountain Drive": a small cartoon vehicle switching back
+  // up a mountain road, one zigzag per task, instead of the Cliff Climb's
+  // rope ascent. Same Container-per-part rig philosophy as the climber —
+  // wheels that actually rotate, a suspension that actually bounces —
+  // so driving reads as something the car *does*, not a sprite sliding.
+  const V = { body: 0x2563eb, bodyDark: 0x1d4ed8, bodyLight: 0x60a5fa, roof: 0xf8fafc, tire: 0x1f2937, hub: 0xd1d5db, glass: 0xbfe3f0 };
+  function buildVehicle(sc, animated) {
+    const root = sc.add.container(0, 0);
+    const art = sc.add.container(0, 0);
+    art.setScale(0.5);
+    root.add(art);
+
+    const shadow = sc.add.ellipse(0, 1.2, 15, 3, 0x000000, 0.22);
+
+    const wheelGeom = () => {
+      const g = sc.add.graphics();
+      g.fillStyle(V.tire, 1); g.fillCircle(0, 0, 3.1);
+      g.fillStyle(V.hub, 1); g.fillCircle(0, 0, 1.3);
+      g.lineStyle(0.4, 0x4b5563, 1); g.lineBetween(-1.3, 0, 1.3, 0); g.lineBetween(0, -1.3, 0, 1.3);
+      outline(g, 0x0a0f1a); g.strokeCircle(0, 0, 3.1);
+      return g;
+    };
+    const wheelBack = sc.add.container(-5.4, 0, [wheelGeom()]);
+    const wheelFront = sc.add.container(5.4, 0, [wheelGeom()]);
+
+    const body = sc.add.graphics();
+    // Lower chassis.
+    body.fillStyle(V.bodyDark, 1); body.fillRoundedRect(-9, -8, 18, 7.5, 2.4);
+    body.fillStyle(V.body, 1); body.fillRoundedRect(-9, -8, 18, 4.6, 2.4);
+    body.fillStyle(V.bodyLight, 0.5); body.fillRoundedRect(-9, -8, 7, 4.6, 2.4);
+    // Cabin/roof.
+    body.fillStyle(V.roof, 1); body.fillRoundedRect(-5, -14.2, 10.5, 7, 2.8);
+    body.fillStyle(V.glass, 1); body.fillRoundedRect(-3.8, -13, 8.2, 4, 1.6);
+    body.fillStyle(0xffffff, 0.4); body.fillRoundedRect(-3.8, -13, 3.6, 4, 1.6);
+    // Lights + bumper detail.
+    body.fillStyle(0xfff3b0, 1); body.fillCircle(8.6, -4.6, 1.2); // headlight
+    body.fillStyle(0xef4444, 1); body.fillCircle(-8.6, -4.6, 1.0); // taillight
+    body.fillStyle(0xe5e7eb, 1); body.fillRoundedRect(-9.6, -2.2, 19.2, 1.6, 0.8); // bumper strip
+    outline(body); body.strokeRoundedRect(-9, -8, 18, 7.5, 2.4);
+    body.strokeRoundedRect(-5, -14.2, 10.5, 7, 2.8);
+    // Rim-light matching the rest of the scene's sun direction.
+    body.lineStyle(0.45, 0xffe6c0, 0.7);
+    body.beginPath(); body.moveTo(8.9, -7.6); body.lineTo(8.9, -2.6); body.strokePath();
+
+    art.add([shadow, wheelBack, body, wheelFront]);
+    const parts = { art, wheelBack, wheelFront, body };
+
+    if (animated) {
+      // Parked: a gentle idle suspension bounce — never perfectly still.
+      sc.tweens.add({ targets: art, y: { from: 0, to: -0.5 }, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    }
+    root._parts = parts;
+    root._isVehicle = true;
+    return root;
+  }
+
+  // Drive to the next switchback: wheels actually spin through the move,
+  // the car leans into the direction of travel, and a dust puff kicks up
+  // at departure and a suspension bounce settles it on arrival — real
+  // motion cues, not just a sliding position.
+  function driveMove(sc, vehicle, toX, toY, onComplete) {
+    const p = vehicle._parts;
+    if (!p) { sc.tweens.add({ targets: vehicle, x: toX, y: toY, duration: 700, ease: 'Sine.easeInOut', onComplete }); return; }
+    sc.tweens.killTweensOf([p.wheelBack, p.wheelFront, p.art, p.body, vehicle]);
+    const dx = toX - vehicle.x;
+    const lean = Phaser.Math.Clamp(dx * 3, -14, 14);
+    dustPuff(sc, vehicle.x - Math.sign(dx || 1) * 6, vehicle.y - 1);
+    sc.tweens.add({ targets: p.body, angle: lean, duration: 180, ease: 'Sine.easeOut', yoyo: false });
+    sc.tweens.add({ targets: [p.wheelBack, p.wheelFront], angle: '+=' + (Math.sign(dx || 1) * 540), duration: 620, ease: 'Sine.easeInOut' });
+    sc.tweens.add({
+      targets: vehicle, x: toX, y: toY, duration: 620, ease: 'Sine.easeInOut',
+      onComplete: () => {
+        dustPuff(sc, vehicle.x, vehicle.y - 1);
+        sc.tweens.add({ targets: p.body, angle: 0, duration: 220, ease: 'Back.easeOut' });
+        sc.tweens.add({ targets: p.art, y: { from: -1.4, to: 0 }, duration: 260, ease: 'Bounce.easeOut', onComplete });
+      },
+    });
+  }
 
   // ── THE ROUTE — one rope, anchored at the summit and run straight down
   // to the base, with a clip point per task. A real rope hangs close to
@@ -299,17 +385,17 @@ const JourneyGame = (() => {
     return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
   }
 
-  // ── MILESTONE FLOURISHES — a handful of real additions keyed to overall
-  // progress (not a fixed per-task step) so the climb reads as more than
-  // just the route itself, regardless of task count.
-  const FLOURISHES = [
+  // ── CLIFF MILESTONE FLOURISHES — a handful of real additions keyed to
+  // overall progress (not a fixed per-task step) so the climb reads as
+  // more than just the route itself, regardless of task count.
+  const CLIFF_FLOURISHES = [
     { at: 0.14, label: 'Chalking up and clipping in' },
     { at: 0.32, label: 'Resting on a ledge' },
     { at: 0.52, label: 'An eagle circles overhead' },
     { at: 0.72, label: 'Breaking through the clouds' },
     { at: 0.90, label: 'Summit in sight' },
   ];
-  function drawFlourish(g, index, sc) {
+  function drawCliffFlourish(g, index, sc) {
     switch (index) {
       case 0: { // chalk bag glint + first anchor sparkle, drawn near the base
         const p = { x: CENTER_X + 15, y: BOTTOM_Y - 10 };
@@ -355,6 +441,72 @@ const JourneyGame = (() => {
     }
   }
 
+  // ── MOUNTAIN ROUTE — a switchback road, one bend per task. A road
+  // (unlike a taut rope) genuinely zigzags, so this uses a much wider
+  // sideways amplitude than the cliff's rope route.
+  function mountainRoute(n) {
+    const points = [];
+    for (let i = 0; i < n; i++) {
+      const t = n > 1 ? i / (n - 1) : 1;
+      const y = BOTTOM_Y - t * (BOTTOM_Y - TOP_Y);
+      const amp = 20 - t * 11;
+      const side = i % 2 === 0 ? -1 : 1;
+      points.push({ x: CENTER_X + side * amp, y });
+    }
+    return points;
+  }
+
+  // ── MOUNTAIN MILESTONE FLOURISHES — the driving equivalent of the
+  // cliff's ledge/eagle/clouds beats.
+  const MOUNTAIN_FLOURISHES = [
+    { at: 0.14, label: 'Leaving the trailhead' },
+    { at: 0.32, label: 'Through the pine forest' },
+    { at: 0.52, label: 'A hawk circles overhead' },
+    { at: 0.72, label: 'Into the clouds' },
+    { at: 0.90, label: 'Snow on the road ahead' },
+  ];
+  function pineTree(g, x, y, s) {
+    g.fillStyle(0x6b4a2e, 1); g.fillRect(x - 0.3 * s, y - 0.5 * s, 0.6 * s, 1.6 * s);
+    g.fillStyle(0x2f6b3a, 1); g.fillTriangle(x - 2.6 * s, y - 0.4 * s, x, y - 6.2 * s, x + 2.6 * s, y - 0.4 * s);
+    g.fillStyle(0x3f8a4a, 1); g.fillTriangle(x - 2.0 * s, y - 2.2 * s, x, y - 7.2 * s, x + 2.0 * s, y - 2.2 * s);
+    g.fillStyle(0x58a85e, 0.7); g.fillTriangle(x - 1.1 * s, y - 4.6 * s, x, y - 7.2 * s, x + 0.3 * s, y - 4.6 * s);
+  }
+  function drawMountainFlourish(g, index, sc) {
+    switch (index) {
+      case 0: { // a cluster of roadside pines near the trailhead
+        [[-16, 0], [-12, 1.2], [14, -0.5]].forEach(([dx, dy]) => pineTree(g, CENTER_X + dx, BOTTOM_Y - 4 + dy, 1.1));
+        break;
+      }
+      case 1: { // a denser pine forest band beside the road
+        const y = BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.3;
+        [[-22, 0], [-18, 2], [20, -1], [24, 1.5], [-26, 3]].forEach(([dx, dy]) => pineTree(g, CENTER_X + dx, y + dy, 1.3));
+        break;
+      }
+      case 2: { // a hawk, same mark as the cliff's eagle
+        const p = { x: CENTER_X - 22, y: BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.56 };
+        drawBird(g, p.x, p.y, 2.2, 0.9);
+        if (sc) sc._eagle = p;
+        break;
+      }
+      case 3: { // a cloud bank the road climbs into
+        const y = BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.68;
+        [[-18, 0], [-6, 1.5], [10, -1], [20, 1]].forEach(([dx, dy], i) => {
+          g.fillStyle(i % 2 ? 0xf4f8fc : 0xe3eef5, 0.9); g.fillEllipse(CENTER_X + dx, y + dy, 13, 4.2);
+          g.fillStyle(0xffffff, 0.6); g.fillEllipse(CENTER_X + dx - 2, y + dy - 1.4, 6, 1.8);
+        });
+        break;
+      }
+      case 4: { // the first dusting of snow beside the road
+        const y = BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.86;
+        [[-16, 0], [-10, 1.5], [18, -1], [12, 1]].forEach(([dx, dy]) => {
+          g.fillStyle(0xffffff, 0.9); g.fillEllipse(CENTER_X + dx, y + dy, 5, 2);
+        });
+        break;
+      }
+      default: break;
+    }
+  }
+
   let game = null, scene = null, pendingState = null, ro = null, mountEl = null;
 
   let JourneySceneClass = null;
@@ -365,17 +517,18 @@ const JourneyGame = (() => {
 
     create() {
       this.sky = this.add.graphics();
-      this.cliffGfx = this.add.graphics();
+      this.bgGfx = this.add.graphics();
       this.decor = this.add.container(0, 0);
       this.flourishGfx = this.add.graphics();
-      this.ropeGfx = this.add.graphics();
+      this.pathGfx = this.add.graphics();
       this.checkpointsLayer = this.add.container(0, 0);
       this.ghostLayer = this.add.container(0, 0);
       this.climberLayer = this.add.container(0, 0);
       this.fxLayer = this.add.container(0, 0);
-      this.root = this.add.container(0, 0, [this.sky, this.cliffGfx, this.decor, this.flourishGfx, this.ropeGfx, this.checkpointsLayer, this.ghostLayer, this.climberLayer, this.fxLayer]);
+      this.root = this.add.container(0, 0, [this.sky, this.bgGfx, this.decor, this.flourishGfx, this.pathGfx, this.checkpointsLayer, this.ghostLayer, this.climberLayer, this.fxLayer]);
 
       this._lastYouFrac = null;
+      this._lastStageKey = null;
       this._lastDoneIds = new Set();
       this._lastSummit = false;
       this._lastFlourishFrac = -1;
@@ -396,7 +549,8 @@ const JourneyGame = (() => {
         balloonG.destroy();
       }
 
-      this.buildStaticScene();
+      // No stage is known yet — the backdrop is built on the first
+      // applyState() call instead, once the real stageKey has arrived.
 
       this.input.on('pointerdown', (p) => {
         if (!this.root.scaleX) return;
@@ -420,6 +574,16 @@ const JourneyGame = (() => {
 
     clearContainer(c) { c.each(child => child.destroy()); c.removeAll(); }
 
+    // Dispatches to whichever stage's backdrop — called once up front and
+    // again whenever the stage picker switches, in which case everything
+    // static gets wiped and redrawn from scratch for the new stage.
+    buildStaticScene(stageKey) {
+      this.sky.clear();
+      this.bgGfx.clear();
+      this.clearContainer(this.decor);
+      if (stageKey === 'mountain') this.buildMountainStatic(); else this.buildCliffStatic();
+    }
+
     // A warm dawn gradient sky, soft pink clouds drifting below the
     // climber (the "high enough to be above the weather" read), a few
     // ambient birds, and the rock face itself — drawn once and left
@@ -427,7 +591,7 @@ const JourneyGame = (() => {
     // milestone flourishes, not by rebuilding the mountain. Flat, bold
     // color blocks over busy texture — a stylized illustration, not a
     // photo-real cliff.
-    buildStaticScene() {
+    buildCliffStatic() {
       // A punchier, more saturated dawn gradient — the muted version read
       // as flat/washed-out; mobile-game skies lean vivid.
       this.sky.fillGradientStyle(0x2f5fb0, 0x2f5fb0, 0xff9d6e, 0xff9d6e, 1);
@@ -500,13 +664,13 @@ const JourneyGame = (() => {
       ];
       // A richer, more saturated terracotta — the muted version read as
       // washed-out next to a vivid sky.
-      this.cliffGfx.fillGradientStyle(0xc4744f, 0xc4744f, 0x6b3a28, 0x6b3a28, 1);
-      this.cliffGfx.fillPoints(silhouette, true);
+      this.bgGfx.fillGradientStyle(0xc4744f, 0xc4744f, 0x6b3a28, 0x6b3a28, 1);
+      this.bgGfx.fillPoints(silhouette, true);
 
       // A modest, soft glow suggesting the sun catches this corner of the
       // rock — small and low-alpha so it reads as light, not a wash.
-      this.cliffGfx.fillStyle(0xffcf9a, 0.14);
-      this.cliffGfx.fillCircle(90, 22, 20);
+      this.bgGfx.fillStyle(0xffcf9a, 0.14);
+      this.bgGfx.fillCircle(90, 22, 20);
 
       // Real rock texture: a field of small soft blotches in varying
       // warm tones (sunlit bumps, shadowed pockets) instead of a couple
@@ -521,25 +685,25 @@ const JourneyGame = (() => {
         const y = 23 + rand() * 76;
         const r = 1.6 + rand() * 4.4;
         const [color, alpha] = tones[Math.floor(rand() * tones.length)];
-        this.cliffGfx.fillStyle(color, alpha * (0.6 + rand() * 0.5));
-        this.cliffGfx.fillCircle(x, y, r);
+        this.bgGfx.fillStyle(color, alpha * (0.6 + rand() * 0.5));
+        this.bgGfx.fillCircle(x, y, r);
       }
       // A handful of thin crack lines for grit, low-opacity so they read
       // as detail rather than damage.
-      this.cliffGfx.lineStyle(0.22, 0x3a2a20, 0.3);
+      this.bgGfx.lineStyle(0.22, 0x3a2a20, 0.3);
       [[22, 40, 28, 62], [66, 34, 60, 58], [38, 68, 44, 92], [84, 44, 90, 76]].forEach(([x1, y1, x2, y2]) => {
-        this.cliffGfx.beginPath(); this.cliffGfx.moveTo(x1, y1);
-        this.cliffGfx.lineTo((x1 + x2) / 2 + 1.5, (y1 + y2) / 2); this.cliffGfx.lineTo(x2, y2); this.cliffGfx.strokePath();
+        this.bgGfx.beginPath(); this.bgGfx.moveTo(x1, y1);
+        this.bgGfx.lineTo((x1 + x2) / 2 + 1.5, (y1 + y2) / 2); this.bgGfx.lineTo(x2, y2); this.bgGfx.strokePath();
       });
 
       // A bright rim-light along the sun-facing (right) side of the
       // cliff's silhouette — the single highest-impact "polished mobile
       // game" trick: a saturated light edge where a form turns away from
       // the light, instead of flat, evenly-lit color everywhere.
-      this.cliffGfx.lineStyle(0.9, 0xffe1b0, 0.55);
-      this.cliffGfx.beginPath();
-      this.cliffGfx.moveTo(64, 19); this.cliffGfx.lineTo(80, 17); this.cliffGfx.lineTo(94, 19.5); this.cliffGfx.lineTo(105, 18);
-      this.cliffGfx.strokePath();
+      this.bgGfx.lineStyle(0.9, 0xffe1b0, 0.55);
+      this.bgGfx.beginPath();
+      this.bgGfx.moveTo(64, 19); this.bgGfx.lineTo(80, 17); this.bgGfx.lineTo(94, 19.5); this.bgGfx.lineTo(105, 18);
+      this.bgGfx.strokePath();
 
       // A grassy plateau top with real depth — a flat-ish top surface
       // plus the short front lip where it meets the rock — rather than
@@ -548,19 +712,110 @@ const JourneyGame = (() => {
       const ridge = silhouette.slice(1, -1);
       const GRASS_THICK = 2.1;
       const top = ridge.map(p => ({ x: p.x, y: p.y - GRASS_THICK }));
-      this.cliffGfx.fillStyle(0x4a7a2d, 1);
-      this.cliffGfx.fillPoints([...top, ...ridge.slice().reverse()], true);
-      this.cliffGfx.fillStyle(0x7fd14a, 0.95);
-      this.cliffGfx.fillPoints([...top, ...top.map(p => ({ x: p.x, y: p.y + 0.9 })).reverse()], true);
+      this.bgGfx.fillStyle(0x4a7a2d, 1);
+      this.bgGfx.fillPoints([...top, ...ridge.slice().reverse()], true);
+      this.bgGfx.fillStyle(0x7fd14a, 0.95);
+      this.bgGfx.fillPoints([...top, ...top.map(p => ({ x: p.x, y: p.y + 0.9 })).reverse()], true);
       // A thin glossy highlight along the very top edge of the grass.
-      this.cliffGfx.lineStyle(0.3, 0xc8f08a, 0.7);
-      this.cliffGfx.beginPath();
-      top.forEach((p, i) => { if (i === 0) this.cliffGfx.moveTo(p.x, p.y); else this.cliffGfx.lineTo(p.x, p.y); });
-      this.cliffGfx.strokePath();
-      this.cliffGfx.lineStyle(0.35, 0x3f6b2a, 0.8);
-      this.cliffGfx.beginPath();
-      ridge.forEach((p, i) => { if (i === 0) this.cliffGfx.moveTo(p.x, p.y); else this.cliffGfx.lineTo(p.x, p.y); });
-      this.cliffGfx.strokePath();
+      this.bgGfx.lineStyle(0.3, 0xc8f08a, 0.7);
+      this.bgGfx.beginPath();
+      top.forEach((p, i) => { if (i === 0) this.bgGfx.moveTo(p.x, p.y); else this.bgGfx.lineTo(p.x, p.y); });
+      this.bgGfx.strokePath();
+      this.bgGfx.lineStyle(0.35, 0x3f6b2a, 0.8);
+      this.bgGfx.beginPath();
+      ridge.forEach((p, i) => { if (i === 0) this.bgGfx.moveTo(p.x, p.y); else this.bgGfx.lineTo(p.x, p.y); });
+      this.bgGfx.strokePath();
+    }
+
+    // "Mountain Drive" — a clear-day sky (a different mood from the
+    // cliff's dawn, so the two stages don't just look like recolors of
+    // each other) over a snow-capped peak the road switches back up.
+    buildMountainStatic() {
+      this.sky.fillGradientStyle(0x2a6fb0, 0x2a6fb0, 0xcfeaf7, 0xcfeaf7, 1);
+      this.sky.fillRect(0, 0, 100, 100);
+
+      const sun = this.add.container(18, 13);
+      [[7, 0xffffff, 0.25], [4.6, 0xfff9e0, 0.5], [2.8, 0xffffff, 0.9], [1.6, 0xffffff, 1]].forEach(([r, col, a]) => sun.add(this.add.circle(0, 0, r, col, a)));
+      this.decor.add(sun);
+      this.tweens.add({ targets: sun.list[0], scale: 1.2, alpha: 0.15, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+      const cloudAt = (cx, cy, scale, tint, hi) => {
+        const g = this.add.graphics();
+        g.fillStyle(tint, 0.92);
+        [[-7, 0.5, 6.5, 3], [-2, -1.2, 7, 3.6], [4, 0.3, 6, 3], [9, 1, 5, 2.6]].forEach(([dx, dy, w, h]) => g.fillEllipse(dx * scale, dy * scale, w * scale, h * scale));
+        g.fillStyle(hi, 0.6); g.fillEllipse(-1 * scale, -2.1 * scale, 5 * scale, 2 * scale);
+        g.setPosition(cx, cy);
+        return g;
+      };
+      this.decor.add(cloudAt(80, 20, 1.1, 0xffffff, 0xffffff));
+      this.decor.add(cloudAt(60, 60, 0.9, 0xe9f3f8, 0xffffff));
+      this.decor.add(cloudAt(90, 72, 1.2, 0xe9f3f8, 0xffffff));
+      this.decor.add(cloudAt(10, 45, 0.7, 0xf2f8fb, 0xffffff));
+
+      [[30, 22, 1], [40, 30, 0.75], [68, 15, 0.95]].forEach(([x, y, s]) => {
+        const g = this.add.graphics();
+        drawBird(g, 0, 0, s);
+        g.setPosition(x, y);
+        this.decor.add(g);
+      });
+
+      this.buildMountainFace();
+
+      // A trailhead sign at the foot of the road.
+      const base = this.add.graphics();
+      base.fillStyle(0x000000, 0.18); base.fillEllipse(CENTER_X - 22, BOTTOM_Y + 9, 7, 1.6);
+      base.fillStyle(0x6b4a2e, 1); base.fillRect(CENTER_X - 22.15, BOTTOM_Y - 1, 0.3, 9);
+      base.fillStyle(0xd1d5db, 1); base.fillRoundedRect(CENTER_X - 25.5, BOTTOM_Y - 1.5, 7, 3.4, 0.5);
+      base.fillStyle(0xffffff, 0.4); base.fillRoundedRect(CENTER_X - 25.5, BOTTOM_Y - 1.5, 3, 3.4, 0.5);
+      this.decor.add(base);
+    }
+
+    // A snow-capped peak — a gradient from forest green at the base
+    // through bare rock to white snow at the summit, built from one
+    // gradient fill (always stays inside the silhouette, unlike separate
+    // inset polygons) plus a rocky texture band and a brighter snow cap
+    // cluster so the transition actually reads as three zones.
+    buildMountainFace() {
+      const silhouette = [
+        { x: -5, y: 100 }, { x: -5, y: 86 }, { x: 18, y: 48 }, { x: 34, y: 62 },
+        { x: 50, y: 10 }, { x: 64, y: 56 }, { x: 80, y: 42 }, { x: 105, y: 84 }, { x: 105, y: 100 },
+      ];
+      this.bgGfx.fillGradientStyle(0xf4f8fc, 0xf4f8fc, 0x3f6b35, 0x3f6b35, 1);
+      this.bgGfx.fillPoints(silhouette, true);
+
+      // A rocky gray texture band across the middle third, the same
+      // "scattered soft blotches" trick as the cliff's rock texture.
+      let seed = 777;
+      const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed % 10000) / 10000; };
+      const tones = [[0x8a8f94, 0.3], [0x6f757b, 0.3], [0xa3a8ad, 0.22], [0x5c6066, 0.26]];
+      for (let i = 0; i < 55; i++) {
+        const x = 10 + rand() * 80;
+        const y = 32 + rand() * 32;
+        const r = 1.6 + rand() * 3.6;
+        const [color, alpha] = tones[Math.floor(rand() * tones.length)];
+        this.bgGfx.fillStyle(color, alpha * (0.6 + rand() * 0.5));
+        this.bgGfx.fillCircle(x, y, r);
+      }
+
+      // A brighter snow-cap cluster right at the peak, so the gradient's
+      // natural white-at-top isn't the only thing selling "snow".
+      [[50, 16, 9], [43, 24, 6], [57, 23, 6.5], [50, 30, 5]].forEach(([x, y, r]) => {
+        this.bgGfx.fillStyle(0xffffff, 0.85); this.bgGfx.fillCircle(x, y, r);
+      });
+      this.bgGfx.fillStyle(0xdbe9f2, 0.5); this.bgGfx.fillCircle(46, 20, 4);
+
+      // Rim-light along the sun-facing (left, where this stage's sun
+      // sits) slope.
+      this.bgGfx.lineStyle(0.9, 0xffffff, 0.5);
+      this.bgGfx.beginPath();
+      this.bgGfx.moveTo(18, 48); this.bgGfx.lineTo(34, 62); this.bgGfx.lineTo(50, 10);
+      this.bgGfx.strokePath();
+
+      // Green foothill texture near the base.
+      [[15, 80], [30, 88], [70, 86], [88, 82]].forEach(([x, y]) => {
+        this.bgGfx.fillStyle(0x2f6b3a, 0.5); this.bgGfx.fillEllipse(x, y, 8, 3.4);
+        this.bgGfx.fillStyle(0x3f8a4a, 0.5); this.bgGfx.fillEllipse(x + 1.5, y + 1, 5, 2.2);
+      });
     }
 
     // One real rope, fixed at a summit anchor and run straight down past
@@ -569,13 +824,13 @@ const JourneyGame = (() => {
     // rigged top to bottom. A twisted-fiber look (a dark base strand plus
     // a thinner warm highlight strand) instead of a flat line.
     drawRope(points) {
-      this.ropeGfx.clear();
+      this.pathGfx.clear();
       const all = [{ x: CENTER_X, y: BOTTOM_Y + 6 }, ...points, { x: CENTER_X, y: TOP_Y - 5 }];
       const stroke = (w, col, a, dx) => {
-        this.ropeGfx.lineStyle(w, col, a);
-        this.ropeGfx.beginPath(); this.ropeGfx.moveTo(all[0].x + (dx || 0), all[0].y);
-        all.slice(1).forEach(p => this.ropeGfx.lineTo(p.x + (dx || 0), p.y));
-        this.ropeGfx.strokePath();
+        this.pathGfx.lineStyle(w, col, a);
+        this.pathGfx.beginPath(); this.pathGfx.moveTo(all[0].x + (dx || 0), all[0].y);
+        all.slice(1).forEach(p => this.pathGfx.lineTo(p.x + (dx || 0), p.y));
+        this.pathGfx.strokePath();
       };
       // A dark halo stroke first — makes the rope read clearly against
       // *any* patch of the rock texture behind it, not just the ones it
@@ -590,8 +845,56 @@ const JourneyGame = (() => {
 
       // A summit anchor — the piton the rope is actually fixed to.
       const anchor = all[all.length - 1];
-      this.ropeGfx.fillStyle(0x4b5563, 1); this.ropeGfx.fillRoundedRect(anchor.x - 0.5, anchor.y - 1.6, 1, 2.2, 0.3);
-      this.ropeGfx.lineStyle(0.3, 0x374151, 1); this.ropeGfx.strokeCircle(anchor.x, anchor.y - 1.6, 1.1);
+      this.pathGfx.fillStyle(0x4b5563, 1); this.pathGfx.fillRoundedRect(anchor.x - 0.5, anchor.y - 1.6, 1, 2.2, 0.3);
+      this.pathGfx.lineStyle(0.3, 0x374151, 1); this.pathGfx.strokeCircle(anchor.x, anchor.y - 1.6, 1.1);
+    }
+
+    // A switchback asphalt road — thick enough to be an actual ribbon
+    // (not a thin line), with a dashed centerline and guardrail posts on
+    // the outer edge of each bend, finishing at a summit gate.
+    drawRoad(points) {
+      this.pathGfx.clear();
+      const all = [{ x: CENTER_X, y: BOTTOM_Y + 6 }, ...points, { x: CENTER_X, y: TOP_Y - 4 }];
+      const path = (fn) => {
+        fn.beginPath(); fn.moveTo(all[0].x, all[0].y);
+        all.slice(1).forEach(p => fn.lineTo(p.x, p.y));
+        fn.strokePath();
+      };
+      this.pathGfx.lineStyle(4.6, 0x000000, 0.22); path(this.pathGfx); // contact shadow, offset-free (good enough at this scale)
+      this.pathGfx.lineStyle(4, 0x4b5259, 1); path(this.pathGfx); // asphalt
+      this.pathGfx.lineStyle(2.4, 0x5c646b, 0.6); path(this.pathGfx); // center sheen
+
+      // A dashed yellow centerline, built per-segment so the dashes stay
+      // evenly spaced along each bend rather than one continuous stroke.
+      for (let i = 0; i < all.length - 1; i++) {
+        const a = all[i], b = all[i + 1];
+        const len = Math.hypot(b.x - a.x, b.y - a.y);
+        const dashes = Math.max(2, Math.round(len / 2.6));
+        for (let d = 0; d < dashes; d += 2) {
+          const t0 = d / dashes, t1 = Math.min(1, (d + 1) / dashes);
+          this.pathGfx.lineStyle(0.35, 0xffd93d, 0.95);
+          this.pathGfx.beginPath();
+          this.pathGfx.moveTo(a.x + (b.x - a.x) * t0, a.y + (b.y - a.y) * t0);
+          this.pathGfx.lineTo(a.x + (b.x - a.x) * t1, a.y + (b.y - a.y) * t1);
+          this.pathGfx.strokePath();
+        }
+      }
+
+      // Guardrail posts along the outer edge of each bend.
+      points.forEach((p) => {
+        const side = p.x > CENTER_X ? 1 : -1;
+        this.pathGfx.fillStyle(0xe5e7eb, 0.95); this.pathGfx.fillRoundedRect(p.x + side * 2.3 - 0.25, p.y - 1, 0.5, 2, 0.2);
+      });
+
+      // A summit gate — the arrival marker the road's own checkpoint
+      // circle sits in front of.
+      const summit = all[all.length - 1];
+      this.pathGfx.fillStyle(0x4b5563, 1);
+      this.pathGfx.fillRect(summit.x - 3.2, summit.y - 4.2, 0.35, 4.2);
+      this.pathGfx.fillRect(summit.x + 2.9, summit.y - 4.2, 0.35, 4.2);
+      this.pathGfx.fillStyle(0xffffff, 1); this.pathGfx.fillRoundedRect(summit.x - 3.4, summit.y - 5, 6.8, 1.3, 0.3);
+      this.pathGfx.fillStyle(0xef4444, 0.9); this.pathGfx.fillRect(summit.x - 3.4, summit.y - 5, 1.3, 1.3);
+      this.pathGfx.fillRect(summit.x + 1.3, summit.y - 5, 1.3, 1.3);
     }
 
     buildCheckpoints(points, tasks, doneCount) {
@@ -635,17 +938,19 @@ const JourneyGame = (() => {
       });
     }
 
-    buildFlourishesAt(frac, prevFrac) {
+    buildFlourishesAt(stageKey, frac) {
       this.flourishGfx.clear();
-      FLOURISHES.forEach((f, i) => { if (frac > f.at) drawFlourish(this.flourishGfx, i, this); });
-      // Eagle gets a gentle circling drift once it exists.
-      if (this._eagle && frac > FLOURISHES[2].at) {
+      const list = stageKey === 'mountain' ? MOUNTAIN_FLOURISHES : CLIFF_FLOURISHES;
+      const drawFn = stageKey === 'mountain' ? drawMountainFlourish : drawCliffFlourish;
+      list.forEach((f, i) => { if (frac > f.at) drawFn(this.flourishGfx, i, this); });
+      // The circling bird (eagle/hawk) gets a gentle drift once it exists.
+      if (this._eagle && frac > list[2].at) {
         if (!this._eagleTween) {
           this._eagleAngle = 0;
           this._eagleTween = this.tweens.addCounter({ from: 0, to: Math.PI * 2, duration: 6000, repeat: -1, onUpdate: (tw) => {
             this._eagleAngle = tw.getValue();
             this.flourishGfx.clear();
-            FLOURISHES.forEach((f2, i2) => { if (frac > f2.at && i2 !== 2) drawFlourish(this.flourishGfx, i2, this); });
+            list.forEach((f2, i2) => { if (frac > f2.at && i2 !== 2) drawFn(this.flourishGfx, i2, this); });
             const ex = this._eagle.x + Math.cos(this._eagleAngle) * 6, ey = this._eagle.y + Math.sin(this._eagleAngle) * 2.2;
             drawBird(this.flourishGfx, ex, ey, 2.2, 0.85);
           } });
@@ -654,20 +959,32 @@ const JourneyGame = (() => {
     }
 
     applyState(state) {
-      const firstSync = this._lastYouFrac === null;
-      if (firstSync) {
-        const climber = buildClimber(this, true);
-        climber.setScale(1, this.roundFix || 1);
-        this.climberLayer.add(climber);
+      const stageKey = state.stageKey === 'mountain' ? 'mountain' : 'cliff';
+      const stageChanged = this._lastStageKey !== null && this._lastStageKey !== stageKey;
+      const firstSync = this._lastStageKey === null;
+      // A brand-new scene, or the stage picker just switched: rebuild the
+      // whole backdrop and swap the avatar for this stage's own rig
+      // (a climber and a car share nothing structurally). Position snaps
+      // instead of animating in either case — a stage switch shouldn't
+      // play a climb/drive move from wherever the old scene left off.
+      if (firstSync || stageChanged) {
+        this.buildStaticScene(stageKey);
+        if (this.climberLayer.list[0]) this.climberLayer.list[0].destroy();
+        const avatar = stageKey === 'mountain' ? buildVehicle(this, true) : buildClimber(this, true);
+        avatar.setScale(1, this.roundFix || 1);
+        this.climberLayer.add(avatar);
+        if (this._eagleTween) { this._eagleTween.remove(); this._eagleTween = null; }
+        this._eagle = null;
+        this._lastFlourishFrac = -1;
       }
+      this._lastStageKey = stageKey;
 
-      const prevFrac = this._lastFlourishFrac < 0 ? -1 : this._lastFlourishFrac;
-      this.buildFlourishesAt(state.youFrac, prevFrac);
+      this.buildFlourishesAt(stageKey, state.youFrac);
       this._lastFlourishFrac = state.youFrac;
 
-      const points = climbRoute(state.tasks.length);
+      const points = stageKey === 'mountain' ? mountainRoute(state.tasks.length) : climbRoute(state.tasks.length);
       const doneCount = state.tasks.filter(t => t.status === 'Completed').length;
-      this.drawRope(points);
+      if (stageKey === 'mountain') this.drawRoad(points); else this.drawRope(points);
       this.buildCheckpoints(points, state.tasks, doneCount);
 
       // Celebrate any checkpoint that's newly done since the last sync —
@@ -682,13 +999,14 @@ const JourneyGame = (() => {
       });
       this._lastDoneIds = nowDoneIds;
 
-      // Ghost (pace/competitor marker) — a faded second climber elsewhere
-      // on the route.
+      // Ghost (pace/competitor marker) — a faded second avatar elsewhere
+      // on the route, built with whichever rig matches the active stage.
+      const offset = stageKey === 'mountain' ? -1.5 : -2.2;
       this.clearContainer(this.ghostLayer);
       if (state.ghost) {
         const gp = positionAt(points, state.ghost.frac);
-        const ghostClimber = buildClimber(this, false);
-        const g = this.add.container(gp.x, gp.y - 2.2, [ghostClimber]);
+        const ghostAvatar = stageKey === 'mountain' ? buildVehicle(this, false) : buildClimber(this, false);
+        const g = this.add.container(gp.x, gp.y + offset, [ghostAvatar]);
         g.setScale(1, this.roundFix || 1);
         g.setAlpha(0.4);
         const badge = this.add.container(3, -16, [
@@ -699,15 +1017,17 @@ const JourneyGame = (() => {
         this.ghostLayer.add(g);
       }
 
-      // Climber — plays a real climb-move action to the new anchor rather
-      // than just sliding, unless this is the very first placement.
+      // Avatar — plays a real climb/drive action to the new spot rather
+      // than just sliding, unless this is a fresh placement (first sync
+      // or a stage just switched).
       const you = positionAt(points, state.youFrac);
-      const climber = this.climberLayer.list[0];
-      if (climber) {
-        if (firstSync) {
-          climber.setPosition(you.x, you.y - 2.2);
+      const avatar = this.climberLayer.list[0];
+      if (avatar) {
+        if (firstSync || stageChanged) {
+          avatar.setPosition(you.x, you.y + offset);
         } else if (this._lastYouFrac !== state.youFrac) {
-          climbMove(this, climber, you.x, you.y - 2.2);
+          const moveFn = stageKey === 'mountain' ? driveMove : climbMove;
+          moveFn(this, avatar, you.x, you.y + offset);
         }
       }
       this._lastYouFrac = state.youFrac;
@@ -795,10 +1115,11 @@ const JourneyGame = (() => {
     // state: { tasks, youFrac, ghost, summitLit, celebrationsEnabled }
     // Returns the current milestone's label (for the status line) once
     // ready — callers don't need to duplicate the FLOURISHES thresholds.
-    buildPhaseLabel(frac) {
+    buildPhaseLabel(frac, stageKey) {
       if (frac >= 1) return 'Summit reached';
-      let label = 'Starting the climb';
-      FLOURISHES.forEach(f => { if (frac > f.at) label = f.label; });
+      const mountain = stageKey === 'mountain';
+      let label = mountain ? 'Starting the drive' : 'Starting the climb';
+      (mountain ? MOUNTAIN_FLOURISHES : CLIFF_FLOURISHES).forEach(f => { if (frac > f.at) label = f.label; });
       return label;
     },
     sync(container, state) {
