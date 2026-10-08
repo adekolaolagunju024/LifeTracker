@@ -4733,39 +4733,57 @@ function showMountainCelebration() {
 // task detail, bulk actions, the assistant — not just inside Journey view.
 // Journey view already celebrates at the checkpoint itself, so this layer
 // steps aside while that's the one on screen rather than doubling up.
+// A shared particle pool and a single render loop — calling this again
+// while an earlier burst is still falling *adds* to the same pool instead
+// of starting a second independent clearRect+redraw loop. Two (or three,
+// for the whole-project moment's staggered triple burst) competing loops
+// each clearing the whole canvas every frame made every other loop's
+// particles flicker/disappear — visible stutter that read as "slow",
+// not actually a performance problem so much as loops fighting each other.
+let _confettiParticles = [];
+let _confettiRunning = false;
 function fireScreenConfetti(originX, originY, count) {
   const canvas = document.getElementById('global-confetti');
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  const ctx = canvas.getContext('2d');
+  if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
   const colors = ['#0A7E8C', '#F59E0B', '#EF4444', '#22C55E', '#3B82F6', '#EC4899', '#A855F7'];
-  const particles = Array.from({ length: count }, () => ({
-    x: originX, y: originY,
-    vx: (Math.random() - 0.5) * 11,
-    vy: -(Math.random() * 11 + 4),
-    size: Math.random() * 6 + 3,
-    color: colors[Math.floor(Math.random() * colors.length)],
-    rot: Math.random() * 360,
-    vrot: (Math.random() - 0.5) * 24,
-    life: 1,
-  }));
+  for (let i = 0; i < count; i++) {
+    _confettiParticles.push({
+      x: originX, y: originY,
+      vx: (Math.random() - 0.5) * 11,
+      vy: -(Math.random() * 11 + 4),
+      size: Math.random() * 6 + 3,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rot: Math.random() * 360,
+      vrot: (Math.random() - 0.5) * 24,
+      life: 1,
+    });
+  }
+  if (_confettiRunning) return;
+  _confettiRunning = true;
+  const ctx = canvas.getContext('2d');
   function tick() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    let alive = false;
-    particles.forEach(p => {
+    _confettiParticles = _confettiParticles.filter(p => {
       p.vy += 0.32; p.x += p.vx; p.y += p.vy; p.rot += p.vrot; p.life -= 0.009;
-      if (p.life > 0) {
-        alive = true;
-        ctx.save();
-        ctx.globalAlpha = Math.max(p.life, 0);
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rot * Math.PI / 180);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
-        ctx.restore();
-      }
+      if (p.life <= 0) return false;
+      ctx.save();
+      ctx.globalAlpha = Math.max(p.life, 0);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot * Math.PI / 180);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+      ctx.restore();
+      return true;
     });
-    if (alive) requestAnimationFrame(tick); else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (_confettiParticles.length) {
+      requestAnimationFrame(tick);
+    } else {
+      _confettiRunning = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
   }
   tick();
 }
@@ -4783,61 +4801,75 @@ function fireBigScreenConfetti() {
 // from confetti (up and gentle instead of down and fast), reserved for the
 // bigger whole-project moment. Its own canvas (see index.html) so its
 // clear-and-redraw loop doesn't fight confetti's independent one if both
-// are animating at the same time.
+// are animating at the same time. Same shared-pool fix as confetti above:
+// finishing a second project while the first's balloons are still rising
+// (they take several seconds) used to start a second independent
+// clearRect loop that fought the first one every frame.
+let _balloonParticles = [];
+let _balloonsRunning = false;
 function fireBalloons(count) {
   const canvas = document.getElementById('global-balloons');
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  const ctx = canvas.getContext('2d');
+  if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
   const colors = ['#EF4444', '#F59E0B', '#22C55E', '#3B82F6', '#EC4899', '#A855F7', '#0A7E8C'];
-  const balloons = Array.from({ length: count }, () => ({
-    x: Math.random() * canvas.width,
-    y: canvas.height + Math.random() * 300,
-    vy: -(Math.random() * 1.3 + 1.1),
-    sway: Math.random() * 1.6 + 0.6,
-    swayFreq: Math.random() * 0.02 + 0.015,
-    phase: Math.random() * Math.PI * 2,
-    size: Math.random() * 12 + 20,
-    color: colors[Math.floor(Math.random() * colors.length)],
-    t: 0,
-  }));
+  for (let i = 0; i < count; i++) {
+    _balloonParticles.push({
+      x: Math.random() * canvas.width,
+      y: canvas.height + Math.random() * 300,
+      vy: -(Math.random() * 1.3 + 1.1),
+      sway: Math.random() * 1.6 + 0.6,
+      swayFreq: Math.random() * 0.02 + 0.015,
+      phase: Math.random() * Math.PI * 2,
+      size: Math.random() * 12 + 20,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      t: 0,
+    });
+  }
+  if (_balloonsRunning) return;
+  _balloonsRunning = true;
+  const ctx = canvas.getContext('2d');
   function tick() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    let alive = false;
-    balloons.forEach(b => {
+    _balloonParticles = _balloonParticles.filter(b => {
       b.t += 1;
       b.y += b.vy;
       b.x += Math.sin(b.t * b.swayFreq + b.phase) * b.sway * 0.1;
-      if (b.y > -60) {
-        alive = true;
-        const fadeTop = canvas.height * 0.12; // fade out as it nears the top
-        const alpha = b.y < fadeTop ? Math.max(0, b.y / fadeTop) : 1;
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = b.color;
-        // Balloon body
-        ctx.beginPath();
-        ctx.ellipse(b.x, b.y, b.size * 0.42, b.size * 0.52, 0, 0, Math.PI * 2);
-        ctx.fill();
-        // Knot
-        ctx.beginPath();
-        ctx.moveTo(b.x - 3, b.y + b.size * 0.48);
-        ctx.lineTo(b.x + 3, b.y + b.size * 0.48);
-        ctx.lineTo(b.x, b.y + b.size * 0.58);
-        ctx.closePath();
-        ctx.fill();
-        // String
-        ctx.strokeStyle = b.color;
-        ctx.globalAlpha = alpha * 0.5;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(b.x, b.y + b.size * 0.58);
-        ctx.lineTo(b.x + Math.sin(b.t * 0.05) * 3, b.y + b.size * 0.58 + 18);
-        ctx.stroke();
-        ctx.restore();
-      }
+      if (b.y <= -60) return false;
+      const fadeTop = canvas.height * 0.12; // fade out as it nears the top
+      const alpha = b.y < fadeTop ? Math.max(0, b.y / fadeTop) : 1;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = b.color;
+      // Balloon body
+      ctx.beginPath();
+      ctx.ellipse(b.x, b.y, b.size * 0.42, b.size * 0.52, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Knot
+      ctx.beginPath();
+      ctx.moveTo(b.x - 3, b.y + b.size * 0.48);
+      ctx.lineTo(b.x + 3, b.y + b.size * 0.48);
+      ctx.lineTo(b.x, b.y + b.size * 0.58);
+      ctx.closePath();
+      ctx.fill();
+      // String
+      ctx.strokeStyle = b.color;
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(b.x, b.y + b.size * 0.58);
+      ctx.lineTo(b.x + Math.sin(b.t * 0.05) * 3, b.y + b.size * 0.58 + 18);
+      ctx.stroke();
+      ctx.restore();
+      return true;
     });
-    if (alive) requestAnimationFrame(tick); else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (_balloonParticles.length) {
+      requestAnimationFrame(tick);
+    } else {
+      _balloonsRunning = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
   }
   tick();
 }

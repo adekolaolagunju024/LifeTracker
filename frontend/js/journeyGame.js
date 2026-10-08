@@ -40,11 +40,19 @@ const JourneyGame = (() => {
 
   // ── Shared constants ──────────────────────────────────────────
   const DONE_COLOR = 0x10b981, NEXT_COLOR = 0xfbbf24, PENDING_COLOR = 0xcbd5c8;
-  const CENTER_X = 50, BOTTOM_Y = 90;
+  const BOTTOM_Y = 90;
   // Real headroom above the final checkpoint for the rocket's own nose
   // cone and the station above it — too little margin here is what
   // cropped the avatar/decorations off-canvas in an earlier version.
   const TOP_Y = 16;
+  // The flight path runs diagonally, launchpad to station, rather than
+  // straight up the center — the scene's own panel is wide and short
+  // (a game panel, not a portrait phone screen), so a purely vertical
+  // path only ever used a narrow strip down the middle, leaving the rest
+  // empty and making the rocket/checkpoints read as small and "zoomed
+  // out" against all that unused space. The diagonal spans most of the
+  // panel's actual width.
+  const START_X = 24, END_X = 78;
 
   // Phaser rasterizes Text at its own font-size, then the scene's ~10x
   // container scale blows that up — render large, then shrink the object
@@ -56,23 +64,22 @@ const JourneyGame = (() => {
     return t;
   }
 
-  // ── THE FLIGHT PATH — straight up, one stop per task. A rocket doesn't
-  // switch back, so there's no amplitude to tune; a small constant
-  // alternating offset just keeps each checkpoint's number legible next
-  // to the flight line instead of directly behind the rocket.
+  // ── THE FLIGHT PATH — a straight diagonal, launchpad to station, one
+  // stop per task. A rocket doesn't switch back, so there's no amplitude
+  // to tune; the diagonal itself spaces consecutive checkpoints apart
+  // (both x and y change together), so no extra jitter is needed the way
+  // a vertical line would have needed one to avoid stacking numbers.
   function routePoints(n) {
     const points = [];
     for (let i = 0; i < n; i++) {
       const t = n > 1 ? i / (n - 1) : 1;
-      const y = BOTTOM_Y - t * (BOTTOM_Y - TOP_Y);
-      const side = i % 2 === 0 ? -1 : 1;
-      points.push({ x: CENTER_X + side * 3, y });
+      points.push({ x: START_X + t * (END_X - START_X), y: BOTTOM_Y - t * (BOTTOM_Y - TOP_Y) });
     }
     return points;
   }
   function checkpointRadius(n) { return Math.max(1.6, Math.min(3.0, 34 / Math.max(1, n))); }
   function positionAt(points, frac) {
-    if (!points.length) return { x: CENTER_X, y: BOTTOM_Y };
+    if (!points.length) return { x: START_X, y: BOTTOM_Y };
     if (frac <= 0) return points[0];
     if (frac >= 1) return points[points.length - 1];
     const idx = frac * (points.length - 1);
@@ -107,8 +114,9 @@ const JourneyGame = (() => {
       sc.decor.add(sc.add.circle(x, y, 0.35 + rand() * 0.35, 0xffffff, 0.5 + rand() * 0.4));
     }
 
-    // The space station — a simple ring + core, marking the goal.
-    const station = sc.add.container(CENTER_X, TOP_Y - 6);
+    // The space station — a simple ring + core, marking the goal — sits
+    // at the top end of the diagonal, not dead-center.
+    const station = sc.add.container(END_X, TOP_Y - 6);
     const ring = sc.add.graphics();
     ring.lineStyle(0.6, 0xaab4c0, 0.9); ring.strokeEllipse(0, 0, 11, 3.4);
     station.add(ring);
@@ -119,10 +127,11 @@ const JourneyGame = (() => {
 
     // Launch tower at the base — a pole with one angled support strut,
     // not two horizontal crossbars (which, at this scale, read as the
-    // letter "F" rather than a gantry tower).
+    // letter "F" rather than a gantry tower) — positioned beside the
+    // diagonal's actual starting point, not dead-center.
     const tower = sc.add.graphics();
-    tower.fillStyle(0x6b7280, 1); tower.fillRect(CENTER_X - 10, BOTTOM_Y - 10, 0.6, 10);
-    tower.fillStyle(0x4b5563, 1); tower.fillTriangle(CENTER_X - 10, BOTTOM_Y - 10, CENTER_X - 10, BOTTOM_Y - 8.2, CENTER_X - 7.2, BOTTOM_Y - 6.5);
+    tower.fillStyle(0x6b7280, 1); tower.fillRect(START_X - 6, BOTTOM_Y - 10, 0.6, 10);
+    tower.fillStyle(0x4b5563, 1); tower.fillTriangle(START_X - 6, BOTTOM_Y - 10, START_X - 6, BOTTOM_Y - 8.2, START_X - 3.2, BOTTOM_Y - 6.5);
     sc.decor.add(tower);
 
     // Ground.
@@ -135,7 +144,7 @@ const JourneyGame = (() => {
   // exhaust-trail line connecting the checkpoints, drawn once per sync.
   function drawFlightPath(sc, points) {
     sc.pathGfx.clear();
-    const all = [{ x: CENTER_X, y: BOTTOM_Y + 4 }, ...points, { x: CENTER_X, y: TOP_Y - 6 }];
+    const all = [{ x: START_X, y: BOTTOM_Y + 4 }, ...points, { x: END_X, y: TOP_Y - 6 }];
     sc.pathGfx.lineStyle(0.5, 0x8fb4de, 0.5);
     sc.pathGfx.beginPath(); sc.pathGfx.moveTo(all[0].x, all[0].y);
     all.slice(1).forEach(p => sc.pathGfx.lineTo(p.x, p.y));
@@ -348,9 +357,9 @@ const JourneyGame = (() => {
         this._lastYouFrac = state.youFrac;
 
         if (state.summitLit && !this._lastSummit && celebrate) {
-          this.burst(CENTER_X, TOP_Y - 2, 90);
-          this.burst(CENTER_X - 14, TOP_Y + 6, 60);
-          this.burst(CENTER_X + 14, TOP_Y + 6, 60);
+          this.burst(END_X, TOP_Y - 2, 90);
+          this.burst(END_X - 14, TOP_Y + 6, 60);
+          this.burst(END_X + 10, TOP_Y + 6, 60);
           this.burstBalloons(10);
         }
         this._lastSummit = state.summitLit;
