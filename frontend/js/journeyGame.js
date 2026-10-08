@@ -322,29 +322,33 @@ const JourneyGame = (() => {
         const y = BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.34;
         g.fillStyle(0x3a322a, 0.4); g.fillEllipse(CENTER_X - 6, y + 2.6, 21, 3.2); // contact shadow
         g.fillStyle(0x5c4f3f, 1); g.fillEllipse(CENTER_X - 6, y + 1.6, 20, 3); // underside
-        g.fillStyle(0xcdb896, 1); g.fillEllipse(CENTER_X - 6, y, 20, 3.4); // top surface
-        g.fillStyle(0xe4d4b0, 0.7); g.fillEllipse(CENTER_X - 10, y - 0.6, 7, 1.6); // sunlit highlight
+        g.fillStyle(0xe0c49a, 1); g.fillEllipse(CENTER_X - 6, y, 20, 3.4); // top surface
+        g.fillStyle(0xfff0d0, 0.8); g.fillEllipse(CENTER_X - 10, y - 0.6, 7, 1.6); // sunlit highlight
+        g.lineStyle(0.25, 0xfff6e2, 0.7); g.beginPath(); g.moveTo(CENTER_X - 15.5, y - 1.2); g.lineTo(CENTER_X + 3.5, y - 1.2); g.strokePath(); // glossy rim
         g.fillStyle(0x4a6b3a, 0.85); g.fillEllipse(CENTER_X - 13, y - 0.9, 3.4, 1.5); // tuft of grass
         g.fillStyle(0x5c8a4c, 0.85); g.fillEllipse(CENTER_X + 2, y - 0.8, 2.6, 1.2);
         break;
       }
       case 2: { // an eagle, same gull-wing mark as the ambient birds, larger
         const p = { x: CENTER_X + 24, y: BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.56 };
-        drawBird(g, p.x, p.y, 2.2, 0.85);
+        drawBird(g, p.x, p.y, 2.2, 0.9);
         if (sc) sc._eagle = p;
         break;
       }
-      case 3: { // a soft pink cloud bank drifting right past the climber
+      case 3: { // a soft cloud bank drifting right past the climber —
+        // same punchier cloud palette as the ambient sky clouds.
         const y = BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.68;
         [[-18, 0], [-6, 1.5], [10, -1], [20, 1]].forEach(([dx, dy], i) => {
-          g.fillStyle(i % 2 ? 0xffe3d4 : 0xffc9b4, 0.85); g.fillEllipse(CENTER_X + dx, y + dy, 13, 4.2);
+          g.fillStyle(i % 2 ? 0xffcdb0 : 0xffb894, 0.9); g.fillEllipse(CENTER_X + dx, y + dy, 13, 4.2);
+          g.fillStyle(0xfff0e2, 0.55); g.fillEllipse(CENTER_X + dx - 2, y + dy - 1.4, 6, 1.8);
         });
         break;
       }
-      case 4: { // a small marker flag just below the summit
+      case 4: { // a small glossy marker flag just below the summit
         const y = TOP_Y + 5;
         g.fillStyle(0x6b5d4f, 1); g.fillRect(CENTER_X + 20 - 0.15, y - 4, 0.3, 4);
-        g.fillStyle(0xf59e0b, 1); g.fillTriangle(CENTER_X + 20.15, y - 4, CENTER_X + 20.15, y - 2.3, CENTER_X + 23, y - 3.15);
+        g.fillStyle(0xff9d2e, 1); g.fillTriangle(CENTER_X + 20.15, y - 4, CENTER_X + 20.15, y - 2.3, CENTER_X + 23, y - 3.15);
+        g.fillStyle(0xffe2ad, 0.6); g.fillTriangle(CENTER_X + 20.15, y - 4, CENTER_X + 20.15, y - 3.3, CENTER_X + 21.6, y - 3.65);
         break;
       }
       default: break;
@@ -464,12 +468,15 @@ const JourneyGame = (() => {
 
       this.buildCliffFace();
 
-      // Base camp — a small tent + flag at the foot of the climb.
+      // Base camp — a small glossy tent + flag at the foot of the climb.
       const base = this.add.graphics();
-      base.fillStyle(0x0d9488, 1); base.fillTriangle(CENTER_X - 22, BOTTOM_Y + 4, CENTER_X - 26, BOTTOM_Y + 8.5, CENTER_X - 18, BOTTOM_Y + 8.5);
+      base.fillStyle(0x000000, 0.18); base.fillEllipse(CENTER_X - 22, BOTTOM_Y + 9, 9, 1.8); // contact shadow
+      base.fillStyle(0x14b8a6, 1); base.fillTriangle(CENTER_X - 22, BOTTOM_Y + 4, CENTER_X - 26, BOTTOM_Y + 8.5, CENTER_X - 18, BOTTOM_Y + 8.5);
       base.fillStyle(0x0f766e, 1); base.fillTriangle(CENTER_X - 22, BOTTOM_Y + 4, CENTER_X - 22, BOTTOM_Y + 8.5, CENTER_X - 18, BOTTOM_Y + 8.5);
+      base.fillStyle(0x5eead4, 0.6); base.fillTriangle(CENTER_X - 22, BOTTOM_Y + 4, CENTER_X - 25, BOTTOM_Y + 8.5, CENTER_X - 23, BOTTOM_Y + 8.5);
       base.fillStyle(0x374151, 1); base.fillRect(CENTER_X - 22.15, BOTTOM_Y - 1, 0.3, 5);
-      base.fillStyle(0xef4444, 1); base.fillTriangle(CENTER_X - 21.85, BOTTOM_Y - 1, CENTER_X - 21.85, BOTTOM_Y + 0.6, CENTER_X - 19.6, BOTTOM_Y - 0.2);
+      base.fillStyle(0xff5a4e, 1); base.fillTriangle(CENTER_X - 21.85, BOTTOM_Y - 1, CENTER_X - 21.85, BOTTOM_Y + 0.6, CENTER_X - 19.6, BOTTOM_Y - 0.2);
+      base.fillStyle(0xffb3ab, 0.5); base.fillTriangle(CENTER_X - 21.85, BOTTOM_Y - 1, CENTER_X - 21.85, BOTTOM_Y - 0.5, CENTER_X - 20.7, BOTTOM_Y - 0.65);
       this.decor.add(base);
     }
 
