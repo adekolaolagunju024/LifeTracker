@@ -398,6 +398,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
   APP.filters          = { status: '', priority: '', search: '', tag: '' };
   closeMobileSidebar();
   if (APP.chatProjectId) closeProjectChat(); // stop polling — don't leave chat open on a page we navigated away from
+  if (id !== 'gantt') JourneyGame.destroy(); // Journey only lives on the Gantt page — free its game loop elsewhere
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -1631,7 +1632,7 @@ function applyGanttPageView(mode) {
   document.getElementById('gantt-page-subtitle').textContent = subtitle;
   document.getElementById('topbar-title').textContent = heading;
 
-  if (mode === 'journey') renderJourneyView();
+  if (mode === 'journey') { JourneyGame.resume(); renderJourneyView(); } else { JourneyGame.pause(); }
 }
 
 const PRIORITY_RANK = { High: 0, Medium: 1, Low: 2 };
@@ -4434,49 +4435,14 @@ function workerSvgMarkup(animated) {
 
 // 4 real construction phases, keyed to overall progress (0 → 1) rather than
 // a fixed per-task step, so the house assembles smoothly regardless of how
-// many tasks the project has. Each returns the SVG pieces visible once
-// progress reaches it, plus the phase's own label for the status line.
+// many tasks the project has. The actual pieces are drawn by the Phaser
+// scene (see frontend/js/journeyGame.js); this just labels the status line.
 const HOUSE_PHASES = [
-  { at: 0, label: 'Laying the foundation', pieces: () => `
-    <g>
-      <animateTransform attributeName="transform" type="translate" values="0,-5;0,1;0,-0.3;0,0" keyTimes="0;0.6;0.85;1" dur="0.5s" fill="freeze"/>
-      <rect x="30" y="86" width="40" height="5" rx="1.2" fill="url(#houseFoundation)" stroke="#6B7280" stroke-width="0.4"/>
-      <rect x="30" y="86" width="40" height="1.5" rx="0.6" fill="#ffffff" opacity="0.25"/>
-    </g>` },
-  { at: 0.25, label: 'Raising the walls', pieces: () => `
-    <g>
-      <animateTransform attributeName="transform" type="translate" values="0,-8;0,1;0,-0.3;0,0" keyTimes="0;0.6;0.85;1" dur="0.55s" fill="freeze"/>
-      <rect x="32" y="62" width="36" height="24" fill="url(#houseWall)" stroke="#C9A063" stroke-width="0.6"/>
-      <rect x="32" y="62" width="36" height="3" fill="#ffffff" opacity="0.25"/>
-      <line x1="50" y1="62" x2="50" y2="86" stroke="#D9B178" stroke-width="0.4" opacity="0.6"/>
-    </g>` },
-  { at: 0.5, label: 'Putting up the roof', pieces: () => `
-    <g>
-      <animateTransform attributeName="transform" type="translate" values="0,-8;0,1;0,-0.3;0,0" keyTimes="0;0.6;0.85;1" dur="0.55s" fill="freeze"/>
-      <polygon points="26,63 50,40 74,63" fill="url(#houseRoof)" stroke="#7C3A0C" stroke-width="0.6"/>
-      <polygon points="50,40 62,56 50,56" fill="#ffffff" opacity="0.15"/>
-      <rect x="25" y="61.5" width="50" height="2.4" rx="0.6" fill="#8B3E05"/>
-    </g>` },
-  { at: 0.75, label: 'Finishing touches', pieces: () => `
-    <g>
-      <animateTransform attributeName="transform" type="translate" values="0,-6;0,1;0,-0.3;0,0" keyTimes="0;0.6;0.85;1" dur="0.5s" fill="freeze"/>
-      <rect x="44" y="72" width="12" height="14" rx="0.8" fill="url(#houseDoor)" stroke="#5B3A1D" stroke-width="0.5"/>
-      <circle cx="53.5" cy="79" r="0.7" fill="#FBBF24"/>
-      <rect x="35.5" y="66.5" width="7" height="7" rx="0.8" fill="url(#houseWindow)" stroke="#8B5E34" stroke-width="0.5"/>
-      <line x1="39" y1="66.5" x2="39" y2="73.5" stroke="#8B5E34" stroke-width="0.35"/><line x1="35.5" y1="70" x2="42.5" y2="70" stroke="#8B5E34" stroke-width="0.35"/>
-      <rect x="57.5" y="66.5" width="7" height="7" rx="0.8" fill="url(#houseWindow)" stroke="#8B5E34" stroke-width="0.5"/>
-      <line x1="61" y1="66.5" x2="61" y2="73.5" stroke="#8B5E34" stroke-width="0.35"/><line x1="57.5" y1="70" x2="64.5" y2="70" stroke="#8B5E34" stroke-width="0.35"/>
-      <rect x="60" y="44" width="5.5" height="12" fill="url(#houseChimney)" stroke="#5B3A1D" stroke-width="0.4"/>
-      <circle cx="62.7" cy="41" r="1.2" fill="#E5E7EB" opacity="0"><animate attributeName="cy" values="41;26;41" dur="2.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0.75;0" dur="2.6s" repeatCount="indefinite"/><animate attributeName="r" values="1.2;2.4;1.2" dur="2.6s" repeatCount="indefinite"/></circle>
-      <circle cx="62.7" cy="41" r="1" fill="#E5E7EB" opacity="0"><animate attributeName="cy" values="41;29;41" dur="2.6s" begin="0.9s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;0.6;0" dur="2.6s" begin="0.9s" repeatCount="indefinite"/><animate attributeName="r" values="1;2;1" dur="2.6s" begin="0.9s" repeatCount="indefinite"/></circle>
-    </g>` },
+  { at: 0, label: 'Laying the foundation' },
+  { at: 0.25, label: 'Raising the walls' },
+  { at: 0.5, label: 'Putting up the roof' },
+  { at: 0.75, label: 'Finishing touches' },
 ];
-function housePiecesAt(frac) {
-  // Strictly greater-than at every phase, including the foundation (at: 0)
-  // — so an untouched project shows an empty lot, not a foundation slab
-  // nobody's poured yet.
-  return HOUSE_PHASES.filter(p => frac > p.at).map(p => p.pieces()).join('');
-}
 function housePhaseLabel(frac) {
   if (frac >= 1) return 'House complete';
   let label = 'Not started yet';
@@ -4514,115 +4480,14 @@ function mountainPointAt(points, frac, topY = 40, bottomY = 88) {
 // ── JOURNEY STAGES ──────────────────────────────────────────────
 // House is the default and the only one with progressive construction;
 // Road and Cliff are a static backdrop with the same moving-avatar/
-// checkpoint mechanic the old multi-theme version used — picked from the
-// dropdown in the view's own header, remembered per project.
-// A cute, chibi-proportioned character (big head, gradient-shaded body,
-// simple face, dark "ink line" outline) in the mobile-game style, rather
-// than the flat geometric figure this started as. Each call gets its own
-// gradient ids (a module-level counter) so "you" and the pace-ghost, drawn
-// at the same time, never collide.
-let _journeyAvatarUid = 0;
-// A real contralateral walk cycle (left leg + right arm swing together,
-// right leg + left arm swing together — how actual walking balances), via
-// SMIL animateTransform rotate with an explicit pivot at each limb's own
-// attachment point (the hip or shoulder it's actually drawn from) so each
-// limb swings in its own natural arc rather than around the SVG origin.
-// The House worker stands planted and hammers instead of walking — that's
-// the more natural pose for someone working a build site.
-function journeyAvatarSvg(animated, opts = {}) {
-  const {
-    bodyColor = '#F59E0B', bodyColorDark = '#D97706',
-    legColor = '#2563EB', legColorDark = '#1D4ED8',
-    headwear = 'hardhat', hammer = true,
-  } = opts;
-  const uid = `ja${_journeyAvatarUid++}`;
-  const outline = 'rgba(0,0,0,0.22)';
-  const walking = animated && !hammer;
-  const STEP = 0.36; // seconds per half-stride — a brisk, lively pace
-  const spline = 'calcMode="spline" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"';
-  const limbSwing = (pivot, begin, deg) => walking
-    ? `<animateTransform attributeName="transform" type="rotate" values="-${deg} ${pivot};${deg} ${pivot};-${deg} ${pivot}" dur="${STEP * 2}s" begin="${begin}s" repeatCount="indefinite" ${spline}/>`
-    : '';
-
-  const leftLeg = `<g>${limbSwing('-2.2 -6.6', 0, 28)}<rect x="-3.6" y="-6.6" width="2.8" height="8" rx="1.3" fill="url(#jaLeg${uid})" stroke="${outline}" stroke-width="0.3"/></g>`;
-  const rightLeg = `<g>${limbSwing('2.2 -6.6', STEP, 28)}<rect x="0.8" y="-6.6" width="2.8" height="8" rx="1.3" fill="url(#jaLeg${uid})" stroke="${outline}" stroke-width="0.3"/></g>`;
-  // Left arm pairs with the right leg's phase, right arm with the left
-  // leg's — opposite limbs swinging together is what keeps a walk balanced.
-  const backArm = `<g>${limbSwing('-6.1 -14.6', STEP, 20)}<rect x="-7.4" y="-14.6" width="2.6" height="6.2" rx="1.3" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.3"/></g>`;
-  const toolArm = hammer ? `
-    <g>
-      <rect x="3" y="-14.4" width="2.6" height="6.4" rx="1.3" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.3"/>
-      <rect x="3.4" y="-19.6" width="5.2" height="2.1" rx="0.8" fill="#B0B8C1" stroke="${outline}" stroke-width="0.3"/>
-      <rect x="4.6" y="-20.6" width="1.1" height="1.6" rx="0.2" fill="#6B7280"/>
-      ${animated ? `<animateTransform attributeName="transform" type="rotate" values="-18 3 -9;48 3 -9;-18 3 -9" dur="0.55s" repeatCount="indefinite"/>` : ''}
-    </g>` : `
-    <g>${limbSwing('4.3 -14.4', 0, 20)}<rect x="3" y="-14.4" width="2.6" height="6.2" rx="1.3" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.3"/></g>`;
-  const hat = headwear === 'hardhat'
-    ? `<path d="M-4.3,-20.6 a4.3,4 0 0 1 8.6,0 z" fill="url(#jaHat${uid})" stroke="${outline}" stroke-width="0.3"/><rect x="-4.3" y="-17.3" width="8.6" height="1" fill="#D97706" opacity="0.5"/>`
-    : headwear === 'helmet'
-      ? `<path d="M-4,-20.8 a4,3.8 0 0 1 8,0 z" fill="url(#jaHat${uid})" stroke="${outline}" stroke-width="0.3"/><rect x="-4" y="-17.5" width="8" height="0.9" fill="#B91C1C" opacity="0.5"/>`
-      : '';
-  // Two bounces per full stride (one each time a foot plants) while
-  // walking; a gentler single idle bob while standing and hammering.
-  const bob = !animated ? '' : walking
-    ? `<animateTransform attributeName="transform" type="translate" values="0 0;0 -0.8;0 0;0 -0.8;0 0" dur="${STEP * 2}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines="0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1"/>`
-    : `<animateTransform attributeName="transform" type="translate" values="0 0;0 -0.9;0 0" dur="1s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines="0.3 0 0.5 1;0.5 0 0.7 1"/>`;
-  return `
-    <svg viewBox="-10 -22 20 25" width="32" height="40" style="overflow:visible">
-      <defs>
-        <linearGradient id="jaBody${uid}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${bodyColor}"/><stop offset="100%" stop-color="${bodyColorDark}"/>
-        </linearGradient>
-        <linearGradient id="jaLeg${uid}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${legColor}"/><stop offset="100%" stop-color="${legColorDark}"/>
-        </linearGradient>
-        <linearGradient id="jaHat${uid}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${headwear === 'helmet' ? '#F87171' : '#FCD34D'}"/><stop offset="100%" stop-color="${headwear === 'helmet' ? '#DC2626' : '#F59E0B'}"/>
-        </linearGradient>
-        <radialGradient id="jaHead${uid}" cx="35%" cy="30%" r="75%">
-          <stop offset="0%" stop-color="#FFE3C2"/><stop offset="100%" stop-color="#F6C89A"/>
-        </radialGradient>
-      </defs>
-      <g>
-        ${bob}
-        <ellipse cx="0" cy="2" rx="5.6" ry="1.2" fill="#00000025"/>
-        ${leftLeg}
-        ${rightLeg}
-        ${backArm}
-        <rect x="-5.2" y="-15.5" width="10.4" height="9.6" rx="3.4" fill="url(#jaBody${uid})" stroke="${outline}" stroke-width="0.35"/>
-        <circle cx="0" cy="-18" r="4.3" fill="url(#jaHead${uid})" stroke="${outline}" stroke-width="0.35"/>
-        <circle cx="-1.6" cy="-18.3" r="0.55" fill="#3A2E1F"/>
-        <circle cx="1.6" cy="-18.3" r="0.55" fill="#3A2E1F"/>
-        <path d="M-1.3,-16.6 q1.3,1 2.6,0" stroke="#B5703F" stroke-width="0.4" fill="none" stroke-linecap="round"/>
-        <circle cx="-2.3" cy="-17.1" r="0.7" fill="#FCA5A5" opacity="0.55"/>
-        <circle cx="2.3" cy="-17.1" r="0.7" fill="#FCA5A5" opacity="0.55"/>
-        ${hat}
-        ${toolArm}
-      </g>
-    </svg>`;
-}
-
+// checkpoint mechanic — picked from the dropdown in the view's own
+// header, remembered per project. All actual drawing (backdrop, avatar,
+// walk cycle, particles) now lives in the Phaser scene in
+// frontend/js/journeyGame.js; this object is just metadata.
 const JOURNEY_STAGES = {
-  house: {
-    label: '🏠 House Build', checkpointNoun: 'tasks', doneLabel: 'House complete', doneEmoji: '🏡',
-    topY: 40, bottomY: 88,
-    avatar: animated => journeyAvatarSvg(animated, { bodyColor: '#FBBF24', bodyColorDark: '#D97706', legColor: '#3B82F6', legColorDark: '#1D4ED8', headwear: 'hardhat', hammer: true }),
-  },
-  road: {
-    // Modeled on the "winding road up to a spotlit peak" reference — a
-    // business traveler walking a literal road (thick ribbon + dashed
-    // centerline) rather than a thin trail, toward a flag in a beam of light.
-    label: '🛣️ Road to the Goal', checkpointNoun: 'milestones', doneLabel: 'Reached the summit', doneEmoji: '🚩',
-    topY: 10, bottomY: 90,
-    avatar: animated => journeyAvatarSvg(animated, { bodyColor: '#3B5FC4', bodyColorDark: '#1E3A8A', legColor: '#1F2937', legColorDark: '#0B0F19', headwear: 'none', hammer: false }),
-  },
-  cliff: {
-    // Modeled on the rope-climb references — a rocky cliff silhouette with
-    // a climbing rope running up to a flag at the top, pastel dawn sky.
-    label: '🧗 Cliff Climb', checkpointNoun: 'pitches', doneLabel: 'Summit reached', doneEmoji: '🏔️',
-    topY: 8, bottomY: 90,
-    avatar: animated => journeyAvatarSvg(animated, { bodyColor: '#F87171', bodyColorDark: '#DC2626', legColor: '#3B5FC4', legColorDark: '#1E3A8A', headwear: 'helmet', hammer: false }),
-  },
+  house: { label: '🏠 House Build', checkpointNoun: 'tasks', doneLabel: 'House complete', doneEmoji: '🏡', topY: 40, bottomY: 88 },
+  road: { label: '🛣️ Road to the Goal', checkpointNoun: 'milestones', doneLabel: 'Reached the summit', doneEmoji: '🚩', topY: 10, bottomY: 90 },
+  cliff: { label: '🧗 Cliff Climb', checkpointNoun: 'pitches', doneLabel: 'Summit reached', doneEmoji: '🏔️', topY: 8, bottomY: 90 },
 };
 
 // Entry point from a project's own header button — jumps to the Gantt
@@ -4648,7 +4513,7 @@ async function renderJourneyView() {
   if (!projectId) {
     titleEl.textContent = '🏗️ Journey';
     statusEl.textContent = 'Pick a specific project from the filter above — a Journey is one project at a time.';
-    document.getElementById('mountain-scene').innerHTML = '';
+    JourneyGame.destroy();
     document.getElementById('mountain-tasklist').innerHTML = '';
     document.getElementById('mountain-celebrate').classList.add('hidden');
     if (competitorSel) competitorSel.classList.add('hidden');
@@ -4767,154 +4632,30 @@ function mountainExpectedFraction() {
   return Math.max(0, Math.min(1, (nowMs - startMs) / (endMs - startMs)));
 }
 
-// Static backdrop fragments for the non-House stages — unlike the house,
-// these don't assemble progressively; progress reads from the avatar's
-// position and the checkpoints alone, same mechanic the old multi-theme
-// version used.
-const ROAD_STARS = [
-  { x: 10, y: 10, r: 0.5 }, { x: 22, y: 6, r: 0.35 }, { x: 4, y: 20, r: 0.4 }, { x: 16, y: 26, r: 0.3 },
-  { x: 88, y: 8, r: 0.5 }, { x: 94, y: 18, r: 0.35 }, { x: 78, y: 22, r: 0.4 }, { x: 96, y: 28, r: 0.3 },
-];
-function roadBackdropSvg() {
-  const stars = ROAD_STARS.map((s, i) => `<circle cx="${s.x}" cy="${s.y}" r="${s.r}" fill="#fff"><animate attributeName="opacity" values="0.3;1;0.3" dur="${2.2 + (i % 3) * 0.6}s" begin="${i * 0.3}s" repeatCount="indefinite"/></circle>`).join('');
-  return `
-    ${stars}
-    <polygon points="22,52 50,14 78,52" fill="url(#roadMtnBack)"/>
-    <polygon points="34,52 50,24 66,52" fill="url(#roadMtnFront)"/>
-    <polygon points="34,52 50,24 50,52" fill="#ffffff" opacity="0.08"/>
-    <g opacity="0.85">
-      <circle cx="50" cy="16" r="14" fill="url(#roadGlow)"/>
-      <circle cx="50" cy="16" r="7" fill="url(#roadGlow)"/>
-    </g>
-    <polygon points="43,14 57,14 65,36 35,36" fill="#FFFFFF" opacity="0.22"/>
-    <g>
-      <animateTransform attributeName="transform" type="translate" values="0 0;8 0;0 0" dur="20s" repeatCount="indefinite"/>
-      <ellipse cx="14" cy="34" rx="6" ry="2.6" fill="#fff" opacity="0.8"/><ellipse cx="19" cy="32" rx="4.5" ry="2.2" fill="#fff" opacity="0.7"/>
-    </g>
-    <line x1="50" y1="6" x2="50" y2="16" stroke="#E5E7EB" stroke-width="0.8"/>
-    <polygon points="50,6 50,11 56,8.5" fill="#EF4444" stroke="#991B1B" stroke-width="0.3">
-      <animate attributeName="points" values="50,6 50,11 56,8.5;50,6 50,11 54.5,9.5;50,6 50,11 56,8.5" dur="1.4s" repeatCount="indefinite"/>
-    </polygon>
-  `;
-}
-
-const CLIFF_BIRDS = [{ x: 18, y: 18 }, { x: 76, y: 14 }, { x: 60, y: 24 }];
-function cliffBackdropSvg() {
-  const birds = CLIFF_BIRDS.map((b, i) => `
-    <g>
-      <animateTransform attributeName="transform" type="translate" values="0 0;${10 + i * 3} -1.5;0 0" dur="${9 + i * 2}s" repeatCount="indefinite"/>
-      <path d="M${b.x},${b.y} q3,-3.3 6,0 q3,-3.3 6,0" stroke="#5B4636" stroke-width="0.6" fill="none" opacity="0.75" stroke-linecap="round"/>
-    </g>`).join('');
-  return `
-    <circle cx="86" cy="16" r="6.5" fill="url(#cliffSun)" opacity="0.9"/>
-    <ellipse cx="20" cy="14" rx="7" ry="3" fill="#fff" opacity="0.85"/><ellipse cx="26" cy="12" rx="5" ry="2.4" fill="#fff" opacity="0.7"/>
-    ${birds}
-    <polygon points="0,100 0,30 48,6 100,50 100,100" fill="url(#cliffBack)"/>
-    <polygon points="0,100 0,46 40,24 62,62 100,78 100,100" fill="url(#cliffFront)"/>
-    <polygon points="0,46 40,24 44,30 4,52" fill="#ffffff" opacity="0.12"/>
-    <path d="M50,90 C44,68 56,46 49,10" stroke="#8B6952" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-    <path d="M50,90 C44,68 56,46 49,10" stroke="#D9BE92" stroke-width="0.5" fill="none" stroke-linecap="round" stroke-dasharray="1.2,1.4"/>
-    <line x1="48" y1="6" x2="48" y2="16" stroke="#E5E7EB" stroke-width="0.8"/>
-    <polygon points="48,6 48,11 54,8.5" fill="#EF4444" stroke="#991B1B" stroke-width="0.3">
-      <animate attributeName="points" values="48,6 48,11 54,8.5;48,6 48,11 52.5,9.5;48,6 48,11 54,8.5" dur="1.4s" repeatCount="indefinite"/>
-    </polygon>
-  `;
-}
-
+// Computes the current state and hands it to the Phaser scene (see
+// frontend/js/journeyGame.js) to actually draw and animate — this
+// function now only owns the derived numbers and the status-line text,
+// same responsibility split as before, just a real game engine doing the
+// rendering instead of a hand-built SVG string.
 function renderMountainScene() {
   const { tasks } = mountainState;
   const stage = JOURNEY_STAGES[mountainState.stage] || JOURNEY_STAGES.house;
+  const stageKey = mountainState.stage || 'house';
   const total = tasks.length;
   const done = tasks.filter(t => t.status === 'Completed').length;
   const youFrac = total ? done / total : 0;
   const competitor = total ? competitorFraction() : null;
   const expectedFrac = competitor ? competitor.frac : null;
-  const points = mountainCheckpoints(total, stage.topY, stage.bottomY);
-
-  // Glossy, slightly-3D checkpoint "buttons" — a radial highlight near the
-  // top-left plus a drop shadow, the classic mobile-game puck look, instead
-  // of a flat Tailwind fill.
-  const checkpointsHtml = points.map((p, i) => {
-    const t = tasks[i];
-    const isDone = t.status === 'Completed';
-    const isNext = !isDone && i === done;
-    const blocked = !!t.latestUpdateIsBlocker;
-    const bg = isDone
-      ? 'radial-gradient(circle at 32% 28%, #6EE7A8, #10B981 55%, #047857)'
-      : isNext
-        ? 'radial-gradient(circle at 32% 28%, #FDE68A, #FBBF24 55%, #D97706)'
-        : 'radial-gradient(circle at 32% 28%, #ffffff, #E5E7EB 65%, #CBD5E1)';
-    const size = isDone || isNext ? 'w-7 h-7' : 'w-6 h-6';
-    return `<div class="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full text-[11px] font-bold border transition-all duration-500 ${size} ${isDone ? 'text-white border-emerald-700' : isNext ? 'text-navy border-amber-600 animate-pulse' : 'text-gray-400 border-gray-300'}" style="left:${p.x}%;top:${p.y}%;background:${bg};box-shadow:0 2px 3px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.6);" title="${esc(t.title)}${blocked ? ' — 🚧 blocked' : ''}">${isDone ? '✓' : i + 1}${blocked ? '<span class="absolute -top-2 -right-2 text-xs drop-shadow">🚧</span>' : ''}</div>`;
-  }).join('');
-
-  const you = mountainPointAt(points, youFrac, stage.topY, stage.bottomY);
-  const ghost = expectedFrac === null ? null : mountainPointAt(points, expectedFrac, stage.topY, stage.bottomY);
   const summitLit = total > 0 && done === total;
 
-  const isHouse = mountainState.stage === 'house' || !mountainState.stage;
-  const trail = isHouse
-    ? `<polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#B7A68C" stroke-width="1.6" stroke-dasharray="3,2.4" stroke-linecap="round" opacity="0.75"/>`
-    : mountainState.stage === 'road'
-      ? `<polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#E8D9B5" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
-         <polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#fff" stroke-width="0.8" stroke-dasharray="2,2" stroke-linecap="round" opacity="0.9"/>`
-      : `<polyline points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#FEF3C7" stroke-width="1.4" stroke-dasharray="2.4,2" stroke-linecap="round" opacity="0.85"/>`;
-
-  document.getElementById('mountain-scene').innerHTML = `
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="absolute inset-0 w-full h-full">
-      <defs>
-        <linearGradient id="mtnSky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${isHouse ? '#8FCBF2' : mountainState.stage === 'road' ? '#2F5FA8' : '#F4A989'}"/>
-          <stop offset="100%" stop-color="${isHouse ? '#E3F5FC' : mountainState.stage === 'road' ? '#A9D3F0' : '#FCE0C8'}"/>
-        </linearGradient>
-        <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#FFF4CC"/><stop offset="60%" stop-color="#FDE68A"/><stop offset="100%" stop-color="#FDE68A" stop-opacity="0"/>
-        </radialGradient>
-        <linearGradient id="grassGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#9BDB7E"/><stop offset="100%" stop-color="#6FB859"/>
-        </linearGradient>
-        <linearGradient id="houseFoundation" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#B6BDC6"/><stop offset="100%" stop-color="#8D95A0"/></linearGradient>
-        <linearGradient id="houseWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFF2D6"/><stop offset="100%" stop-color="#F3D29C"/></linearGradient>
-        <linearGradient id="houseRoof" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#D2691E"/><stop offset="100%" stop-color="#9A4A0E"/></linearGradient>
-        <linearGradient id="houseDoor" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9C6B3F"/><stop offset="100%" stop-color="#6B4423"/></linearGradient>
-        <linearGradient id="houseWindow" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#E0F4FF"/><stop offset="100%" stop-color="#8FCBEA"/></linearGradient>
-        <linearGradient id="houseChimney" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#9C6B3F"/><stop offset="100%" stop-color="#6B4423"/></linearGradient>
-        <linearGradient id="roadMtnBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6E9BD6"/><stop offset="100%" stop-color="#3B5F96"/></linearGradient>
-        <linearGradient id="roadMtnFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4C75AE"/><stop offset="100%" stop-color="#2A4670"/></linearGradient>
-        <radialGradient id="roadGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9"/><stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
-        <radialGradient id="cliffSun" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFF0DD"/><stop offset="100%" stop-color="#FDBE85" stop-opacity="0.2"/></radialGradient>
-        <linearGradient id="cliffBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#C79B7D"/><stop offset="100%" stop-color="#A9826A"/></linearGradient>
-        <linearGradient id="cliffFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#A3785D"/><stop offset="100%" stop-color="#7C5A43"/></linearGradient>
-      </defs>
-      <rect x="0" y="0" width="100" height="100" fill="url(#mtnSky)"/>
-      ${isHouse ? `
-        <circle cx="84" cy="14" r="13" fill="url(#sunGlow)"/>
-        <circle cx="84" cy="14" r="5.5" fill="#FDE68A"/>
-        <g opacity="0.9">
-          <animateTransform attributeName="transform" type="translate" values="0 0;6 0;0 0" dur="18s" repeatCount="indefinite"/>
-          <ellipse cx="18" cy="16" rx="7" ry="3.2" fill="#fff"/><ellipse cx="24" cy="14" rx="5.5" ry="2.8" fill="#fff"/>
-        </g>
-        <g opacity="0.75">
-          <animateTransform attributeName="transform" type="translate" values="0 0;-5 0;0 0" dur="24s" repeatCount="indefinite"/>
-          <ellipse cx="60" cy="10" rx="5.5" ry="2.4" fill="#fff"/><ellipse cx="65" cy="8.5" rx="4" ry="2" fill="#fff"/>
-        </g>
-        <rect x="0" y="90" width="100" height="10" fill="url(#grassGrad)"/>
-        <rect x="0" y="89.6" width="100" height="1" fill="#ffffff" opacity="0.3"/>
-        ${[8, 18, 78, 92, 15, 85].map((x, i) => `<circle cx="${x}" cy="${91.5 + (i % 2)}" r="0.5" fill="${i % 3 === 0 ? '#FDE68A' : '#FFFFFF'}" opacity="0.8"/>`).join('')}
-        ${housePiecesAt(youFrac)}
-      ` : mountainState.stage === 'road' ? roadBackdropSvg() : cliffBackdropSvg()}
-      ${trail}
-    </svg>
-    ${summitLit ? `<div class="absolute -translate-x-1/2 text-xl animate-bounce" style="left:50%;top:3%">${stage.doneEmoji}✨</div>` : ''}
-    ${checkpointsHtml}
-    ${ghost ? `<div class="absolute -translate-x-1/2 -translate-y-full opacity-40 transition-all duration-700" style="left:${ghost.x}%;top:${ghost.y}%" title="${esc(competitor.label)}${competitor.isComputer ? ' — sticks exactly to the schedule' : ''}">
-      ${stage.avatar(false)}
-      <span class="absolute -top-1 -right-1 text-[9px] leading-none bg-navy text-white rounded-full w-4 h-4 flex items-center justify-center font-bold">${competitor.isComputer ? '🖥️' : esc(competitor.label.charAt(0).toUpperCase())}</span>
-    </div>` : ''}
-    <div class="absolute -translate-x-1/2 -translate-y-full transition-all duration-700 drop-shadow" style="left:${you.x}%;top:${you.y}%" title="You">${stage.avatar(true)}</div>
-  `;
+  const container = document.getElementById('mountain-scene');
+  JourneyGame.sync(container, {
+    stageKey, tasks, topY: stage.topY, bottomY: stage.bottomY, youFrac, summitLit,
+    ghost: competitor ? { frac: competitor.frac, label: competitor.label, isComputer: competitor.isComputer } : null,
+  });
 
   const statusEl = document.getElementById('mountain-status');
+  const isHouse = stageKey === 'house';
   const phase = isHouse ? housePhaseLabel(youFrac) : null;
   const noun = stage.checkpointNoun;
   if (!total) {
@@ -4943,6 +4684,10 @@ function renderMountainTaskList() {
     </label>`).join('') : '<p class="text-xs text-gray-400 text-center py-2">No tasks on this journey yet.</p>';
 }
 
+// The per-checkpoint confetti burst is no longer fired from here — the
+// Phaser scene detects a newly-completed checkpoint itself (diffing this
+// sync against the last one) and bursts at that exact spot, same as it
+// detects the whole-project celebration. This just updates state and UI.
 async function toggleMountainTask(checkbox) {
   const taskId = checkbox.dataset.taskId;
   const task = mountainState.tasks.find(t => t.id === taskId);
@@ -4955,14 +4700,6 @@ async function toggleMountainTask(checkbox) {
     renderMountainTaskList();
     updateSidebar();
     if (nowComplete) {
-      const idx = mountainState.tasks.findIndex(x => x.id === taskId);
-      const stage = JOURNEY_STAGES[mountainState.stage] || JOURNEY_STAGES.house;
-      const point = mountainCheckpoints(mountainState.tasks.length, stage.topY, stage.bottomY)[idx];
-      const canvas = document.getElementById('mountain-confetti');
-      const wrap = document.getElementById('mountain-scene-wrap');
-      canvas.width = wrap.clientWidth;
-      canvas.height = wrap.clientHeight;
-      fireMountainConfetti(point.x / 100 * canvas.width, point.y / 100 * canvas.height, 36);
       const total = mountainState.tasks.length;
       const done = mountainState.tasks.filter(x => x.status === 'Completed').length;
       if (done === total) {
@@ -4979,6 +4716,9 @@ async function toggleMountainTask(checkbox) {
   }
 }
 
+// The modal text + the Phaser scene's own big particle burst (fired
+// automatically from renderMountainScene's sync once it detects every
+// checkpoint just went done) — this only owns the DOM modal.
 function showMountainCelebration() {
   const stage = JOURNEY_STAGES[mountainState.stage] || JOURNEY_STAGES.house;
   const competitor = competitorFraction();
@@ -4994,49 +4734,6 @@ function showMountainCelebration() {
   }
   document.getElementById('mountain-celebrate').classList.remove('hidden');
   document.getElementById('mountain-celebrate').classList.add('flex');
-  const canvas = document.getElementById('mountain-confetti');
-  const wrap = document.getElementById('mountain-scene-wrap');
-  canvas.width = wrap.clientWidth;
-  canvas.height = wrap.clientHeight;
-  fireMountainConfetti(canvas.width / 2, canvas.height * 0.15, 140);
-}
-
-function fireMountainConfetti(originX, originY, count) {
-  const canvas = document.getElementById('mountain-confetti');
-  const wrap = document.getElementById('mountain-scene-wrap');
-  canvas.width = wrap.clientWidth;
-  canvas.height = wrap.clientHeight;
-  const ctx = canvas.getContext('2d');
-  const colors = ['#0A7E8C', '#F59E0B', '#EF4444', '#22C55E', '#3B82F6', '#EC4899'];
-  const particles = Array.from({ length: count }, () => ({
-    x: originX, y: originY,
-    vx: (Math.random() - 0.5) * 9,
-    vy: -(Math.random() * 9 + 3),
-    size: Math.random() * 5 + 3,
-    color: colors[Math.floor(Math.random() * colors.length)],
-    rot: Math.random() * 360,
-    vrot: (Math.random() - 0.5) * 22,
-    life: 1,
-  }));
-  function tick() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    let alive = false;
-    particles.forEach(p => {
-      p.vy += 0.3; p.x += p.vx; p.y += p.vy; p.rot += p.vrot; p.life -= 0.012;
-      if (p.life > 0) {
-        alive = true;
-        ctx.save();
-        ctx.globalAlpha = Math.max(p.life, 0);
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rot * Math.PI / 180);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
-        ctx.restore();
-      }
-    });
-    if (alive) requestAnimationFrame(tick); else ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
-  tick();
 }
 
 // ── SCREEN-WIDE CELEBRATIONS ──────────────────────────────────
@@ -5165,16 +4862,6 @@ async function openJourneyTrophyCase() {
 // Purely cosmetic — a small spark wherever you tap the build scene. Real
 // progress (XP, the house itself) only ever comes from actually completing
 // a task below, never from clicking here, so this can't be farmed.
-function journeyHammerBurst(e) {
-  const wrap = document.getElementById('mountain-scene-wrap');
-  const rect = wrap.getBoundingClientRect();
-  const x = e.clientX - rect.left, y = e.clientY - rect.top;
-  const canvas = document.getElementById('mountain-confetti');
-  canvas.width = wrap.clientWidth;
-  canvas.height = wrap.clientHeight;
-  fireMountainConfetti(x, y, 10);
-}
-
 // Wrapping the one shared API call means every place in the app that
 // completes a task gets this for free, with nothing to change at any of
 // those call sites.
