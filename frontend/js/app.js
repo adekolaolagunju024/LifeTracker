@@ -455,6 +455,7 @@ async function updateSidebar() {
       API.getProfile(),
       API.getProjects({ parentId: 'null' }),
     ]);
+    APP.profile = profile; // kept fresh here since this runs on nearly every navigation — the cheapest reliable place for celebrationsEnabled() to read from
 
     document.getElementById('sidebar-name').textContent    = profile.name;
     document.getElementById('sidebar-tagline').textContent = profile.tagline;
@@ -2538,6 +2539,8 @@ async function renderSettings() {
     setPushRemindersButton(p);
     setActivityEmailsButton(p.activityEmailsEnabled);
     setAiCheckInsButton(p.aiCheckInsEnabled);
+    setCelebrationEffectsButton(p.celebrationEffectsEnabled);
+    APP.profile = p;
     loadReferralCard();
     renderSettingsDrive();
     renderTrash();
@@ -2674,6 +2677,29 @@ async function toggleActivityEmails() {
     await API.updateProfile({ activityEmailsEnabled: next });
     setActivityEmailsButton(next);
     showToast(next ? '✅ Activity emails turned on' : 'Activity emails turned off');
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to update'), 'error'); }
+}
+
+// ── CELEBRATION EFFECTS (confetti/balloons/the full-screen project-complete
+// page) — one blanket on/off switch; APP.profile is kept in sync so every
+// celebration call site (anywhere in the app, including Journey's own
+// Phaser scene) can check it without a fresh fetch each time.
+function setCelebrationEffectsButton(enabled) {
+  const btn = document.getElementById('celebration-effects-btn');
+  btn.classList.toggle('on', enabled);
+  btn.dataset.enabled = enabled ? '1' : '0';
+}
+function celebrationsEnabled() {
+  return !APP.profile || APP.profile.celebrationEffectsEnabled !== false;
+}
+async function toggleCelebrationEffects() {
+  const btn = document.getElementById('celebration-effects-btn');
+  const next = btn.dataset.enabled !== '1';
+  try {
+    const profile = await API.updateProfile({ celebrationEffectsEnabled: next });
+    APP.profile = profile;
+    setCelebrationEffectsButton(next);
+    showToast(next ? '✅ Celebration effects turned on' : 'Celebration effects turned off');
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to update'), 'error'); }
 }
 
@@ -4652,6 +4678,7 @@ function renderMountainScene() {
   JourneyGame.sync(container, {
     stageKey, tasks, topY: stage.topY, bottomY: stage.bottomY, youFrac, summitLit,
     ghost: competitor ? { frac: competitor.frac, label: competitor.label, isComputer: competitor.isComputer } : null,
+    celebrationsEnabled: celebrationsEnabled(),
   });
 
   const statusEl = document.getElementById('mountain-status');
@@ -4719,21 +4746,23 @@ async function toggleMountainTask(checkbox) {
 // The modal text + the Phaser scene's own big particle burst (fired
 // automatically from renderMountainScene's sync once it detects every
 // checkpoint just went done) — this only owns the DOM modal.
+// Uses the same full-screen swipe-to-dismiss overlay the rest of the app
+// shows for a whole-project completion, flavored with the current stage's
+// wording and whatever the competitor race looked like — rather than its
+// own separate small in-scene modal, so finishing a project reads the
+// same way everywhere, not just inside Journey.
 function showMountainCelebration() {
   const stage = JOURNEY_STAGES[mountainState.stage] || JOURNEY_STAGES.house;
   const competitor = competitorFraction();
-  const title = document.getElementById('mountain-celebrate-title');
-  const text = document.getElementById('mountain-celebrate-text');
-  title.textContent = `${stage.doneEmoji} ${stage.doneLabel}!`;
+  let message;
   if (competitor.frac === null) {
-    text.textContent = `You finished every task in "${mountainState.project.title}". Great work!`;
+    message = `You finished every task in "${mountainState.project.title}". Great work!`;
   } else if (competitor.frac < 0.97) {
-    text.textContent = `You finished "${mountainState.project.title}" before ${competitor.label} — you won the race!`;
+    message = `You finished "${mountainState.project.title}" before ${competitor.label} — you won the race!`;
   } else {
-    text.textContent = `You finished "${mountainState.project.title}". You made it — that's what counts!`;
+    message = `You finished "${mountainState.project.title}". You made it — that's what counts!`;
   }
-  document.getElementById('mountain-celebrate').classList.remove('hidden');
-  document.getElementById('mountain-celebrate').classList.add('flex');
+  showProjectCompleteOverlay(mountainState.project.title, { message, heading: `${stage.doneLabel}!`, emoji: stage.doneEmoji });
 }
 
 // ── SCREEN-WIDE CELEBRATIONS ──────────────────────────────────
@@ -4850,6 +4879,85 @@ function fireBalloons(count) {
   tick();
 }
 
+// ── PROJECT COMPLETE OVERLAY ────────────────────────────────────
+// A full-screen, swipe-to-dismiss congratulations page for finishing a
+// whole project. Slides up into view on its own; swipe (or drag with a
+// mouse) it back down to dismiss, tap outside, press Escape, or just wait
+// — it dismisses itself after a while too. Respects Celebration Effects
+// in Settings, same as the confetti/balloons it's shown alongside.
+let _pcDismissTimer = null;
+function showProjectCompleteOverlay(title, { message, heading, emoji } = {}) {
+  if (!celebrationsEnabled()) return;
+  const overlay = document.getElementById('project-complete-overlay');
+  const sheet = document.getElementById('project-complete-sheet');
+  document.getElementById('project-complete-heading').textContent = heading || '🏆 Project Complete!';
+  document.getElementById('project-complete-emoji').textContent = emoji || '🏆';
+  document.getElementById('project-complete-message').textContent = message || `You finished every task in "${title}". Incredible work.`;
+  sheet.style.transition = 'none';
+  sheet.style.transform = 'translateY(100%)';
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flex');
+  // Paint the "below the fold" starting position first, then animate up on
+  // the next frame — without this the slide-up never plays, it just
+  // appears already in place.
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    sheet.style.transition = 'transform 0.35s cubic-bezier(0.16,1,0.3,1)';
+    sheet.style.transform = 'translateY(0)';
+  }));
+  clearTimeout(_pcDismissTimer);
+  _pcDismissTimer = setTimeout(dismissProjectCompleteOverlay, 9000);
+  document.addEventListener('keydown', _pcEscHandler);
+}
+function _pcEscHandler(e) {
+  if (e.key === 'Escape') dismissProjectCompleteOverlay();
+}
+function dismissProjectCompleteOverlay() {
+  const overlay = document.getElementById('project-complete-overlay');
+  const sheet = document.getElementById('project-complete-sheet');
+  if (overlay.classList.contains('hidden')) return;
+  clearTimeout(_pcDismissTimer);
+  document.removeEventListener('keydown', _pcEscHandler);
+  sheet.style.transition = 'transform 0.25s ease-in';
+  sheet.style.transform = 'translateY(100%)';
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flex');
+  }, 250);
+}
+// Swipe-down (or mouse-drag-down) to dismiss, via Pointer Events so touch
+// and mouse behave the same way. Wired once at script load — the sheet is
+// static markup, always present in the DOM.
+(function initProjectCompleteSwipe() {
+  const sheet = document.getElementById('project-complete-sheet');
+  if (!sheet) return;
+  let startY = null, dragging = false;
+  sheet.addEventListener('pointerdown', (e) => {
+    startY = e.clientY;
+    dragging = true;
+    sheet.style.transition = 'none';
+    try { sheet.setPointerCapture(e.pointerId); } catch { /* unsupported in some test environments */ }
+  });
+  sheet.addEventListener('pointermove', (e) => {
+    if (!dragging || startY === null) return;
+    const dy = Math.max(0, e.clientY - startY);
+    sheet.style.transform = `translateY(${dy}px)`;
+  });
+  const endDrag = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    const dy = startY !== null && e.clientY != null ? Math.max(0, e.clientY - startY) : 0;
+    startY = null;
+    if (dy > 90) {
+      dismissProjectCompleteOverlay();
+    } else {
+      sheet.style.transition = 'transform 0.2s ease-out';
+      sheet.style.transform = 'translateY(0)';
+    }
+  };
+  sheet.addEventListener('pointerup', endDrag);
+  sheet.addEventListener('pointercancel', endDrag);
+})();
+
 async function celebrateTaskCompletion(task) {
   // XP/level-up/achievement toasts matter regardless of which view is open
   // — they're not Journey-view-local the way the confetti below is.
@@ -4860,7 +4968,7 @@ async function celebrateTaskCompletion(task) {
   // currently on screen.
   const journeyOnScreen = APP.currentPage === 'gantt' && !document.getElementById('gantt-journey-view').classList.contains('hidden');
   if (journeyOnScreen) return;
-  fireScreenConfetti(window.innerWidth / 2, window.innerHeight * 0.15, 60);
+  if (celebrationsEnabled()) fireScreenConfetti(window.innerWidth / 2, window.innerHeight * 0.15, 60);
   showToast(`🎉 "${task.title}" complete!`);
 
   // A task finishing off every task in its project gets a bigger moment.
@@ -4872,8 +4980,11 @@ async function celebrateTaskCompletion(task) {
     if (tree.length && tree.every(t => t.status === 'Completed')) {
       const top = project.parentId ? await API.getProject(topId) : project;
       setTimeout(() => {
-        fireBigScreenConfetti();
-        fireBalloons(14);
+        if (celebrationsEnabled()) {
+          fireBigScreenConfetti();
+          fireBalloons(14);
+          showProjectCompleteOverlay(top.title);
+        }
         showToast(`🏆 Project complete: "${top.title}"! Incredible work.`);
       }, 400);
     }

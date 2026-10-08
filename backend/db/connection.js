@@ -392,4 +392,9 @@ db.exec(`
   );
 `);
 
+// Confetti/balloons/the full-screen "project complete" page — some people
+// find this kind of thing more annoying than fun. One blanket on/off
+// switch, defaulting on, checked client-side before any of it fires.
+addColumnIfMissing('profile', "celebrationEffectsEnabled INTEGER NOT NULL DEFAULT 1");
+
 module.exports = db;

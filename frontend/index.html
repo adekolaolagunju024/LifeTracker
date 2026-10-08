@@ -1332,6 +1332,16 @@
         </div>
         <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
           <div class="flex items-center gap-3 min-w-0">
+            <span class="icon-badge" style="background:#F59E0B22">🎉</span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-navy">Celebration Effects</p>
+              <p class="text-xs text-gray-400 mt-0.5">Confetti, balloons, and the full-screen "project complete" page when you finish a task or a whole project. Off if you'd rather skip the fanfare.</p>
+            </div>
+          </div>
+          <button onclick="toggleCelebrationEffects()" class="ios-switch" id="celebration-effects-btn" role="switch" aria-label="Toggle celebration effects"><span class="ios-switch-knob"></span></button>
+        </div>
+        <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
+          <div class="flex items-center gap-3 min-w-0">
             <span class="icon-badge" style="background:#0A7E8C22">🎯</span>
             <div class="min-w-0">
               <p class="text-sm font-semibold text-navy">Weekly Goal Check-ins (AI)</p>
@@ -2040,6 +2050,23 @@
      if both are animating at once (the whole-project moment). -->
 <canvas id="global-confetti" class="fixed inset-0 z-[9999] pointer-events-none"></canvas>
 <canvas id="global-balloons" class="fixed inset-0 z-[9999] pointer-events-none"></canvas>
+
+<!-- PROJECT COMPLETE — a full-screen congratulations page, shown whenever
+     every task in a project is completed (any surface, including inside
+     Journey view). Slides up into view like a bottom sheet; swipe (or
+     drag with a mouse) it back down to dismiss, or tap outside / press
+     Escape / just wait — it dismisses itself after a while too. -->
+<div class="hidden fixed inset-0 z-[10000] items-end sm:items-center justify-center" id="project-complete-overlay">
+  <div class="absolute inset-0 bg-gradient-to-br from-navy/85 via-teal/70 to-navy/85" id="project-complete-backdrop" onclick="dismissProjectCompleteOverlay()"></div>
+  <div class="relative bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl shadow-2xl px-6 pt-3 pb-8 text-center" id="project-complete-sheet" style="touch-action:none;">
+    <div class="w-10 h-1.5 bg-gray-300 rounded-full mx-auto mb-4"></div>
+    <div class="text-6xl mb-3 animate-bounce" id="project-complete-emoji">🏆</div>
+    <h2 class="text-xl font-black text-navy mb-1" id="project-complete-heading">Project Complete!</h2>
+    <p class="text-sm text-gray-600 mb-6 leading-relaxed" id="project-complete-message"></p>
+    <button onclick="dismissProjectCompleteOverlay()" class="bg-teal hover:bg-teal/90 text-white text-sm font-semibold px-6 py-2.5 rounded-xl">Nice! 🎉</button>
+    <p class="text-[11px] text-gray-300 mt-3">⌄ Swipe down to dismiss</p>
+  </div>
+</div>
 
 <!-- SCRIPTS -->
 <script src="js/api.js"></script>

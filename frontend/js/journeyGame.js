@@ -428,12 +428,14 @@ const JourneyGame = (() => {
       const doneCount = state.tasks.filter(t => t.status === 'Completed').length;
       this.buildCheckpoints(points, state.tasks, doneCount);
 
-      // Celebrate any checkpoint that's newly done since the last sync.
+      // Celebrate any checkpoint that's newly done since the last sync —
+      // unless Celebration Effects is turned off (Settings), in which case
+      // progress still tracks correctly, it just doesn't throw confetti.
+      const celebrate = state.celebrationsEnabled !== false;
       const nowDoneIds = new Set(state.tasks.filter(t => t.status === 'Completed').map(t => t.id));
       state.tasks.forEach((t, i) => {
         if (t.status === 'Completed' && !this._lastDoneIds.has(t.id)) {
-          const p = points[i];
-          this.burst(p.x, p.y, 26, pal.trail);
+          if (celebrate) { const p = points[i]; this.burst(p.x, p.y, 26, pal.trail); }
         }
       });
       this._lastDoneIds = nowDoneIds;
@@ -467,7 +469,7 @@ const JourneyGame = (() => {
       }
       this._lastYouFrac = state.youFrac;
 
-      if (state.summitLit && !this._lastSummit) {
+      if (state.summitLit && !this._lastSummit && celebrate) {
         this.burst(50, 8, 90, pal.trail);
         this.burst(30, 20, 60, pal.trail);
         this.burst(70, 20, 60, pal.trail);

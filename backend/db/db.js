@@ -59,6 +59,7 @@ function getProfile(userId) {
     pushFocusNudgeEnabled: !!row.pushFocusNudgeEnabled,
     aiCheckInsEnabled: !!row.aiCheckInsEnabled,
     pushStreakEnabled: !!row.pushStreakEnabled,
+    celebrationEffectsEnabled: !!row.celebrationEffectsEnabled,
   };
 }
 
@@ -67,11 +68,11 @@ function updateProfile(userId, patch) {
   const next = { ...current, ...patch };
   db.prepare(`
     UPDATE profile SET name=?, tagline=?, currency=?, targetNetWorth=?, targetDate=?, onboarded=?, emailDigestEnabled=?, pushRemindersEnabled=?, activityEmailsEnabled=?,
-      pushOverdueEnabled=?, pushDueTodayEnabled=?, pushFocusNudgeEnabled=?, focusNudgeStartHour=?, focusNudgeEndHour=?, focusNudgeIntervalMinutes=?, aiCheckInsEnabled=?, pushStreakEnabled=?
+      pushOverdueEnabled=?, pushDueTodayEnabled=?, pushFocusNudgeEnabled=?, focusNudgeStartHour=?, focusNudgeEndHour=?, focusNudgeIntervalMinutes=?, aiCheckInsEnabled=?, pushStreakEnabled=?, celebrationEffectsEnabled=?
     WHERE userId = ?
   `).run(
     next.name, next.tagline, next.currency, next.targetNetWorth, next.targetDate, next.onboarded ? 1 : 0, next.emailDigestEnabled ? 1 : 0, next.pushRemindersEnabled ? 1 : 0, next.activityEmailsEnabled ? 1 : 0,
-    next.pushOverdueEnabled ? 1 : 0, next.pushDueTodayEnabled ? 1 : 0, next.pushFocusNudgeEnabled ? 1 : 0, next.focusNudgeStartHour, next.focusNudgeEndHour, next.focusNudgeIntervalMinutes, next.aiCheckInsEnabled ? 1 : 0, next.pushStreakEnabled ? 1 : 0,
+    next.pushOverdueEnabled ? 1 : 0, next.pushDueTodayEnabled ? 1 : 0, next.pushFocusNudgeEnabled ? 1 : 0, next.focusNudgeStartHour, next.focusNudgeEndHour, next.focusNudgeIntervalMinutes, next.aiCheckInsEnabled ? 1 : 0, next.pushStreakEnabled ? 1 : 0, next.celebrationEffectsEnabled ? 1 : 0,
     userId
   );
   return getProfile(userId);
