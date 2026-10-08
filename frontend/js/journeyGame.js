@@ -70,6 +70,21 @@ const JourneyGame = (() => {
     return label;
   }
 
+  // A distant bird: an open gull-wing stroke (two shallow V's meeting in
+  // the middle) — the classic small-bird mark, legible at a glance.
+  // A *filled* triangle at this size reads as an arrowhead or debris
+  // instead, so this is a stroke, never a fill.
+  function drawBird(g, x, y, s, alpha) {
+    g.lineStyle(0.35 * s, 0x3a2f28, alpha != null ? alpha : 0.8);
+    g.beginPath();
+    g.moveTo(x - 2.4 * s, y + 0.3 * s);
+    g.lineTo(x - 0.6 * s, y - 1 * s);
+    g.lineTo(x, y - 0.2 * s);
+    g.lineTo(x + 0.6 * s, y - 1 * s);
+    g.lineTo(x + 2.4 * s, y + 0.3 * s);
+    g.strokePath();
+  }
+
   // ── THE CLIMBER — a chibi figure clinging to the rock, Container-per-
   // limb so each rotates around its own joint for free. Unlike a walk
   // cycle this isn't a continuous loop: idle() is a small constant "still
@@ -130,11 +145,19 @@ const JourneyGame = (() => {
     const frontArm = sc.add.container(3.6, -15.4, [armGeom(-1.3)]);
     frontArm.setAngle(165);
 
+    // A soft shadow the climber casts onto the rock behind them — reads
+    // as "a few inches off the wall", not pasted flat onto it.
+    const wallShadow = sc.add.ellipse(1.6, -11, 9, 13, 0x000000, 0.2);
+
     const body = sc.add.graphics();
     body.fillStyle(C.jacketDark, 1); body.fillRoundedRect(-5.0, -15.8, 10.0, 9.4, 3.2);
     body.fillStyle(C.jacket, 1); body.fillRoundedRect(-5.0, -15.8, 10.0, 5.6, 3.2);
     body.fillStyle(C.jacketLight, 0.5); body.fillRoundedRect(-5.0, -15.8, 4.0, 5.6, 3.2);
     outline(body); body.strokeRoundedRect(-5.0, -15.8, 10.0, 9.4, 3.2);
+    // Rim-light — a bright stroke down the sun-facing edge, matching the
+    // cliff's own rim-light so the whole scene reads as one light source.
+    body.lineStyle(0.45, 0xffe6c0, 0.75);
+    body.beginPath(); body.moveTo(4.9, -15); body.lineTo(4.9, -6.6); body.strokePath();
     // Harness belt + a hanging loop the rope "clips" into — the one
     // detail that most says "climbing gear" at a glance.
     const harness = sc.add.graphics();
@@ -155,6 +178,7 @@ const JourneyGame = (() => {
     headG.beginPath(); headG.arc(0.2, -19.5, 4.2, Phaser.Math.DegToRad(188), Phaser.Math.DegToRad(-8)); headG.closePath(); headG.fillPath();
     headG.fillStyle(0xffffff, 0.45); headG.fillEllipse(1.4, -22.2, 2.2, 0.9);
     headG.lineStyle(0.3, C.helmetDark, 0.6); headG.strokeEllipse(0.2, -19.5, 8.4, 4.0);
+    headG.lineStyle(0.35, 0xfff3d6, 0.7); headG.beginPath(); headG.arc(0.2, -19.5, 4.2, Phaser.Math.DegToRad(-8), Phaser.Math.DegToRad(30)); headG.strokePath();
 
     const eyeL = sc.add.ellipse(-1.6, -18.1, 1.1, 1.3, 0x2b2320);
     const eyeR = sc.add.ellipse(1.6, -18.1, 1.1, 1.3, 0x2b2320);
@@ -170,7 +194,7 @@ const JourneyGame = (() => {
     effortBrow.lineStyle(0.45, 0x4a2f1e, 0); effortBrow.lineBetween(-2.6, -20.3, -0.8, -20.0);
     effortBrow.lineBetween(0.8, -20.0, 2.6, -20.3);
 
-    art.add([rightLeg, leftLeg, backArm, body, harness, headG, eyeL, eyeR, eyeShineL, eyeShineR, blushL, blushR, smile, effortBrow, frontArm]);
+    art.add([wallShadow, rightLeg, leftLeg, backArm, body, harness, headG, eyeL, eyeR, eyeShineL, eyeShineR, blushL, blushR, smile, effortBrow, frontArm]);
 
     const parts = { art, leftLeg, rightLeg, backArm, frontArm, body };
 
@@ -304,11 +328,9 @@ const JourneyGame = (() => {
         g.fillStyle(0x5c8a4c, 0.85); g.fillEllipse(CENTER_X + 2, y - 0.8, 2.6, 1.2);
         break;
       }
-      case 2: { // eagle silhouette, two simple wing arcs
+      case 2: { // an eagle, same gull-wing mark as the ambient birds, larger
         const p = { x: CENTER_X + 24, y: BOTTOM_Y - (BOTTOM_Y - TOP_Y) * 0.56 };
-        g.fillStyle(0x2b2320, 0.85);
-        g.fillTriangle(p.x - 5, p.y, p.x, p.y - 1.6, p.x - 0.6, p.y + 0.6);
-        g.fillTriangle(p.x + 5, p.y, p.x, p.y - 1.6, p.x + 0.6, p.y + 0.6);
+        drawBird(g, p.x, p.y, 2.2, 0.85);
         if (sc) sc._eagle = p;
         break;
       }
@@ -402,30 +424,40 @@ const JourneyGame = (() => {
     // color blocks over busy texture — a stylized illustration, not a
     // photo-real cliff.
     buildStaticScene() {
-      this.sky.fillGradientStyle(0x5a87c4, 0x5a87c4, 0xffc9a6, 0xffc9a6, 1);
+      // A punchier, more saturated dawn gradient — the muted version read
+      // as flat/washed-out; mobile-game skies lean vivid.
+      this.sky.fillGradientStyle(0x2f5fb0, 0x2f5fb0, 0xff9d6e, 0xff9d6e, 1);
       this.sky.fillRect(0, 0, 100, 100);
 
+      // A small, contained glossy sun — layered rings, but kept tight so
+      // it reads as a bright disc, not a wash over a quarter of the sky.
+      const sun = this.add.container(84, 14);
+      [[7, 0xffe8b0, 0.3], [4.6, 0xffd98a, 0.5], [2.8, 0xfff3cf, 0.9], [1.6, 0xffffff, 1]].forEach(([r, col, a]) => sun.add(this.add.circle(0, 0, r, col, a)));
+      this.decor.add(sun);
+      this.tweens.add({ targets: sun.list[0], scale: 1.2, alpha: 0.18, duration: 2600, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
       // Soft pink/peach cloud clusters, lower in the frame so the climber
-      // reads as above them — each a handful of overlapping ellipses.
-      const cloudAt = (cx, cy, scale, tint) => {
+      // reads as above them — each a handful of overlapping ellipses with
+      // a brighter top lobe for a touch of gloss.
+      const cloudAt = (cx, cy, scale, tint, hi) => {
         const g = this.add.graphics();
-        g.fillStyle(tint, 0.9);
+        g.fillStyle(tint, 0.92);
         [[-7, 0.5, 6.5, 3], [-2, -1.2, 7, 3.6], [4, 0.3, 6, 3], [9, 1, 5, 2.6]].forEach(([dx, dy, w, h]) => g.fillEllipse(dx * scale, dy * scale, w * scale, h * scale));
+        g.fillStyle(hi, 0.55);
+        g.fillEllipse(-1 * scale, -2.1 * scale, 5 * scale, 2 * scale);
         g.setPosition(cx, cy);
         return g;
       };
-      this.decor.add(cloudAt(20, 62, 1.1, 0xffcdb8));
-      this.decor.add(cloudAt(85, 70, 1.3, 0xffd9c8));
-      this.decor.add(cloudAt(14, 80, 0.9, 0xfff0e4));
-      this.decor.add(cloudAt(60, 85, 1.1, 0xffcdb8));
-      this.decor.add(cloudAt(92, 40, 0.7, 0xfff0e4));
+      this.decor.add(cloudAt(20, 62, 1.1, 0xffc19f, 0xffe9d8));
+      this.decor.add(cloudAt(85, 70, 1.3, 0xffcdb0, 0xfff0e2));
+      this.decor.add(cloudAt(14, 80, 0.9, 0xffe4d2, 0xfffaf4));
+      this.decor.add(cloudAt(60, 85, 1.1, 0xffc19f, 0xffe9d8));
+      this.decor.add(cloudAt(92, 40, 0.7, 0xffe4d2, 0xfffaf4));
 
-      // A few ambient birds — simple double-arcs, purely atmospheric.
-      [[30, 22, 1], [40, 30, 0.7], [15, 35, 0.8], [68, 15, 0.9]].forEach(([x, y, s]) => {
+      // A few ambient birds, purely atmospheric.
+      [[30, 22, 1], [40, 30, 0.75], [15, 35, 0.85], [68, 15, 0.95]].forEach(([x, y, s]) => {
         const g = this.add.graphics();
-        g.fillStyle(0x3a2f28, 0.75);
-        g.fillTriangle(-2.6 * s, 0, 0, -1 * s, -0.4 * s, 0.4 * s);
-        g.fillTriangle(2.6 * s, 0, 0, -1 * s, 0.4 * s, 0.4 * s);
+        drawBird(g, 0, 0, s);
         g.setPosition(x, y);
         this.decor.add(g);
       });
@@ -459,16 +491,48 @@ const JourneyGame = (() => {
         { x: 50, y: 16.5 }, { x: 64, y: 19 }, { x: 80, y: 17 }, { x: 94, y: 19.5 },
         { x: 105, y: 18 }, { x: 105, y: 100 },
       ];
-      this.cliffGfx.fillGradientStyle(0xae6a4e, 0xae6a4e, 0x6b3f30, 0x6b3f30, 1);
+      // A richer, more saturated terracotta — the muted version read as
+      // washed-out next to a vivid sky.
+      this.cliffGfx.fillGradientStyle(0xc4744f, 0xc4744f, 0x6b3a28, 0x6b3a28, 1);
       this.cliffGfx.fillPoints(silhouette, true);
 
-      // Broad soft highlight sweeps — sunlit faces, not literal strata.
-      this.cliffGfx.fillStyle(0xcf8a66, 0.4);
-      this.cliffGfx.fillPoints([{ x: 50, y: 20 }, { x: 105, y: 30 }, { x: 105, y: 58 }, { x: 62, y: 34 }], true);
-      this.cliffGfx.fillStyle(0xd99b76, 0.3);
-      this.cliffGfx.fillPoints([{ x: 5, y: 40 }, { x: 35, y: 48 }, { x: 28, y: 72 }, { x: -5, y: 64 }, { x: -5, y: 40 }], true);
-      this.cliffGfx.fillStyle(0x8a4e3a, 0.35);
-      this.cliffGfx.fillPoints([{ x: 40, y: 62 }, { x: 75, y: 55 }, { x: 80, y: 90 }, { x: 45, y: 100 }, { x: 40, y: 90 }], true);
+      // A modest, soft glow suggesting the sun catches this corner of the
+      // rock — small and low-alpha so it reads as light, not a wash.
+      this.cliffGfx.fillStyle(0xffcf9a, 0.14);
+      this.cliffGfx.fillCircle(90, 22, 20);
+
+      // Real rock texture: a field of small soft blotches in varying
+      // warm tones (sunlit bumps, shadowed pockets) instead of a couple
+      // of large flat-shaded panels — this is what actually reads as
+      // "rock" rather than "a few big triangles of slightly different
+      // brown". Seeded so the texture is stable for this scene instance.
+      let seed = 1337;
+      const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed % 10000) / 10000; };
+      const tones = [[0xe8a870, 0.34], [0xdd8f5c, 0.34], [0x8a4e3a, 0.3], [0x6f3c2b, 0.28], [0xc47f51, 0.24], [0xffe2b8, 0.18]];
+      for (let i = 0; i < 90; i++) {
+        const x = -3 + rand() * 106;
+        const y = 23 + rand() * 76;
+        const r = 1.6 + rand() * 4.4;
+        const [color, alpha] = tones[Math.floor(rand() * tones.length)];
+        this.cliffGfx.fillStyle(color, alpha * (0.6 + rand() * 0.5));
+        this.cliffGfx.fillCircle(x, y, r);
+      }
+      // A handful of thin crack lines for grit, low-opacity so they read
+      // as detail rather than damage.
+      this.cliffGfx.lineStyle(0.22, 0x3a2a20, 0.3);
+      [[22, 40, 28, 62], [66, 34, 60, 58], [38, 68, 44, 92], [84, 44, 90, 76]].forEach(([x1, y1, x2, y2]) => {
+        this.cliffGfx.beginPath(); this.cliffGfx.moveTo(x1, y1);
+        this.cliffGfx.lineTo((x1 + x2) / 2 + 1.5, (y1 + y2) / 2); this.cliffGfx.lineTo(x2, y2); this.cliffGfx.strokePath();
+      });
+
+      // A bright rim-light along the sun-facing (right) side of the
+      // cliff's silhouette — the single highest-impact "polished mobile
+      // game" trick: a saturated light edge where a form turns away from
+      // the light, instead of flat, evenly-lit color everywhere.
+      this.cliffGfx.lineStyle(0.9, 0xffe1b0, 0.55);
+      this.cliffGfx.beginPath();
+      this.cliffGfx.moveTo(64, 19); this.cliffGfx.lineTo(80, 17); this.cliffGfx.lineTo(94, 19.5); this.cliffGfx.lineTo(105, 18);
+      this.cliffGfx.strokePath();
 
       // A grassy plateau top with real depth — a flat-ish top surface
       // plus the short front lip where it meets the rock — rather than
@@ -477,10 +541,15 @@ const JourneyGame = (() => {
       const ridge = silhouette.slice(1, -1);
       const GRASS_THICK = 2.1;
       const top = ridge.map(p => ({ x: p.x, y: p.y - GRASS_THICK }));
-      this.cliffGfx.fillStyle(0x5a8a3d, 1);
+      this.cliffGfx.fillStyle(0x4a7a2d, 1);
       this.cliffGfx.fillPoints([...top, ...ridge.slice().reverse()], true);
-      this.cliffGfx.fillStyle(0x8fc25e, 0.9);
+      this.cliffGfx.fillStyle(0x7fd14a, 0.95);
       this.cliffGfx.fillPoints([...top, ...top.map(p => ({ x: p.x, y: p.y + 0.9 })).reverse()], true);
+      // A thin glossy highlight along the very top edge of the grass.
+      this.cliffGfx.lineStyle(0.3, 0xc8f08a, 0.7);
+      this.cliffGfx.beginPath();
+      top.forEach((p, i) => { if (i === 0) this.cliffGfx.moveTo(p.x, p.y); else this.cliffGfx.lineTo(p.x, p.y); });
+      this.cliffGfx.strokePath();
       this.cliffGfx.lineStyle(0.35, 0x3f6b2a, 0.8);
       this.cliffGfx.beginPath();
       ridge.forEach((p, i) => { if (i === 0) this.cliffGfx.moveTo(p.x, p.y); else this.cliffGfx.lineTo(p.x, p.y); });
@@ -499,9 +568,15 @@ const JourneyGame = (() => {
       this.ropeGfx.beginPath(); this.ropeGfx.moveTo(all[0].x, all[0].y);
       all.slice(1).forEach(p => this.ropeGfx.lineTo(p.x, p.y));
       this.ropeGfx.strokePath();
-      this.ropeGfx.lineStyle(0.32, 0xe8722f, 1);
+      this.ropeGfx.lineStyle(0.32, 0xff8a42, 1);
       this.ropeGfx.beginPath(); this.ropeGfx.moveTo(all[0].x, all[0].y);
       all.slice(1).forEach(p => this.ropeGfx.lineTo(p.x, p.y));
+      this.ropeGfx.strokePath();
+      // A thin offset highlight stripe — gives the rope a round, lit
+      // cross-section instead of reading as a flat ribbon.
+      this.ropeGfx.lineStyle(0.14, 0xffd9a8, 0.8);
+      this.ropeGfx.beginPath(); this.ropeGfx.moveTo(all[0].x - 0.25, all[0].y);
+      all.slice(1).forEach(p => this.ropeGfx.lineTo(p.x - 0.25, p.y));
       this.ropeGfx.strokePath();
 
       // A summit anchor — the piton the rope is actually fixed to.
@@ -521,13 +596,24 @@ const JourneyGame = (() => {
         const color = isDone ? DONE_COLOR : isNext ? NEXT_COLOR : PENDING_COLOR;
         const r = isDone || isNext ? baseR * 1.08 : baseR * 0.92;
         const c = this.add.container(pt.x, pt.y);
-        const shadow = this.add.circle(0.3, 0.4, r, 0x000000, 0.22);
-        // A piton/anchor look: a metal ring behind a solid disc, rather
-        // than a plain dot.
-        const ring = this.add.circle(0, 0, r * 1.22, 0x6b7280, 0.9);
+        const shadow = this.add.circle(0.3, 0.5, r, 0x000000, 0.25);
+        const parts = [shadow];
+        // A soft colored glow behind the live markers — done/next — the
+        // glossy "game node" halo, not just a flat disc.
+        if (isDone || isNext) {
+          const glow = this.add.circle(0, 0, r * 1.8, color, 0.3);
+          parts.push(glow);
+          if (isNext) this.tweens.add({ targets: glow, scale: 1.25, alpha: 0.12, duration: 750, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        }
+        // A piton/anchor look: a bright metal ring behind a solid disc,
+        // rather than a plain dot — plus a strong specular highlight for
+        // a glossy, lit-from-above read.
+        const ring = this.add.circle(0, 0, r * 1.22, 0x9aa3ad, 0.95);
         const base = this.add.circle(0, 0, r, color);
-        const hi = this.add.circle(-r * 0.3, -r * 0.3, r * 0.42, 0xffffff, 0.55);
-        c.add([shadow, ring, base, hi]);
+        const hi = this.add.circle(-r * 0.32, -r * 0.35, r * 0.46, 0xffffff, 0.75);
+        const hi2 = this.add.circle(r * 0.28, r * 0.15, r * 0.14, 0xffffff, 0.4);
+        parts.push(ring, base, hi, hi2);
+        c.add(parts);
         if (showLabel) {
           const labelColor = isDone ? '#ffffff' : isNext ? '#3a2a00' : '#4B5563';
           c.add(addCrispLabel(this, 0, 0, isDone ? '✓' : String(i + 1), labelColor, Math.max(2.8, r * 1.5)));
@@ -547,7 +633,13 @@ const JourneyGame = (() => {
       if (this._eagle && frac > FLOURISHES[2].at) {
         if (!this._eagleTween) {
           this._eagleAngle = 0;
-          this._eagleTween = this.tweens.addCounter({ from: 0, to: Math.PI * 2, duration: 6000, repeat: -1, onUpdate: (tw) => { this._eagleAngle = tw.getValue(); this.flourishGfx.clear(); FLOURISHES.forEach((f2, i2) => { if (frac > f2.at && i2 !== 2) drawFlourish(this.flourishGfx, i2, this); }); const ex = this._eagle.x + Math.cos(this._eagleAngle) * 6, ey = this._eagle.y + Math.sin(this._eagleAngle) * 2.2; this.flourishGfx.fillStyle(0x2b2320, 0.85); this.flourishGfx.fillTriangle(ex - 5, ey, ex, ey - 1.6, ex - 0.6, ey + 0.6); this.flourishGfx.fillTriangle(ex + 5, ey, ex, ey - 1.6, ex + 0.6, ey + 0.6); } });
+          this._eagleTween = this.tweens.addCounter({ from: 0, to: Math.PI * 2, duration: 6000, repeat: -1, onUpdate: (tw) => {
+            this._eagleAngle = tw.getValue();
+            this.flourishGfx.clear();
+            FLOURISHES.forEach((f2, i2) => { if (frac > f2.at && i2 !== 2) drawFlourish(this.flourishGfx, i2, this); });
+            const ex = this._eagle.x + Math.cos(this._eagleAngle) * 6, ey = this._eagle.y + Math.sin(this._eagleAngle) * 2.2;
+            drawBird(this.flourishGfx, ex, ey, 2.2, 0.85);
+          } });
         }
       }
     }
