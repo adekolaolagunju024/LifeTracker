@@ -398,7 +398,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
   APP.filters          = { status: '', priority: '', search: '', tag: '' };
   closeMobileSidebar();
   if (APP.chatProjectId) closeProjectChat(); // stop polling — don't leave chat open on a page we navigated away from
-  if (id !== 'gantt') JourneyGame.destroy(); // Journey only lives on the Gantt page — free its game loop elsewhere
+  if (id !== 'gantt') JourneyGame.destroy(document.getElementById('mountain-scene')); // Journey only lives on the Gantt page — free its game loop elsewhere
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -4459,13 +4459,13 @@ function workerSvgMarkup(animated) {
     </svg>`;
 }
 
-// ── JOURNEY ("Launch to Orbit") ────────────────────────────────────
-// A single scene — no stage picker. A rocket lifts off from a launchpad
-// and climbs straight up toward a space station, one burn per completed
-// task. All actual drawing (the rocket, the stars, the station, the
-// burn animation, particles) lives in the Phaser scene in
-// frontend/js/journeyGame.js; this is just metadata for the status line.
-const JOURNEY_META = { checkpointNoun: 'tasks', doneLabel: 'Docked at the station', doneEmoji: '🛰️' };
+// ── JOURNEY ("Road to the Goal") ────────────────────────────────────
+// A single scene — no stage picker. An avatar walks a winding road from
+// the starting line to a bullseye target, one flag per completed task.
+// All actual drawing (the road, the avatar, the flags, the target,
+// particles) lives in the SVG built in frontend/js/journeyGame.js; this
+// is just metadata for the status line.
+const JOURNEY_META = { checkpointNoun: 'tasks', doneLabel: 'Reached the target', doneEmoji: '🎯' };
 
 // Entry point from a project's own header button — jumps to the Gantt
 // page, points its (shared) project filter at this project, and switches
@@ -4488,9 +4488,9 @@ async function renderJourneyView() {
   const competitorSel = document.getElementById('journey-competitor-select');
   const resetBtn = document.getElementById('journey-reset-btn');
   if (!projectId) {
-    titleEl.textContent = '🚀 Journey';
+    titleEl.textContent = '🎯 Journey';
     statusEl.textContent = 'Pick a specific project from the filter above — a Journey is one project at a time.';
-    JourneyGame.destroy();
+    JourneyGame.destroy(document.getElementById('mountain-scene'));
     document.getElementById('mountain-tasklist').innerHTML = '';
     document.getElementById('mountain-celebrate').classList.add('hidden');
     if (competitorSel) competitorSel.classList.add('hidden');
@@ -4520,7 +4520,7 @@ async function renderJourneyView() {
     try { competitor = localStorage.getItem('journeyCompetitor:' + projectId) || 'schedule'; } catch { /* private mode etc */ }
     if (competitor !== 'schedule' && !racers.some(r => r.userId === competitor)) competitor = 'schedule';
     mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor', racers, competitor };
-    titleEl.textContent = `🚀 ${project.icon || ''} ${project.title}`;
+    titleEl.textContent = `🎯 ${project.icon || ''} ${project.title}`;
     if (resetBtn) resetBtn.classList.toggle('hidden', !mountainState.canEdit);
     if (competitorSel) {
       if (racers.length) {
@@ -4624,7 +4624,7 @@ function renderMountainScene() {
   const phase = JourneyGame.buildPhaseLabel(youFrac);
   const noun = JOURNEY_META.checkpointNoun;
   if (!total) {
-    statusEl.textContent = 'Add tasks to this project to start the launch sequence.';
+    statusEl.textContent = 'Add tasks to this project to start the journey.';
   } else if (summitLit) {
     statusEl.textContent = `${JOURNEY_META.doneEmoji} ${JOURNEY_META.doneLabel} — every task done!`;
   } else if (expectedFrac === null) {
@@ -4707,7 +4707,7 @@ function resetJourneyProgress() {
   );
 }
 
-// The modal text + the Phaser scene's own big particle burst (fired
+// The modal text + the Journey scene's own big particle burst (fired
 // automatically from renderMountainScene's sync once it detects every
 // checkpoint just went done) — this only owns the DOM modal.
 // Uses the same full-screen swipe-to-dismiss overlay the rest of the app

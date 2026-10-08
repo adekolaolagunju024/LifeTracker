@@ -1111,14 +1111,15 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="kanban-board"></div>
       </div>
 
-      <!-- ═══ JOURNEY VIEW ═══ — "Launch to Orbit": a rocket lifts off from
-           a launchpad and climbs straight up toward a space station, one
-           burn per completed task. One project at a time (pick it from the
-           filter above), fills the page like the other two views. -->
+      <!-- ═══ JOURNEY VIEW ═══ — "Road to the Goal": a winding road leads
+           from the starting line to a bullseye target, one flag checkpoint
+           per task, your avatar advancing along the road as tasks complete.
+           One project at a time (pick it from the filter above), fills the
+           page like the other two views. -->
       <div class="hidden" id="gantt-journey-view">
         <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <div class="min-w-0">
-            <h3 class="text-sm font-black text-navy truncate" id="mountain-title">🚀 Journey</h3>
+            <h3 class="text-sm font-black text-navy truncate" id="mountain-title">🎯 Journey</h3>
             <p class="text-xs text-gray-500" id="mountain-status">Loading…</p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
@@ -1130,7 +1131,7 @@
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
           </div>
         </div>
-        <div class="relative rounded-2xl overflow-hidden shadow-sm bg-sky-100" id="mountain-scene-wrap" style="height:min(50vh,460px); min-height:320px;" title="Tap the scene for a spark — real progress still only comes from finishing tasks below">
+        <div class="relative rounded-2xl overflow-hidden shadow-sm" id="mountain-scene-wrap" style="height:min(62vh,520px); min-height:380px; background:#4a7fc4;" title="Tap the scene for a spark — real progress still only comes from finishing tasks below">
           <div class="absolute inset-0" id="mountain-scene"></div>
           <div class="hidden absolute inset-0 z-20 items-center justify-center bg-black/40" id="mountain-celebrate">
             <div class="bg-white rounded-2xl p-6 max-w-sm mx-4 text-center shadow-2xl">
