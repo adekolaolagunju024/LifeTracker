@@ -4495,6 +4495,8 @@ async function renderJourneyView() {
     document.getElementById('mountain-celebrate').classList.add('hidden');
     if (competitorSel) competitorSel.classList.add('hidden');
     if (resetBtn) resetBtn.classList.add('hidden');
+    const themeSel0 = document.getElementById('journey-theme-select');
+    if (themeSel0) themeSel0.value = getJourneyTheme();
     mountainState = null;
     API.getJourneyGaming().then(updateJourneyLevelBadge).catch(() => {});
     return;
@@ -4531,6 +4533,8 @@ async function renderJourneyView() {
         competitorSel.classList.add('hidden');
       }
     }
+    const themeSel = document.getElementById('journey-theme-select');
+    if (themeSel) themeSel.value = getJourneyTheme();
     renderMountainScene();
     renderMountainTaskList();
     API.getJourneyGaming().then(updateJourneyLevelBadge).catch(() => {});
@@ -4547,6 +4551,19 @@ function setJourneyCompetitor(value) {
   mountainState.competitor = value;
   try { localStorage.setItem('journeyCompetitor:' + mountainState.projectId, value); } catch { /* private mode etc */ }
   renderMountainScene();
+}
+
+// Which visual skin the Journey scene draws itself in — Road, Space,
+// Ocean, or Race — purely cosmetic, same underlying mechanics either
+// way (see journeyGame.js's THEMES registry). One global preference
+// rather than per-project, since it's "how I like it to look," not
+// something tied to any one goal.
+function getJourneyTheme() {
+  try { return localStorage.getItem('journeyTheme') || 'road'; } catch { return 'road'; }
+}
+function setJourneyTheme(value) {
+  try { localStorage.setItem('journeyTheme', value); } catch { /* private mode etc */ }
+  if (mountainState) renderMountainScene();
 }
 
 // Resolves the current competitor to a progress fraction + display label —
@@ -4595,11 +4612,9 @@ function mountainExpectedFraction() {
   return Math.max(0, Math.min(1, (nowMs - startMs) / (endMs - startMs)));
 }
 
-// Computes the current state and hands it to the Phaser scene (see
+// Computes the current state and hands it to the SVG scene (see
 // frontend/js/journeyGame.js) to actually draw and animate — this
-// function now only owns the derived numbers and the status-line text,
-// same responsibility split as before, just a real game engine doing the
-// rendering instead of a hand-built SVG string.
+// function only owns the derived numbers and the status-line text.
 function renderMountainScene() {
   const { tasks } = mountainState;
   const total = tasks.length;
@@ -4611,7 +4626,7 @@ function renderMountainScene() {
 
   const container = document.getElementById('mountain-scene');
   JourneyGame.sync(container, {
-    tasks, youFrac, summitLit,
+    tasks, youFrac, summitLit, theme: getJourneyTheme(),
     // Null when there's nothing to actually pace against (no dates set, or
     // a teammate with none of these tasks assigned) — showing a ghost
     // frozen at the start forever would just read as a second character
