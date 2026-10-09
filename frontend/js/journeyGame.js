@@ -43,8 +43,23 @@ const JourneyGame = (() => {
     const w = container.clientWidth || 300, h = container.clientHeight || 300;
     return (w < 560 || h > w) ? LAYOUTS.tall : LAYOUTS.wide;
   }
+  // A Catmull-Rom-to-Bezier spline through every waypoint — a smooth,
+  // winding curve instead of a straight-segment zigzag, while still
+  // passing through each layout point exactly (so getPointAtLength-based
+  // checkpoint positioning doesn't need to change at all).
   function pathD(points) {
-    return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+    if (points.length < 3) return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+    let d = `M${points[0].x},${points[0].y} `;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i - 1] || points[i];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[i + 2] || p2;
+      const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+      d += `C${c1x.toFixed(2)},${c1y.toFixed(2)} ${c2x.toFixed(2)},${c2y.toFixed(2)} ${p2.x},${p2.y} `;
+    }
+    return d.trim();
   }
 
   const PHASES = [
@@ -89,12 +104,40 @@ const JourneyGame = (() => {
     return { x: screenPt.x, y: screenPt.y };
   }
 
+  // Places up to `count` props wherever isClear() allows, keeps them a
+  // minimum distance apart, then draws them back-to-front (sorted by y)
+  // with a perspective scale — props higher up the scene are "farther"
+  // and drawn smaller — so they layer and recede like real scenery.
+  function scatterProps(layer, layout, isClear, rand, { count, margin, spacing, minScale = 0.55, minY = 0, draw }) {
+    const placed = [];
+    for (let tries = 0; tries < count * 12 && placed.length < count; tries++) {
+      const x = rand() * layout.w, y = rand() * layout.h;
+      if (y < minY || !isClear(x, y, margin)) continue;
+      if (placed.some(p => Math.hypot(p.x - x, p.y - y) < spacing)) continue;
+      placed.push({ x, y, v: rand() });
+    }
+    placed.sort((a, b) => a.y - b.y).forEach(p => {
+      const s = minScale + (1 - minScale) * (p.y / layout.h);
+      const g = el('g', { transform: `translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) scale(${s.toFixed(3)})` });
+      draw(g, p.v);
+      layer.appendChild(g);
+    });
+  }
+
+  function grassTuft(g, color) {
+    ['M -3 0 Q -4 -6 -6 -9', 'M 0 0 Q 0 -7 1 -11', 'M 3 0 Q 4 -6 7 -8'].forEach(d => {
+      g.appendChild(el('path', { d, fill: 'none', stroke: color, 'stroke-width': 1.5, 'stroke-linecap': 'round' }));
+    });
+  }
+
   // A few soft cloud puffs — shared by the Road and Race themes, which
   // both want a plain daytime sky.
   function cloudGroup(svg, layout, specs) {
     specs.forEach(([fx, fy, scale]) => {
-      const cg = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})`, opacity: 0.8 });
+      const cg = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})`, opacity: 0.9 });
+      cg.appendChild(el('ellipse', { cx: 1, cy: 8, rx: 26, ry: 6, fill: '#a9c4dc', opacity: 0.55 }));
       [[-14, 0, 11], [0, -4, 14], [15, 0, 10], [0, 5, 13]].forEach(([ex, ey, r]) => cg.appendChild(el('ellipse', { cx: ex, cy: ey, rx: r, ry: r * 0.7, fill: '#ffffff' })));
+      cg.appendChild(el('ellipse', { cx: 0, cy: 7, rx: 22, ry: 3.4, fill: '#cfdeec', opacity: 0.8 }));
       svg.appendChild(cg);
     });
   }
@@ -103,35 +146,131 @@ const JourneyGame = (() => {
   // THEME: ROAD — "Road to the Goal". A winding toy-like path through a
   // bright daytime sky, to a shiny gold star.
   // ════════════════════════════════════════════════════════════════
-  function roadDecorate(svg, layout) {
+  function roadDecorate(svg, layout, glowId) {
+    // Parallax hill silhouettes behind the path — two layers tinted
+    // toward the sky's own horizon color (atmospheric perspective: the
+    // farther layer is paler/cooler) so the scene reads as having real
+    // depth instead of one flat painted backdrop.
+    svg.appendChild(el('path', {
+      d: `M 0 ${layout.h * 0.56} Q ${layout.w * 0.22} ${layout.h * 0.46} ${layout.w * 0.48} ${layout.h * 0.52} T ${layout.w} ${layout.h * 0.48} L ${layout.w} ${layout.h} L 0 ${layout.h} Z`,
+      fill: '#bcd9ce', opacity: 0.5,
+    }));
+    svg.appendChild(el('path', {
+      d: `M 0 ${layout.h * 0.74} Q ${layout.w * 0.3} ${layout.h * 0.66} ${layout.w * 0.55} ${layout.h * 0.7} T ${layout.w} ${layout.h * 0.68} L ${layout.w} ${layout.h} L 0 ${layout.h} Z`,
+      fill: '#8fc9a8', opacity: 0.6,
+    }));
+
     const sunCx = layout.w * 0.86, sunCy = layout.h * 0.12;
-    svg.appendChild(el('circle', { cx: sunCx, cy: sunCy, r: layout.w * 0.09, fill: '#ffffff', opacity: 0.4 }));
+    svg.appendChild(el('circle', { cx: sunCx, cy: sunCy, r: layout.w * 0.1, fill: '#ffe49a', opacity: 0.6, filter: glowId ? `url(#${glowId})` : undefined }));
     svg.appendChild(el('circle', { cx: sunCx, cy: sunCy, r: layout.w * 0.05, fill: '#ffd24a' }));
+    svg.appendChild(el('circle', { cx: sunCx - layout.w * 0.015, cy: sunCy - layout.w * 0.015, r: layout.w * 0.022, fill: '#fff6cf', opacity: 0.8 }));
     cloudGroup(svg, layout, [[0.12, 0.1, 1], [0.28, 0.07, 0.75]]);
+
+    // A few distant birds gliding across — tiny, dark, and slow, so they
+    // add life at the edge of attention without competing with the path.
+    [[0.4, 0.1, 1, 0], [0.45, 0.13, 0.8, 1.2], [0.36, 0.14, 0.7, 2.1]].forEach(([fx, fy, s, delay]) => {
+      const pos = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${s})` });
+      const b = el('g', { class: 'journey-bird', style: `animation-delay:${delay}s` });
+      b.appendChild(el('path', { d: 'M -6 0 Q -3 -3 0 0 Q 3 -3 6 0', fill: 'none', stroke: '#3a4a5c', 'stroke-width': 1.4, 'stroke-linecap': 'round' }));
+      pos.appendChild(b);
+      svg.appendChild(pos);
+    });
   }
 
-  // A cheerful, rounded "game mascot" figure — big head, simple face, a
-  // soft ground shadow, built from plain shapes so it stays crisp at any
-  // scale. The outline strokes + bright flat fills are what read as
-  // "game art" rather than a technical diagram; the inner .journey-avatar-bob
-  // group is what CSS's idle-bob animation (see index.html) moves, kept
-  // separate from the ground shadow so the shadow stays planted.
+  // Road scenery — trees lit from the upper left (a dark side, a
+  // highlight cap, a cast shadow), grass tufts, and small flower patches.
+  function roadScatter(layer, layout, isClear, rand) {
+    scatterProps(layer, layout, isClear, rand, {
+      count: 9, margin: 22, spacing: 46, minY: layout.h * 0.6,
+      draw(g, v) {
+        g.appendChild(el('ellipse', { cx: 6, cy: 1, rx: 16, ry: 4.5, fill: '#0b1220', opacity: 0.2 }));
+        g.appendChild(el('rect', { x: -2.4, y: -16, width: 4.8, height: 17, rx: 1.2, fill: '#7a4b2a' }));
+        g.appendChild(el('rect', { x: 0.4, y: -16, width: 2, height: 17, fill: '#5c3820' }));
+        if (v < 0.4) {
+          // Pine: stacked tiers, each with its own shaded right half.
+          [[-34, 11], [-26, 14], [-18, 17]].forEach(([ty, hw]) => {
+            g.appendChild(el('path', { d: `M 0 ${ty - 12} L ${hw} ${ty + 4} L ${-hw} ${ty + 4} Z`, fill: '#2f7a46' }));
+            g.appendChild(el('path', { d: `M 0 ${ty - 12} L ${hw} ${ty + 4} L 0 ${ty + 4} Z`, fill: '#235e36' }));
+          });
+        } else {
+          // Broadleaf: overlapping canopy puffs, darker underneath.
+          g.appendChild(el('circle', { cx: -8, cy: -20, r: 10, fill: '#2f6e39' }));
+          g.appendChild(el('circle', { cx: 8, cy: -20, r: 10, fill: '#2a6234' }));
+          g.appendChild(el('circle', { cx: 0, cy: -28, r: 13, fill: '#3f8f4a' }));
+          g.appendChild(el('circle', { cx: -5, cy: -32, r: 7, fill: '#5fae5c', opacity: 0.85 }));
+          g.appendChild(el('circle', { cx: -7, cy: -34, r: 2.8, fill: '#9bd88f', opacity: 0.7 }));
+        }
+      },
+    });
+    scatterProps(layer, layout, isClear, rand, {
+      count: 22, margin: 4, spacing: 18, minY: layout.h * 0.58,
+      draw(g) { grassTuft(g, '#4f9a4f'); },
+    });
+    const petal = ['#ff7a9a', '#ffd24a', '#ffffff', '#b78cff'];
+    scatterProps(layer, layout, isClear, rand, {
+      count: 12, margin: 4, spacing: 22, minY: layout.h * 0.62,
+      draw(g, v) {
+        const c = petal[Math.floor(v * petal.length)];
+        [[-2.4, 0], [2.4, 0], [0, -2.4], [0, 2.4]].forEach(([px, py]) => g.appendChild(el('circle', { cx: px, cy: py - 3, r: 1.8, fill: c })));
+        g.appendChild(el('circle', { cx: 0, cy: -3, r: 1.3, fill: '#f59e0b' }));
+      },
+    });
+  }
+
+  // A cheerful game mascot with an actual limb rig — each leg/arm is its
+  // own group (journey-leg-front/back, journey-arm-front/back in
+  // index.html) that swings from its own shoulder/hip pivot via CSS,
+  // plus a flaring cape, giving it a real running gait instead of one
+  // rigid silhouette bobbing up and down. The outer .journey-avatar-bob
+  // group still carries the vertical bob and the shared drop-shadow
+  // filter, same as before — the limbs animate inside it.
+  function roadLimb(cls, fill, x, y, w, len, footRx, footRy, footFill) {
+    const wrap = el('g', { transform: `translate(${x},${y})` });
+    const swing = el('g', { class: cls });
+    swing.appendChild(el('rect', { x: -w / 2, y: 0, width: w, height: len, rx: w / 2 - 0.1, fill, stroke: '#1f2937', 'stroke-width': 0.8 }));
+    swing.appendChild(el('rect', { x: -w / 2, y: 0, width: w / 2.2, height: len, rx: w / 2 - 0.1, fill: '#ffffff', opacity: 0.18 }));
+    swing.appendChild(el('ellipse', { cx: 0, cy: len + footRy - 0.6, rx: footRx, ry: footRy, fill: footFill, stroke: '#1f2937', 'stroke-width': 0.6 }));
+    wrap.appendChild(swing);
+    return wrap;
+  }
   function roadBuildAvatar(fill, shadowFilterId) {
     const g = el('g', { class: 'journey-avatar' });
-    g.appendChild(el('ellipse', { cx: 0, cy: 24, rx: 12, ry: 3.2, fill: '#1f2937', opacity: 0.22 }));
+    g.appendChild(el('ellipse', { cx: 0, cy: 24, rx: 15, ry: 3.6, fill: '#1f2937', opacity: 0.25 }));
     const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
-    bob.appendChild(el('rect', { x: -6.6, y: 8, width: 5, height: 11, rx: 2.4, fill: '#3b4758', stroke: '#1f2937', 'stroke-width': 1 }));
-    bob.appendChild(el('rect', { x: 1.6, y: 8, width: 5, height: 11, rx: 2.4, fill: '#2f3947', stroke: '#1f2937', 'stroke-width': 1 }));
-    bob.appendChild(el('ellipse', { cx: -9.5, cy: 1, rx: 3.4, ry: 5.4, fill, stroke: '#1f2937', 'stroke-width': 1, transform: 'rotate(18 -9.5 1)' }));
-    bob.appendChild(el('ellipse', { cx: 9.5, cy: 1, rx: 3.4, ry: 5.4, fill, stroke: '#1f2937', 'stroke-width': 1, transform: 'rotate(-18 9.5 1)' }));
-    bob.appendChild(el('rect', { x: -9, y: -7, width: 18, height: 18, rx: 7, fill, stroke: '#1f2937', 'stroke-width': 1.2 }));
-    bob.appendChild(el('circle', { cx: 0, cy: -15.5, r: 8.4, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 1.2 }));
-    bob.appendChild(el('path', { d: 'M -8.4 -17.5 A 8.4 8.4 0 0 1 8.4 -17.5 L 8.2 -20 A 9 6 0 0 0 -8.2 -20 Z', fill: '#4a2f1e', stroke: '#1f2937', 'stroke-width': 1 }));
-    bob.appendChild(el('circle', { cx: -3, cy: -15, r: 1.15, fill: '#1f2937' }));
-    bob.appendChild(el('circle', { cx: 3, cy: -15, r: 1.15, fill: '#1f2937' }));
-    bob.appendChild(el('path', { d: 'M -3.6 -11.8 Q 0 -9.4 3.6 -11.8', fill: 'none', stroke: '#1f2937', 'stroke-width': 1.1, 'stroke-linecap': 'round' }));
-    bob.appendChild(el('ellipse', { cx: -5.6, cy: -12.4, rx: 1.6, ry: 1, fill: '#ff9d8a', opacity: 0.55 }));
-    bob.appendChild(el('ellipse', { cx: 5.6, cy: -12.4, rx: 1.6, ry: 1, fill: '#ff9d8a', opacity: 0.55 }));
+
+    bob.appendChild(el('path', {
+      class: 'journey-cape', d: 'M -4,-8 C -17,-5 -19,8 -10,15 C -15,8 -12,-3 -4,-7 Z',
+      fill: '#ff7a9a', stroke: '#8a2d4a', 'stroke-width': 0.8, opacity: 0.9,
+    }));
+
+    bob.appendChild(roadLimb('journey-leg-back', '#2f3947', -3.4, 9, 4.2, 10, 2.9, 1.7, '#2f3947'));
+    bob.appendChild(roadLimb('journey-arm-back', fill, -7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+
+    bob.appendChild(el('rect', { x: -8.6, y: -9, width: 17.2, height: 19, rx: 7.6, fill, stroke: '#1f2937', 'stroke-width': 1 }));
+    bob.appendChild(el('ellipse', { cx: -3.6, cy: -4, rx: 4.6, ry: 6.4, fill: '#ffffff', opacity: 0.22 }));
+    bob.appendChild(el('path', { d: 'M -8.6 -2 Q 0 2 8.6 -2', fill: 'none', stroke: '#ffffff', 'stroke-width': 1, opacity: 0.3 }));
+
+    bob.appendChild(roadLimb('journey-leg-front', '#374151', 3.4, 9, 4.2, 10, 2.9, 1.7, '#374151'));
+    bob.appendChild(roadLimb('journey-arm-front', fill, 7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+
+    const head = el('g', { transform: 'translate(0,-18.5)' });
+    head.appendChild(el('circle', { cx: 0, cy: 0, r: 9.2, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 1 }));
+    head.appendChild(el('ellipse', { cx: -3, cy: -3.4, rx: 4.4, ry: 3, fill: '#ffffff', opacity: 0.32 }));
+    head.appendChild(el('path', { d: 'M -9 -3 A 9 9 0 0 1 9 -3 L 8.6 -6.5 A 9.6 6.4 0 0 0 -8.6 -6.5 Z', fill: '#4a2f1e' }));
+    head.appendChild(el('path', { d: 'M -2 -8.6 Q 1 -11.6 4.2 -8.8', fill: 'none', stroke: '#4a2f1e', 'stroke-width': 1.7, 'stroke-linecap': 'round' }));
+    head.appendChild(el('path', { d: 'M -5 -4.6 Q -3.2 -5.7 -1.2 -4.8', fill: 'none', stroke: '#3a2516', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
+    head.appendChild(el('path', { d: 'M 1.2 -4.8 Q 3.2 -5.7 5 -4.6', fill: 'none', stroke: '#3a2516', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
+    head.appendChild(el('ellipse', { cx: -3.1, cy: -1, rx: 2.1, ry: 2.5, fill: '#ffffff' }));
+    head.appendChild(el('circle', { cx: -2.8, cy: -0.5, r: 1.3, fill: '#1f2937' }));
+    head.appendChild(el('circle', { cx: -3.3, cy: -1.2, r: 0.55, fill: '#ffffff' }));
+    head.appendChild(el('ellipse', { cx: 3.1, cy: -1, rx: 2.1, ry: 2.5, fill: '#ffffff' }));
+    head.appendChild(el('circle', { cx: 3.4, cy: -0.5, r: 1.3, fill: '#1f2937' }));
+    head.appendChild(el('circle', { cx: 2.9, cy: -1.2, r: 0.55, fill: '#ffffff' }));
+    head.appendChild(el('path', { d: 'M -2.6 3.3 Q 0 5.2 2.6 3.3', fill: 'none', stroke: '#1f2937', 'stroke-width': 1.1, 'stroke-linecap': 'round' }));
+    head.appendChild(el('ellipse', { cx: -5.8, cy: 1.7, rx: 1.75, ry: 1.15, fill: '#ff9d8a', opacity: 0.55 }));
+    head.appendChild(el('ellipse', { cx: 5.8, cy: 1.7, rx: 1.75, ry: 1.15, fill: '#ff9d8a', opacity: 0.55 }));
+    bob.appendChild(head);
+
     g.appendChild(bob);
     return g;
   }
@@ -139,15 +278,22 @@ const JourneyGame = (() => {
   // The goal marker — a shiny gold star badge (reads as "reward" to a kid
   // far more than a bullseye does), with a soft glow behind it and a
   // couple of small sparkle accents for polish.
-  function roadBuildGoal(x, y, gradId, shadowFilterId) {
+  function roadBuildGoal(x, y, gradId, shadowFilterId, glowId) {
     const g = el('g', { transform: `translate(${x},${y})` });
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 32, fill: '#ffd54a', opacity: 0.35, filter: glowId ? `url(#${glowId})` : undefined }));
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 27, fill: '#ffd54a', opacity: 0.28 }));
+    const ring = el('g', { class: 'journey-ring-spin-rev', opacity: 0.9 });
+    [0, 60, 120, 180, 240, 300].forEach(rot => {
+      ring.appendChild(el('path', { d: 'M 0,-30 L 2.4,-25 L -2.4,-25 Z', transform: `rotate(${rot})`, fill: '#ffffff' }));
+    });
+    g.appendChild(ring);
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 18.5, fill: '#ffffff', stroke: '#f3b429', 'stroke-width': 2.4 }));
     const star = el('path', {
       d: starPath(14, 6, 5), fill: `url(#${gradId})`, stroke: '#b8780f', 'stroke-width': 1.3, 'stroke-linejoin': 'round',
       filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
     });
     g.appendChild(star);
+    g.appendChild(el('rect', { class: 'journey-shine', x: -2.5, y: -16, width: 5, height: 32, fill: '#ffffff', opacity: 0 }));
     [[-20, -16, 2.6], [21, -10, 1.8], [16, 16, 2.1]].forEach(([sx, sy, r]) => {
       g.appendChild(el('path', { d: starPath(r, r * 0.35, 4), transform: `translate(${sx},${sy})`, fill: '#ffffff', opacity: 0.85 }));
     });
@@ -177,9 +323,24 @@ const JourneyGame = (() => {
     g.appendChild(label);
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.6 * s, fill: '#f4a53b', stroke: '#8b5e3c', 'stroke-width': 0.6 * s }));
     if (blocked) {
-      const badge = el('text', { x: 13 * s, y: -29 * s, 'font-size': 8 * s, 'text-anchor': 'middle' });
-      badge.textContent = '🚧';
-      g.appendChild(badge);
+      // A real obstacle gate across the road, not just a status icon —
+      // hazard-striped barrier arm between two posts, with a pulsing
+      // warning glow and a small padlock, reading as "something to
+      // clear" rather than a passive label.
+      const ox = -26 * s, oy = -6 * s;
+      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy, r: 20 * s, fill: '#ef4444', opacity: 0.45 }));
+      const gate = el('g', { transform: `translate(${ox},${oy})` });
+      gate.appendChild(el('rect', { x: -5 * s, y: -30 * s, width: 4 * s, height: 26 * s, rx: 1.4 * s, fill: '#6b4a2a', stroke: '#3f2a16', 'stroke-width': 0.8 * s }));
+      gate.appendChild(el('rect', { x: 17 * s, y: -30 * s, width: 4 * s, height: 26 * s, rx: 1.4 * s, fill: '#6b4a2a', stroke: '#3f2a16', 'stroke-width': 0.8 * s }));
+      const bar = el('g', { transform: 'rotate(-6)' });
+      bar.appendChild(el('rect', { x: -10 * s, y: -26 * s, width: 34 * s, height: 8 * s, rx: 2.4 * s, fill: '#f97316', stroke: '#7c2d12', 'stroke-width': s }));
+      [-10, 6, 22].forEach(sx => bar.appendChild(el('rect', { x: sx * s, y: -26 * s, width: 8 * s, height: 8 * s, fill: '#fff', opacity: 0.9 })));
+      gate.appendChild(bar);
+      const lock = el('g', { transform: `translate(${6 * s},${-40 * s})` });
+      lock.appendChild(el('rect', { x: -5 * s, y: -1 * s, width: 10 * s, height: 8 * s, rx: 1.8 * s, fill: '#f4b400', stroke: '#7c5700', 'stroke-width': 0.9 * s }));
+      lock.appendChild(el('path', { d: `M ${-2.6 * s} ${-1 * s} L ${-2.6 * s} ${-4.4 * s} A ${2.6 * s} ${2.6 * s} 0 0 1 ${2.6 * s} ${-4.4 * s} L ${2.6 * s} ${-1 * s}`, fill: 'none', stroke: '#7c5700', 'stroke-width': 1.3 * s }));
+      gate.appendChild(lock);
+      g.appendChild(gate);
     }
     return g;
   }
@@ -193,13 +354,64 @@ const JourneyGame = (() => {
     [0.08, 0.42, 1], [0.22, 0.55, 1.5], [0.4, 0.6, 1], [0.58, 0.5, 1.2], [0.72, 0.62, 1],
     [0.1, 0.75, 1.3], [0.3, 0.85, 1], [0.52, 0.82, 1.5], [0.68, 0.9, 1],
   ];
-  function spaceDecorate(svg, layout) {
-    SPACE_STARS.forEach(([fx, fy, r]) => {
-      svg.appendChild(el('circle', { cx: layout.w * fx, cy: layout.h * fy, r, fill: '#ffffff', opacity: 0.55 + (r - 1) * 0.3 }));
+  function spaceDecorate(svg, layout, glowId, glowLgId) {
+    // Nebula clouds — big, heavily blurred color washes that give deep
+    // space its depth and color variation instead of one flat gradient.
+    [[0.2, 0.3, 0.32, 0.18, '#7c3aed', 0.35], [0.7, 0.55, 0.36, 0.2, '#db2777', 0.22], [0.45, 0.8, 0.4, 0.16, '#2563eb', 0.3]].forEach(([fx, fy, rx, ry, color, op]) => {
+      svg.appendChild(el('ellipse', {
+        cx: layout.w * fx, cy: layout.h * fy, rx: layout.w * rx, ry: layout.h * ry,
+        fill: color, opacity: op, filter: glowLgId ? `url(#${glowLgId})` : undefined,
+      }));
+    });
+    SPACE_STARS.forEach(([fx, fy, r], i) => {
+      svg.appendChild(el('circle', {
+        class: 'journey-star-twinkle', cx: layout.w * fx, cy: layout.h * fy, r,
+        fill: '#ffffff', opacity: 0.55 + (r - 1) * 0.3, style: `animation-delay:${(i * 0.3 % 2.4).toFixed(1)}s`,
+      }));
     });
     const pcx = layout.w * 0.86, pcy = layout.h * 0.14;
     svg.appendChild(el('circle', { cx: pcx, cy: pcy, r: layout.w * 0.045, fill: '#7c6bc4', opacity: 0.55 }));
     svg.appendChild(el('ellipse', { cx: pcx, cy: pcy, rx: layout.w * 0.065, ry: layout.w * 0.018, fill: 'none', stroke: '#a996e0', 'stroke-width': 1.6, opacity: 0.5, transform: `rotate(-14 ${pcx} ${pcy})` }));
+
+    // A comet streaking across on a long, slow loop — a bright head with
+    // a fading tail, drawn once and swept by the CSS animation rather
+    // than redrawn, so it costs nothing extra per sync().
+    const cometPos = el('g', { transform: `translate(${layout.w * 0.78},${layout.h * 0.1})` });
+    const comet = el('g', { class: 'journey-comet' });
+    cometPos.appendChild(comet);
+    comet.appendChild(el('path', { d: 'M 0,0 L 50,-32', fill: 'none', stroke: '#cfe3ff', 'stroke-width': 2, opacity: 0.5, 'stroke-linecap': 'round' }));
+    comet.appendChild(el('circle', { cx: 0, cy: 0, r: 2.6, fill: '#ffffff' }));
+    svg.appendChild(cometPos);
+
+    // Loose tumbling asteroid chunks drifting through the background.
+    [[0.5, 0.18, 1, 7], [0.3, 0.32, 0.7, 5.5], [0.62, 0.45, 0.55, 4.5]].forEach(([fx, fy, scale, dur]) => {
+      const pos = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})`, opacity: 0.6 });
+      const g = el('g', { class: 'journey-asteroid', style: `animation-duration:${dur}s` });
+      g.appendChild(el('path', { d: 'M -5 -2 L -2 -6 L 4 -5 L 6 0 L 3 5 L -4 4 L -6 1 Z', fill: '#5b5f78', stroke: '#2f3347', 'stroke-width': 0.6 }));
+      pos.appendChild(g);
+      svg.appendChild(pos);
+    });
+  }
+
+  // Space scenery — faint distant galaxies and the odd drifting rock.
+  function spaceScatter(layer, layout, isClear, rand, glowId) {
+    scatterProps(layer, layout, isClear, rand, {
+      count: 4, margin: 20, spacing: 90, minScale: 0.7,
+      draw(g, v) {
+        const tilt = Math.round(v * 60 - 30);
+        g.appendChild(el('ellipse', { cx: 0, cy: 0, rx: 16, ry: 5, fill: '#c4b5fd', opacity: 0.45, transform: `rotate(${tilt})`, filter: glowId ? `url(#${glowId})` : undefined }));
+        g.appendChild(el('ellipse', { cx: 0, cy: 0, rx: 9, ry: 2.4, fill: '#e9e3ff', opacity: 0.55, transform: `rotate(${tilt})` }));
+        g.appendChild(el('circle', { cx: 0, cy: 0, r: 1.8, fill: '#ffffff' }));
+      },
+    });
+    scatterProps(layer, layout, isClear, rand, {
+      count: 6, margin: 10, spacing: 50,
+      draw(g, v) {
+        g.appendChild(el('path', { d: 'M -6 -2 L -2 -7 L 5 -6 L 7 0 L 3 6 L -5 5 L -7 1 Z', fill: '#5b5f78', stroke: '#2f3347', 'stroke-width': 0.6, transform: `rotate(${Math.round(v * 360)})` }));
+        g.appendChild(el('circle', { cx: -1.5, cy: -2, r: 1.4, fill: '#3f4258' }));
+        g.appendChild(el('path', { d: 'M -5 -3 L -2 -6 L 2 -5.5', fill: 'none', stroke: '#8e93ad', 'stroke-width': 0.8, 'stroke-linecap': 'round' }));
+      },
+    });
   }
 
   // A chibi astronaut — the passed-in "fill" tints the chest accent
@@ -229,8 +441,9 @@ const JourneyGame = (() => {
   // The goal marker — a glowing ringed planet with a soft highlight and
   // a few sparkles, drawn with the ring behind the planet body so it
   // reads correctly without needing a true front/back arc split.
-  function spaceBuildGoal(x, y, gradId, shadowFilterId) {
+  function spaceBuildGoal(x, y, gradId, shadowFilterId, glowId) {
     const g = el('g', { transform: `translate(${x},${y})` });
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 32, fill: '#ffb84a', opacity: 0.3, filter: glowId ? `url(#${glowId})` : undefined }));
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 27, fill: '#ffb84a', opacity: 0.22 }));
     g.appendChild(el('ellipse', { cx: 0, cy: 0, rx: 24, ry: 7, fill: 'none', stroke: '#ffd98a', 'stroke-width': 2.6, opacity: 0.85, transform: 'rotate(-18)' }));
     const planet = el('circle', {
@@ -277,20 +490,100 @@ const JourneyGame = (() => {
   // THEME: OCEAN — "Dive to the Treasure". A surface-to-depths sea, a
   // sandy trail, a swimming sea turtle, and a treasure chest.
   // ════════════════════════════════════════════════════════════════
-  const OCEAN_BUBBLES = [[0.08, 0.15, 2.6], [0.14, 0.3, 1.6], [0.05, 0.5, 2], [0.2, 0.62, 1.4], [0.1, 0.78, 2.2]];
-  function oceanDecorate(svg, layout) {
-    OCEAN_BUBBLES.forEach(([fx, fy, r]) => {
-      svg.appendChild(el('circle', { cx: layout.w * fx, cy: layout.h * fy, r, fill: '#ffffff', opacity: 0.35, stroke: '#ffffff', 'stroke-width': 0.6 }));
+  const OCEAN_BUBBLES = [[0.08, 0.15, 2.6], [0.14, 0.3, 1.6], [0.05, 0.5, 2], [0.2, 0.62, 1.4], [0.1, 0.78, 2.2], [0.46, 0.7, 1.8], [0.6, 0.85, 1.4]];
+  function oceanDecorate(svg, layout, glowId, glowLgId) {
+    // Sunlight shafts slanting down from the surface — soft-edged, faintly
+    // shimmering wedges, the single strongest "you're underwater" cue.
+    [[0.18, 0.08], [0.42, 0.06], [0.66, 0.09], [0.86, 0.07]].forEach(([fx, fw], i) => {
+      const x = layout.w * fx, w = layout.w * fw;
+      svg.appendChild(el('path', {
+        class: 'journey-ray-shimmer', style: `animation-delay:${(i * 0.9).toFixed(1)}s`,
+        d: `M ${x - w / 2} 0 L ${x + w / 2} 0 L ${x + w * 1.6} ${layout.h} L ${x + w * 0.2} ${layout.h} Z`,
+        fill: '#ffffff', opacity: 0.12, filter: glowLgId ? `url(#${glowLgId})` : undefined,
+      }));
     });
-    function fish(fx, fy, scale, color) {
-      const g = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})`, opacity: 0.85 });
+    // A dark depth haze toward the bottom, so the scene falls off into
+    // deeper water rather than ending in a flat color.
+    svg.appendChild(el('rect', { x: 0, y: layout.h * 0.7, width: layout.w, height: layout.h * 0.3, fill: '#0c3b66', opacity: 0.25, filter: glowLgId ? `url(#${glowLgId})` : undefined }));
+    OCEAN_BUBBLES.forEach(([fx, fy, r], i) => {
+      svg.appendChild(el('circle', {
+        class: 'journey-bubble-rise', cx: layout.w * fx, cy: layout.h * fy, r,
+        fill: '#ffffff', opacity: 0.4, stroke: '#ffffff', 'stroke-width': 0.6,
+        style: `animation-delay:${(i * 0.7).toFixed(1)}s`,
+      }));
+    });
+
+    function fish(fx, fy, scale, color, delay) {
+      const pos = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy})` });
+      const wrap = el('g', { class: 'journey-fish-swim', style: `animation-delay:${delay}s` });
+      pos.appendChild(wrap);
+      const g = el('g', { transform: `scale(${scale})`, opacity: 0.9 });
       g.appendChild(el('path', { d: 'M -8 0 L 2 -5 L 2 5 Z', fill: color }));
-      g.appendChild(el('ellipse', { cx: 6, cy: 0, rx: 8, ry: 5, fill: color }));
+      g.appendChild(el('ellipse', { cx: 6, cy: 0, rx: 8, ry: 5, fill: color, stroke: '#1f2937', 'stroke-width': 0.5, opacity: 0.95 }));
+      g.appendChild(el('ellipse', { cx: 4, cy: -2.4, rx: 4, ry: 1.6, fill: '#ffffff', opacity: 0.3 }));
       g.appendChild(el('circle', { cx: 10.5, cy: -1, r: 1, fill: '#1f2937' }));
-      svg.appendChild(g);
+      wrap.appendChild(g);
+      svg.appendChild(pos);
     }
-    fish(0.82, 0.2, 0.9, '#ffb04a');
-    fish(0.9, 0.42, 0.7, '#ff8a65');
+    fish(0.82, 0.2, 0.9, '#ffb04a', 0);
+    fish(0.9, 0.42, 0.7, '#ff8a65', 1.4);
+    fish(0.74, 0.55, 0.6, '#5ec8e0', 0.6);
+    fish(0.86, 0.68, 0.5, '#ffb04a', 2.1);
+
+    // A patrolling reef shark in the far background — bigger, dimmer, and
+    // slower than the fish so it reads as "out there" depth rather than
+    // competing with the path for attention; it slowly sweeps right then
+    // swims back left (the swim keyframe flips it with scaleX so it faces
+    // the way it's moving).
+    const sharkPos = el('g', { transform: `translate(${layout.w * 0.14},${layout.h * 0.28}) scale(1.3)`, opacity: 0.35 });
+    const shark = el('g', { class: 'journey-shark-swim' });
+    sharkPos.appendChild(shark);
+    shark.appendChild(el('path', { d: 'M -16 0 L 2 -8 L 10 0 L 2 8 Z', fill: '#2f4f6b' }));
+    shark.appendChild(el('path', { d: 'M 2 -8 L 6 -16 L 8 -6 Z', fill: '#2f4f6b' }));
+    shark.appendChild(el('path', { d: 'M -8 6 L -4 13 L -2 6 Z', fill: '#2f4f6b' }));
+    shark.appendChild(el('circle', { cx: 6, cy: -1, r: 1, fill: '#0f1b24' }));
+    svg.appendChild(sharkPos);
+
+    // Seaweed fronds swaying from the sea floor at the near corners.
+    [[0.03, 0.97, 1], [0.94, 0.97, 0.8]].forEach(([fx, fy, scale], i) => {
+      const g = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})` });
+      [-1, 0, 1].forEach(off => {
+        g.appendChild(el('path', {
+          class: 'journey-seaweed', style: `animation-delay:${(i * 0.5 + off * 0.3).toFixed(1)}s`,
+          d: `M ${off * 6} 0 Q ${off * 6 + 6} -14 ${off * 6 - 2} -26`,
+          fill: 'none', stroke: '#2f9e6e', 'stroke-width': 3, 'stroke-linecap': 'round',
+        }));
+      });
+      svg.appendChild(g);
+    });
+  }
+
+  // Ocean scenery — branching coral, smooth sea-floor rocks, starfish.
+  function oceanScatter(layer, layout, isClear, rand) {
+    const coral = ['#ff7f8a', '#ff9f5a', '#c084fc'];
+    scatterProps(layer, layout, isClear, rand, {
+      count: 7, margin: 18, spacing: 50,
+      draw(g, v) {
+        const c = coral[Math.floor(v * coral.length)];
+        g.appendChild(el('ellipse', { cx: 0, cy: 1, rx: 12, ry: 3, fill: '#0b1220', opacity: 0.18 }));
+        ['M 0 0 Q -1 -10 -6 -18', 'M 0 0 Q 1 -12 2 -24', 'M 0 0 Q 3 -8 9 -15', 'M -3 -9 Q -8 -12 -10 -16', 'M 1.5 -14 Q 6 -18 7 -22'].forEach(d => {
+          g.appendChild(el('path', { d, fill: 'none', stroke: c, 'stroke-width': 3.2, 'stroke-linecap': 'round' }));
+        });
+        g.appendChild(el('path', { d: 'M 0 0 Q 1 -12 2 -24', fill: 'none', stroke: '#ffffff', 'stroke-width': 0.9, 'stroke-linecap': 'round', opacity: 0.35, transform: 'translate(-1,0)' }));
+      },
+    });
+    scatterProps(layer, layout, isClear, rand, {
+      count: 8, margin: 10, spacing: 34,
+      draw(g, v) {
+        if (v < 0.6) {
+          g.appendChild(el('ellipse', { cx: 0, cy: -3, rx: 9, ry: 5.5, fill: '#5f7482' }));
+          g.appendChild(el('ellipse', { cx: -2, cy: -5, rx: 5, ry: 2.4, fill: '#8aa0ae', opacity: 0.8 }));
+        } else {
+          g.appendChild(el('path', { d: starPath(6.5, 2.6, 5), transform: 'translate(0,-4)', fill: '#ff8a4c', stroke: '#c2410c', 'stroke-width': 0.6 }));
+          g.appendChild(el('circle', { cx: 0, cy: -4, r: 1.4, fill: '#ffd0a8' }));
+        }
+      },
+    });
   }
 
   // A sea turtle — the passed-in "fill" is the shell color directly
@@ -315,8 +608,9 @@ const JourneyGame = (() => {
 
   // The goal marker — an open treasure chest with a gold trim band, a
   // latch, and a glowing gem peeking out, plus a couple of sparkles.
-  function oceanBuildGoal(x, y, gradId, shadowFilterId) {
+  function oceanBuildGoal(x, y, gradId, shadowFilterId, glowId) {
     const g = el('g', { transform: `translate(${x},${y})` });
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 30, fill: '#ffd54a', opacity: 0.3, filter: glowId ? `url(#${glowId})` : undefined }));
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 25, fill: '#ffd54a', opacity: 0.22 }));
     const chest = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
     chest.appendChild(el('rect', { x: -15, y: -2, width: 30, height: 15, rx: 2.4, fill: '#8b5e3c', stroke: '#5c3c22', 'stroke-width': 1.3 }));
@@ -363,7 +657,57 @@ const JourneyGame = (() => {
   // sky, a race car, traffic-cone checkpoints, and a trophy.
   // ════════════════════════════════════════════════════════════════
   function raceDecorate(svg, layout) {
-    cloudGroup(svg, layout, [[0.14, 0.09, 0.9], [0.3, 0.06, 0.7]]);
+    // A stadium infield seen from above — mown grass in alternating
+    // light/dark stripes, the way real circuit and stadium turf is cut.
+    const stripes = 9;
+    for (let i = 0; i < stripes; i++) {
+      svg.appendChild(el('rect', {
+        x: (i / stripes) * layout.w, y: 0, width: layout.w / stripes + 1, height: layout.h,
+        fill: i % 2 === 0 ? '#6fb865' : '#62a95a',
+      }));
+    }
+    svg.appendChild(el('rect', { x: 0, y: 0, width: layout.w, height: layout.h, fill: '#ffffff', opacity: 0.06 }));
+
+    // A cheering crowd in the grandstand along the top edge — rows of
+    // small bobbing dots in varied colors, each on its own bob delay so
+    // the stand reads as restless rather than uniformly ticking.
+    const stand = el('g', { opacity: 0.55 });
+    stand.appendChild(el('rect', { x: 0, y: 0, width: layout.w, height: layout.h * 0.07, fill: '#334155' }));
+    const crowdColors = ['#f87171', '#fbbf24', '#60a5fa', '#34d399', '#f472b6'];
+    for (let i = 0; i < 26; i++) {
+      const cx = (i + 0.5) * (layout.w / 26);
+      const cy = layout.h * 0.035 + (i % 2 === 0 ? 2 : -2);
+      stand.appendChild(el('circle', {
+        class: 'journey-crowd-bob', cx, cy, r: 3.4, fill: crowdColors[i % crowdColors.length],
+        style: `animation-delay:${((i % 7) * 0.15).toFixed(2)}s`,
+      }));
+    }
+    svg.appendChild(stand);
+  }
+
+  // Race scenery — stacked tire walls, red/white barrier blocks, grass.
+  function raceScatter(layer, layout, isClear, rand) {
+    scatterProps(layer, layout, isClear, rand, {
+      count: 6, margin: 16, spacing: 52,
+      draw(g, v) {
+        g.appendChild(el('ellipse', { cx: 3, cy: 1, rx: 13, ry: 3.5, fill: '#0b1220', opacity: 0.2 }));
+        if (v < 0.55) {
+          [0, -5, -10].forEach(ty => {
+            g.appendChild(el('ellipse', { cx: 0, cy: ty, rx: 8, ry: 3.4, fill: '#1f2937' }));
+            g.appendChild(el('ellipse', { cx: 0, cy: ty - 0.6, rx: 3.6, ry: 1.4, fill: '#4b5563' }));
+          });
+          g.appendChild(el('ellipse', { cx: -3, cy: -11.5, rx: 3, ry: 0.9, fill: '#6b7280', opacity: 0.8 }));
+        } else {
+          g.appendChild(el('rect', { x: -12, y: -8, width: 24, height: 8, rx: 1.4, fill: '#ffffff', stroke: '#1f2937', 'stroke-width': 0.6 }));
+          [-12, -4, 4].forEach(sx => g.appendChild(el('rect', { x: sx, y: -8, width: 4, height: 8, fill: '#ef4444' })));
+          g.appendChild(el('rect', { x: -12, y: -8, width: 24, height: 2, fill: '#ffffff', opacity: 0.5 }));
+        }
+      },
+    });
+    scatterProps(layer, layout, isClear, rand, {
+      count: 18, margin: 4, spacing: 20,
+      draw(g) { grassTuft(g, '#3f8a3f'); },
+    });
   }
 
   // A race car — the passed-in "fill" is the body color directly
@@ -383,14 +727,24 @@ const JourneyGame = (() => {
     bob.appendChild(el('rect', { x: -15.4, y: 1.4, width: 2.6, height: 4, rx: 1, fill: '#1f2937' }));
     bob.appendChild(el('rect', { x: 12.8, y: 1.4, width: 2.6, height: 4, rx: 1, fill: '#1f2937' }));
     g.appendChild(bob);
+
+    // Speed lines trailing behind the car — three short dashes that
+    // flash and retreat on a loop, selling motion even while the car
+    // itself is only gliding between fixed points.
+    const speed = el('g', { opacity: 0.8 });
+    [[-18, -4, 0], [-20, 2, 0.12], [-17, 7, 0.22]].forEach(([sx, sy, delay]) => {
+      speed.appendChild(el('rect', { class: 'journey-speedline', x: sx, y: sy, width: 8, height: 1.6, rx: 0.8, fill: '#e2e8f0', style: `animation-delay:${delay}s` }));
+    });
+    g.appendChild(speed);
     return g;
   }
 
   // The goal marker — a gold trophy cup with handles and a base, plus a
   // few sparkles, matching the "shiny reward" language the other themes
   // use for their own goal markers.
-  function raceBuildGoal(x, y, gradId, shadowFilterId) {
+  function raceBuildGoal(x, y, gradId, shadowFilterId, glowId) {
     const g = el('g', { transform: `translate(${x},${y})` });
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 31, fill: '#ffd54a', opacity: 0.3, filter: glowId ? `url(#${glowId})` : undefined }));
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 26, fill: '#ffd54a', opacity: 0.22 }));
     const trophy = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
     trophy.appendChild(el('path', { d: 'M -9 -16 Q -9 -4 0 -2 Q 9 -4 9 -16 Z', fill: `url(#${gradId})`, stroke: '#b8780f', 'stroke-width': 1.3, 'stroke-linejoin': 'round' }));
@@ -399,6 +753,26 @@ const JourneyGame = (() => {
     trophy.appendChild(el('rect', { x: -1.6, y: -2, width: 3.2, height: 6, fill: '#f3b429' }));
     trophy.appendChild(el('path', { d: 'M -7 4 L 7 4 L 5 8 L -5 8 Z', fill: '#f3b429', stroke: '#b8780f', 'stroke-width': 1 }));
     g.appendChild(trophy);
+
+    // A waving checkered flag planted beside the trophy — the classic
+    // "race over" signal, flapping via a CSS skew on the flag only (the
+    // pole stays rigid).
+    const flagPole = el('g', { transform: 'translate(16,-6)' });
+    flagPole.appendChild(el('rect', { x: -0.9, y: -22, width: 1.8, height: 22, fill: '#9aa5b1', stroke: '#4b5563', 'stroke-width': 0.5 }));
+    const flagPos = el('g', { transform: 'translate(0.9,-22)' });
+    const flag = el('g', { class: 'journey-flag-wave' });
+    flagPos.appendChild(flag);
+    const checker = el('g');
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 5; c++) {
+        if ((r + c) % 2 === 0) checker.appendChild(el('rect', { x: c * 2.6, y: r * 2.2, width: 2.6, height: 2.2, fill: '#1f2937' }));
+      }
+    }
+    flag.appendChild(el('rect', { x: 0, y: 0, width: 13, height: 8.8, fill: '#ffffff', stroke: '#1f2937', 'stroke-width': 0.5 }));
+    flag.appendChild(checker);
+    flagPole.appendChild(flagPos);
+    g.appendChild(flagPole);
+
     [[-18, -14, 2.4], [18, -10, 1.8], [14, 10, 2]].forEach(([sx, sy, r]) => {
       g.appendChild(el('path', { d: starPath(r, r * 0.35, 4), transform: `translate(${sx},${sy})`, fill: '#ffffff', opacity: 0.85 }));
     });
@@ -441,31 +815,31 @@ const JourneyGame = (() => {
   const THEMES = {
     road: {
       label: 'Road', avatarFill: '#ff6b5b',
-      sky: [[0, '#8fd3fb'], [55, '#c7e9fd'], [100, '#fff3da']],
+      sky: [[0, '#4e8fd6'], [30, '#7fb8e8'], [58, '#bfe2f5'], [82, '#ffe4ae'], [100, '#ffcf8a']],
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#d8a862', fill: '#fff6e4', dash: '#f4a53b' },
-      decorate: roadDecorate, buildAvatar: roadBuildAvatar, buildGoal: roadBuildGoal, buildCheckpoint: roadBuildCheckpoint,
+      decorate: roadDecorate, scatter: roadScatter, buildAvatar: roadBuildAvatar, buildGoal: roadBuildGoal, buildCheckpoint: roadBuildCheckpoint,
     },
     space: {
       label: 'Space', avatarFill: '#ef4444',
       sky: [[0, '#0f0a2e'], [50, '#2a1760'], [100, '#4b2e83']],
       goalGrad: [[0, '#ffe7b0'], [45, '#ffb24a'], [100, '#e8762b']],
       path: { outline: '#3347a8', fill: '#dfe6ff', dash: '#7dd3fc' },
-      decorate: spaceDecorate, buildAvatar: spaceBuildAvatar, buildGoal: spaceBuildGoal, buildCheckpoint: spaceBuildCheckpoint,
+      decorate: spaceDecorate, scatter: spaceScatter, buildAvatar: spaceBuildAvatar, buildGoal: spaceBuildGoal, buildCheckpoint: spaceBuildCheckpoint,
     },
     ocean: {
       label: 'Ocean', avatarFill: '#4caf7d',
       sky: [[0, '#bdeeff'], [45, '#5ec8e0'], [100, '#1b6fa8']],
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#c9a46a', fill: '#f0e2c0', dash: '#2f9e6e' },
-      decorate: oceanDecorate, buildAvatar: oceanBuildAvatar, buildGoal: oceanBuildGoal, buildCheckpoint: oceanBuildCheckpoint,
+      decorate: oceanDecorate, scatter: oceanScatter, buildAvatar: oceanBuildAvatar, buildGoal: oceanBuildGoal, buildCheckpoint: oceanBuildCheckpoint,
     },
     race: {
       label: 'Race', avatarFill: '#ef4444',
-      sky: [[0, '#8ec9fb'], [55, '#cdeaff'], [100, '#f6f9fc']],
+      sky: [[0, '#334155'], [8, '#62a95a'], [100, '#6fb865']],
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#1f2937', fill: '#6b7280', dash: '#ffffff' },
-      decorate: raceDecorate, buildAvatar: raceBuildAvatar, buildGoal: raceBuildGoal, buildCheckpoint: raceBuildCheckpoint,
+      decorate: raceDecorate, scatter: raceScatter, buildAvatar: raceBuildAvatar, buildGoal: raceBuildGoal, buildCheckpoint: raceBuildCheckpoint,
     },
   };
   function resolveThemeKey(key) { return THEMES[key] ? key : 'road'; }
@@ -485,7 +859,8 @@ const JourneyGame = (() => {
     }
     const layout = pickLayout(container);
     const id = ++uid; // scopes this build's <defs> ids so an older SVG's leftovers (if any) never bleed in
-    const skyId = `journey-sky-${id}`, shadowId = `journey-shadow-${id}`, goalGradId = `journey-goal-${id}`;
+    const skyId = `journey-sky-${id}`, shadowId = `journey-shadow-${id}`, goalGradId = `journey-goal-${id}`, glowId = `journey-glow-${id}`;
+    const glowLgId = `journey-glowlg-${id}`, vignetteId = `journey-vignette-${id}`;
     const svg = el('svg', { viewBox: `0 0 ${layout.w} ${layout.h}`, preserveAspectRatio: 'xMidYMid meet', width: '100%', height: '100%', style: 'display:block', role: 'img' });
 
     // An SVG <title> is the standard accessible name for role="img" — a
@@ -514,6 +889,31 @@ const JourneyGame = (() => {
         filter.appendChild(el('feDropShadow', { dx: 0, dy: 1.6, stdDeviation: 1.4, 'flood-color': '#1f2937', 'flood-opacity': 0.3 }));
         return filter;
       })(),
+      (() => {
+        // A soft blur for bloom — a bright shape (the sun, the goal's
+        // outer glow) read as "lit" rather than "a flat circle" once its
+        // edge is softened like this, the same trick real bloom
+        // post-processing fakes with a blurred bright-pass layer.
+        const filter = el('filter', { id: glowId, x: '-200%', y: '-200%', width: '500%', height: '500%' });
+        filter.appendChild(el('feGaussianBlur', { stdDeviation: 6 }));
+        return filter;
+      })(),
+      (() => {
+        // A much wider blur for large atmospheric shapes (nebulae, haze,
+        // light shafts) where the small bloom blur would still leave a
+        // visible edge.
+        const filter = el('filter', { id: glowLgId, x: '-100%', y: '-100%', width: '300%', height: '300%' });
+        filter.appendChild(el('feGaussianBlur', { stdDeviation: 18 }));
+        return filter;
+      })(),
+      (() => {
+        // Cinematic vignette — darkens the corners so the eye settles on
+        // the path, the same framing trick most polished games use.
+        const grad = el('radialGradient', { id: vignetteId, cx: '50%', cy: '48%', r: '75%' });
+        grad.appendChild(el('stop', { offset: '60%', 'stop-color': '#000000', 'stop-opacity': 0 }));
+        grad.appendChild(el('stop', { offset: '100%', 'stop-color': '#000000', 'stop-opacity': 0.32 }));
+        return grad;
+      })(),
     ]);
     svg.appendChild(defs);
 
@@ -522,20 +922,50 @@ const JourneyGame = (() => {
     // view's long history of "too busy/cluttered" feedback) — enough to
     // feel like a game world, not a scene to compete with the path itself.
     svg.appendChild(el('rect', { x: 0, y: 0, width: layout.w, height: layout.h, fill: `url(#${skyId})` }));
-    theme.decorate(svg, layout);
+    theme.decorate(svg, layout, glowId, glowLgId);
 
-    // The path itself — a colored outline, a lighter fill on top, and a
-    // dashed centerline, round caps/joins throughout so the winding
-    // turns look smooth rather than sharp angles. Colors come from the
+    // Scenery props (trees, coral, rocks, tire stacks...) go in their own
+    // layer under the path; it's filled in below once the path exists, so
+    // every prop can be checked against the path's real geometry and
+    // kept clear of it.
+    const sceneryLayer = el('g', { class: 'journey-scenery' });
+    svg.appendChild(sceneryLayer);
+
+    // The path itself — a soft ground shadow, a colored outline, a
+    // lighter fill, a lit highlight along its upper edge, and a dashed
+    // centerline, round caps/joins throughout. Colors come from the
     // theme; the shape (and therefore every checkpoint's exact position)
     // is identical across all four themes.
     const d = pathD(layout.points);
+    const pathShadow = el('path', { d, fill: 'none', stroke: '#0b1220', 'stroke-width': 44, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.22, transform: 'translate(0,7)', filter: `url(#${glowId})` });
     const pathOutline = el('path', { d, fill: 'none', stroke: theme.path.outline, 'stroke-width': 40, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
     const pathBase = el('path', { d, fill: 'none', stroke: theme.path.fill, 'stroke-width': 32, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+    const pathSheen = el('path', { d, fill: 'none', stroke: '#ffffff', 'stroke-width': 8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.22, transform: 'translate(0,-5)' });
     const pathLine = el('path', { d, fill: 'none', stroke: theme.path.dash, 'stroke-width': 3.2, 'stroke-dasharray': '11 11', 'stroke-linecap': 'round' });
+    svg.appendChild(pathShadow);
     svg.appendChild(pathOutline);
     svg.appendChild(pathBase);
+    svg.appendChild(pathSheen);
     svg.appendChild(pathLine);
+
+    // Sample the real path once so scenery can stay a safe distance from
+    // it — props are placed by a seeded generator (stable across rebuilds,
+    // so trees don't jump around on resize) and dropped if they'd land on
+    // or near the road, the goal, or off-canvas.
+    if (theme.scatter) {
+      const total = pathBase.getTotalLength();
+      const samples = [];
+      for (let i = 0; i <= 80; i++) samples.push(pathBase.getPointAtLength((i / 80) * total));
+      const isClear = (x, y, margin) => {
+        if (x < 10 || y < 10 || x > layout.w - 10 || y > layout.h - 6) return false;
+        for (const p of samples) { if (Math.hypot(p.x - x, p.y - y) < 24 + margin) return false; }
+        const end = samples[samples.length - 1];
+        return Math.hypot(end.x - x, end.y - y) > 52 + margin;
+      };
+      let seed = layout === LAYOUTS.tall ? 7919 : 104729;
+      const rand = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+      theme.scatter(sceneryLayer, layout, isClear, rand, glowId);
+    }
 
     const flagsLayer = el('g', { class: 'journey-flags' });
     const ghostLayer = el('g', { class: 'journey-ghost' });
@@ -545,8 +975,9 @@ const JourneyGame = (() => {
 
     const goalLen = pathBase.getTotalLength();
     const goalPt = pathBase.getPointAtLength(goalLen);
-    svg.appendChild(theme.buildGoal(goalPt.x, goalPt.y, goalGradId, shadowId));
+    svg.appendChild(theme.buildGoal(goalPt.x, goalPt.y, goalGradId, shadowId, glowId));
     svg.appendChild(avatarLayer);
+    svg.appendChild(el('rect', { x: 0, y: 0, width: layout.w, height: layout.h, fill: `url(#${vignetteId})`, 'pointer-events': 'none' }));
 
     container.appendChild(svg);
 

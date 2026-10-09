@@ -139,13 +139,92 @@
        pulse on the current checkpoint's glow, both purely decorative
        (see frontend/js/journeyGame.js). transform-box is needed for
        transform-origin to behave on SVG shapes across browsers. */
-    .journey-avatar-bob, .journey-next-glow { transform-box: fill-box; transform-origin: center; }
+    .journey-avatar-bob, .journey-next-glow, .journey-blocked-glow { transform-box: fill-box; transform-origin: center; }
     .journey-avatar-bob { animation: journey-bob 1.8s ease-in-out infinite; }
-    .journey-next-glow { animation: journey-pulse 1.6s ease-in-out infinite; }
+    .journey-next-glow, .journey-blocked-glow { animation: journey-pulse 1.6s ease-in-out infinite; }
     @keyframes journey-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
     @keyframes journey-pulse { 0%, 100% { opacity: .5; transform: scale(1); } 50% { opacity: .15; transform: scale(1.4); } }
+
+    /* The Road theme avatar's limb rig (frontend/js/journeyGame.js'
+       roadBuildAvatar) — each leg/arm swings from its own shoulder/hip
+       pivot (transform-origin: top center of its own shape) while the
+       cape flares out, giving the character an actual running gait
+       instead of a single rigid bob. */
+    .journey-leg-front, .journey-leg-back, .journey-arm-front, .journey-arm-back, .journey-cape {
+      transform-box: fill-box; transform-origin: 50% 0%;
+    }
+    .journey-leg-front { animation: journey-leg-front 1.1s ease-in-out infinite; }
+    .journey-leg-back  { animation: journey-leg-back 1.1s ease-in-out infinite; }
+    .journey-arm-front { animation: journey-arm-front 1.1s ease-in-out infinite; }
+    .journey-arm-back  { animation: journey-arm-back 1.1s ease-in-out infinite; }
+    .journey-cape      { animation: journey-cape-wave 1.1s ease-in-out infinite; transform-origin: 20% 10%; }
+    @keyframes journey-leg-front { 0%, 100% { transform: rotate(20deg); } 50% { transform: rotate(-20deg); } }
+    @keyframes journey-leg-back  { 0%, 100% { transform: rotate(-20deg); } 50% { transform: rotate(20deg); } }
+    @keyframes journey-arm-front { 0%, 100% { transform: rotate(-18deg); } 50% { transform: rotate(18deg); } }
+    @keyframes journey-arm-back  { 0%, 100% { transform: rotate(18deg); } 50% { transform: rotate(-18deg); } }
+    @keyframes journey-cape-wave { 0%, 100% { transform: rotate(-5deg) scaleX(1); } 50% { transform: rotate(7deg) scaleX(1.1); } }
+
+    /* The goal badge's slow-rotating sparkle ring and glossy shine sweep,
+       and the current checkpoint's rotating ring accent (same module). */
+    .journey-ring-spin { animation: journey-spin 14s linear infinite; transform-box: fill-box; transform-origin: center; }
+    .journey-ring-spin-rev { animation: journey-spin-rev 11s linear infinite; transform-box: fill-box; transform-origin: center; }
+    .journey-shine { animation: journey-shine-sweep 3.2s ease-in-out infinite; }
+    @keyframes journey-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes journey-spin-rev { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+    @keyframes journey-shine-sweep {
+      0% { transform: translateX(-30px) rotate(18deg); opacity: 0; }
+      8% { opacity: .9; } 35% { opacity: 0; }
+      100% { transform: translateX(30px) rotate(18deg); opacity: 0; }
+    }
+    /* Ocean theme ambient life (frontend/js/journeyGame.js' oceanDecorate)
+       — schooling fish and a patrolling shark drift sideways, bubbles
+       rise and fade, and seaweed sways from its base, so the scene
+       reads as a living reef rather than a static backdrop. */
+    .journey-fish-swim  { animation: journey-fish-swim 7s ease-in-out infinite; }
+    .journey-shark-swim { animation: journey-shark-swim 13s ease-in-out infinite; }
+    .journey-bubble-rise { animation: journey-bubble-rise 5s ease-in infinite; transform-box: fill-box; transform-origin: center; }
+    .journey-seaweed { animation: journey-seaweed-sway 3.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+    @keyframes journey-fish-swim { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(22px); } }
+    @keyframes journey-shark-swim { 0%, 100% { transform: translateX(0) scaleX(1); } 48% { transform: translateX(60px) scaleX(1); } 50% { transform: translateX(60px) scaleX(-1); } 98% { transform: translateX(0) scaleX(-1); } 100% { transform: translateX(0) scaleX(1); } }
+    @keyframes journey-bubble-rise { 0% { transform: translateY(0); opacity: .5; } 90% { opacity: .5; } 100% { transform: translateY(-70px); opacity: 0; } }
+    @keyframes journey-seaweed-sway { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+    /* Space theme ambient life — stars twinkle, a comet streaks across
+       on a long loop, and loose asteroid chunks tumble slowly. */
+    .journey-star-twinkle { animation: journey-twinkle 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    .journey-comet { animation: journey-comet 6s linear infinite; }
+    .journey-asteroid { animation: journey-asteroid-tumble 9s linear infinite; transform-box: fill-box; transform-origin: center; }
+    @keyframes journey-twinkle { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+    @keyframes journey-comet {
+      0% { transform: translate(0,0); opacity: 0; }
+      5% { opacity: .9; } 22% { opacity: 0; }
+      25%, 100% { transform: translate(-140px,90px); opacity: 0; }
+    }
+    @keyframes journey-asteroid-tumble { from { transform: rotate(0deg) translateX(0); } 50% { transform: rotate(180deg) translateX(8px); } to { transform: rotate(360deg) translateX(0); } }
+
+    /* Race theme ambient life — a cheering crowd in the stands bobs,
+       a checkered flag flutters at the goal, and speed lines flash
+       behind the car to sell motion. */
+    .journey-crowd-bob { animation: journey-crowd-bob 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+    .journey-flag-wave { animation: journey-flag-wave 1s ease-in-out infinite; transform-box: fill-box; transform-origin: left center; }
+    .journey-speedline { animation: journey-speedline 0.5s ease-out infinite; }
+    @keyframes journey-crowd-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+    @keyframes journey-flag-wave { 0%, 100% { transform: skewY(-4deg); } 50% { transform: skewY(4deg); } }
+    @keyframes journey-speedline { 0% { opacity: .7; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-14px); } }
+
+    /* Road birds gliding, Ocean light shafts shimmering. */
+    .journey-bird { animation: journey-bird-glide 9s ease-in-out infinite; }
+    .journey-ray-shimmer { animation: journey-ray-shimmer 5s ease-in-out infinite; }
+    @keyframes journey-bird-glide { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(40px,-6px); } }
+    @keyframes journey-ray-shimmer { 0%, 100% { opacity: .08; } 50% { opacity: .2; } }
+
     @media (prefers-reduced-motion: reduce) {
-      .journey-avatar-bob, .journey-next-glow { animation: none; }
+      .journey-bird, .journey-ray-shimmer,
+      .journey-avatar-bob, .journey-next-glow, .journey-blocked-glow,
+      .journey-leg-front, .journey-leg-back, .journey-arm-front, .journey-arm-back, .journey-cape,
+      .journey-ring-spin, .journey-ring-spin-rev, .journey-shine,
+      .journey-fish-swim, .journey-shark-swim, .journey-bubble-rise, .journey-seaweed,
+      .journey-star-twinkle, .journey-comet, .journey-asteroid,
+      .journey-crowd-bob, .journey-flag-wave, .journey-speedline { animation: none; }
     }
 
     /* Native-feeling iOS toggle switch, reused anywhere a setting is a
