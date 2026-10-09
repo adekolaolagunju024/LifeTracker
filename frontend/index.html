@@ -135,6 +135,19 @@
     #gantt-journey-view:fullscreen #mountain-scene-wrap,
     #gantt-journey-view:-webkit-full-screen #mountain-scene-wrap { height: calc(100vh - 160px) !important; }
 
+    /* Journey scene idle flourishes — a gentle bob on the avatar and a
+       pulse on the current checkpoint's glow, both purely decorative
+       (see frontend/js/journeyGame.js). transform-box is needed for
+       transform-origin to behave on SVG shapes across browsers. */
+    .journey-avatar-bob, .journey-next-glow { transform-box: fill-box; transform-origin: center; }
+    .journey-avatar-bob { animation: journey-bob 1.8s ease-in-out infinite; }
+    .journey-next-glow { animation: journey-pulse 1.6s ease-in-out infinite; }
+    @keyframes journey-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+    @keyframes journey-pulse { 0%, 100% { opacity: .5; transform: scale(1); } 50% { opacity: .15; transform: scale(1.4); } }
+    @media (prefers-reduced-motion: reduce) {
+      .journey-avatar-bob, .journey-next-glow { animation: none; }
+    }
+
     /* Native-feeling iOS toggle switch, reused anywhere a setting is a
        plain on/off (Dark Mode, email digest) instead of a button with a
        text label that changes. */
@@ -1131,7 +1144,7 @@
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
           </div>
         </div>
-        <div class="relative rounded-2xl overflow-hidden shadow-sm" id="mountain-scene-wrap" style="height:min(62vh,520px); min-height:380px; background:#4a7fc4;" title="Tap the scene for a spark — real progress still only comes from finishing tasks below">
+        <div class="relative rounded-2xl overflow-hidden shadow-sm" id="mountain-scene-wrap" style="height:min(62vh,520px); min-height:380px; background:linear-gradient(180deg, #8fd3fb 0%, #c7e9fd 55%, #fff3da 100%);" title="Tap the scene for a spark — real progress still only comes from finishing tasks below">
           <div class="absolute inset-0" id="mountain-scene"></div>
           <div class="hidden absolute inset-0 z-20 items-center justify-center bg-black/40" id="mountain-celebrate">
             <div class="bg-white rounded-2xl p-6 max-w-sm mx-4 text-center shadow-2xl">

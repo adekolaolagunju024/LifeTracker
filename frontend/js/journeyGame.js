@@ -27,8 +27,8 @@ const JourneyGame = (() => {
   // shape (and every flag's exact position) comes from the real SVG path
   // length at render time, not from these points directly.
   const LAYOUTS = {
-    wide: { viewBox: '0 0 800 480', points: [{ x: 60, y: 420 }, { x: 320, y: 360 }, { x: 140, y: 240 }, { x: 420, y: 180 }, { x: 260, y: 90 }, { x: 560, y: 60 }] },
-    tall: { viewBox: '0 0 420 760', points: [{ x: 70, y: 700 }, { x: 330, y: 600 }, { x: 90, y: 480 }, { x: 340, y: 380 }, { x: 100, y: 260 }, { x: 320, y: 160 }, { x: 180, y: 60 }] },
+    wide: { w: 800, h: 480, points: [{ x: 60, y: 420 }, { x: 320, y: 360 }, { x: 140, y: 240 }, { x: 420, y: 180 }, { x: 260, y: 90 }, { x: 560, y: 60 }] },
+    tall: { w: 420, h: 760, points: [{ x: 70, y: 700 }, { x: 330, y: 600 }, { x: 90, y: 480 }, { x: 340, y: 380 }, { x: 100, y: 260 }, { x: 320, y: 160 }, { x: 180, y: 60 }] },
   };
   function pickLayout(container) {
     const w = container.clientWidth || 300, h = container.clientHeight || 300;
@@ -46,9 +46,24 @@ const JourneyGame = (() => {
     { at: 0.90, label: 'Almost at the target' },
   ];
 
+  // A regular n-pointed star path, centered at the origin — used for the
+  // goal badge and its small sparkle accents.
+  function starPath(outerR, innerR, points) {
+    const step = Math.PI / points;
+    let d = '';
+    for (let i = 0; i < points * 2; i++) {
+      const r = i % 2 === 0 ? outerR : innerR;
+      const a = i * step - Math.PI / 2;
+      d += `${i === 0 ? 'M' : 'L'}${(Math.cos(a) * r).toFixed(2)},${(Math.sin(a) * r).toFixed(2)} `;
+    }
+    return d + 'Z';
+  }
+
+  let uid = 0; // per-build suffix so each SVG's <defs> ids never collide with a previous one
+
   function el(tag, attrs, children) {
     const e = document.createElementNS(SVG_NS, tag);
-    if (attrs) Object.keys(attrs).forEach(k => e.setAttribute(k, attrs[k]));
+    if (attrs) Object.keys(attrs).forEach(k => { if (attrs[k] !== undefined) e.setAttribute(k, attrs[k]); });
     (children || []).forEach(c => e.appendChild(c));
     return e;
   }
@@ -65,50 +80,81 @@ const JourneyGame = (() => {
     return { x: screenPt.x, y: screenPt.y };
   }
 
-  // A simple flat walking figure — a circle head, a rounded body, two
-  // legs — sized and colored in viewBox units so it scales with
-  // everything else instead of needing its own fixed-pixel logic.
-  function buildAvatar(fill) {
+  // A cheerful, rounded "game mascot" figure — big head, simple face, a
+  // soft ground shadow, built from plain shapes so it stays crisp at any
+  // scale. The outline strokes + bright flat fills are what read as
+  // "game art" rather than a technical diagram; the inner .journey-avatar-bob
+  // group is what CSS's idle-bob animation (see index.html) moves, kept
+  // separate from the ground shadow so the shadow stays planted.
+  function buildAvatar(fill, shadowFilterId) {
     const g = el('g', { class: 'journey-avatar' });
-    g.appendChild(el('ellipse', { cx: 0, cy: 23, rx: 11, ry: 3, fill: '#000', opacity: 0.18 }));
-    g.appendChild(el('rect', { x: -3.4, y: 10, width: 3.2, height: 13, rx: 1.4, fill: '#1f2937' }));
-    g.appendChild(el('rect', { x: 0.2, y: 10, width: 3.2, height: 13, rx: 1.4, fill: '#111827' }));
-    g.appendChild(el('rect', { x: -8, y: -6, width: 16, height: 17, rx: 5, fill }));
-    g.appendChild(el('circle', { cx: 0, cy: -14, r: 6.4, fill: '#f6c89a' }));
-    g.appendChild(el('path', { d: 'M -6.4 -16.5 A 6.4 6.4 0 0 1 6.4 -16.5 L 6.4 -18 A 7 5 0 0 0 -6.4 -18 Z', fill: '#4a2f1e' }));
+    g.appendChild(el('ellipse', { cx: 0, cy: 24, rx: 12, ry: 3.2, fill: '#1f2937', opacity: 0.22 }));
+    const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    // Legs
+    bob.appendChild(el('rect', { x: -6.6, y: 8, width: 5, height: 11, rx: 2.4, fill: '#3b4758', stroke: '#1f2937', 'stroke-width': 1 }));
+    bob.appendChild(el('rect', { x: 1.6, y: 8, width: 5, height: 11, rx: 2.4, fill: '#2f3947', stroke: '#1f2937', 'stroke-width': 1 }));
+    // Arms (simple stub ellipses, tucked beside the body)
+    bob.appendChild(el('ellipse', { cx: -9.5, cy: 1, rx: 3.4, ry: 5.4, fill, stroke: '#1f2937', 'stroke-width': 1, transform: 'rotate(18 -9.5 1)' }));
+    bob.appendChild(el('ellipse', { cx: 9.5, cy: 1, rx: 3.4, ry: 5.4, fill, stroke: '#1f2937', 'stroke-width': 1, transform: 'rotate(-18 9.5 1)' }));
+    // Body
+    bob.appendChild(el('rect', { x: -9, y: -7, width: 18, height: 18, rx: 7, fill, stroke: '#1f2937', 'stroke-width': 1.2 }));
+    // Head
+    bob.appendChild(el('circle', { cx: 0, cy: -15.5, r: 8.4, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 1.2 }));
+    // Hair
+    bob.appendChild(el('path', { d: 'M -8.4 -17.5 A 8.4 8.4 0 0 1 8.4 -17.5 L 8.2 -20 A 9 6 0 0 0 -8.2 -20 Z', fill: '#4a2f1e', stroke: '#1f2937', 'stroke-width': 1 }));
+    // Face — two round eyes and a smile, the cheapest way to make a
+    // shape read as "friendly character" instead of "icon"
+    bob.appendChild(el('circle', { cx: -3, cy: -15, r: 1.15, fill: '#1f2937' }));
+    bob.appendChild(el('circle', { cx: 3, cy: -15, r: 1.15, fill: '#1f2937' }));
+    bob.appendChild(el('path', { d: 'M -3.6 -11.8 Q 0 -9.4 3.6 -11.8', fill: 'none', stroke: '#1f2937', 'stroke-width': 1.1, 'stroke-linecap': 'round' }));
+    bob.appendChild(el('ellipse', { cx: -5.6, cy: -12.4, rx: 1.6, ry: 1, fill: '#ff9d8a', opacity: 0.55 }));
+    bob.appendChild(el('ellipse', { cx: 5.6, cy: -12.4, rx: 1.6, ry: 1, fill: '#ff9d8a', opacity: 0.55 }));
+    g.appendChild(bob);
     return g;
   }
 
-  // The bullseye target marking the goal.
-  function buildTarget(x, y) {
+  // The goal marker — a shiny gold star badge (reads as "reward" to a kid
+  // far more than a bullseye does), with a soft glow behind it and a
+  // couple of small sparkle accents for polish.
+  function buildTarget(x, y, starGradId, shadowFilterId) {
     const g = el('g', { transform: `translate(${x},${y})` });
-    [[15, '#ef4444'], [10.5, '#ffffff'], [6.5, '#ef4444'], [2.6, '#ffffff']].forEach(([r, fill]) => {
-      g.appendChild(el('circle', { cx: 0, cy: 0, r, fill, stroke: '#1f2937', 'stroke-width': 0.8 }));
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 27, fill: '#ffd54a', opacity: 0.28 }));
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 18.5, fill: '#ffffff', stroke: '#f3b429', 'stroke-width': 2.4 }));
+    const star = el('path', {
+      d: starPath(14, 6, 5), fill: `url(#${starGradId})`, stroke: '#b8780f', 'stroke-width': 1.3, 'stroke-linejoin': 'round',
+      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
+    });
+    g.appendChild(star);
+    [[-20, -16, 2.6], [21, -10, 1.8], [16, 16, 2.1]].forEach(([sx, sy, r]) => {
+      g.appendChild(el('path', { d: starPath(r, r * 0.35, 4), transform: `translate(${sx},${sy})`, fill: '#ffffff', opacity: 0.85 }));
     });
     return g;
   }
 
-  // A checkpoint flag — the pole + pennant read as "flag" (matching the
-  // reference image's own road markers); the pennant's fill carries the
-  // done/next/pending color, with the task number inside it.
-  function buildFlag(i, isDone, isNext, blocked, scale) {
+  // A checkpoint flag — a warm wooden post + a rounded pennant, matching
+  // the road's own toy-like palette. Done checkpoints get a bold check;
+  // the current ("next") one gets a soft pulsing glow (see index.html's
+  // .journey-next-glow) so a kid can see at a glance where to go next.
+  function buildFlag(i, isDone, isNext, blocked, scale, shadowFilterId) {
     const color = isDone ? DONE_COLOR : isNext ? NEXT_COLOR : PENDING_COLOR;
     const s = scale;
     const g = el('g', { class: 'journey-flag' });
-    g.appendChild(el('rect', { x: -0.9 * s, y: -26 * s, width: 1.8 * s, height: 26 * s, fill: '#6b7280', rx: 0.6 * s }));
+    if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 6 * s, cy: -20 * s, r: 15 * s, fill: NEXT_COLOR, opacity: 0.5 }));
+    g.appendChild(el('rect', { x: -1.1 * s, y: -27 * s, width: 2.2 * s, height: 27 * s, fill: '#8b5e3c', stroke: '#5c3c22', 'stroke-width': 0.6 * s, rx: 0.8 * s }));
     g.appendChild(el('path', {
-      d: `M ${0.9 * s} ${-26 * s} L ${13 * s} ${-21 * s} L ${0.9 * s} ${-16 * s} Z`,
-      fill: color, stroke: '#1f2937', 'stroke-width': 0.6 * s, 'stroke-linejoin': 'round',
+      d: `M ${1.1 * s} ${-27 * s} Q ${14 * s} ${-23.6 * s} ${13.5 * s} ${-20.4 * s} Q ${13 * s} ${-17.2 * s} ${1.1 * s} ${-15.4 * s} Z`,
+      fill: color, stroke: '#1f2937', 'stroke-width': 0.7 * s, 'stroke-linejoin': 'round',
+      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
     }));
     const label = el('text', {
-      x: 5 * s, y: -20.6 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
-      'font-size': 7.4 * s, 'font-weight': 700, fill: isDone || isNext ? '#1f2937' : '#4b5563', 'font-family': 'Arial, sans-serif',
+      x: 6.4 * s, y: -20.6 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': 7.6 * s, 'font-weight': 800, fill: isDone || isNext ? '#1f2937' : '#4b5563', 'font-family': 'Arial, sans-serif',
     });
     label.textContent = isDone ? '✓' : String(i + 1);
     g.appendChild(label);
-    g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.4 * s, fill: '#6b7280' }));
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.6 * s, fill: '#f4a53b', stroke: '#8b5e3c', 'stroke-width': 0.6 * s }));
     if (blocked) {
-      const badge = el('text', { x: 13 * s, y: -28 * s, 'font-size': 8 * s, 'text-anchor': 'middle' });
+      const badge = el('text', { x: 13 * s, y: -29 * s, 'font-size': 8 * s, 'text-anchor': 'middle' });
       badge.textContent = '🚧';
       g.appendChild(badge);
     }
@@ -120,7 +166,9 @@ const JourneyGame = (() => {
   function build(container) {
     container.innerHTML = '';
     const layout = pickLayout(container);
-    const svg = el('svg', { viewBox: layout.viewBox, preserveAspectRatio: 'xMidYMid meet', width: '100%', height: '100%', style: 'display:block', role: 'img' });
+    const id = ++uid; // scopes this build's <defs> ids so an older SVG's leftovers (if any) never bleed in
+    const skyId = `journey-sky-${id}`, shadowId = `journey-shadow-${id}`, starId = `journey-star-${id}`;
+    const svg = el('svg', { viewBox: `0 0 ${layout.w} ${layout.h}`, preserveAspectRatio: 'xMidYMid meet', width: '100%', height: '100%', style: 'display:block', role: 'img' });
 
     // An SVG <title> is the standard accessible name for role="img" — a
     // screen reader announces it instead of silently skipping a picture.
@@ -128,15 +176,51 @@ const JourneyGame = (() => {
     const title = el('title', {});
     svg.appendChild(title);
 
-    // Background.
-    svg.appendChild(el('rect', { x: 0, y: 0, width: 9999, height: 9999, fill: '#4a7fc4' }));
+    // ── DEFS — a soft sky-to-sun-glow gradient for the backdrop, a warm
+    // gold gradient for the goal star, and one drop-shadow filter reused
+    // by the avatar/flags/star so every piece of "game art" sits above
+    // the board with the same light, rather than looking pasted flat.
+    const defs = el('defs', {}, [
+      (() => {
+        const grad = el('linearGradient', { id: skyId, x1: 0, y1: 0, x2: 0, y2: 1 });
+        [[0, '#8fd3fb'], [55, '#c7e9fd'], [100, '#fff3da']].forEach(([off, color]) => grad.appendChild(el('stop', { offset: `${off}%`, 'stop-color': color })));
+        return grad;
+      })(),
+      (() => {
+        const grad = el('radialGradient', { id: starId, cx: '35%', cy: '30%', r: '75%' });
+        [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']].forEach(([off, color]) => grad.appendChild(el('stop', { offset: `${off}%`, 'stop-color': color })));
+        return grad;
+      })(),
+      (() => {
+        const filter = el('filter', { id: shadowId, x: '-60%', y: '-60%', width: '220%', height: '220%' });
+        filter.appendChild(el('feDropShadow', { dx: 0, dy: 1.6, stdDeviation: 1.4, 'flood-color': '#1f2937', 'flood-opacity': 0.3 }));
+        return filter;
+      })(),
+    ]);
+    svg.appendChild(defs);
 
-    // The road itself — a wide light base stroke, a dashed centerline on
-    // top, round caps/joins so the winding turns look like a real road
-    // rather than sharp angles.
+    // Backdrop — gradient sky, a friendly sun, and a couple of soft
+    // clouds. Deliberately just these few touches (see this view's long
+    // history of "too busy/cluttered" feedback) — enough to feel like a
+    // game world, not a scene to compete with the road itself.
+    svg.appendChild(el('rect', { x: 0, y: 0, width: layout.w, height: layout.h, fill: `url(#${skyId})` }));
+    const sunCx = layout.w * 0.86, sunCy = layout.h * 0.12;
+    svg.appendChild(el('circle', { cx: sunCx, cy: sunCy, r: layout.w * 0.09, fill: '#ffffff', opacity: 0.4 }));
+    svg.appendChild(el('circle', { cx: sunCx, cy: sunCy, r: layout.w * 0.05, fill: '#ffd24a' }));
+    [[0.12, 0.1, 1], [0.28, 0.07, 0.75]].forEach(([fx, fy, scale]) => {
+      const cg = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})`, opacity: 0.8 });
+      [[-14, 0, 11], [0, -4, 14], [15, 0, 10], [0, 5, 13]].forEach(([ex, ey, r]) => cg.appendChild(el('ellipse', { cx: ex, cy: ey, rx: r, ry: r * 0.7, fill: '#ffffff' })));
+      svg.appendChild(cg);
+    });
+
+    // The road itself — a warm wooden-brown outline, a cream fill on top,
+    // and a dashed orange centerline, round caps/joins throughout so the
+    // winding turns look like a real toy path rather than sharp angles.
     const d = pathD(layout.points);
-    const roadBase = el('path', { d, fill: 'none', stroke: '#e8eef5', 'stroke-width': 34, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
-    const roadLine = el('path', { d, fill: 'none', stroke: '#c7d2e0', 'stroke-width': 3, 'stroke-dasharray': '12 12', 'stroke-linecap': 'round' });
+    const roadOutline = el('path', { d, fill: 'none', stroke: '#d8a862', 'stroke-width': 40, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+    const roadBase = el('path', { d, fill: 'none', stroke: '#fff6e4', 'stroke-width': 32, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+    const roadLine = el('path', { d, fill: 'none', stroke: '#f4a53b', 'stroke-width': 3.2, 'stroke-dasharray': '11 11', 'stroke-linecap': 'round' });
+    svg.appendChild(roadOutline);
     svg.appendChild(roadBase);
     svg.appendChild(roadLine);
 
@@ -148,12 +232,15 @@ const JourneyGame = (() => {
 
     const targetLen = roadBase.getTotalLength();
     const targetPt = roadBase.getPointAtLength(targetLen);
-    svg.appendChild(buildTarget(targetPt.x, targetPt.y));
+    svg.appendChild(buildTarget(targetPt.x, targetPt.y, starId, shadowId));
     svg.appendChild(avatarLayer);
 
     container.appendChild(svg);
 
-    const entry = { svg, title, roadBase, layoutKey: layout === LAYOUTS.tall ? 'tall' : 'wide', flagsLayer, ghostLayer, avatarLayer, lastState: null, lastDoneIds: new Set(), lastYouFrac: null, lastSummit: false };
+    const entry = {
+      svg, title, roadBase, layoutKey: layout === LAYOUTS.tall ? 'tall' : 'wide', flagsLayer, ghostLayer, avatarLayer,
+      shadowId, lastState: null, lastDoneIds: new Set(), lastYouFrac: null, lastSummit: false,
+    };
     containers.set(container, entry);
     return entry;
   }
@@ -174,7 +261,7 @@ const JourneyGame = (() => {
     let entry = containers.get(container);
     const desiredLayout = pickLayout(container) === LAYOUTS.tall ? 'tall' : 'wide';
     if (!entry || entry.layoutKey !== desiredLayout) entry = build(container);
-    const { svg, title, roadBase, flagsLayer, ghostLayer, avatarLayer } = entry;
+    const { svg, title, roadBase, flagsLayer, ghostLayer, avatarLayer, shadowId } = entry;
 
     const totalN = state.tasks.length;
     const doneN = state.tasks.filter(t => t.status === 'Completed').length;
@@ -194,13 +281,17 @@ const JourneyGame = (() => {
     const scale = checkpointScale(n);
     const doneCount = state.tasks.filter(t => t.status === 'Completed').length;
     const positions = [];
+    // Inset slightly from both ends — a flag placed at exactly frac 0 or 1
+    // lands right under the avatar's starting pose or the goal star and
+    // mostly disappears behind it, which reads as a mistake rather than
+    // deliberate layering.
     state.tasks.forEach((t, i) => {
-      const frac = n > 1 ? i / (n - 1) : 1;
+      const frac = n > 1 ? 0.06 + (i / (n - 1)) * 0.88 : 0.5;
       const pt = pointAtFrac(roadBase, frac);
       positions.push(pt);
       const isDone = t.status === 'Completed';
       const isNext = !isDone && i === doneCount;
-      const g = buildFlag(i, isDone, isNext, t.latestUpdateIsBlocker, scale);
+      const g = buildFlag(i, isDone, isNext, t.latestUpdateIsBlocker, scale, shadowId);
       g.setAttribute('transform', `translate(${pt.x},${pt.y})`);
       flagsLayer.appendChild(g);
     });
@@ -232,7 +323,7 @@ const JourneyGame = (() => {
     // Avatar — walks to its new spot; CSS handles the smooth glide (see
     // the .journey-avatar-layer transition in index.html's inline style
     // below), so no animation library is needed for this simple a move.
-    if (!avatarLayer.firstChild) avatarLayer.appendChild(buildAvatar('#e25c3f'));
+    if (!avatarLayer.firstChild) avatarLayer.appendChild(buildAvatar('#ff6b5b', shadowId));
     const you = pointAtFrac(roadBase, state.youFrac);
     // Respect prefers-reduced-motion: the avatar still ends up in the
     // right place, it just snaps instead of gliding — progress stays
