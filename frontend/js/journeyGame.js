@@ -110,28 +110,60 @@ const JourneyGame = (() => {
     cloudGroup(svg, layout, [[0.12, 0.1, 1], [0.28, 0.07, 0.75]]);
   }
 
-  // A cheerful, rounded "game mascot" figure — big head, simple face, a
-  // soft ground shadow, built from plain shapes so it stays crisp at any
-  // scale. The outline strokes + bright flat fills are what read as
-  // "game art" rather than a technical diagram; the inner .journey-avatar-bob
-  // group is what CSS's idle-bob animation (see index.html) moves, kept
-  // separate from the ground shadow so the shadow stays planted.
+  // A cheerful game mascot with an actual limb rig — each leg/arm is its
+  // own group (journey-leg-front/back, journey-arm-front/back in
+  // index.html) that swings from its own shoulder/hip pivot via CSS,
+  // plus a flaring cape, giving it a real running gait instead of one
+  // rigid silhouette bobbing up and down. The outer .journey-avatar-bob
+  // group still carries the vertical bob and the shared drop-shadow
+  // filter, same as before — the limbs animate inside it.
+  function roadLimb(cls, fill, x, y, w, len, footRx, footRy, footFill) {
+    const wrap = el('g', { transform: `translate(${x},${y})` });
+    const swing = el('g', { class: cls });
+    swing.appendChild(el('rect', { x: -w / 2, y: 0, width: w, height: len, rx: w / 2 - 0.1, fill, stroke: '#1f2937', 'stroke-width': 0.8 }));
+    swing.appendChild(el('rect', { x: -w / 2, y: 0, width: w / 2.2, height: len, rx: w / 2 - 0.1, fill: '#ffffff', opacity: 0.18 }));
+    swing.appendChild(el('ellipse', { cx: 0, cy: len + footRy - 0.6, rx: footRx, ry: footRy, fill: footFill, stroke: '#1f2937', 'stroke-width': 0.6 }));
+    wrap.appendChild(swing);
+    return wrap;
+  }
   function roadBuildAvatar(fill, shadowFilterId) {
     const g = el('g', { class: 'journey-avatar' });
-    g.appendChild(el('ellipse', { cx: 0, cy: 24, rx: 12, ry: 3.2, fill: '#1f2937', opacity: 0.22 }));
+    g.appendChild(el('ellipse', { cx: 0, cy: 24, rx: 15, ry: 3.6, fill: '#1f2937', opacity: 0.25 }));
     const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
-    bob.appendChild(el('rect', { x: -6.6, y: 8, width: 5, height: 11, rx: 2.4, fill: '#3b4758', stroke: '#1f2937', 'stroke-width': 1 }));
-    bob.appendChild(el('rect', { x: 1.6, y: 8, width: 5, height: 11, rx: 2.4, fill: '#2f3947', stroke: '#1f2937', 'stroke-width': 1 }));
-    bob.appendChild(el('ellipse', { cx: -9.5, cy: 1, rx: 3.4, ry: 5.4, fill, stroke: '#1f2937', 'stroke-width': 1, transform: 'rotate(18 -9.5 1)' }));
-    bob.appendChild(el('ellipse', { cx: 9.5, cy: 1, rx: 3.4, ry: 5.4, fill, stroke: '#1f2937', 'stroke-width': 1, transform: 'rotate(-18 9.5 1)' }));
-    bob.appendChild(el('rect', { x: -9, y: -7, width: 18, height: 18, rx: 7, fill, stroke: '#1f2937', 'stroke-width': 1.2 }));
-    bob.appendChild(el('circle', { cx: 0, cy: -15.5, r: 8.4, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 1.2 }));
-    bob.appendChild(el('path', { d: 'M -8.4 -17.5 A 8.4 8.4 0 0 1 8.4 -17.5 L 8.2 -20 A 9 6 0 0 0 -8.2 -20 Z', fill: '#4a2f1e', stroke: '#1f2937', 'stroke-width': 1 }));
-    bob.appendChild(el('circle', { cx: -3, cy: -15, r: 1.15, fill: '#1f2937' }));
-    bob.appendChild(el('circle', { cx: 3, cy: -15, r: 1.15, fill: '#1f2937' }));
-    bob.appendChild(el('path', { d: 'M -3.6 -11.8 Q 0 -9.4 3.6 -11.8', fill: 'none', stroke: '#1f2937', 'stroke-width': 1.1, 'stroke-linecap': 'round' }));
-    bob.appendChild(el('ellipse', { cx: -5.6, cy: -12.4, rx: 1.6, ry: 1, fill: '#ff9d8a', opacity: 0.55 }));
-    bob.appendChild(el('ellipse', { cx: 5.6, cy: -12.4, rx: 1.6, ry: 1, fill: '#ff9d8a', opacity: 0.55 }));
+
+    bob.appendChild(el('path', {
+      class: 'journey-cape', d: 'M -4,-8 C -17,-5 -19,8 -10,15 C -15,8 -12,-3 -4,-7 Z',
+      fill: '#ff7a9a', stroke: '#8a2d4a', 'stroke-width': 0.8, opacity: 0.9,
+    }));
+
+    bob.appendChild(roadLimb('journey-leg-back', '#2f3947', -3.4, 9, 4.2, 10, 2.9, 1.7, '#2f3947'));
+    bob.appendChild(roadLimb('journey-arm-back', fill, -7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+
+    bob.appendChild(el('rect', { x: -8.6, y: -9, width: 17.2, height: 19, rx: 7.6, fill, stroke: '#1f2937', 'stroke-width': 1 }));
+    bob.appendChild(el('ellipse', { cx: -3.6, cy: -4, rx: 4.6, ry: 6.4, fill: '#ffffff', opacity: 0.22 }));
+    bob.appendChild(el('path', { d: 'M -8.6 -2 Q 0 2 8.6 -2', fill: 'none', stroke: '#ffffff', 'stroke-width': 1, opacity: 0.3 }));
+
+    bob.appendChild(roadLimb('journey-leg-front', '#374151', 3.4, 9, 4.2, 10, 2.9, 1.7, '#374151'));
+    bob.appendChild(roadLimb('journey-arm-front', fill, 7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+
+    const head = el('g', { transform: 'translate(0,-18.5)' });
+    head.appendChild(el('circle', { cx: 0, cy: 0, r: 9.2, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 1 }));
+    head.appendChild(el('ellipse', { cx: -3, cy: -3.4, rx: 4.4, ry: 3, fill: '#ffffff', opacity: 0.32 }));
+    head.appendChild(el('path', { d: 'M -9 -3 A 9 9 0 0 1 9 -3 L 8.6 -6.5 A 9.6 6.4 0 0 0 -8.6 -6.5 Z', fill: '#4a2f1e' }));
+    head.appendChild(el('path', { d: 'M -2 -8.6 Q 1 -11.6 4.2 -8.8', fill: 'none', stroke: '#4a2f1e', 'stroke-width': 1.7, 'stroke-linecap': 'round' }));
+    head.appendChild(el('path', { d: 'M -5 -4.6 Q -3.2 -5.7 -1.2 -4.8', fill: 'none', stroke: '#3a2516', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
+    head.appendChild(el('path', { d: 'M 1.2 -4.8 Q 3.2 -5.7 5 -4.6', fill: 'none', stroke: '#3a2516', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
+    head.appendChild(el('ellipse', { cx: -3.1, cy: -1, rx: 2.1, ry: 2.5, fill: '#ffffff' }));
+    head.appendChild(el('circle', { cx: -2.8, cy: -0.5, r: 1.3, fill: '#1f2937' }));
+    head.appendChild(el('circle', { cx: -3.3, cy: -1.2, r: 0.55, fill: '#ffffff' }));
+    head.appendChild(el('ellipse', { cx: 3.1, cy: -1, rx: 2.1, ry: 2.5, fill: '#ffffff' }));
+    head.appendChild(el('circle', { cx: 3.4, cy: -0.5, r: 1.3, fill: '#1f2937' }));
+    head.appendChild(el('circle', { cx: 2.9, cy: -1.2, r: 0.55, fill: '#ffffff' }));
+    head.appendChild(el('path', { d: 'M -2.6 3.3 Q 0 5.2 2.6 3.3', fill: 'none', stroke: '#1f2937', 'stroke-width': 1.1, 'stroke-linecap': 'round' }));
+    head.appendChild(el('ellipse', { cx: -5.8, cy: 1.7, rx: 1.75, ry: 1.15, fill: '#ff9d8a', opacity: 0.55 }));
+    head.appendChild(el('ellipse', { cx: 5.8, cy: 1.7, rx: 1.75, ry: 1.15, fill: '#ff9d8a', opacity: 0.55 }));
+    bob.appendChild(head);
+
     g.appendChild(bob);
     return g;
   }
@@ -142,12 +174,18 @@ const JourneyGame = (() => {
   function roadBuildGoal(x, y, gradId, shadowFilterId) {
     const g = el('g', { transform: `translate(${x},${y})` });
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 27, fill: '#ffd54a', opacity: 0.28 }));
+    const ring = el('g', { class: 'journey-ring-spin-rev', opacity: 0.9 });
+    [0, 60, 120, 180, 240, 300].forEach(rot => {
+      ring.appendChild(el('path', { d: 'M 0,-30 L 2.4,-25 L -2.4,-25 Z', transform: `rotate(${rot})`, fill: '#ffffff' }));
+    });
+    g.appendChild(ring);
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 18.5, fill: '#ffffff', stroke: '#f3b429', 'stroke-width': 2.4 }));
     const star = el('path', {
       d: starPath(14, 6, 5), fill: `url(#${gradId})`, stroke: '#b8780f', 'stroke-width': 1.3, 'stroke-linejoin': 'round',
       filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
     });
     g.appendChild(star);
+    g.appendChild(el('rect', { class: 'journey-shine', x: -2.5, y: -16, width: 5, height: 32, fill: '#ffffff', opacity: 0 }));
     [[-20, -16, 2.6], [21, -10, 1.8], [16, 16, 2.1]].forEach(([sx, sy, r]) => {
       g.appendChild(el('path', { d: starPath(r, r * 0.35, 4), transform: `translate(${sx},${sy})`, fill: '#ffffff', opacity: 0.85 }));
     });
@@ -177,9 +215,24 @@ const JourneyGame = (() => {
     g.appendChild(label);
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.6 * s, fill: '#f4a53b', stroke: '#8b5e3c', 'stroke-width': 0.6 * s }));
     if (blocked) {
-      const badge = el('text', { x: 13 * s, y: -29 * s, 'font-size': 8 * s, 'text-anchor': 'middle' });
-      badge.textContent = '🚧';
-      g.appendChild(badge);
+      // A real obstacle gate across the road, not just a status icon —
+      // hazard-striped barrier arm between two posts, with a pulsing
+      // warning glow and a small padlock, reading as "something to
+      // clear" rather than a passive label.
+      const ox = -26 * s, oy = -6 * s;
+      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy, r: 20 * s, fill: '#ef4444', opacity: 0.45 }));
+      const gate = el('g', { transform: `translate(${ox},${oy})` });
+      gate.appendChild(el('rect', { x: -5 * s, y: -30 * s, width: 4 * s, height: 26 * s, rx: 1.4 * s, fill: '#6b4a2a', stroke: '#3f2a16', 'stroke-width': 0.8 * s }));
+      gate.appendChild(el('rect', { x: 17 * s, y: -30 * s, width: 4 * s, height: 26 * s, rx: 1.4 * s, fill: '#6b4a2a', stroke: '#3f2a16', 'stroke-width': 0.8 * s }));
+      const bar = el('g', { transform: 'rotate(-6)' });
+      bar.appendChild(el('rect', { x: -10 * s, y: -26 * s, width: 34 * s, height: 8 * s, rx: 2.4 * s, fill: '#f97316', stroke: '#7c2d12', 'stroke-width': s }));
+      [-10, 6, 22].forEach(sx => bar.appendChild(el('rect', { x: sx * s, y: -26 * s, width: 8 * s, height: 8 * s, fill: '#fff', opacity: 0.9 })));
+      gate.appendChild(bar);
+      const lock = el('g', { transform: `translate(${6 * s},${-40 * s})` });
+      lock.appendChild(el('rect', { x: -5 * s, y: -1 * s, width: 10 * s, height: 8 * s, rx: 1.8 * s, fill: '#f4b400', stroke: '#7c5700', 'stroke-width': 0.9 * s }));
+      lock.appendChild(el('path', { d: `M ${-2.6 * s} ${-1 * s} L ${-2.6 * s} ${-4.4 * s} A ${2.6 * s} ${2.6 * s} 0 0 1 ${2.6 * s} ${-4.4 * s} L ${2.6 * s} ${-1 * s}`, fill: 'none', stroke: '#7c5700', 'stroke-width': 1.3 * s }));
+      gate.appendChild(lock);
+      g.appendChild(gate);
     }
     return g;
   }
@@ -277,20 +330,55 @@ const JourneyGame = (() => {
   // THEME: OCEAN — "Dive to the Treasure". A surface-to-depths sea, a
   // sandy trail, a swimming sea turtle, and a treasure chest.
   // ════════════════════════════════════════════════════════════════
-  const OCEAN_BUBBLES = [[0.08, 0.15, 2.6], [0.14, 0.3, 1.6], [0.05, 0.5, 2], [0.2, 0.62, 1.4], [0.1, 0.78, 2.2]];
+  const OCEAN_BUBBLES = [[0.08, 0.15, 2.6], [0.14, 0.3, 1.6], [0.05, 0.5, 2], [0.2, 0.62, 1.4], [0.1, 0.78, 2.2], [0.46, 0.7, 1.8], [0.6, 0.85, 1.4]];
   function oceanDecorate(svg, layout) {
-    OCEAN_BUBBLES.forEach(([fx, fy, r]) => {
-      svg.appendChild(el('circle', { cx: layout.w * fx, cy: layout.h * fy, r, fill: '#ffffff', opacity: 0.35, stroke: '#ffffff', 'stroke-width': 0.6 }));
+    OCEAN_BUBBLES.forEach(([fx, fy, r], i) => {
+      svg.appendChild(el('circle', {
+        class: 'journey-bubble-rise', cx: layout.w * fx, cy: layout.h * fy, r,
+        fill: '#ffffff', opacity: 0.4, stroke: '#ffffff', 'stroke-width': 0.6,
+        style: `animation-delay:${(i * 0.7).toFixed(1)}s`,
+      }));
     });
-    function fish(fx, fy, scale, color) {
-      const g = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})`, opacity: 0.85 });
+
+    function fish(fx, fy, scale, color, delay) {
+      const wrap = el('g', { class: 'journey-fish-swim', transform: `translate(${layout.w * fx},${layout.h * fy})`, style: `animation-delay:${delay}s` });
+      const g = el('g', { transform: `scale(${scale})`, opacity: 0.9 });
       g.appendChild(el('path', { d: 'M -8 0 L 2 -5 L 2 5 Z', fill: color }));
-      g.appendChild(el('ellipse', { cx: 6, cy: 0, rx: 8, ry: 5, fill: color }));
+      g.appendChild(el('ellipse', { cx: 6, cy: 0, rx: 8, ry: 5, fill: color, stroke: '#1f2937', 'stroke-width': 0.5, opacity: 0.95 }));
+      g.appendChild(el('ellipse', { cx: 4, cy: -2.4, rx: 4, ry: 1.6, fill: '#ffffff', opacity: 0.3 }));
       g.appendChild(el('circle', { cx: 10.5, cy: -1, r: 1, fill: '#1f2937' }));
-      svg.appendChild(g);
+      wrap.appendChild(g);
+      svg.appendChild(wrap);
     }
-    fish(0.82, 0.2, 0.9, '#ffb04a');
-    fish(0.9, 0.42, 0.7, '#ff8a65');
+    fish(0.82, 0.2, 0.9, '#ffb04a', 0);
+    fish(0.9, 0.42, 0.7, '#ff8a65', 1.4);
+    fish(0.74, 0.55, 0.6, '#5ec8e0', 0.6);
+    fish(0.86, 0.68, 0.5, '#ffb04a', 2.1);
+
+    // A patrolling reef shark in the far background — bigger, dimmer, and
+    // slower than the fish so it reads as "out there" depth rather than
+    // competing with the path for attention; it slowly sweeps right then
+    // swims back left (the swim keyframe flips it with scaleX so it faces
+    // the way it's moving).
+    const shark = el('g', { class: 'journey-shark-swim', transform: `translate(${layout.w * 0.14},${layout.h * 0.28}) scale(1.3)`, opacity: 0.35 });
+    shark.appendChild(el('path', { d: 'M -16 0 L 2 -8 L 10 0 L 2 8 Z', fill: '#2f4f6b' }));
+    shark.appendChild(el('path', { d: 'M 2 -8 L 6 -16 L 8 -6 Z', fill: '#2f4f6b' }));
+    shark.appendChild(el('path', { d: 'M -8 6 L -4 13 L -2 6 Z', fill: '#2f4f6b' }));
+    shark.appendChild(el('circle', { cx: 6, cy: -1, r: 1, fill: '#0f1b24' }));
+    svg.appendChild(shark);
+
+    // Seaweed fronds swaying from the sea floor at the near corners.
+    [[0.03, 0.97, 1], [0.94, 0.97, 0.8]].forEach(([fx, fy, scale], i) => {
+      const g = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})` });
+      [-1, 0, 1].forEach(off => {
+        g.appendChild(el('path', {
+          class: 'journey-seaweed', style: `animation-delay:${(i * 0.5 + off * 0.3).toFixed(1)}s`,
+          d: `M ${off * 6} 0 Q ${off * 6 + 6} -14 ${off * 6 - 2} -26`,
+          fill: 'none', stroke: '#2f9e6e', 'stroke-width': 3, 'stroke-linecap': 'round',
+        }));
+      });
+      svg.appendChild(g);
+    });
   }
 
   // A sea turtle — the passed-in "fill" is the shell color directly
