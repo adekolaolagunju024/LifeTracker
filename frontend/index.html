@@ -211,7 +211,14 @@
     @keyframes journey-flag-wave { 0%, 100% { transform: skewY(-4deg); } 50% { transform: skewY(4deg); } }
     @keyframes journey-speedline { 0% { opacity: .7; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-14px); } }
 
+    /* Road birds gliding, Ocean light shafts shimmering. */
+    .journey-bird { animation: journey-bird-glide 9s ease-in-out infinite; }
+    .journey-ray-shimmer { animation: journey-ray-shimmer 5s ease-in-out infinite; }
+    @keyframes journey-bird-glide { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(40px,-6px); } }
+    @keyframes journey-ray-shimmer { 0%, 100% { opacity: .08; } 50% { opacity: .2; } }
+
     @media (prefers-reduced-motion: reduce) {
+      .journey-bird, .journey-ray-shimmer,
       .journey-avatar-bob, .journey-next-glow, .journey-blocked-glow,
       .journey-leg-front, .journey-leg-back, .journey-arm-front, .journey-arm-back, .journey-cape,
       .journey-ring-spin, .journey-ring-spin-rev, .journey-shine,
