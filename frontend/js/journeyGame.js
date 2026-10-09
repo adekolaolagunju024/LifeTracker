@@ -954,7 +954,7 @@ const JourneyGame = (() => {
     bob.appendChild(el('rect', { x: -8.2, y: 3, width: 16.4, height: 7.5, rx: 2.5, fill: '#1f2937' }));
     bob.appendChild(el('ellipse', { cx: -3.6, cy: -4, rx: 4.2, ry: 5, fill: '#ffffff', opacity: 0.2 }));
     bob.appendChild(el('path', { d: 'M -3 -9 L 0 -5.5 L 3 -9', fill: 'none', stroke: '#ffffff', 'stroke-width': 1.1, opacity: 0.85 }));
-    const num = el('text', { x: 0, y: -0.5, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 6.5, 'font-weight': 800, fill: '#ffffff', 'font-family': 'Arial, sans-serif' });
+    const num = el('text', { class: 'journey-unflip', x: 0, y: -0.5, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 6.5, 'font-weight': 800, fill: '#ffffff', 'font-family': 'Arial, sans-serif' });
     num.textContent = '10';
     bob.appendChild(num);
 
@@ -973,7 +973,7 @@ const JourneyGame = (() => {
     bob.appendChild(head);
     g.appendChild(bob);
 
-    const ballPos = el('g', { transform: 'translate(10,19.5)' });
+    const ballPos = el('g', { class: 'journey-feet-ball', transform: 'translate(10,19.5)' });
     const ball = el('g', { class: 'journey-ball-dribble' });
     footballBall(ball, 0, 0, 4.2);
     ballPos.appendChild(ball);
@@ -996,7 +996,10 @@ const JourneyGame = (() => {
       net.appendChild(el('line', { x1: -24 * k, y1: yy, x2: 24 * k, y2: yy, stroke: '#ffffff', 'stroke-width': 0.5, opacity: 0.55 }));
     }
     g.appendChild(net);
-    footballBall(g, 6, -6, 4.4);
+    // Hidden until the goal is actually scored (see footballCelebrateFinish).
+    const netBall = el('g', { class: 'journey-goal-ball', style: 'display:none' });
+    footballBall(netBall, 6, -6, 4.4);
+    g.appendChild(netBall);
     const frame = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
     frame.appendChild(el('path', { d: 'M -24 4 L -24 -20 L 24 -20 L 24 4', fill: 'none', stroke: '#cbd5e1', 'stroke-width': 3.6, 'stroke-linejoin': 'round', transform: 'translate(0.8,0.8)' }));
     frame.appendChild(el('path', { d: 'M -24 4 L -24 -20 L 24 -20 L 24 4', fill: 'none', stroke: '#ffffff', 'stroke-width': 3, 'stroke-linejoin': 'round' }));
@@ -1050,6 +1053,58 @@ const JourneyGame = (() => {
     return g;
   }
 
+  // The football finish: the player, standing at the last flag, kicks the
+  // ball — it arcs (and spins) into the goal, the net bulges, a "GOAL!"
+  // banner pops, the crowd jumps up, and the usual confetti follows.
+  function footballCelebrateFinish(entry, from, scale, burst) {
+    const { svg, avatarLayer, goalPt } = entry;
+    const av = avatarLayer.firstChild;
+    if (av) av.classList.add('journey-kick');
+    setTimeout(() => {
+      if (!svg.isConnected) return;
+      if (av) av.classList.remove('journey-kick');
+      const feet = avatarLayer.querySelector('.journey-feet-ball');
+      if (feet) feet.style.display = 'none';
+      const dir = entry.facing || 1;
+      const sx = from.x + 10 * scale * dir, sy = from.y + 19.5 * scale;
+      const ex = goalPt.x + 6, ey = goalPt.y - 6;
+      const cx = (sx + ex) / 2, cy = Math.min(sy, ey) - 45;
+      const ball = el('g');
+      footballBall(ball, 0, 0, 4.4);
+      svg.insertBefore(ball, entry.vignette);
+      const t0 = performance.now(), dur = 650;
+      const step = now => {
+        if (!svg.isConnected) return;
+        const t = Math.min(1, (now - t0) / dur);
+        const x = (1 - t) * (1 - t) * sx + 2 * (1 - t) * t * cx + t * t * ex;
+        const y = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * cy + t * t * ey;
+        const k = scale + (1 - scale) * t;
+        ball.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${Math.round(t * 720)}) scale(${k.toFixed(3)})`);
+        if (t < 1) { requestAnimationFrame(step); return; }
+        ball.remove();
+        entry.shotPending = false;
+        const netBall = svg.querySelector('.journey-goal-ball');
+        if (netBall) netBall.style.display = '';
+        const net = svg.querySelector('.journey-net-ripple');
+        if (net) { net.classList.add('journey-net-bulge'); setTimeout(() => net.classList.remove('journey-net-bulge'), 900); }
+        // Above the goal unless that would land in the stand, then below.
+        const ty = goalPt.y > 90 ? goalPt.y - 46 : goalPt.y + 44;
+        const txt = el('text', {
+          class: 'journey-goal-pop', x: goalPt.x, y: ty, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+          'font-size': 28, 'font-weight': 900, 'font-family': '"Arial Black", Arial, sans-serif',
+          fill: '#ffffff', stroke: '#c62828', 'stroke-width': 2.4, 'paint-order': 'stroke', 'letter-spacing': 1,
+        });
+        txt.textContent = 'GOAL!';
+        svg.insertBefore(txt, entry.vignette);
+        setTimeout(() => txt.remove(), 2700);
+        svg.classList.add('journey-cheer');
+        setTimeout(() => svg.classList.remove('journey-cheer'), 3200);
+        burst();
+      };
+      requestAnimationFrame(step);
+    }, 280);
+  }
+
   // A small padlock — shared "this is blocked" marker on every theme's
   // obstacle so the meaning stays consistent across stages.
   function lockIcon(x, y, s) {
@@ -1099,6 +1154,9 @@ const JourneyGame = (() => {
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#2e7d32', fill: '#8bc98e', dash: '#ffffff' },
       decorate: footballDecorate, scatter: footballScatter, buildAvatar: footballBuildAvatar, buildGoal: footballBuildGoal, buildCheckpoint: footballBuildCheckpoint,
+      // The player stops at the last flag and shoots, instead of walking
+      // into the net.
+      finishAtLastFlag: true, celebrateFinish: footballCelebrateFinish,
     },
   };
   function resolveThemeKey(key) { return THEMES[key] ? key : 'road'; }
@@ -1236,13 +1294,15 @@ const JourneyGame = (() => {
     const goalPt = pathBase.getPointAtLength(goalLen);
     svg.appendChild(theme.buildGoal(goalPt.x, goalPt.y, goalGradId, shadowId, glowId));
     svg.appendChild(avatarLayer);
-    svg.appendChild(el('rect', { x: 0, y: 0, width: layout.w, height: layout.h, fill: `url(#${vignetteId})`, 'pointer-events': 'none' }));
+    const vignette = el('rect', { x: 0, y: 0, width: layout.w, height: layout.h, fill: `url(#${vignetteId})`, 'pointer-events': 'none' });
+    svg.appendChild(vignette);
 
     container.appendChild(svg);
 
     const entry = {
       svg, title, roadBase: pathBase, layoutKey: layout === LAYOUTS.tall ? 'tall' : 'wide', themeKey: resolveThemeKey(themeKey),
-      flagsLayer, ghostLayer, avatarLayer, shadowId, lastState: null, lastDoneIds: new Set(), lastYouFrac: null, lastSummit: false,
+      flagsLayer, ghostLayer, avatarLayer, shadowId, lastState: null, lastDoneIds: new Set(), lastSummit: false,
+      goalPt: { x: goalPt.x, y: goalPt.y }, vignette, curFrac: null, walk: null, facing: 1, flagEls: [], shotPending: false,
     };
     containers.set(container, entry);
     return entry;
@@ -1260,10 +1320,127 @@ const JourneyGame = (() => {
   // path is actually left for it.
   function checkpointScale(n) { return Math.min(1, 10 / Math.max(1, n)); }
 
+  // Each checkpoint's position along the path. Inset slightly from both
+  // ends — a checkpoint at exactly frac 0 or 1 lands under the avatar's
+  // starting pose or the goal marker and mostly disappears behind it.
+  function checkpointFrac(i, n) { return n > 1 ? 0.06 + (i / (n - 1)) * 0.88 : 0.5; }
+
+  // Maps task progress (done ÷ total, or a fractional pace for the ghost)
+  // onto the path so whole numbers land exactly on the flags: nothing done
+  // is the start, k done is the k-th flag, all done is the finish.
+  function progressToPathFrac(p, n, finishFrac) {
+    if (!n) return 0;
+    const knots = [[0, 0]];
+    for (let k = 1; k < n; k++) knots.push([k / n, checkpointFrac(k - 1, n)]);
+    knots.push([1, finishFrac]);
+    const q = Math.max(0, Math.min(1, p));
+    for (let j = 1; j < knots.length; j++) {
+      const [p0, f0] = knots[j - 1], [p1, f1] = knots[j];
+      if (q <= p1) return f0 + (f1 - f0) * ((q - p0) / ((p1 - p0) || 1));
+    }
+    return finishFrac;
+  }
+
+  function placeAvatar(entry, frac, scale) {
+    const p = pointAtFrac(entry.roadBase, frac);
+    entry.avatarLayer.setAttribute('transform', `translate(${p.x.toFixed(2)},${p.y.toFixed(2)}) scale(${scale})`);
+    return p;
+  }
+
+  // Turns the avatar to face the way it's walking. Text inside it (the
+  // footballer's shirt number) is counter-flipped so it never reads
+  // backwards.
+  function setFacing(entry, dir) {
+    if (entry.facing === dir) return;
+    entry.facing = dir;
+    const av = entry.avatarLayer.firstChild;
+    if (!av) return;
+    if (dir < 0) av.setAttribute('transform', 'scale(-1,1)'); else av.removeAttribute('transform');
+    av.querySelectorAll('.journey-unflip').forEach(t => {
+      if (dir < 0) t.setAttribute('transform', 'scale(-1,1)'); else t.removeAttribute('transform');
+    });
+  }
+
+  function stopWalk(entry) {
+    if (!entry.walk) return;
+    cancelAnimationFrame(entry.walk.raf);
+    clearTimeout(entry.walk.timer);
+    entry.avatarLayer.classList.remove('journey-walking');
+    entry.walk = null;
+  }
+
+  // Walks the avatar along the real curve of the path (not a straight-line
+  // glide) from one fraction to another, at a steady walking speed. It
+  // stops at each milestone it reaches on the way that has a celebration
+  // waiting (a newly completed flag, the finish), fires that celebration
+  // the moment it arrives, pauses briefly, then carries on.
+  function walkAvatar(entry, from, to, arrivals, scale) {
+    const dir = Math.sign(to - from), eps = 0.002;
+    const onRoute = a => (dir > 0 ? a.frac > from + eps && a.frac <= to + eps : a.frac < from - eps && a.frac >= to - eps);
+    arrivals.filter(a => !onRoute(a)).forEach(a => a.fire());
+    const route = arrivals.filter(onRoute).map(a => Object.assign(a, { stop: Math.abs(a.frac - to) <= eps ? to : a.frac }));
+    const stops = [...new Set(route.map(a => a.stop))].sort((a, b) => dir * (a - b));
+    if (stops[stops.length - 1] !== to) stops.push(to);
+
+    const total = entry.roadBase.getTotalLength();
+    const layer = entry.avatarLayer;
+    const walk = { raf: 0, timer: 0, pending: route };
+    entry.walk = walk;
+    let cur = from, idx = 0;
+    const nextLeg = () => {
+      if (idx >= stops.length) { layer.classList.remove('journey-walking'); entry.walk = null; return; }
+      const start = cur, end = stops[idx++];
+      const dur = Math.max(350, Math.min(2400, Math.abs(end - start) * total * 8));
+      const t0 = performance.now();
+      let lastX = null;
+      layer.classList.add('journey-walking');
+      const step = now => {
+        if (!entry.svg.isConnected) { entry.walk = null; return; }
+        const t = Math.min(1, (now - t0) / dur);
+        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const f = start + (end - start) * e;
+        const pt = placeAvatar(entry, f, scale);
+        if (lastX !== null && Math.abs(pt.x - lastX) > 0.15) setFacing(entry, pt.x < lastX ? -1 : 1);
+        lastX = pt.x;
+        entry.curFrac = f;
+        if (t < 1) { walk.raf = requestAnimationFrame(step); return; }
+        cur = end;
+        layer.classList.remove('journey-walking');
+        const here = walk.pending.filter(a => a.stop === end);
+        walk.pending = walk.pending.filter(a => a.stop !== end);
+        here.forEach(a => a.fire());
+        walk.timer = setTimeout(nextLeg, here.length && idx < stops.length ? 500 : 0);
+      };
+      walk.raf = requestAnimationFrame(step);
+    };
+    nextLeg();
+  }
+
+  // A flag the avatar has just reached: it pops, and confetti bursts from it.
+  function celebrateFlag(entry, i, frac) {
+    if (!entry || !entry.svg.isConnected) return;
+    const g = entry.flagEls[i];
+    if (g) {
+      g.classList.remove('journey-flag-pop');
+      g.getBBox(); // restart the animation if it was already running
+      g.classList.add('journey-flag-pop');
+      setTimeout(() => g.classList.remove('journey-flag-pop'), 700);
+    }
+    if (window.fireScreenConfetti) {
+      const p = pointAtFrac(entry.roadBase, frac);
+      const sp = screenPoint(entry.svg, p.x, p.y);
+      window.fireScreenConfetti(sp.x, sp.y, 24);
+    }
+  }
+
   function apply(container, state) {
     const desiredLayout = pickLayout(container) === LAYOUTS.tall ? 'tall' : 'wide';
     const desiredTheme = resolveThemeKey(state.theme);
     let entry = containers.get(container);
+    // Celebrations still waiting on a walk that this sync interrupts are
+    // carried into the new walk rather than dropped or fired early.
+    let carried = [];
+    if (entry && entry.walk) { carried = entry.walk.pending; stopWalk(entry); }
     if (!entry || entry.layoutKey !== desiredLayout || entry.themeKey !== desiredTheme) {
       // Rebuilding (a resize across the layout breakpoint, or a theme
       // switch) throws away the old SVG — but carry over which tasks
@@ -1278,6 +1455,7 @@ const JourneyGame = (() => {
     }
     const theme = getTheme(desiredTheme);
     const { svg, title, roadBase, flagsLayer, ghostLayer, avatarLayer, shadowId } = entry;
+    const current = () => containers.get(container);
 
     const totalN = state.tasks.length;
     const doneN = state.tasks.filter(t => t.status === 'Completed').length;
@@ -1289,74 +1467,98 @@ const JourneyGame = (() => {
       ? `Journey progress: ${pct} percent. ${doneN} of ${totalN} tasks completed. Current milestone: ${phaseLabel}.`
       : 'Journey not started — no tasks yet.';
 
-    // Checkpoints — one per task, placed at the real path length fraction
-    // so they're evenly spaced along the actual curve, not the
-    // straight-line waypoints.
+    // Checkpoints — one per task, evenly spaced along the actual curve.
+    // Each sits inside an outer positioned group so the flag itself can be
+    // CSS-animated (the arrival "pop") without losing its translate.
     while (flagsLayer.firstChild) flagsLayer.removeChild(flagsLayer.firstChild);
-    const n = state.tasks.length;
+    const n = totalN;
     const scale = checkpointScale(n);
-    const doneCount = state.tasks.filter(t => t.status === 'Completed').length;
-    const positions = [];
-    // Inset slightly from both ends — a checkpoint placed at exactly
-    // frac 0 or 1 lands right under the avatar's starting pose or the
-    // goal marker and mostly disappears behind it, which reads as a
-    // mistake rather than deliberate layering.
+    const fracs = state.tasks.map((t, i) => checkpointFrac(i, n));
+    entry.flagEls = [];
     state.tasks.forEach((t, i) => {
-      const frac = n > 1 ? 0.06 + (i / (n - 1)) * 0.88 : 0.5;
-      const pt = pointAtFrac(roadBase, frac);
-      positions.push(pt);
+      const pt = pointAtFrac(roadBase, fracs[i]);
       const isDone = t.status === 'Completed';
-      const isNext = !isDone && i === doneCount;
-      const g = theme.buildCheckpoint(i, isDone, isNext, t.latestUpdateIsBlocker, scale, shadowId);
-      g.setAttribute('transform', `translate(${pt.x},${pt.y})`);
-      flagsLayer.appendChild(g);
+      const isNext = !isDone && i === doneN;
+      // Once the task is done, its blocker has been overcome — the obstacle clears.
+      const g = theme.buildCheckpoint(i, isDone, isNext, t.latestUpdateIsBlocker && !isDone, scale, shadowId);
+      const pos = el('g', { transform: `translate(${pt.x},${pt.y})` });
+      pos.appendChild(g);
+      flagsLayer.appendChild(pos);
+      entry.flagEls.push(g);
     });
 
-    // Celebrate any checkpoint newly done since the last sync, unless
-    // Celebration Effects is off.
     const celebrate = state.celebrationsEnabled !== false;
+    // Respect prefers-reduced-motion: the avatar still ends up in the
+    // right place, it just snaps there instead of walking.
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const finishFrac = theme.finishAtLastFlag && n ? checkpointFrac(n - 1, n) : 1;
+    const targetFrac = progressToPathFrac(n ? doneN / n : 0, n, finishFrac);
+
+    // Every checkpoint newly completed since the last sync gets its own
+    // celebration, fired when the avatar actually arrives at that flag.
     const nowDoneIds = new Set(state.tasks.filter(t => t.status === 'Completed').map(t => t.id));
-    if (celebrate && window.fireScreenConfetti) {
+    const arrivals = carried.filter(a => (a.summit ? state.summitLit : nowDoneIds.has(a.taskId)));
+    if (celebrate) {
       state.tasks.forEach((t, i) => {
-        if (t.status === 'Completed' && !entry.lastDoneIds.has(t.id) && positions[i]) {
-          const sp = screenPoint(svg, positions[i].x, positions[i].y);
-          window.fireScreenConfetti(sp.x, sp.y, 24);
+        if (t.status === 'Completed' && !entry.lastDoneIds.has(t.id)) {
+          arrivals.push({ taskId: t.id, frac: fracs[i], fire: () => celebrateFlag(current(), i, fracs[i]) });
         }
       });
     }
     entry.lastDoneIds = nowDoneIds;
 
-    // Ghost (pace/competitor marker) — a faded second avatar, same
-    // theme shape as the real one.
+    const newSummit = state.summitLit && !entry.lastSummit;
+    entry.lastSummit = state.summitLit;
+    if (!state.summitLit) entry.shotPending = false;
+    if (newSummit && celebrate && !reduceMotion && theme.celebrateFinish) entry.shotPending = true;
+    if (newSummit && celebrate) {
+      arrivals.push({
+        summit: true, frac: targetFrac,
+        fire: () => {
+          const e = current();
+          if (!e || !e.svg.isConnected) return;
+          const burst = () => {
+            const sp = screenPoint(e.svg, e.goalPt.x, e.goalPt.y - 10);
+            if (window.fireScreenConfetti) { window.fireScreenConfetti(sp.x, sp.y, 70); window.fireScreenConfetti(sp.x - 60, sp.y, 50); window.fireScreenConfetti(sp.x + 60, sp.y, 50); }
+            if (window.fireBalloons) window.fireBalloons(10);
+          };
+          const t = getTheme(e.themeKey);
+          if (e.shotPending && t.celebrateFinish) t.celebrateFinish(e, pointAtFrac(e.roadBase, e.curFrac), checkpointScale(n), burst);
+          else { e.shotPending = false; burst(); }
+        },
+      });
+    }
+
+    // Ghost (pace/competitor marker) — a faded second avatar, mapped onto
+    // the path the same way so its pace lines up with the flags too.
     while (ghostLayer.firstChild) ghostLayer.removeChild(ghostLayer.firstChild);
     if (state.ghost) {
-      const gp = pointAtFrac(roadBase, state.ghost.frac);
+      const gp = pointAtFrac(roadBase, progressToPathFrac(state.ghost.frac, n, finishFrac));
       const g = theme.buildAvatar('#94a3b8');
       g.setAttribute('transform', `translate(${gp.x},${gp.y}) scale(${scale})`);
       g.setAttribute('opacity', '0.55');
       ghostLayer.appendChild(g);
     }
 
-    // Avatar — walks to its new spot; CSS handles the smooth glide (see
-    // the .journey-avatar-layer transition in index.html's inline style
-    // below), so no animation library is needed for this simple a move.
     if (!avatarLayer.firstChild) avatarLayer.appendChild(theme.buildAvatar(theme.avatarFill, shadowId));
-    const you = pointAtFrac(roadBase, state.youFrac);
-    // Respect prefers-reduced-motion: the avatar still ends up in the
-    // right place, it just snaps instead of gliding — progress stays
-    // fully conveyed, the motion (the part some people asked their OS
-    // to minimize) is what's removed.
-    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    avatarLayer.style.transition = (entry.lastYouFrac === null || reduceMotion) ? 'none' : 'transform 650ms ease-in-out';
-    avatarLayer.setAttribute('transform', `translate(${you.x},${you.y}) scale(${scale})`);
-    entry.lastYouFrac = state.youFrac;
+    avatarLayer.style.transition = 'none';
 
-    if (state.summitLit && !entry.lastSummit && celebrate) {
-      const sp = screenPoint(svg, you.x, you.y - 10);
-      if (window.fireScreenConfetti) { window.fireScreenConfetti(sp.x, sp.y, 70); window.fireScreenConfetti(sp.x - 60, sp.y, 50); window.fireScreenConfetti(sp.x + 60, sp.y, 50); }
-      if (window.fireBalloons) window.fireBalloons(10);
+    // Football: the ball sits at the player's feet until the goal is
+    // scored, then in the net.
+    const scored = state.summitLit && !entry.shotPending;
+    const netBall = svg.querySelector('.journey-goal-ball');
+    if (netBall) netBall.style.display = scored ? '' : 'none';
+    const feetBall = avatarLayer.querySelector('.journey-feet-ball');
+    if (feetBall) feetBall.style.display = scored ? 'none' : '';
+
+    const from = entry.curFrac;
+    if (from === null || reduceMotion || Math.abs(targetFrac - from) < 0.0005) {
+      placeAvatar(entry, targetFrac, scale);
+      entry.curFrac = targetFrac;
+      arrivals.sort((a, b) => a.frac - b.frac).forEach(a => a.fire());
+    } else {
+      walkAvatar(entry, from, targetFrac, arrivals, scale);
     }
-    entry.lastSummit = state.summitLit;
 
     entry.lastState = state;
   }
@@ -1388,6 +1590,8 @@ const JourneyGame = (() => {
     resume() { /* CSS-driven, nothing to resume */ },
     destroy(container) {
       if (container) {
+        const entry = containers.get(container);
+        if (entry) stopWalk(entry);
         if (container._journeyRO) { container._journeyRO.disconnect(); delete container._journeyRO; }
         containers.delete(container);
         container.innerHTML = '';
