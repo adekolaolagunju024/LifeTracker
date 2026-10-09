@@ -43,8 +43,23 @@ const JourneyGame = (() => {
     const w = container.clientWidth || 300, h = container.clientHeight || 300;
     return (w < 560 || h > w) ? LAYOUTS.tall : LAYOUTS.wide;
   }
+  // A Catmull-Rom-to-Bezier spline through every waypoint — a smooth,
+  // winding curve instead of a straight-segment zigzag, while still
+  // passing through each layout point exactly (so getPointAtLength-based
+  // checkpoint positioning doesn't need to change at all).
   function pathD(points) {
-    return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+    if (points.length < 3) return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+    let d = `M${points[0].x},${points[0].y} `;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i - 1] || points[i];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[i + 2] || p2;
+      const c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+      d += `C${c1x.toFixed(2)},${c1y.toFixed(2)} ${c2x.toFixed(2)},${c2y.toFixed(2)} ${p2.x},${p2.y} `;
+    }
+    return d.trim();
   }
 
   const PHASES = [
@@ -103,9 +118,22 @@ const JourneyGame = (() => {
   // THEME: ROAD — "Road to the Goal". A winding toy-like path through a
   // bright daytime sky, to a shiny gold star.
   // ════════════════════════════════════════════════════════════════
-  function roadDecorate(svg, layout) {
+  function roadDecorate(svg, layout, glowId) {
+    // Parallax hill silhouettes behind the path — two layers tinted
+    // toward the sky's own horizon color (atmospheric perspective: the
+    // farther layer is paler/cooler) so the scene reads as having real
+    // depth instead of one flat painted backdrop.
+    svg.appendChild(el('path', {
+      d: `M 0 ${layout.h * 0.62} Q ${layout.w * 0.22} ${layout.h * 0.52} ${layout.w * 0.48} ${layout.h * 0.58} T ${layout.w} ${layout.h * 0.54} L ${layout.w} ${layout.h} L 0 ${layout.h} Z`,
+      fill: '#bcd9ce', opacity: 0.5,
+    }));
+    svg.appendChild(el('path', {
+      d: `M 0 ${layout.h * 0.74} Q ${layout.w * 0.3} ${layout.h * 0.66} ${layout.w * 0.55} ${layout.h * 0.7} T ${layout.w} ${layout.h * 0.68} L ${layout.w} ${layout.h} L 0 ${layout.h} Z`,
+      fill: '#8fc9a8', opacity: 0.6,
+    }));
+
     const sunCx = layout.w * 0.86, sunCy = layout.h * 0.12;
-    svg.appendChild(el('circle', { cx: sunCx, cy: sunCy, r: layout.w * 0.09, fill: '#ffffff', opacity: 0.4 }));
+    svg.appendChild(el('circle', { cx: sunCx, cy: sunCy, r: layout.w * 0.1, fill: '#ffe49a', opacity: 0.6, filter: glowId ? `url(#${glowId})` : undefined }));
     svg.appendChild(el('circle', { cx: sunCx, cy: sunCy, r: layout.w * 0.05, fill: '#ffd24a' }));
     cloudGroup(svg, layout, [[0.12, 0.1, 1], [0.28, 0.07, 0.75]]);
   }
@@ -171,8 +199,9 @@ const JourneyGame = (() => {
   // The goal marker — a shiny gold star badge (reads as "reward" to a kid
   // far more than a bullseye does), with a soft glow behind it and a
   // couple of small sparkle accents for polish.
-  function roadBuildGoal(x, y, gradId, shadowFilterId) {
+  function roadBuildGoal(x, y, gradId, shadowFilterId, glowId) {
     const g = el('g', { transform: `translate(${x},${y})` });
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 32, fill: '#ffd54a', opacity: 0.35, filter: glowId ? `url(#${glowId})` : undefined }));
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 27, fill: '#ffd54a', opacity: 0.28 }));
     const ring = el('g', { class: 'journey-ring-spin-rev', opacity: 0.9 });
     [0, 60, 120, 180, 240, 300].forEach(rot => {
@@ -300,8 +329,9 @@ const JourneyGame = (() => {
   // The goal marker — a glowing ringed planet with a soft highlight and
   // a few sparkles, drawn with the ring behind the planet body so it
   // reads correctly without needing a true front/back arc split.
-  function spaceBuildGoal(x, y, gradId, shadowFilterId) {
+  function spaceBuildGoal(x, y, gradId, shadowFilterId, glowId) {
     const g = el('g', { transform: `translate(${x},${y})` });
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 32, fill: '#ffb84a', opacity: 0.3, filter: glowId ? `url(#${glowId})` : undefined }));
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 27, fill: '#ffb84a', opacity: 0.22 }));
     g.appendChild(el('ellipse', { cx: 0, cy: 0, rx: 24, ry: 7, fill: 'none', stroke: '#ffd98a', 'stroke-width': 2.6, opacity: 0.85, transform: 'rotate(-18)' }));
     const planet = el('circle', {
@@ -421,8 +451,9 @@ const JourneyGame = (() => {
 
   // The goal marker — an open treasure chest with a gold trim band, a
   // latch, and a glowing gem peeking out, plus a couple of sparkles.
-  function oceanBuildGoal(x, y, gradId, shadowFilterId) {
+  function oceanBuildGoal(x, y, gradId, shadowFilterId, glowId) {
     const g = el('g', { transform: `translate(${x},${y})` });
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 30, fill: '#ffd54a', opacity: 0.3, filter: glowId ? `url(#${glowId})` : undefined }));
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 25, fill: '#ffd54a', opacity: 0.22 }));
     const chest = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
     chest.appendChild(el('rect', { x: -15, y: -2, width: 30, height: 15, rx: 2.4, fill: '#8b5e3c', stroke: '#5c3c22', 'stroke-width': 1.3 }));
@@ -520,8 +551,9 @@ const JourneyGame = (() => {
   // The goal marker — a gold trophy cup with handles and a base, plus a
   // few sparkles, matching the "shiny reward" language the other themes
   // use for their own goal markers.
-  function raceBuildGoal(x, y, gradId, shadowFilterId) {
+  function raceBuildGoal(x, y, gradId, shadowFilterId, glowId) {
     const g = el('g', { transform: `translate(${x},${y})` });
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 31, fill: '#ffd54a', opacity: 0.3, filter: glowId ? `url(#${glowId})` : undefined }));
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 26, fill: '#ffd54a', opacity: 0.22 }));
     const trophy = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
     trophy.appendChild(el('path', { d: 'M -9 -16 Q -9 -4 0 -2 Q 9 -4 9 -16 Z', fill: `url(#${gradId})`, stroke: '#b8780f', 'stroke-width': 1.3, 'stroke-linejoin': 'round' }));
@@ -590,7 +622,7 @@ const JourneyGame = (() => {
   const THEMES = {
     road: {
       label: 'Road', avatarFill: '#ff6b5b',
-      sky: [[0, '#8fd3fb'], [55, '#c7e9fd'], [100, '#fff3da']],
+      sky: [[0, '#4e8fd6'], [30, '#7fb8e8'], [58, '#bfe2f5'], [82, '#ffe4ae'], [100, '#ffcf8a']],
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#d8a862', fill: '#fff6e4', dash: '#f4a53b' },
       decorate: roadDecorate, buildAvatar: roadBuildAvatar, buildGoal: roadBuildGoal, buildCheckpoint: roadBuildCheckpoint,
@@ -634,7 +666,7 @@ const JourneyGame = (() => {
     }
     const layout = pickLayout(container);
     const id = ++uid; // scopes this build's <defs> ids so an older SVG's leftovers (if any) never bleed in
-    const skyId = `journey-sky-${id}`, shadowId = `journey-shadow-${id}`, goalGradId = `journey-goal-${id}`;
+    const skyId = `journey-sky-${id}`, shadowId = `journey-shadow-${id}`, goalGradId = `journey-goal-${id}`, glowId = `journey-glow-${id}`;
     const svg = el('svg', { viewBox: `0 0 ${layout.w} ${layout.h}`, preserveAspectRatio: 'xMidYMid meet', width: '100%', height: '100%', style: 'display:block', role: 'img' });
 
     // An SVG <title> is the standard accessible name for role="img" — a
@@ -663,6 +695,15 @@ const JourneyGame = (() => {
         filter.appendChild(el('feDropShadow', { dx: 0, dy: 1.6, stdDeviation: 1.4, 'flood-color': '#1f2937', 'flood-opacity': 0.3 }));
         return filter;
       })(),
+      (() => {
+        // A soft blur for bloom — a bright shape (the sun, the goal's
+        // outer glow) read as "lit" rather than "a flat circle" once its
+        // edge is softened like this, the same trick real bloom
+        // post-processing fakes with a blurred bright-pass layer.
+        const filter = el('filter', { id: glowId, x: '-200%', y: '-200%', width: '500%', height: '500%' });
+        filter.appendChild(el('feGaussianBlur', { stdDeviation: 6 }));
+        return filter;
+      })(),
     ]);
     svg.appendChild(defs);
 
@@ -671,7 +712,7 @@ const JourneyGame = (() => {
     // view's long history of "too busy/cluttered" feedback) — enough to
     // feel like a game world, not a scene to compete with the path itself.
     svg.appendChild(el('rect', { x: 0, y: 0, width: layout.w, height: layout.h, fill: `url(#${skyId})` }));
-    theme.decorate(svg, layout);
+    theme.decorate(svg, layout, glowId);
 
     // The path itself — a colored outline, a lighter fill on top, and a
     // dashed centerline, round caps/joins throughout so the winding
@@ -694,7 +735,7 @@ const JourneyGame = (() => {
 
     const goalLen = pathBase.getTotalLength();
     const goalPt = pathBase.getPointAtLength(goalLen);
-    svg.appendChild(theme.buildGoal(goalPt.x, goalPt.y, goalGradId, shadowId));
+    svg.appendChild(theme.buildGoal(goalPt.x, goalPt.y, goalGradId, shadowId, glowId));
     svg.appendChild(avatarLayer);
 
     container.appendChild(svg);
