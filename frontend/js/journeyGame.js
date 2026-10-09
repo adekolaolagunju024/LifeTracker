@@ -108,7 +108,7 @@ const JourneyGame = (() => {
   // minimum distance apart, then draws them back-to-front (sorted by y)
   // with a perspective scale — props higher up the scene are "farther"
   // and drawn smaller — so they layer and recede like real scenery.
-  function scatterProps(layer, layout, isClear, rand, { count, margin, spacing, minScale = 0.55, minY = 0, draw }) {
+  function scatterProps(layer, layout, isClear, rand, { count, margin, spacing, minScale = 0.55, minY = 0, sway = false, draw }) {
     const placed = [];
     for (let tries = 0; tries < count * 12 && placed.length < count; tries++) {
       const x = rand() * layout.w, y = rand() * layout.h;
@@ -119,7 +119,11 @@ const JourneyGame = (() => {
     placed.sort((a, b) => a.y - b.y).forEach(p => {
       const s = minScale + (1 - minScale) * (p.y / layout.h);
       const g = el('g', { transform: `translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) scale(${s.toFixed(3)})` });
-      draw(g, p.v);
+      // Swaying props animate an inner group, never the positioned one —
+      // a CSS transform would replace the translate/scale attribute.
+      const inner = sway ? el('g', { class: 'journey-sway', style: `animation-delay:${(-p.v * 4).toFixed(2)}s` }) : g;
+      if (sway) g.appendChild(inner);
+      draw(inner, p.v);
       layer.appendChild(g);
     });
   }
@@ -134,11 +138,13 @@ const JourneyGame = (() => {
   // both want a plain daytime sky.
   function cloudGroup(svg, layout, specs) {
     specs.forEach(([fx, fy, scale]) => {
-      const cg = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})`, opacity: 0.9 });
+      const pos = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})`, opacity: 0.9 });
+      const cg = el('g', { class: 'journey-cloud-drift', style: `animation-delay:${(-fx * 20).toFixed(1)}s` });
+      pos.appendChild(cg);
       cg.appendChild(el('ellipse', { cx: 1, cy: 8, rx: 26, ry: 6, fill: '#a9c4dc', opacity: 0.55 }));
       [[-14, 0, 11], [0, -4, 14], [15, 0, 10], [0, 5, 13]].forEach(([ex, ey, r]) => cg.appendChild(el('ellipse', { cx: ex, cy: ey, rx: r, ry: r * 0.7, fill: '#ffffff' })));
       cg.appendChild(el('ellipse', { cx: 0, cy: 7, rx: 22, ry: 3.4, fill: '#cfdeec', opacity: 0.8 }));
-      svg.appendChild(cg);
+      svg.appendChild(pos);
     });
   }
 
@@ -181,7 +187,7 @@ const JourneyGame = (() => {
   // highlight cap, a cast shadow), grass tufts, and small flower patches.
   function roadScatter(layer, layout, isClear, rand) {
     scatterProps(layer, layout, isClear, rand, {
-      count: 9, margin: 22, spacing: 46, minY: layout.h * 0.6,
+      count: 9, margin: 22, spacing: 46, minY: layout.h * 0.6, sway: true,
       draw(g, v) {
         g.appendChild(el('ellipse', { cx: 6, cy: 1, rx: 16, ry: 4.5, fill: '#0b1220', opacity: 0.2 }));
         g.appendChild(el('rect', { x: -2.4, y: -16, width: 4.8, height: 17, rx: 1.2, fill: '#7a4b2a' }));
@@ -203,7 +209,7 @@ const JourneyGame = (() => {
       },
     });
     scatterProps(layer, layout, isClear, rand, {
-      count: 22, margin: 4, spacing: 18, minY: layout.h * 0.58,
+      count: 22, margin: 4, spacing: 18, minY: layout.h * 0.58, sway: true,
       draw(g) { grassTuft(g, '#4f9a4f'); },
     });
     const petal = ['#ff7a9a', '#ffd24a', '#ffffff', '#b78cff'];
@@ -310,7 +316,8 @@ const JourneyGame = (() => {
     const g = el('g', { class: 'journey-flag' });
     if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 6 * s, cy: -20 * s, r: 15 * s, fill: NEXT_COLOR, opacity: 0.5 }));
     g.appendChild(el('rect', { x: -1.1 * s, y: -27 * s, width: 2.2 * s, height: 27 * s, fill: '#8b5e3c', stroke: '#5c3c22', 'stroke-width': 0.6 * s, rx: 0.8 * s }));
-    g.appendChild(el('path', {
+    const pennant = el('g', { class: 'journey-flag-wave' });
+    pennant.appendChild(el('path', {
       d: `M ${1.1 * s} ${-27 * s} Q ${14 * s} ${-23.6 * s} ${13.5 * s} ${-20.4 * s} Q ${13 * s} ${-17.2 * s} ${1.1 * s} ${-15.4 * s} Z`,
       fill: color, stroke: '#1f2937', 'stroke-width': 0.7 * s, 'stroke-linejoin': 'round',
       filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
@@ -320,7 +327,8 @@ const JourneyGame = (() => {
       'font-size': 7.6 * s, 'font-weight': 800, fill: isDone || isNext ? '#1f2937' : '#4b5563', 'font-family': 'Arial, sans-serif',
     });
     label.textContent = isDone ? '✓' : String(i + 1);
-    g.appendChild(label);
+    pennant.appendChild(label);
+    g.appendChild(pennant);
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.6 * s, fill: '#f4a53b', stroke: '#8b5e3c', 'stroke-width': 0.6 * s }));
     if (blocked) {
       // A real obstacle gate across the road, not just a status icon —
@@ -479,9 +487,18 @@ const JourneyGame = (() => {
     g.appendChild(label);
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.6 * s, fill: '#9aa5b1', stroke: '#4b5563', 'stroke-width': 0.6 * s }));
     if (blocked) {
-      const badge = el('text', { x: 11 * s, y: -27 * s, 'font-size': 8 * s, 'text-anchor': 'middle' });
-      badge.textContent = '🚧';
-      g.appendChild(badge);
+      // A big asteroid drifting into the flight path.
+      const ox = -22 * s, oy = -10 * s;
+      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy, r: 20 * s, fill: '#ef4444', opacity: 0.45 }));
+      const pos = el('g', { transform: `translate(${ox},${oy}) scale(${s})` });
+      const rock = el('g', { class: 'journey-asteroid', style: 'animation-duration:14s' });
+      rock.appendChild(el('path', { d: 'M -11 -3 L -5 -12 L 6 -11 L 12 -2 L 8 9 L -4 11 L -12 5 Z', fill: '#6b6f8a', stroke: '#2f3347', 'stroke-width': 0.9 }));
+      rock.appendChild(el('circle', { cx: -3, cy: -3, r: 3, fill: '#4b4f68' }));
+      rock.appendChild(el('circle', { cx: 5, cy: 4, r: 2, fill: '#4b4f68' }));
+      rock.appendChild(el('path', { d: 'M -9 -5 L -4 -10 L 4 -9.5', fill: 'none', stroke: '#a3a8c4', 'stroke-width': 1.2, 'stroke-linecap': 'round' }));
+      pos.appendChild(rock);
+      g.appendChild(pos);
+      g.appendChild(lockIcon(ox, oy - 20 * s, s));
     }
     return g;
   }
@@ -562,7 +579,7 @@ const JourneyGame = (() => {
   function oceanScatter(layer, layout, isClear, rand) {
     const coral = ['#ff7f8a', '#ff9f5a', '#c084fc'];
     scatterProps(layer, layout, isClear, rand, {
-      count: 7, margin: 18, spacing: 50,
+      count: 7, margin: 18, spacing: 50, sway: true,
       draw(g, v) {
         const c = coral[Math.floor(v * coral.length)];
         g.appendChild(el('ellipse', { cx: 0, cy: 1, rx: 12, ry: 3, fill: '#0b1220', opacity: 0.18 }));
@@ -645,9 +662,19 @@ const JourneyGame = (() => {
     label.textContent = isDone ? '✓' : String(i + 1);
     g.appendChild(label);
     if (blocked) {
-      const badge = el('text', { x: 11 * s, y: -24 * s, 'font-size': 8 * s, 'text-anchor': 'middle' });
-      badge.textContent = '🚧';
-      g.appendChild(badge);
+      // A small swarm of jellyfish drifting across the trail.
+      const ox = -24 * s, oy = -12 * s;
+      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy, r: 20 * s, fill: '#ef4444', opacity: 0.4 }));
+      [[-7, 2, 0], [6, -3, 0.6], [0, 8, 1.2]].forEach(([dx, dy, delay]) => {
+        const pos = el('g', { transform: `translate(${ox + dx * s},${oy + dy * s}) scale(${s})` });
+        const jelly = el('g', { class: 'journey-jelly', style: `animation-delay:${delay}s` });
+        jelly.appendChild(el('path', { d: 'M -5 0 Q -5 -7 0 -7 Q 5 -7 5 0 Z', fill: '#f0abfc', opacity: 0.85, stroke: '#a21caf', 'stroke-width': 0.5 }));
+        jelly.appendChild(el('ellipse', { cx: -1.6, cy: -4.6, rx: 1.6, ry: 1, fill: '#ffffff', opacity: 0.7 }));
+        [-3, -1, 1, 3].forEach(tx => jelly.appendChild(el('path', { d: `M ${tx} 0 Q ${tx + 1.2} 3 ${tx} 6 Q ${tx - 1.2} 8 ${tx} 10`, fill: 'none', stroke: '#e879f9', 'stroke-width': 0.7, opacity: 0.8 })));
+        pos.appendChild(jelly);
+        g.appendChild(pos);
+      });
+      g.appendChild(lockIcon(ox, oy - 18 * s, s));
     }
     return g;
   }
@@ -705,7 +732,7 @@ const JourneyGame = (() => {
       },
     });
     scatterProps(layer, layout, isClear, rand, {
-      count: 18, margin: 4, spacing: 20,
+      count: 18, margin: 4, spacing: 20, sway: true,
       draw(g) { grassTuft(g, '#3f8a3f'); },
     });
   }
@@ -800,11 +827,236 @@ const JourneyGame = (() => {
     label.textContent = isDone ? '✓' : String(i + 1);
     g.appendChild(label);
     if (blocked) {
-      const badge = el('text', { x: 10 * s, y: -20 * s, 'font-size': 8 * s, 'text-anchor': 'middle' });
-      badge.textContent = '🚧';
-      g.appendChild(badge);
+      // A crash-barrier wall of stacked tires across the track.
+      const ox = -24 * s, oy = 0;
+      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy - 8 * s, r: 20 * s, fill: '#ef4444', opacity: 0.45 }));
+      [-9, 0, 9].forEach(dx => {
+        [0, -5, -10].forEach(ty => {
+          g.appendChild(el('ellipse', { cx: ox + dx * s, cy: oy + ty * s, rx: 4.6 * s, ry: 2.2 * s, fill: '#1f2937', stroke: '#111827', 'stroke-width': 0.4 * s }));
+          g.appendChild(el('ellipse', { cx: ox + dx * s, cy: oy + (ty - 0.4) * s, rx: 2 * s, ry: 0.9 * s, fill: '#4b5563' }));
+        });
+      });
+      g.appendChild(el('rect', { x: ox - 14 * s, y: oy - 12.5 * s, width: 28 * s, height: 1.8 * s, fill: '#ef4444', opacity: 0.9 }));
+      g.appendChild(lockIcon(ox, oy - 24 * s, s));
     }
     return g;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // THEME: FOOTBALL — "Road to the Final". A floodlit, striped pitch with
+  // real markings, a footballer dribbling up the pitch, corner-flag
+  // checkpoints, a defensive wall for blockers, and the goal net.
+  // ════════════════════════════════════════════════════════════════
+  function footballDecorate(svg, layout, glowId, glowLgId) {
+    const { w, h } = layout;
+    const bands = 10;
+    for (let i = 0; i < bands; i++) {
+      svg.appendChild(el('rect', { x: 0, y: (i / bands) * h, width: w, height: h / bands + 1, fill: i % 2 === 0 ? '#4caf50' : '#43a047' }));
+    }
+
+    // Pitch markings — touchline, halfway line, centre circle and spot,
+    // and a penalty area + six-yard box + penalty arc at each end, the top
+    // one centred on the goal and the bottom one on the kick-off point.
+    const line = { fill: 'none', stroke: '#ffffff', 'stroke-width': 2, opacity: 0.7 };
+    const inset = 14;
+    svg.appendChild(el('rect', { x: inset, y: inset + h * 0.06, width: w - inset * 2, height: h - inset * 2 - h * 0.06, ...line }));
+    svg.appendChild(el('line', { x1: inset, y1: h * 0.53, x2: w - inset, y2: h * 0.53, ...line }));
+    const cr = Math.min(w, h) * 0.11;
+    svg.appendChild(el('circle', { cx: w / 2, cy: h * 0.53, r: cr, ...line }));
+    svg.appendChild(el('circle', { cx: w / 2, cy: h * 0.53, r: 2.4, fill: '#ffffff', opacity: 0.75 }));
+    const goalPt = layout.points[layout.points.length - 1], startPt = layout.points[0];
+    const boxW = Math.min(w * 0.42, 220), boxH = h * 0.14, sixW = boxW * 0.45, sixH = boxH * 0.4;
+    const topY = inset + h * 0.06, botY = h - inset;
+    const clampX = x => Math.max(inset + boxW / 2, Math.min(w - inset - boxW / 2, x));
+    const gx = clampX(goalPt.x), sx = clampX(startPt.x);
+    svg.appendChild(el('rect', { x: gx - boxW / 2, y: topY, width: boxW, height: boxH, ...line }));
+    svg.appendChild(el('rect', { x: gx - sixW / 2, y: topY, width: sixW, height: sixH, ...line }));
+    svg.appendChild(el('path', { d: `M ${gx - boxW * 0.2} ${topY + boxH} A ${boxW * 0.22} ${boxW * 0.22} 0 0 0 ${gx + boxW * 0.2} ${topY + boxH}`, ...line }));
+    svg.appendChild(el('rect', { x: sx - boxW / 2, y: botY - boxH, width: boxW, height: boxH, ...line }));
+    svg.appendChild(el('rect', { x: sx - sixW / 2, y: botY - sixH, width: sixW, height: sixH, ...line }));
+
+    // Floodlights at the two top corners — a pylon, a lamp bank, and a
+    // big blurred spill of light onto the pitch.
+    [[0.06, 1], [0.94, -1]].forEach(([fx, dir]) => {
+      const x = w * fx, y = h * 0.1;
+      svg.appendChild(el('ellipse', { cx: x + dir * w * 0.12, cy: h * 0.28, rx: w * 0.16, ry: h * 0.2, fill: '#fffbe0', opacity: 0.16, filter: glowLgId ? `url(#${glowLgId})` : undefined }));
+      svg.appendChild(el('rect', { x: x - 1.5, y, width: 3, height: h * 0.1, fill: '#9aa5b1' }));
+      svg.appendChild(el('rect', { x: x - 10, y: y - 6, width: 20, height: 9, rx: 1.5, fill: '#334155', stroke: '#1f2937', 'stroke-width': 0.6 }));
+      for (let i = 0; i < 4; i++) svg.appendChild(el('circle', { cx: x - 7 + i * 4.6, cy: y - 1.6, r: 1.6, fill: '#fffbe0' }));
+      svg.appendChild(el('circle', { cx: x, cy: y - 2, r: 14, fill: '#fff7c2', opacity: 0.5, filter: glowId ? `url(#${glowId})` : undefined }));
+    });
+
+    // The crowd in the stand along the top — home and away colours,
+    // each fan bobbing on its own beat.
+    svg.appendChild(el('rect', { x: 0, y: 0, width: w, height: h * 0.06, fill: '#1e293b' }));
+    const kit = ['#e53935', '#ffffff', '#1e88e5', '#fdd835', '#e53935'];
+    const fans = Math.round(w / 22);
+    for (let i = 0; i < fans; i++) {
+      svg.appendChild(el('circle', {
+        class: 'journey-crowd-bob', cx: (i + 0.5) * (w / fans), cy: h * 0.03 + (i % 2 ? 2 : -2), r: 3.2,
+        fill: kit[i % kit.length], style: `animation-delay:${((i % 9) * 0.13).toFixed(2)}s`,
+      }));
+    }
+
+    // Corner flags at the four pitch corners.
+    [[inset, topY], [w - inset, topY], [inset, botY], [w - inset, botY]].forEach(([x, y]) => {
+      const pole = el('g', { transform: `translate(${x},${y})` });
+      pole.appendChild(el('rect', { x: -0.8, y: -14, width: 1.6, height: 14, fill: '#f8fafc' }));
+      const pos = el('g', { transform: 'translate(0.8,-14)' });
+      const flag = el('g', { class: 'journey-flag-wave' });
+      flag.appendChild(el('path', { d: 'M 0 0 L 9 2.5 L 0 5 Z', fill: '#fdd835', stroke: '#b45309', 'stroke-width': 0.4 }));
+      pos.appendChild(flag);
+      pole.appendChild(pos);
+      svg.appendChild(pole);
+    });
+  }
+
+  // Pitch scenery — a few spare training balls and cones on the grass.
+  function footballScatter(layer, layout, isClear, rand) {
+    scatterProps(layer, layout, isClear, rand, {
+      count: 6, margin: 10, spacing: 60, minY: layout.h * 0.12,
+      draw(g, v) {
+        g.appendChild(el('ellipse', { cx: 2, cy: 1, rx: 6, ry: 2, fill: '#0b1220', opacity: 0.25 }));
+        if (v < 0.5) {
+          footballBall(g, 0, -4, 4.5);
+        } else {
+          g.appendChild(el('path', { d: 'M -5 0 L -1.6 -9 L 1.6 -9 L 5 0 Z', fill: '#ff9800', stroke: '#9a3412', 'stroke-width': 0.5 }));
+          g.appendChild(el('rect', { x: -2.4, y: -6, width: 4.8, height: 1.6, fill: '#ffffff', opacity: 0.85 }));
+        }
+      },
+    });
+  }
+
+  // A football — white with dark panels and a highlight, so it reads
+  // as a ball rather than a white dot even at small sizes.
+  function footballBall(g, cx, cy, r) {
+    g.appendChild(el('circle', { cx, cy, r, fill: '#ffffff', stroke: '#1f2937', 'stroke-width': r * 0.12 }));
+    g.appendChild(el('path', { d: starPath(r * 0.42, r * 0.3, 5), transform: `translate(${cx},${cy})`, fill: '#1f2937' }));
+    [[-0.72, -0.5], [0.72, -0.5], [0.5, 0.75], [-0.5, 0.75]].forEach(([dx, dy]) => {
+      g.appendChild(el('circle', { cx: cx + dx * r, cy: cy + dy * r, r: r * 0.18, fill: '#1f2937' }));
+    });
+    g.appendChild(el('ellipse', { cx: cx - r * 0.35, cy: cy - r * 0.4, rx: r * 0.35, ry: r * 0.22, fill: '#ffffff', opacity: 0.8 }));
+  }
+
+  // A footballer in kit — same limb rig as the Road runner (arms/legs
+  // swing from their own pivots), with the passed-in "fill" as the shirt
+  // colour, white socks, boots, shorts, a shirt number, and a ball at
+  // their feet that spins as they dribble.
+  function footballBuildAvatar(fill, shadowFilterId) {
+    const g = el('g', { class: 'journey-avatar' });
+    g.appendChild(el('ellipse', { cx: 2, cy: 24, rx: 17, ry: 3.6, fill: '#0b1220', opacity: 0.28 }));
+    const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+
+    bob.appendChild(roadLimb('journey-leg-back', '#f1f5f9', -3.4, 9, 4.2, 10, 3.2, 1.8, '#111827'));
+    bob.appendChild(roadLimb('journey-arm-back', fill, -7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+
+    bob.appendChild(el('rect', { x: -8.6, y: -9, width: 17.2, height: 15, rx: 6.5, fill, stroke: '#1f2937', 'stroke-width': 1 }));
+    bob.appendChild(el('rect', { x: -8.2, y: 3, width: 16.4, height: 7.5, rx: 2.5, fill: '#1f2937' }));
+    bob.appendChild(el('ellipse', { cx: -3.6, cy: -4, rx: 4.2, ry: 5, fill: '#ffffff', opacity: 0.2 }));
+    bob.appendChild(el('path', { d: 'M -3 -9 L 0 -5.5 L 3 -9', fill: 'none', stroke: '#ffffff', 'stroke-width': 1.1, opacity: 0.85 }));
+    const num = el('text', { x: 0, y: -0.5, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 6.5, 'font-weight': 800, fill: '#ffffff', 'font-family': 'Arial, sans-serif' });
+    num.textContent = '10';
+    bob.appendChild(num);
+
+    bob.appendChild(roadLimb('journey-leg-front', '#f8fafc', 3.4, 9, 4.2, 10, 3.2, 1.8, '#111827'));
+    bob.appendChild(roadLimb('journey-arm-front', fill, 7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+
+    const head = el('g', { transform: 'translate(0,-17.5)' });
+    head.appendChild(el('circle', { cx: 0, cy: 0, r: 8.6, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 1 }));
+    head.appendChild(el('path', { d: 'M -8.6 -2 Q -9 -10 0 -10 Q 9 -10 8.6 -2 Q 6 -6 0 -6.5 Q -6 -6 -8.6 -2 Z', fill: '#2b1a10' }));
+    head.appendChild(el('ellipse', { cx: -3, cy: -2.6, rx: 3.6, ry: 2.2, fill: '#ffffff', opacity: 0.25 }));
+    [[-3, 0.5], [3, 0.5]].forEach(([ex, ey]) => {
+      head.appendChild(el('ellipse', { cx: ex, cy: ey, rx: 1.7, ry: 2.1, fill: '#ffffff' }));
+      head.appendChild(el('circle', { cx: ex + 0.3, cy: ey + 0.4, r: 1.1, fill: '#1f2937' }));
+    });
+    head.appendChild(el('path', { d: 'M -2.4 4.2 Q 0 6 2.4 4.2', fill: 'none', stroke: '#1f2937', 'stroke-width': 1, 'stroke-linecap': 'round' }));
+    bob.appendChild(head);
+    g.appendChild(bob);
+
+    const ballPos = el('g', { transform: 'translate(10,19.5)' });
+    const ball = el('g', { class: 'journey-ball-dribble' });
+    footballBall(ball, 0, 0, 4.2);
+    ballPos.appendChild(ball);
+    g.appendChild(ballPos);
+    return g;
+  }
+
+  // The goal — posts and crossbar, a meshed net drawn with depth (the
+  // back frame sits higher, i.e. farther away), a ball tucked in the net,
+  // and the net gently rippling.
+  function footballBuildGoal(x, y, gradId, shadowFilterId, glowId) {
+    const g = el('g', { transform: `translate(${x},${y})` });
+    g.appendChild(el('circle', { cx: 0, cy: -6, r: 34, fill: '#fff7c2', opacity: 0.3, filter: glowId ? `url(#${glowId})` : undefined }));
+    g.appendChild(el('ellipse', { cx: 0, cy: 5, rx: 28, ry: 4, fill: '#0b1220', opacity: 0.22 }));
+    const net = el('g', { class: 'journey-net-ripple' });
+    net.appendChild(el('path', { d: 'M -24 4 L -24 -20 L -18 -28 L 18 -28 L 24 -20 L 24 4 Z', fill: '#ffffff', opacity: 0.18 }));
+    for (let i = -20; i <= 20; i += 4) net.appendChild(el('line', { x1: i, y1: 4, x2: i * 0.75, y2: -28, stroke: '#ffffff', 'stroke-width': 0.5, opacity: 0.6 }));
+    for (let j = 0; j <= 7; j++) {
+      const yy = 4 - j * 4.6, k = 1 - (j / 7) * 0.25;
+      net.appendChild(el('line', { x1: -24 * k, y1: yy, x2: 24 * k, y2: yy, stroke: '#ffffff', 'stroke-width': 0.5, opacity: 0.55 }));
+    }
+    g.appendChild(net);
+    footballBall(g, 6, -6, 4.4);
+    const frame = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    frame.appendChild(el('path', { d: 'M -24 4 L -24 -20 L 24 -20 L 24 4', fill: 'none', stroke: '#cbd5e1', 'stroke-width': 3.6, 'stroke-linejoin': 'round', transform: 'translate(0.8,0.8)' }));
+    frame.appendChild(el('path', { d: 'M -24 4 L -24 -20 L 24 -20 L 24 4', fill: 'none', stroke: '#ffffff', 'stroke-width': 3, 'stroke-linejoin': 'round' }));
+    frame.appendChild(el('path', { d: 'M -24 -20 L -18 -28 L 18 -28 L 24 -20', fill: 'none', stroke: '#e2e8f0', 'stroke-width': 1.4 }));
+    g.appendChild(frame);
+    [[-30, -26, 2.4], [30, -18, 1.8], [26, 10, 2]].forEach(([sx, sy, r], i) => {
+      g.appendChild(el('path', { class: `journey-sparkle d${i}`, d: starPath(r, r * 0.35, 4), transform: `translate(${sx},${sy})`, fill: '#ffffff', opacity: 0.9 }));
+    });
+    return g;
+  }
+
+  // A checkpoint — a red/white striped corner-flag post with a
+  // status-coloured flag; a blocked one gets a defensive wall in front
+  // of it to get past, with a warning glow.
+  function footballBuildCheckpoint(i, isDone, isNext, blocked, scale, shadowFilterId) {
+    const color = isDone ? DONE_COLOR : isNext ? NEXT_COLOR : PENDING_COLOR;
+    const s = scale;
+    const g = el('g', { class: 'journey-flag' });
+    if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 5 * s, cy: -20 * s, r: 15 * s, fill: NEXT_COLOR, opacity: 0.5 }));
+    g.appendChild(el('ellipse', { cx: 2 * s, cy: 0.5 * s, rx: 6 * s, ry: 1.8 * s, fill: '#0b1220', opacity: 0.25 }));
+    for (let k = 0; k < 5; k++) {
+      g.appendChild(el('rect', { x: -1.1 * s, y: (-27 + k * 5.4) * s, width: 2.2 * s, height: 5.4 * s, fill: k % 2 ? '#ffffff' : '#e53935' }));
+    }
+    const pos = el('g', { transform: `translate(${1.1 * s},${-27 * s})` });
+    const flag = el('g', { class: 'journey-flag-wave' });
+    flag.appendChild(el('path', {
+      d: `M 0 0 L ${14 * s} ${4.2 * s} L 0 ${8.4 * s} Z`, fill: color, stroke: '#1f2937', 'stroke-width': 0.6 * s, 'stroke-linejoin': 'round',
+      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
+    }));
+    const label = el('text', {
+      x: 4.6 * s, y: 4.4 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': 6.4 * s, 'font-weight': 800, fill: '#1f2937', 'font-family': 'Arial, sans-serif',
+    });
+    label.textContent = isDone ? '✓' : String(i + 1);
+    flag.appendChild(label);
+    pos.appendChild(flag);
+    g.appendChild(pos);
+    if (blocked) {
+      const ox = -24 * s, oy = 0;
+      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy - 10 * s, r: 20 * s, fill: '#ef4444', opacity: 0.45 }));
+      [-9, 0, 9].forEach(dx => {
+        const d = el('g', { transform: `translate(${ox + dx * s},${oy})` });
+        d.appendChild(el('rect', { x: -1.8 * s, y: -6 * s, width: 1.6 * s, height: 6 * s, fill: '#f1f5f9' }));
+        d.appendChild(el('rect', { x: 0.2 * s, y: -6 * s, width: 1.6 * s, height: 6 * s, fill: '#f1f5f9' }));
+        d.appendChild(el('rect', { x: -3.4 * s, y: -15 * s, width: 6.8 * s, height: 9.5 * s, rx: 2.2 * s, fill: '#1e88e5', stroke: '#0d47a1', 'stroke-width': 0.5 * s }));
+        d.appendChild(el('circle', { cx: 0, cy: -18 * s, r: 3 * s, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 0.4 * s }));
+        g.appendChild(d);
+      });
+      g.appendChild(lockIcon(ox, -28 * s, s));
+    }
+    return g;
+  }
+
+  // A small padlock — shared "this is blocked" marker on every theme's
+  // obstacle so the meaning stays consistent across stages.
+  function lockIcon(x, y, s) {
+    const lock = el('g', { transform: `translate(${x},${y})` });
+    lock.appendChild(el('rect', { x: -5 * s, y: -1 * s, width: 10 * s, height: 8 * s, rx: 1.8 * s, fill: '#f4b400', stroke: '#7c5700', 'stroke-width': 0.9 * s }));
+    lock.appendChild(el('path', { d: `M ${-2.6 * s} ${-1 * s} L ${-2.6 * s} ${-4.4 * s} A ${2.6 * s} ${2.6 * s} 0 0 1 ${2.6 * s} ${-4.4 * s} L ${2.6 * s} ${-1 * s}`, fill: 'none', stroke: '#7c5700', 'stroke-width': 1.3 * s }));
+    return lock;
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -840,6 +1092,13 @@ const JourneyGame = (() => {
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#1f2937', fill: '#6b7280', dash: '#ffffff' },
       decorate: raceDecorate, scatter: raceScatter, buildAvatar: raceBuildAvatar, buildGoal: raceBuildGoal, buildCheckpoint: raceBuildCheckpoint,
+    },
+    football: {
+      label: 'Football', avatarFill: '#e53935',
+      sky: [[0, '#1e293b'], [6, '#4caf50'], [100, '#43a047']],
+      goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
+      path: { outline: '#2e7d32', fill: '#8bc98e', dash: '#ffffff' },
+      decorate: footballDecorate, scatter: footballScatter, buildAvatar: footballBuildAvatar, buildGoal: footballBuildGoal, buildCheckpoint: footballBuildCheckpoint,
     },
   };
   function resolveThemeKey(key) { return THEMES[key] ? key : 'road'; }
