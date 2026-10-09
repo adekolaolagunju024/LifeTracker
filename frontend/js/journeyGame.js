@@ -247,12 +247,30 @@ const JourneyGame = (() => {
     [0.1, 0.75, 1.3], [0.3, 0.85, 1], [0.52, 0.82, 1.5], [0.68, 0.9, 1],
   ];
   function spaceDecorate(svg, layout) {
-    SPACE_STARS.forEach(([fx, fy, r]) => {
-      svg.appendChild(el('circle', { cx: layout.w * fx, cy: layout.h * fy, r, fill: '#ffffff', opacity: 0.55 + (r - 1) * 0.3 }));
+    SPACE_STARS.forEach(([fx, fy, r], i) => {
+      svg.appendChild(el('circle', {
+        class: 'journey-star-twinkle', cx: layout.w * fx, cy: layout.h * fy, r,
+        fill: '#ffffff', opacity: 0.55 + (r - 1) * 0.3, style: `animation-delay:${(i * 0.3 % 2.4).toFixed(1)}s`,
+      }));
     });
     const pcx = layout.w * 0.86, pcy = layout.h * 0.14;
     svg.appendChild(el('circle', { cx: pcx, cy: pcy, r: layout.w * 0.045, fill: '#7c6bc4', opacity: 0.55 }));
     svg.appendChild(el('ellipse', { cx: pcx, cy: pcy, rx: layout.w * 0.065, ry: layout.w * 0.018, fill: 'none', stroke: '#a996e0', 'stroke-width': 1.6, opacity: 0.5, transform: `rotate(-14 ${pcx} ${pcy})` }));
+
+    // A comet streaking across on a long, slow loop — a bright head with
+    // a fading tail, drawn once and swept by the CSS animation rather
+    // than redrawn, so it costs nothing extra per sync().
+    const comet = el('g', { class: 'journey-comet', transform: `translate(${layout.w * 0.78},${layout.h * 0.1})` });
+    comet.appendChild(el('path', { d: 'M 0,0 L 50,-32', fill: 'none', stroke: '#cfe3ff', 'stroke-width': 2, opacity: 0.5, 'stroke-linecap': 'round' }));
+    comet.appendChild(el('circle', { cx: 0, cy: 0, r: 2.6, fill: '#ffffff' }));
+    svg.appendChild(comet);
+
+    // Loose tumbling asteroid chunks drifting through the background.
+    [[0.5, 0.18, 1, 7], [0.3, 0.32, 0.7, 5.5], [0.62, 0.45, 0.55, 4.5]].forEach(([fx, fy, scale, dur]) => {
+      const g = el('g', { class: 'journey-asteroid', style: `animation-duration:${dur}s`, transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})`, opacity: 0.6 });
+      g.appendChild(el('path', { d: 'M -5 -2 L -2 -6 L 4 -5 L 6 0 L 3 5 L -4 4 L -6 1 Z', fill: '#5b5f78', stroke: '#2f3347', 'stroke-width': 0.6 }));
+      svg.appendChild(g);
+    });
   }
 
   // A chibi astronaut — the passed-in "fill" tints the chest accent
@@ -452,6 +470,22 @@ const JourneyGame = (() => {
   // ════════════════════════════════════════════════════════════════
   function raceDecorate(svg, layout) {
     cloudGroup(svg, layout, [[0.14, 0.09, 0.9], [0.3, 0.06, 0.7]]);
+
+    // A cheering crowd in the grandstand along the top edge — rows of
+    // small bobbing dots in varied colors, each on its own bob delay so
+    // the stand reads as restless rather than uniformly ticking.
+    const stand = el('g', { opacity: 0.55 });
+    stand.appendChild(el('rect', { x: 0, y: 0, width: layout.w, height: layout.h * 0.07, fill: '#334155' }));
+    const crowdColors = ['#f87171', '#fbbf24', '#60a5fa', '#34d399', '#f472b6'];
+    for (let i = 0; i < 26; i++) {
+      const cx = (i + 0.5) * (layout.w / 26);
+      const cy = layout.h * 0.035 + (i % 2 === 0 ? 2 : -2);
+      stand.appendChild(el('circle', {
+        class: 'journey-crowd-bob', cx, cy, r: 3.4, fill: crowdColors[i % crowdColors.length],
+        style: `animation-delay:${((i % 7) * 0.15).toFixed(2)}s`,
+      }));
+    }
+    svg.appendChild(stand);
   }
 
   // A race car — the passed-in "fill" is the body color directly
@@ -471,6 +505,15 @@ const JourneyGame = (() => {
     bob.appendChild(el('rect', { x: -15.4, y: 1.4, width: 2.6, height: 4, rx: 1, fill: '#1f2937' }));
     bob.appendChild(el('rect', { x: 12.8, y: 1.4, width: 2.6, height: 4, rx: 1, fill: '#1f2937' }));
     g.appendChild(bob);
+
+    // Speed lines trailing behind the car — three short dashes that
+    // flash and retreat on a loop, selling motion even while the car
+    // itself is only gliding between fixed points.
+    const speed = el('g', { opacity: 0.8 });
+    [[-18, -4, 0], [-20, 2, 0.12], [-17, 7, 0.22]].forEach(([sx, sy, delay]) => {
+      speed.appendChild(el('rect', { class: 'journey-speedline', x: sx, y: sy, width: 8, height: 1.6, rx: 0.8, fill: '#e2e8f0', style: `animation-delay:${delay}s` }));
+    });
+    g.appendChild(speed);
     return g;
   }
 
@@ -487,6 +530,24 @@ const JourneyGame = (() => {
     trophy.appendChild(el('rect', { x: -1.6, y: -2, width: 3.2, height: 6, fill: '#f3b429' }));
     trophy.appendChild(el('path', { d: 'M -7 4 L 7 4 L 5 8 L -5 8 Z', fill: '#f3b429', stroke: '#b8780f', 'stroke-width': 1 }));
     g.appendChild(trophy);
+
+    // A waving checkered flag planted beside the trophy — the classic
+    // "race over" signal, flapping via a CSS skew on the flag only (the
+    // pole stays rigid).
+    const flagPole = el('g', { transform: 'translate(16,-6)' });
+    flagPole.appendChild(el('rect', { x: -0.9, y: -22, width: 1.8, height: 22, fill: '#9aa5b1', stroke: '#4b5563', 'stroke-width': 0.5 }));
+    const flag = el('g', { class: 'journey-flag-wave', transform: 'translate(0.9,-22)' });
+    const checker = el('g');
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 5; c++) {
+        if ((r + c) % 2 === 0) checker.appendChild(el('rect', { x: c * 2.6, y: r * 2.2, width: 2.6, height: 2.2, fill: '#1f2937' }));
+      }
+    }
+    flag.appendChild(el('rect', { x: 0, y: 0, width: 13, height: 8.8, fill: '#ffffff', stroke: '#1f2937', 'stroke-width': 0.5 }));
+    flag.appendChild(checker);
+    flagPole.appendChild(flag);
+    g.appendChild(flagPole);
+
     [[-18, -14, 2.4], [18, -10, 1.8], [14, 10, 2]].forEach(([sx, sy, r]) => {
       g.appendChild(el('path', { d: starPath(r, r * 0.35, 4), transform: `translate(${sx},${sy})`, fill: '#ffffff', opacity: 0.85 }));
     });

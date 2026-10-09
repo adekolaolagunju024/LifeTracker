@@ -188,11 +188,36 @@
     @keyframes journey-shark-swim { 0%, 100% { transform: translateX(0) scaleX(1); } 48% { transform: translateX(60px) scaleX(1); } 50% { transform: translateX(60px) scaleX(-1); } 98% { transform: translateX(0) scaleX(-1); } 100% { transform: translateX(0) scaleX(1); } }
     @keyframes journey-bubble-rise { 0% { transform: translateY(0); opacity: .5; } 90% { opacity: .5; } 100% { transform: translateY(-70px); opacity: 0; } }
     @keyframes journey-seaweed-sway { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+    /* Space theme ambient life — stars twinkle, a comet streaks across
+       on a long loop, and loose asteroid chunks tumble slowly. */
+    .journey-star-twinkle { animation: journey-twinkle 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    .journey-comet { animation: journey-comet 6s linear infinite; }
+    .journey-asteroid { animation: journey-asteroid-tumble 9s linear infinite; transform-box: fill-box; transform-origin: center; }
+    @keyframes journey-twinkle { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+    @keyframes journey-comet {
+      0% { transform: translate(0,0); opacity: 0; }
+      5% { opacity: .9; } 22% { opacity: 0; }
+      25%, 100% { transform: translate(-140px,90px); opacity: 0; }
+    }
+    @keyframes journey-asteroid-tumble { from { transform: rotate(0deg) translateX(0); } 50% { transform: rotate(180deg) translateX(8px); } to { transform: rotate(360deg) translateX(0); } }
+
+    /* Race theme ambient life — a cheering crowd in the stands bobs,
+       a checkered flag flutters at the goal, and speed lines flash
+       behind the car to sell motion. */
+    .journey-crowd-bob { animation: journey-crowd-bob 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+    .journey-flag-wave { animation: journey-flag-wave 1s ease-in-out infinite; transform-box: fill-box; transform-origin: left center; }
+    .journey-speedline { animation: journey-speedline 0.5s ease-out infinite; }
+    @keyframes journey-crowd-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
+    @keyframes journey-flag-wave { 0%, 100% { transform: skewY(-4deg); } 50% { transform: skewY(4deg); } }
+    @keyframes journey-speedline { 0% { opacity: .7; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-14px); } }
+
     @media (prefers-reduced-motion: reduce) {
       .journey-avatar-bob, .journey-next-glow, .journey-blocked-glow,
       .journey-leg-front, .journey-leg-back, .journey-arm-front, .journey-arm-back, .journey-cape,
       .journey-ring-spin, .journey-ring-spin-rev, .journey-shine,
-      .journey-fish-swim, .journey-shark-swim, .journey-bubble-rise, .journey-seaweed { animation: none; }
+      .journey-fish-swim, .journey-shark-swim, .journey-bubble-rise, .journey-seaweed,
+      .journey-star-twinkle, .journey-comet, .journey-asteroid,
+      .journey-crowd-bob, .journey-flag-wave, .journey-speedline { animation: none; }
     }
 
     /* Native-feeling iOS toggle switch, reused anywhere a setting is a
