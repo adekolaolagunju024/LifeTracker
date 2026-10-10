@@ -16,8 +16,8 @@ async function request(method, path, body = null) {
 
   if (!res.ok) {
     const text = await res.text();
-    let message = text;
-    try { message = JSON.parse(text).error || text; } catch {}
+    let message = text, code;
+    try { const j = JSON.parse(text); message = j.error || text; code = j.code; } catch {}
 
     // A session that expired mid-use — reload so app.js re-checks auth
     // and shows the login screen. Never do this for the auth endpoints
@@ -25,7 +25,9 @@ async function request(method, path, body = null) {
     if (res.status === 401 && !path.startsWith('/auth')) {
       window.location.reload();
     }
-    throw new Error(message);
+    const err = new Error(message);
+    if (code) err.code = code; // e.g. BLOCKERS_PENDING, WAITING_ON_PREDECESSORS
+    throw err;
   }
   return res.json();
 }
@@ -138,6 +140,7 @@ const API = {
   addObstacle:        (taskId, name, count) => request('POST', `/tasks/${taskId}/obstacles`, { name, count }),
   updateObstacle:     (obstacleId, changes) => request('PUT', `/tasks/obstacles/${obstacleId}`, changes),
   deleteObstacle:     (obstacleId)   => request('DELETE', `/tasks/obstacles/${obstacleId}`),
+  setPredecessors:    (taskId, predecessorIds) => request('PUT', `/tasks/${taskId}/predecessors`, { predecessorIds }),
 
   // ── PROJECT CHAT (project-wide) ──
   getProjectMessages:   (projectId)       => request('GET',    `/projects/${projectId}/messages`),

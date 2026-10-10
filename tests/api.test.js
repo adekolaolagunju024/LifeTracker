@@ -180,6 +180,62 @@ test('obstacles can be added to a task, edited, listed with it, and removed', as
   assert.equal(peek.status, 404, "another account can't see this task's obstacles");
 });
 
+test("a task can't be completed while any of its blockers is still pending", async () => {
+  const cookie = sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true })));
+  const project = await (await fetch(`${server.base}/api/projects`, json({ title: 'Gate check' }, cookie))).json();
+  const task = await (await fetch(`${server.base}/api/tasks`, json({ projectId: project.id, title: 'Open the shop', status: 'Not Started', priority: 'Medium' }, cookie))).json();
+  const put = (url, body) => fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(body) });
+  const a = await (await fetch(`${server.base}/api/tasks/${task.id}/obstacles`, json({ name: 'Licence', count: 1 }, cookie))).json();
+  const b = await (await fetch(`${server.base}/api/tasks/${task.id}/obstacles`, json({ name: 'Signage', count: 1 }, cookie))).json();
+
+  const started = await put(`${server.base}/api/tasks/${task.id}`, { status: 'In Progress' });
+  assert.equal(started.status, 200, 'blockers only gate completion, not starting');
+  await put(`${server.base}/api/tasks/obstacles/${a.id}`, { resolved: true });
+  const refused = await put(`${server.base}/api/tasks/${task.id}`, { status: 'Completed' });
+  assert.equal(refused.status, 409);
+  const body = await refused.json();
+  assert.equal(body.code, 'BLOCKERS_PENDING');
+  assert.deepEqual(body.names, ['Signage'], 'the error names only the blockers still pending');
+
+  await put(`${server.base}/api/tasks/obstacles/${b.id}`, { resolved: true });
+  const done = await put(`${server.base}/api/tasks/${task.id}`, { status: 'Completed' });
+  assert.equal(done.status, 200, 'with every blocker cleared it completes');
+});
+
+test("a task waits for its predecessors before it can start or be completed", async () => {
+  const cookie = sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true })));
+  const project = await (await fetch(`${server.base}/api/projects`, json({ title: 'Dependency check' }, cookie))).json();
+  const mk = async title => (await fetch(`${server.base}/api/tasks`, json({ projectId: project.id, title, status: 'Not Started', priority: 'Medium' }, cookie))).json();
+  const theory = await mk('Theory test'), practical = await mk('Practical test'), lessons = await mk('Lessons');
+  const put = (url, body) => fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(body) });
+
+  const linked = await (await put(`${server.base}/api/tasks/${practical.id}/predecessors`, { predecessorIds: [theory.id, lessons.id] })).json();
+  assert.deepEqual(linked.predecessors.map(p => p.title), ['Theory test', 'Lessons']);
+
+  const early = await put(`${server.base}/api/tasks/${practical.id}`, { status: 'In Progress' });
+  assert.equal(early.status, 409);
+  const body = await early.json();
+  assert.equal(body.code, 'WAITING_ON_PREDECESSORS');
+  assert.deepEqual(body.names, ['Theory test', 'Lessons']);
+
+  await put(`${server.base}/api/tasks/${theory.id}`, { status: 'Completed' });
+  const stillWaiting = await (await put(`${server.base}/api/tasks/${practical.id}`, { status: 'Completed' })).json();
+  assert.deepEqual(stillWaiting.names, ['Lessons'], 'only the unfinished predecessor is still in the way');
+  await put(`${server.base}/api/tasks/${lessons.id}`, { status: 'Completed' });
+  assert.equal((await put(`${server.base}/api/tasks/${practical.id}`, { status: 'In Progress' })).status, 200);
+
+  const loop = await put(`${server.base}/api/tasks/${theory.id}/predecessors`, { predecessorIds: [practical.id] });
+  assert.equal(loop.status, 400, 'a loop of dependencies is refused');
+  const self = await put(`${server.base}/api/tasks/${theory.id}/predecessors`, { predecessorIds: [theory.id] });
+  assert.equal(self.status, 400, "a task can't depend on itself");
+  const other = await (await fetch(`${server.base}/api/projects`, json({ title: 'Elsewhere' }, cookie))).json();
+  const outsider = await (await fetch(`${server.base}/api/tasks`, json({ projectId: other.id, title: 'Other', status: 'Not Started', priority: 'Medium' }, cookie))).json();
+  assert.equal((await put(`${server.base}/api/tasks/${theory.id}/predecessors`, { predecessorIds: [outsider.id] })).status, 400, 'predecessors come from the same project');
+
+  const listed = await (await fetch(`${server.base}/api/tasks?projectId=${project.id}`, { headers: { Cookie: cookie } })).json();
+  assert.deepEqual(listed.find(t => t.id === practical.id).predecessors.map(p => [p.title, p.status]), [['Theory test', 'Completed'], ['Lessons', 'Completed']]);
+});
+
 test('completing a task awards Journey XP and reports it on the response', async () => {
   const reg = await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true }));
   const cookie = sessionCookie(reg);

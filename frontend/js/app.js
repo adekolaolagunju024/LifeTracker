@@ -226,6 +226,32 @@ async function tickBlocker(taskId, obstacleId, checkbox) {
   if (APP_currentDetailTaskId === taskId) refreshObstacles(taskId);
   if (resolved && name) showToast(`⚔️ "${name}" cleared!`);
 }
+// ── Task gates: a task can't start until its predecessors are done, and
+// can't be completed while any blocker is pending (the server enforces
+// both; these mirror it for instant feedback and for the UI hints).
+function waitingOn(t) {
+  return (t.predecessors || []).filter(p => p.status !== 'Completed');
+}
+function taskGateMessage(t, nextStatus) {
+  if (!t || nextStatus === 'Not Started') return '';
+  const waiting = waitingOn(t);
+  if (waiting.length) return `🔗 "${t.title}" is waiting on ${waiting.map(p => `"${p.title}"`).join(', ')}. Finish ${waiting.length === 1 ? 'it' : 'those'} first.`;
+  const pending = (t.obstacles || []).filter(o => !o.resolved);
+  if (nextStatus === 'Completed' && pending.length) return `⚔️ Clear the blockers on "${t.title}" first: ${pending.map(o => `"${o.name}"`).join(', ')}.`;
+  return '';
+}
+function taskErrorToast(e, fallback) {
+  const icon = e && e.code === 'BLOCKERS_PENDING' ? '⚔️ ' : e && e.code === 'WAITING_ON_PREDECESSORS' ? '🔗 ' : '❌ ';
+  showToast(icon + ((e && e.message) || fallback), 'error');
+}
+// A small "waiting on" marker for task rows and cards.
+function waitingBadge(t) {
+  const waiting = t.status === 'Completed' ? [] : waitingOn(t);
+  if (!waiting.length) return '';
+  const names = waiting.map(p => p.title).join(', ');
+  return `<button type="button" onclick="event.stopPropagation(); openTaskDetail('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded px-1 leading-4" title="🔗 Waiting on: ${esc(names)}" aria-label="Waiting on ${esc(names)}">🔗 ${waiting.length}</button>`;
+}
+
 // On hover, a quick way to add an obstacle to a task that has none yet.
 function addObstacleButton(t, canEdit) {
   if (!canEdit || t.status === 'Completed' || (t.obstacles || []).length) return '';
@@ -932,7 +958,7 @@ async function renderTaskTable(projectId) {
           <tr class="border-b border-gray-100 hover:bg-gray-50">
             ${canEdit ? `<td class="px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()"></td>` : ''}
             <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">
-              <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}${t.commentCount ? ` <span class="text-gray-400 font-normal text-xs" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">💬 ${t.commentCount}</span>` : ''}${statusUpdateBadge(t)} ${obstacleBadge(t)}</div>
+              <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}${t.commentCount ? ` <span class="text-gray-400 font-normal text-xs" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">💬 ${t.commentCount}</span>` : ''}${statusUpdateBadge(t)} ${obstacleBadge(t)} ${waitingBadge(t)}</div>
               ${blockerChecklist(t, canEdit, 'board')}
               ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
               ${taskProgressBarHTML(t)}
@@ -1012,11 +1038,14 @@ async function bulkSetStatus(status) {
   const ids = getSelectedTaskIds();
   if (!ids.length) return;
   try {
-    await Promise.all(ids.map(id => API.updateTask(id, { status })));
-    showToast(`✅ Updated ${ids.length} task${ids.length === 1 ? '' : 's'} to ${status}`);
+    const results = await Promise.allSettled(ids.map(id => API.updateTask(id, { status })));
+    const failed = results.filter(r => r.status === 'rejected');
+    const ok = ids.length - failed.length;
+    if (ok) showToast(`✅ Updated ${ok} task${ok === 1 ? '' : 's'} to ${status}`);
+    if (failed.length) taskErrorToast(failed[0].reason, 'Bulk update failed');
     renderTaskTable(APP.currentProjectId);
     if (APP.currentPage === 'gantt') renderGantt();
-  } catch (e) { showToast('❌ ' + (e.message || 'Bulk update failed'), 'error'); }
+  } catch (e) { taskErrorToast(e, 'Bulk update failed'); }
 }
 
 async function bulkSetPriority(priority) {
@@ -1046,7 +1075,7 @@ function bulkDeleteConfirm() {
 
 async function updateTaskStatus(id, status, projectId) {
   const before = await API.getTask(id);
-  await API.updateTask(id, { status });
+  try { await API.updateTask(id, { status }); } catch (e) { taskErrorToast(e, 'Could not update the status'); renderTaskTable(projectId); return; }
   if (before.status !== 'Completed' && status === 'Completed' && before.recurrence && before.recurrence !== 'none') {
     showToast('✅ Completed — next occurrence scheduled');
   }
@@ -1079,7 +1108,7 @@ async function updateGanttTaskStatus(id, status) {
       showToast('✅ Status updated');
     }
   } catch (e) {
-    showToast('❌ ' + e.message, 'error');
+    taskErrorToast(e);
   }
   renderGantt();
 }
@@ -1664,6 +1693,7 @@ async function renderGantt() {
               ${commentCountBadge(t)}
               ${statusUpdateBadge(t)}
               ${obstacleBadge(t)}
+              ${waitingBadge(t)}
               ${addObstacleButton(t, canEditGroup)}
               ${miniProgressBadge(t)}
               ${t.targetCount && t.status !== 'Completed' && canEditGroup ? `<button onclick="event.stopPropagation();bumpTaskProgressAction('${t.id}',1,'${t.projectId}')" class="flex-shrink-0 text-[10px] font-bold bg-teal/10 hover:bg-teal/20 text-teal px-1 rounded" title="Log one">+1</button>` : ''}
@@ -1695,6 +1725,8 @@ async function renderGantt() {
     document.getElementById('gantt-rows').innerHTML = rowsHTML
       || `<div class="p-10 text-center text-gray-400 text-sm">${APP.ganttProjectFilter ? 'No tasks in this project yet.' : 'No tasks yet.'}</div>`;
     document.getElementById('gantt-rows').dataset.totalDays = totalDays;
+    APP.ganttTasks = tasks;
+    requestAnimationFrame(drawGanttDependencies);
 
     const groupLegend = groupProjectIds
       .map(id => projectById[id])
@@ -1866,7 +1898,7 @@ function renderKanbanBoard(tasks, projectById) {
           </div>
           ${cardFields.tags && (t.tags || []).length ? `<div class="flex flex-wrap gap-1 mb-1.5">${miniTagBadges(t.tags)}</div>` : ''}
           <div class="flex items-center justify-between text-xs text-gray-400">
-            <span class="truncate flex items-center gap-1.5">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}${statusUpdateBadge(t)}${obstacleBadge(t)}${addObstacleButton(t, canEdit)}</span>
+            <span class="truncate flex items-center gap-1.5">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}${statusUpdateBadge(t)}${obstacleBadge(t)}${waitingBadge(t)}${addObstacleButton(t, canEdit)}</span>
             ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
           </div>
           ${blockerChecklist(t, canEdit, 'board')}
@@ -2011,6 +2043,44 @@ async function kanbanMouseUp() {
     await updateGanttTaskStatus(d.taskId, d.dropStatus); // already re-renders Gantt (and, in turn, Kanban) on completion
   }
 }
+
+// ── GANTT DEPENDENCY ARROWS ───────────────────────────────────────
+// Finish-to-start arrows, MS Project style: from the end of each
+// predecessor's bar to the start of the task that waits on it, drawn on an
+// SVG layer behind the bars. Red while the predecessor isn't done yet.
+function drawGanttDependencies() {
+  const rows = document.getElementById('gantt-rows');
+  if (!rows) return;
+  rows.querySelectorAll('.gantt-dep-layer').forEach(l => l.remove());
+  const tasks = (APP.ganttTasks || []).filter(t => (t.predecessors || []).length);
+  if (!tasks.length) return;
+  const box = rows.getBoundingClientRect();
+  const markerOf = id => {
+    const row = rows.querySelector(`.gantt-grid-row[data-task-id="${id}"]`);
+    return row && row.querySelector('.gantt-bar, .gantt-milestone');
+  };
+  const paths = [];
+  tasks.forEach(t => t.predecessors.forEach(p => {
+    const a = markerOf(p.id), b = markerOf(t.id);
+    if (!a || !b) return;
+    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    const x1 = ra.right - box.left, y1 = ra.top + ra.height / 2 - box.top;
+    const x2 = rb.left - box.left, y2 = rb.top + rb.height / 2 - box.top;
+    const out = x1 + 8, back = x2 - 8;
+    const midY = y2 > y1 ? rb.top - box.top - 4 : rb.bottom - box.top + 4;
+    const d = back >= out
+      ? `M ${x1} ${y1} H ${out} V ${y2} H ${x2 - 1}`
+      : `M ${x1} ${y1} H ${out} V ${midY} H ${back} V ${y2} H ${x2 - 1}`;
+    paths.push(`<path d="${d}" class="${p.status === 'Completed' ? 'gantt-dep-done' : 'gantt-dep-waiting'}" marker-end="url(#gantt-dep-arrow-${p.status === 'Completed' ? 'done' : 'waiting'})"><title>${esc(p.title)} → ${esc(t.title)}</title></path>`);
+  }));
+  if (!paths.length) return;
+  rows.insertAdjacentHTML('beforeend', `<svg class="gantt-dep-layer" width="${rows.scrollWidth}" height="${rows.scrollHeight}" aria-hidden="true">
+    <defs>
+      <marker id="gantt-dep-arrow-done" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#64748b"/></marker>
+      <marker id="gantt-dep-arrow-waiting" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#f59e0b"/></marker>
+    </defs>${paths.join('')}</svg>`);
+}
+window.addEventListener('resize', () => { if (APP.currentPage === 'gantt') requestAnimationFrame(drawGanttDependencies); });
 
 // ── GANTT DRAG-TO-MOVE / RESIZE ───────────────────────────────────
 let ganttDrag = null;
@@ -2301,7 +2371,7 @@ async function renderActions() {
 }
 
 async function markActionDone(taskId) {
-  await API.updateTask(taskId, { status: 'Completed' });
+  try { await API.updateTask(taskId, { status: 'Completed' }); } catch (e) { taskErrorToast(e); return; }
   renderActions();
   showToast('✅ Marked as done');
 }
@@ -3611,7 +3681,62 @@ async function openTaskDetail(id) {
     renderTaskComments(id);
     renderStatusUpdates(id);
     renderObstacles(id, t.obstacles || []);
+    APP.taskPredecessorsCanEdit = canEdit;
+    document.getElementById('td-predecessor-box').classList.toggle('hidden', !canEdit);
+    renderPredecessors(t);
   } catch (e) { console.error('Task detail error:', e); }
+}
+
+// ── TASK PREDECESSORS (side panel) ─────────────────────────────────
+// Finish-to-start dependencies: this task can't start until each of these
+// is done. Chips show each one's state; the picker offers the other tasks
+// in the same project.
+async function renderPredecessors(t) {
+  const wrap = document.getElementById('td-predecessors');
+  const canEdit = !!APP.taskPredecessorsCanEdit;
+  const preds = t.predecessors || [];
+  wrap.innerHTML = preds.length ? preds.map(p => {
+    const done = p.status === 'Completed';
+    return `<span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2.5 py-1 ${done ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-amber-50 text-amber-800 border border-amber-100'}" title="${done ? 'Done' : 'Not done yet'}">
+      ${done ? '✓' : '⏳'} ${esc(p.title)}
+      ${canEdit ? `<button onclick="removePredecessor('${p.id}')" class="ml-0.5 opacity-60 hover:opacity-100" aria-label="Remove ${esc(p.title)} as a predecessor">×</button>` : ''}
+    </span>`;
+  }).join('') : `<p class="text-xs text-gray-400">None. This task can start any time.</p>`;
+  APP.detailPredecessorIds = preds.map(p => p.id);
+  syncPredecessorsToViews(t.id, preds);
+  if (!canEdit) return;
+  const pick = document.getElementById('td-predecessor-pick');
+  try {
+    const [allProjects, allTasks] = await Promise.all([API.getProjects(), API.getTasks()]);
+    const proj = allProjects.find(p => p.id === t.projectId);
+    const root = proj && proj.parentId ? proj.parentId : t.projectId;
+    const candidates = tasksInProjectTree(root, allProjects, allTasks)
+      .filter(c => c.id !== t.id && !APP.detailPredecessorIds.includes(c.id));
+    pick.innerHTML = `<option value="">${candidates.length ? 'Add a task this one waits on…' : 'No other tasks in this project'}</option>`
+      + candidates.map(c => `<option value="${c.id}">${c.status === 'Completed' ? '✓ ' : ''}${esc(c.title)}</option>`).join('');
+  } catch (e) { console.error('Predecessor picker error:', e); }
+}
+// Keeps the Journey and the cached task lists in step without a reload.
+function syncPredecessorsToViews(taskId, preds) {
+  if (!mountainState) return;
+  const t = mountainState.tasks.find(x => x.id === taskId);
+  if (t && JSON.stringify(t.predecessors || []) !== JSON.stringify(preds)) { t.predecessors = preds; renderMountainTaskList(); }
+}
+async function savePredecessors(ids) {
+  try {
+    const t = await API.setPredecessors(APP_currentDetailTaskId, ids);
+    renderPredecessors(t);
+    if (APP.currentPage === 'gantt') renderGantt();
+    else if (APP.currentPage === 'project-detail') renderProjectDetail(APP.currentProjectId);
+  } catch (e) { showToast('🔗 ' + (e.message || 'Could not update the predecessors'), 'error'); }
+}
+function addPredecessor() {
+  const pick = document.getElementById('td-predecessor-pick');
+  if (!pick.value || !APP_currentDetailTaskId) { pick.focus(); return; }
+  savePredecessors([...(APP.detailPredecessorIds || []), pick.value]);
+}
+function removePredecessor(predId) {
+  savePredecessors((APP.detailPredecessorIds || []).filter(id => id !== predId));
 }
 
 // ── TASK OBSTACLES (side panel) ────────────────────────────────────
@@ -4946,11 +5071,11 @@ function renderMountainTaskList() {
     <label class="journey-quest-row ${isDone ? 'is-done' : ''} ${canEdit ? 'is-editable' : ''}">
       <input type="checkbox" class="journey-quest-checkbox" data-task-id="${t.id}" onchange="toggleMountainTask(this)" ${isDone ? 'checked' : ''} ${canEdit ? '' : 'disabled'}>
       <span class="journey-quest-badge ${badgeClass}">${isDone ? '✓' : i + 1}</span>
-      <span class="journey-quest-title">${esc(t.title)}</span>
+      <span class="journey-quest-title">${!isDone && waitingOn(t).length ? '<span title="Waiting on another task" aria-hidden="true">🔒 </span>' : ''}${esc(t.title)}</span>
       ${!isDone && foeCount(t) ? `<span class="journey-quest-foes" title="${esc(obstacleNames(t) || 'Blocked')}">⚔️${foeCount(t)}</span>` : ''}
       ${t.endDate ? `<span class="journey-quest-date">${esc(t.endDate.slice(0, 10))}</span>` : ''}
       <button type="button" class="journey-quest-foe-btn" onclick="event.preventDefault(); event.stopPropagation(); openTaskDetail('${t.id}')" title="Obstacles and details" aria-label="Obstacles and details for ${esc(t.title)}">⚔️</button>
-    </label>${blockerChecklist(t, canEdit, 'quest')}`;
+    </label>${!isDone && waitingOn(t).length ? `<div class="journey-waiting">🔗 Waiting on ${waitingOn(t).map(p => esc(p.title)).join(', ')}</div>` : ''}${blockerChecklist(t, canEdit, 'quest')}`;
   }).join('');
 }
 
@@ -4962,6 +5087,8 @@ async function toggleMountainTask(checkbox) {
   const taskId = checkbox.dataset.taskId;
   const task = mountainState.tasks.find(t => t.id === taskId);
   const nowComplete = checkbox.checked;
+  const gate = taskGateMessage(task, nowComplete ? 'Completed' : 'Not Started');
+  if (gate) { checkbox.checked = !nowComplete; showToast(gate, 'error'); return; }
   checkbox.disabled = true;
   try {
     await API.updateTask(taskId, { status: nowComplete ? 'Completed' : 'Not Started' });
@@ -4981,7 +5108,7 @@ async function toggleMountainTask(checkbox) {
     }
   } catch (e) {
     checkbox.checked = !nowComplete;
-    showToast('❌ ' + (e.message || 'Could not update that task'), 'error');
+    taskErrorToast(e, 'Could not update that task');
   } finally {
     checkbox.disabled = !mountainState.canEdit;
   }
@@ -6271,7 +6398,7 @@ async function saveTask() {
     if (APP.currentProjectId) renderTaskTable(APP.currentProjectId);
     if (APP.currentPage === 'gantt') renderGantt();
     updateSidebar();
-  } catch (e) { showToast('❌ ' + (e.message || 'Failed to save task'), 'error'); }
+  } catch (e) { taskErrorToast(e, 'Failed to save task'); }
 }
 
 async function deleteTaskConfirm(id, projectId) {

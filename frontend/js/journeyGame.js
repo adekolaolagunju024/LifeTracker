@@ -2142,16 +2142,18 @@ const JourneyGame = (() => {
 
   // The completed task's own title, floating up beside its flag and fading
   // away — a quick "what did I just finish?" readout, not a modal.
-  // kind 'foe': a ticked-off obstacle's name, in green, over "ELIMINATED!".
-  function spawnTaskPopup(entry, x, y, text, kind, sub = 'ELIMINATED!') {
+  // A completed task's title over "COMPLETED!" (in orange), or with kind
+  // 'foe' a ticked-off obstacle's name over `sub` (in green).
+  function spawnTaskPopup(entry, x, y, text, kind = 'done', sub) {
     if (!entry || !entry.svg.isConnected || !text) return;
-    const label = (kind === 'foe' ? '✓ ' : '') + (text.length > 28 ? text.slice(0, 27) + '…' : text);
-    const outer = el('g', { class: 'journey-task-popup' + (kind === 'foe' ? ' journey-foe-popup' : ''), transform: `translate(${x},${y - 34})` });
+    const label = '✓ ' + (text.length > 28 ? text.slice(0, 27) + '…' : text);
+    sub = sub || (kind === 'foe' ? 'ELIMINATED!' : 'COMPLETED!');
+    const outer = el('g', { class: 'journey-task-popup ' + (kind === 'foe' ? 'journey-foe-popup' : 'journey-done-popup'), transform: `translate(${x},${y - 34})` });
     const inner = el('g', { class: 'journey-task-popup-inner' });
     const txt = el('text', { class: 'journey-task-popup-text', x: 0, y: 0, 'text-anchor': 'middle' });
     txt.textContent = label;
     inner.appendChild(txt);
-    if (kind === 'foe') {
+    {
       const subEl = el('text', { class: 'journey-foe-popup-sub', x: 0, y: 13, 'text-anchor': 'middle' });
       subEl.textContent = sub;
       inner.appendChild(subEl);
@@ -2172,7 +2174,7 @@ const JourneyGame = (() => {
     });
     // Removed on a timer regardless of the CSS animation, so reduced-motion
     // viewers still see it appear and disappear, just without the float.
-    setTimeout(() => { if (outer.isConnected) outer.remove(); }, kind === 'foe' ? 2800 : 2200);
+    setTimeout(() => { if (outer.isConnected) outer.remove(); }, 2800);
   }
 
   // A flag the avatar has just reached: it pops, confetti bursts from it,
