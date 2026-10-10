@@ -508,6 +508,15 @@ const JourneyGame = (() => {
     g.appendChild(el('ellipse', { cx: -4, cy: -5, rx: 5, ry: 2.6, fill: '#ffffff', opacity: 0.35 }));
     g.appendChild(el('ellipse', { cx: 4, cy: 7, rx: 6, ry: 3.6, fill: SHADE }));
     g.appendChild(sparkles([[-21, -17, 2.4], [20, -12, 1.7], [15, 17, 2]]));
+    // Shown once every task is done (see .journey-quest-done): the mission
+    // flag planted on top of the planet.
+    const flagPos = el('g', { transform: 'translate(2,-14)' });
+    const planted = el('g', { class: 'journey-planted-flag' });
+    planted.appendChild(el('rect', { x: -0.7, y: -20, width: 1.4, height: 20, fill: '#e5e7eb', stroke: '#6b7280', 'stroke-width': 0.4 }));
+    planted.appendChild(el('path', { d: 'M 0.7 -20 L 15 -16.5 L 0.7 -13 Z', fill: '#0d9488', stroke: '#064e3b', 'stroke-width': 0.6 }));
+    planted.appendChild(el('path', { d: starPath(2.2, 0.9, 5), transform: 'translate(5,-16.5)', fill: '#fbbf24' }));
+    flagPos.appendChild(planted);
+    g.appendChild(flagPos);
     return g;
   }
 
@@ -695,6 +704,14 @@ const JourneyGame = (() => {
     g.appendChild(chest);
     g.appendChild(el('path', { d: starPath(5.4, 2.2, 4), transform: 'translate(0,-16)', fill: '#67e8f9', stroke: '#0e7490', 'stroke-width': 1 }));
     g.appendChild(sparkles([[-17, -10, 2.2], [17, -6, 1.8], [12, 10, 2]]));
+    // Shown once every task is done (see .journey-quest-done): a light
+    // beam out of the chest and a little pile of spilled coins.
+    const found = el('g', { class: 'journey-treasure-done' });
+    found.appendChild(el('path', { d: 'M -10 -12 L -26 -70 L 26 -70 L 10 -12 Z', fill: '#ffe58a', opacity: 0.35, filter: glowId ? `url(#${glowId})` : undefined }));
+    [[-20, 12], [-14, 15], [16, 13], [21, 16], [-24, 16], [10, 16]].forEach(([cx, cy]) => {
+      found.appendChild(el('ellipse', { cx, cy, rx: 3.4, ry: 1.6, fill: '#ffd23f', stroke: '#b7791f', 'stroke-width': 0.6 }));
+    });
+    g.appendChild(found);
     return g;
   }
 
@@ -1176,6 +1193,72 @@ const JourneyGame = (() => {
     }, 280);
   }
 
+  // Pops a big title over the goal and sets off a few firework bursts —
+  // shared by the Ocean and Space finishes.
+  function finishFlourish(entry, text, fill, edge, colors) {
+    const { svg, goalPt } = entry;
+    const ty = goalPt.y > 90 ? goalPt.y - 60 : goalPt.y + 56;
+    const txt = el('text', {
+      class: 'journey-goal-pop', x: goalPt.x, y: ty, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': 24, 'font-weight': 900, 'font-family': '"Arial Black", Arial, sans-serif',
+      fill, stroke: edge, 'stroke-width': 2.4, 'paint-order': 'stroke', 'letter-spacing': 1,
+    });
+    txt.textContent = text;
+    svg.insertBefore(txt, entry.vignette);
+    setTimeout(() => txt.remove(), 2700);
+    [[-34, -40], [32, -48], [0, -60]].forEach(([fx, fy], k) => {
+      const pos = el('g', { transform: `translate(${goalPt.x + fx},${Math.max(14, goalPt.y + fy)})` });
+      const fw = el('g', { class: 'journey-firework', style: `animation-delay:${k * 0.35}s` });
+      for (let a = 0; a < 12; a++) {
+        const ang = (a / 12) * Math.PI * 2;
+        fw.appendChild(el('line', { x1: Math.cos(ang) * 3, y1: Math.sin(ang) * 3, x2: Math.cos(ang) * 12, y2: Math.sin(ang) * 12, stroke: colors[k % colors.length], 'stroke-width': 1.6, 'stroke-linecap': 'round' }));
+      }
+      pos.appendChild(fw);
+      svg.insertBefore(pos, entry.vignette);
+      setTimeout(() => pos.remove(), 2400);
+    });
+  }
+
+  // The ocean finish: the chest bursts open with a beam of light and a
+  // spray of gold coins that tumble out onto the sand.
+  function oceanCelebrateFinish(entry, from, scale, burst) {
+    const { svg, goalPt } = entry;
+    entry.shotPending = false;
+    svg.classList.add('journey-quest-done');
+    const coinsG = el('g');
+    svg.insertBefore(coinsG, entry.vignette);
+    const coins = Array.from({ length: 16 }, (_, k) => {
+      const c = el('ellipse', { rx: 3.2, ry: 3.2, fill: '#ffd23f', stroke: '#b7791f', 'stroke-width': 0.7 });
+      coinsG.appendChild(c);
+      const ang = -Math.PI / 2 + ((k / 15) - 0.5) * 2.2;
+      return { c, vx: Math.cos(ang) * (60 + (k % 4) * 18), vy: Math.sin(ang) * (90 + (k % 3) * 25) };
+    });
+    const t0 = performance.now();
+    const step = now => {
+      if (!svg.isConnected) return;
+      const t = (now - t0) / 1000;
+      coins.forEach(({ c, vx, vy }, k) => {
+        const x = goalPt.x + vx * t, y = goalPt.y - 8 + vy * t + 160 * t * t;
+        c.setAttribute('cx', x.toFixed(1)); c.setAttribute('cy', y.toFixed(1));
+        c.setAttribute('rx', (3.2 * Math.abs(Math.cos(t * 9 + k))).toFixed(2));
+      });
+      if (t < 1.4) requestAnimationFrame(step); else coinsG.remove();
+    };
+    requestAnimationFrame(step);
+    finishFlourish(entry, 'TREASURE FOUND!', '#ffe08a', '#0b3a5c', ['#ffd23f', '#67e8f9', '#f0abfc']);
+    burst();
+  }
+
+  // The space finish: the astronaut plants the mission flag on the planet.
+  function spaceCelebrateFinish(entry, from, scale, burst) {
+    entry.shotPending = false;
+    entry.svg.classList.add('journey-quest-done');
+    const flag = entry.svg.querySelector('.journey-planted-flag');
+    if (flag) { flag.classList.remove('journey-flag-rise'); flag.getBBox(); flag.classList.add('journey-flag-rise'); }
+    finishFlourish(entry, 'MISSION COMPLETE!', '#bfe9ff', '#1b2a6b', ['#fde68a', '#a5f3fc', '#f0abfc']);
+    burst();
+  }
+
   // A small padlock — shared "this is blocked" marker on every theme's
   // obstacle so the meaning stays consistent across stages.
   function lockIcon(x, y, s) {
@@ -1534,6 +1617,7 @@ const JourneyGame = (() => {
       goalGrad: [[0, '#ffe7b0'], [45, '#ffb24a'], [100, '#e8762b']],
       path: { outline: '#3347a8', fill: '#dfe6ff', dash: '#7dd3fc', progress: '#67e8f9' },
       decorate: spaceDecorate, scatter: spaceScatter, buildAvatar: spaceBuildAvatar, buildGoal: spaceBuildGoal, buildCheckpoint: spaceBuildCheckpoint,
+      celebrateFinish: spaceCelebrateFinish,
     },
     ocean: {
       label: 'Ocean', avatarFill: '#4caf7d',
@@ -1541,6 +1625,7 @@ const JourneyGame = (() => {
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#c9a46a', fill: '#f0e2c0', dash: '#2f9e6e', progress: '#34d399' },
       decorate: oceanDecorate, scatter: oceanScatter, buildAvatar: oceanBuildAvatar, buildGoal: oceanBuildGoal, buildCheckpoint: oceanBuildCheckpoint,
+      celebrateFinish: oceanCelebrateFinish,
     },
     race: {
       label: 'Race', avatarFill: '#ef4444',
@@ -2056,6 +2141,8 @@ const JourneyGame = (() => {
   const THREE_D_THEMES = {
     football3d: { module: '/js/journey3d.js', factory: 'createFootball3D', fallback: 'football', failed: false, loading: null },
     castle3d: { module: '/js/journeyCastle3d.js', factory: 'createCastle3D', fallback: 'castle', failed: false, loading: null },
+    ocean3d: { module: '/js/journeyOcean3d.js', factory: 'createOcean3D', fallback: 'ocean', failed: false, loading: null },
+    space3d: { module: '/js/journeySpace3d.js', factory: 'createSpace3D', fallback: 'space', failed: false, loading: null },
   };
   const instances3d = new Set();
   let webglOk = null;

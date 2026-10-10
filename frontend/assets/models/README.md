@@ -8,7 +8,9 @@ Don McCurdy. Released under CC0 1.0 (public domain). Taken from the three.js
 repository: `examples/models/gltf/RobotExpressive/`.
 
 `Knight.glb` and `Princess.glb` — the knight and the princess in the Castle 3D
-Journey stage (`frontend/js/journeyCastle3d.js`). From the
+Journey stage (`frontend/js/journeyCastle3d.js`). `Knight.glb` is also the
+diver in Ocean 3D and the astronaut in Space 3D, re-dressed in code (helmet,
+cape and weapons removed, re-dyed, with a glass helmet and tanks or a backpack). From the
 [KayKit Adventurers Character Pack 1.0](https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0)
 by Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)), released under
 CC0 1.0 (public domain). `Knight.glb` is the pack's `Knight.glb` trimmed to the
