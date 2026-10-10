@@ -1186,6 +1186,336 @@ const JourneyGame = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════
+  // THEME: CASTLE — "Knight's Quest". A knight marches a cobbled road
+  // through a golden-hour valley to a castle; giant frogs squat on the
+  // road at blocked tasks, and a dragon guards the gate where the
+  // princess waits. The last task slays the dragon and opens the gate.
+  // ════════════════════════════════════════════════════════════════
+  function castleDecorate(svg, layout, glowId, glowLgId) {
+    const { w, h } = layout;
+    const sunX = w * 0.84, sunY = h * 0.13;
+    svg.appendChild(el('circle', { cx: sunX, cy: sunY, r: w * 0.14, fill: '#ffcf87', opacity: 0.45, filter: glowLgId ? `url(#${glowLgId})` : undefined }));
+    svg.appendChild(el('circle', { cx: sunX, cy: sunY, r: w * 0.045, fill: '#ffe7b0' }));
+    // Far mountains, hazy violet with snow caps.
+    const peaks = [[0, 0.24], [0.1, 0.12], [0.2, 0.2], [0.32, 0.08], [0.45, 0.19], [0.58, 0.1], [0.7, 0.2], [0.82, 0.11], [0.93, 0.19], [1, 0.15]];
+    svg.appendChild(el('path', { d: `M 0 ${h * 0.3} ` + peaks.map(([fx, fy]) => `L ${w * fx} ${h * fy}`).join(' ') + ` L ${w} ${h * 0.3} Z`, fill: '#9d92bd', opacity: 0.6 }));
+    peaks.forEach(([fx, fy], i) => {
+      if (i === 0 || i === peaks.length - 1 || fy > 0.15) return;
+      const x = w * fx, y = h * fy;
+      svg.appendChild(el('path', { d: `M ${x} ${y} L ${x + 14} ${y + 12} L ${x + 5} ${y + 9} L ${x} ${y + 13} L ${x - 6} ${y + 9} L ${x - 14} ${y + 12} Z`, fill: '#f6f2ff', opacity: 0.85 }));
+    });
+    cloudGroup(svg, layout, [[0.14, 0.08, 0.9], [0.5, 0.05, 0.7]]);
+    // Rolling meadow: a far hill band, then the valley floor.
+    svg.appendChild(el('path', { d: `M 0 ${h * 0.26} Q ${w * 0.22} ${h * 0.19} ${w * 0.48} ${h * 0.24} T ${w} ${h * 0.21} L ${w} ${h} L 0 ${h} Z`, fill: '#86b552' }));
+    svg.appendChild(el('path', { d: `M 0 ${h * 0.4} Q ${w * 0.3} ${h * 0.33} ${w * 0.6} ${h * 0.39} T ${w} ${h * 0.36} L ${w} ${h} L 0 ${h} Z`, fill: '#6fa847' }));
+    svg.appendChild(el('path', { d: `M 0 ${h * 0.62} Q ${w * 0.35} ${h * 0.55} ${w * 0.7} ${h * 0.61} T ${w} ${h * 0.58} L ${w} ${h} L 0 ${h} Z`, fill: '#5f9a3d' }));
+    // A river winding across the valley; the road crosses it on its way up.
+    const ry = [h * 0.66, h * 0.52, h * 0.58, h * 0.46];
+    const river = `M ${-20} ${ry[0]} C ${w * 0.3} ${ry[1]} ${w * 0.6} ${ry[2]} ${w + 20} ${ry[3]}`;
+    svg.appendChild(el('path', { d: river, fill: 'none', stroke: '#c8b27a', 'stroke-width': 34, 'stroke-linecap': 'round', opacity: 0.85 }));
+    svg.appendChild(el('path', { d: river, fill: 'none', stroke: '#3f86b6', 'stroke-width': 24, 'stroke-linecap': 'round' }));
+    svg.appendChild(el('path', { class: 'journey-river-flow', d: river, fill: 'none', stroke: '#a9dcf3', 'stroke-width': 2.4, 'stroke-dasharray': '10 26', 'stroke-linecap': 'round', opacity: 0.8 }));
+    [[0.3, 0.07, 1, 0], [0.34, 0.1, 0.8, 1.3], [0.27, 0.11, 0.7, 2.4]].forEach(([fx, fy, s, delay]) => {
+      const pos = el('g', { transform: `translate(${w * fx},${h * fy}) scale(${s})` });
+      const b = el('g', { class: 'journey-bird', style: `animation-delay:${delay}s` });
+      b.appendChild(el('path', { d: 'M -6 0 Q -3 -3 0 0 Q 3 -3 6 0', fill: 'none', stroke: '#3a3550', 'stroke-width': 1.4, 'stroke-linecap': 'round' }));
+      pos.appendChild(b);
+      svg.appendChild(pos);
+    });
+  }
+
+  // A forest of pines and round oaks, with wildflowers by the road.
+  function castleScatter(layer, layout, isClear, rand) {
+    scatterProps(layer, layout, isClear, rand, {
+      count: 14, margin: 20, spacing: 40, minY: layout.h * 0.3, sway: true,
+      draw(g, v) {
+        g.appendChild(el('ellipse', { cx: 6, cy: 1, rx: 15, ry: 4, fill: '#0b1220', opacity: 0.2 }));
+        g.appendChild(el('rect', { x: -2.2, y: -14, width: 4.4, height: 15, rx: 1.2, fill: '#6b4a2e' }));
+        if (v < 0.6) {
+          [[-36, 10], [-27, 13], [-18, 16]].forEach(([ty, hw]) => {
+            g.appendChild(el('path', { d: `M 0 ${ty - 13} L ${hw} ${ty + 4} L ${-hw} ${ty + 4} Z`, fill: '#2f6b3a' }));
+            g.appendChild(el('path', { d: `M 0 ${ty - 13} L ${hw} ${ty + 4} L 0 ${ty + 4} Z`, fill: '#24552e' }));
+          });
+        } else {
+          g.appendChild(el('circle', { cx: -7, cy: -19, r: 9, fill: '#4f8a36' }));
+          g.appendChild(el('circle', { cx: 7, cy: -19, r: 9, fill: '#457a2f' }));
+          g.appendChild(el('circle', { cx: 0, cy: -27, r: 12, fill: '#6aa548' }));
+          g.appendChild(el('circle', { cx: -4, cy: -31, r: 5, fill: '#8fbf55', opacity: 0.85 }));
+        }
+      },
+    });
+    const petal = ['#ffffff', '#ffe066', '#ff8fb1', '#b59bff'];
+    scatterProps(layer, layout, isClear, rand, {
+      count: 14, margin: 4, spacing: 20, minY: layout.h * 0.4,
+      draw(g, v) {
+        const c = petal[Math.floor(v * petal.length)];
+        [[-2.2, 0], [2.2, 0], [0, -2.2], [0, 2.2]].forEach(([px, py]) => g.appendChild(el('circle', { cx: px, cy: py - 3, r: 1.6, fill: c })));
+        g.appendChild(el('circle', { cx: 0, cy: -3, r: 1.1, fill: '#f59e0b' }));
+      },
+    });
+    scatterProps(layer, layout, isClear, rand, {
+      count: 16, margin: 4, spacing: 18, minY: layout.h * 0.42, sway: true,
+      draw(g) { grassTuft(g, '#4e8a35'); },
+    });
+  }
+
+  // The knight — the same limb rig as the Road runner, in steel armour
+  // with a plumed helmet, a tabard and cape in the passed-in colour, a
+  // shield on the back arm and a sword in the front hand (so the sword
+  // swings with the arm, and the finishing slash is the arm's own swing).
+  function castleBuildAvatar(fill, shadowFilterId) {
+    const steel = '#b8c2cf', steelDark = '#7d8796';
+    const g = el('g', { class: 'journey-avatar' });
+    g.appendChild(el('ellipse', { cx: 1, cy: 24, rx: 16, ry: 3.6, fill: '#1f2937', opacity: 0.28 }));
+    const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    bob.appendChild(el('path', {
+      class: 'journey-cape', d: 'M -5,-9 C -18,-5 -20,10 -11,17 C -15,9 -12,-3 -5,-7 Z',
+      fill, stroke: '#4a0f14', 'stroke-width': 0.8, opacity: 0.95,
+    }));
+    bob.appendChild(roadLimb('journey-leg-back', steelDark, -3.4, 9, 4.4, 10, 3.2, 1.9, '#4b5563'));
+    const armBack = roadLimb('journey-arm-back', steel, -7.6, -4, 4, 8.6, 2.2, 2.2, steelDark);
+    // heater shield, red and gold
+    armBack.firstChild.appendChild(el('path', { d: 'M -6 3 L 4 3 L 4 10 Q 4 16 -1 19 Q -6 16 -6 10 Z', fill: '#b3202c', stroke: '#5a1016', 'stroke-width': 0.9 }));
+    armBack.firstChild.appendChild(el('path', { d: 'M -1 3.5 L -1 18.4 M -5.6 9 L 3.6 9', stroke: '#e7b443', 'stroke-width': 1.4 }));
+    bob.appendChild(armBack);
+    bob.appendChild(el('rect', { x: -8.6, y: -9, width: 17.2, height: 19, rx: 6.5, fill: steel, stroke: '#1f2937', 'stroke-width': 1 }));
+    bob.appendChild(el('path', { d: 'M -6 -8 L 6 -8 L 5 9 L -5 9 Z', fill }));
+    bob.appendChild(el('path', { d: 'M -2.4 -5 L 2.4 -5 M 0 -7.4 L 0 -2.6', stroke: '#e7b443', 'stroke-width': 1.4, 'stroke-linecap': 'round' }));
+    bob.appendChild(el('rect', { x: -8.4, y: 3.2, width: 16.8, height: 2.4, fill: '#6b4a2e' }));
+    bob.appendChild(el('ellipse', { cx: -3.6, cy: -4, rx: 3.6, ry: 5.6, fill: '#ffffff', opacity: 0.2 }));
+    bob.appendChild(roadLimb('journey-leg-front', steel, 3.4, 9, 4.4, 10, 3.2, 1.9, '#4b5563'));
+    const armFront = roadLimb('journey-arm-front', steel, 7.6, -4, 4, 8.6, 2.2, 2.2, steelDark);
+    const sword = el('g', { transform: 'translate(0,9.4) rotate(-150)' });
+    sword.appendChild(el('rect', { x: -0.9, y: -3.6, width: 1.8, height: 4.6, rx: 0.6, fill: '#6b4a2e' }));
+    sword.appendChild(el('rect', { x: -3.6, y: 0.6, width: 7.2, height: 1.6, rx: 0.6, fill: '#e7b443', stroke: '#8a5a12', 'stroke-width': 0.4 }));
+    sword.appendChild(el('path', { d: 'M -1.2 2.2 L 1.2 2.2 L 1.2 16 L 0 18.6 L -1.2 16 Z', fill: '#eef2f7', stroke: '#64748b', 'stroke-width': 0.5 }));
+    sword.appendChild(el('path', { d: 'M 0 3 L 0 16.4', stroke: '#ffffff', 'stroke-width': 0.6, opacity: 0.8 }));
+    armFront.firstChild.appendChild(sword);
+    bob.appendChild(armFront);
+    // helmet over the head, face showing through the open visor
+    const head = el('g', { transform: 'translate(0,-18)' });
+    head.appendChild(el('circle', { cx: 0, cy: 0, r: 9.2, fill: steel, stroke: '#1f2937', 'stroke-width': 1 }));
+    head.appendChild(el('rect', { x: -6, y: -3.4, width: 12, height: 8.4, rx: 3, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 0.6 }));
+    [[-2.6, 0.4], [2.6, 0.4]].forEach(([ex, ey]) => {
+      head.appendChild(el('ellipse', { cx: ex, cy: ey, rx: 1.5, ry: 1.9, fill: '#ffffff' }));
+      head.appendChild(el('circle', { cx: ex + 0.3, cy: ey + 0.3, r: 1, fill: '#1f2937' }));
+    });
+    head.appendChild(el('path', { d: 'M -1.8 3.4 Q 0 4.6 1.8 3.4', fill: 'none', stroke: '#1f2937', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
+    head.appendChild(el('path', { d: 'M -7 -4 L 7 -4', stroke: steelDark, 'stroke-width': 1.6 }));
+    head.appendChild(el('ellipse', { cx: -3.4, cy: -6, rx: 3.6, ry: 2, fill: '#ffffff', opacity: 0.35 }));
+    head.appendChild(el('path', { d: 'M -1 -9 C 2 -16 10 -16 13 -10 C 9 -12 5 -11 2 -8.6 Z', fill: fill, stroke: '#4a0f14', 'stroke-width': 0.7 }));
+    bob.appendChild(head);
+    g.appendChild(bob);
+    return g;
+  }
+
+  // A small princess figure, used behind the gate bars and, once free, beside the gate.
+  function castlePrincess(cls, waving) {
+    const p = el('g', { class: cls });
+    p.appendChild(el('path', { d: 'M -5 0 L 5 0 L 2.2 -9 L -2.2 -9 Z', fill: '#f48fb1', stroke: '#9d2f5a', 'stroke-width': 0.5 }));
+    p.appendChild(el('circle', { cx: 0, cy: -11.6, r: 3, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 0.4 }));
+    p.appendChild(el('path', { d: 'M -3.2 -11.4 Q -3.4 -15.4 0 -15 Q 3.4 -15.4 3.2 -11.4 Q 2 -13.6 0 -13.6 Q -2 -13.6 -3.2 -11.4 Z', fill: '#3b2416' }));
+    p.appendChild(el('path', { d: 'M -2.4 -14.6 L -2.4 -17 L -1.2 -15.6 L 0 -17.4 L 1.2 -15.6 L 2.4 -17 L 2.4 -14.6 Z', fill: '#f2c14e' }));
+    const arm = el('g', { transform: 'translate(2.4,-8)' });
+    arm.appendChild(el('path', { class: waving ? 'journey-princess-wave' : undefined, d: 'M 0 0 L 4 -5', stroke: '#ffd9ae', 'stroke-width': 1.6, 'stroke-linecap': 'round' }));
+    p.appendChild(arm);
+    return p;
+  }
+
+  // The castle at the end of the road: towers, battlements, banners and
+  // a portcullis with the princess behind it, and the dragon in front.
+  function castleBuildGoal(x, y, gradId, shadowFilterId, glowId) {
+    const stone = '#c9c1af', stoneDark = '#8f8776', line = '#5f584b';
+    const g = el('g', { transform: `translate(${x},${y})` });
+    g.appendChild(el('circle', { cx: 0, cy: -20, r: 44, fill: '#ffd27a', opacity: 0.3, filter: glowId ? `url(#${glowId})` : undefined }));
+    g.appendChild(el('ellipse', { cx: 0, cy: 4, rx: 52, ry: 9, fill: '#557f35' }));
+    const body = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    // keep and its roof
+    body.appendChild(el('rect', { x: -9, y: -44, width: 18, height: 22, fill: stoneDark, stroke: line, 'stroke-width': 0.8 }));
+    body.appendChild(el('path', { d: 'M -11 -44 L 0 -54 L 11 -44 Z', fill: '#9b2f2f', stroke: '#5a1a1a', 'stroke-width': 0.7 }));
+    // curtain wall with battlements
+    body.appendChild(el('rect', { x: -32, y: -26, width: 64, height: 28, fill: stone, stroke: line, 'stroke-width': 0.9 }));
+    for (let k = -31; k <= 27; k += 6.4) body.appendChild(el('rect', { x: k, y: -30, width: 3.6, height: 4.2, fill: stone, stroke: line, 'stroke-width': 0.6 }));
+    for (let r = 0; r < 4; r++) body.appendChild(el('path', { d: `M -32 ${-20 + r * 6} L 32 ${-20 + r * 6}`, stroke: stoneDark, 'stroke-width': 0.5, opacity: 0.6 }));
+    // towers with conical roofs and pennants
+    [[-36, 1], [36, -1]].forEach(([tx, dir]) => {
+      body.appendChild(el('rect', { x: tx - 7, y: -40, width: 14, height: 42, fill: stone, stroke: line, 'stroke-width': 0.9 }));
+      body.appendChild(el('rect', { x: tx - 7, y: -40, width: 5, height: 42, fill: '#ffffff', opacity: 0.18 }));
+      body.appendChild(el('path', { d: `M ${tx - 9} -40 L ${tx} -51 L ${tx + 9} -40 Z`, fill: '#33518f', stroke: '#1d2f57', 'stroke-width': 0.7 }));
+      body.appendChild(el('rect', { x: tx - 1.4, y: -31, width: 2.8, height: 5, rx: 1.2, fill: '#ffb347' }));
+      const pole = el('g', { transform: `translate(${tx},-51)` });
+      pole.appendChild(el('rect', { x: -0.5, y: -4.5, width: 1, height: 4.5, fill: '#3b3b3b' }));
+      const pos = el('g', { transform: 'translate(0.5,-4.5)' });
+      const flag = el('g', { class: 'journey-flag-wave' });
+      flag.appendChild(el('path', { d: `M 0 0 L ${8 * dir || 8} 1.8 L 0 3.6 Z`, fill: '#b3202c' }));
+      pos.appendChild(flag); pole.appendChild(pos); body.appendChild(pole);
+    });
+    // banners either side of the gate
+    [-20, 20].forEach(bx => {
+      body.appendChild(el('path', { d: `M ${bx - 3.4} -22 L ${bx + 3.4} -22 L ${bx + 3.4} -9 L ${bx} -11.4 L ${bx - 3.4} -9 Z`, fill: '#b3202c', stroke: '#e7b443', 'stroke-width': 0.6 }));
+    });
+    g.appendChild(body);
+    // gate: a dark arch, the captive princess, and a portcullis that lifts
+    const clipId = `${gradId}-gate`;
+    g.appendChild(el('defs', {}, [el('clipPath', { id: clipId }, [el('path', { d: 'M -8 2 L -8 -8 A 8 8 0 0 1 8 -8 L 8 2 Z' })])]));
+    g.appendChild(el('path', { d: 'M -8 2 L -8 -8 A 8 8 0 0 1 8 -8 L 8 2 Z', fill: '#2a2320' }));
+    const inside = el('g', { 'clip-path': `url(#${clipId})` });
+    const captive = el('g', { transform: 'translate(0,1)' });
+    captive.appendChild(castlePrincess('journey-princess-captive', true));
+    inside.appendChild(captive);
+    const gate = el('g', { class: 'journey-portcullis' });
+    for (let k = -6; k <= 6; k += 3) gate.appendChild(el('rect', { x: k - 0.5, y: -16, width: 1, height: 18, fill: '#3a3a40' }));
+    for (let j = -12; j <= 0; j += 4) gate.appendChild(el('rect', { x: -8, y: j, width: 16, height: 0.9, fill: '#3a3a40' }));
+    inside.appendChild(gate);
+    g.appendChild(inside);
+    g.appendChild(el('path', { d: 'M -9.5 2 L -9.5 -8 A 9.5 9.5 0 0 1 9.5 -8 L 9.5 2', fill: 'none', stroke: '#e5dfd2', 'stroke-width': 1.6 }));
+    const free = el('g', { transform: 'translate(15,3)' });
+    free.appendChild(castlePrincess('journey-princess-free', true));
+    g.appendChild(free);
+    // the dragon, crouched in front of the gate and facing down the road
+    const dpos = el('g', { transform: 'translate(-20,10)' });
+    const dragon = el('g', { class: 'journey-dragon' });
+    const breathe = el('g', { class: 'journey-dragon-breathe' });
+    const wingBack = el('g', { class: 'journey-dragon-wing' });
+    wingBack.appendChild(el('path', { d: 'M 2 -14 L 18 -34 L 16 -24 L 22 -26 L 16 -16 L 20 -16 L 8 -10 Z', fill: '#7d1d2a', stroke: '#4a0f14', 'stroke-width': 0.7 }));
+    breathe.appendChild(wingBack);
+    breathe.appendChild(el('path', { d: 'M 10 -6 C 22 -6 26 -2 30 -8 C 30 -2 26 4 12 2 Z', fill: '#8e1c26', stroke: '#4a0f14', 'stroke-width': 0.6 }));
+    breathe.appendChild(el('path', { d: 'M 28 -9 L 33 -10 L 30 -5 Z', fill: '#6e1420' }));
+    breathe.appendChild(el('ellipse', { cx: 2, cy: -8, rx: 13, ry: 9, fill: '#b3262a', stroke: '#4a0f14', 'stroke-width': 0.8 }));
+    breathe.appendChild(el('ellipse', { cx: -1, cy: -5.5, rx: 8, ry: 5.4, fill: '#e0a84a' }));
+    [[-7, 1], [8, 1]].forEach(([lx]) => breathe.appendChild(el('rect', { x: lx - 2.4, y: -3, width: 4.8, height: 4.4, rx: 1.6, fill: '#8e1c26', stroke: '#4a0f14', 'stroke-width': 0.5 })));
+    breathe.appendChild(el('path', { d: 'M -6 -14 C -10 -20 -12 -24 -10 -28 L -4 -27 C -6 -22 -2 -18 2 -15 Z', fill: '#b3262a', stroke: '#4a0f14', 'stroke-width': 0.7 }));
+    const head = el('g', { transform: 'translate(-10,-29)' });
+    head.appendChild(el('path', { d: 'M 3 -4 L 6 -10 L 4 -3 Z M -1 -4 L 0 -10 L 1.4 -3.6 Z', fill: '#efe3c2' }));
+    head.appendChild(el('ellipse', { cx: 0, cy: 0, rx: 6, ry: 4.6, fill: '#b3262a', stroke: '#4a0f14', 'stroke-width': 0.7 }));
+    head.appendChild(el('path', { d: 'M -4 -2 L -12 0 L -11.4 3 L -3 3.4 Z', fill: '#b3262a', stroke: '#4a0f14', 'stroke-width': 0.6 }));
+    head.appendChild(el('circle', { cx: -1, cy: -1.4, r: 1.5, fill: '#ffd23f' }));
+    head.appendChild(el('rect', { x: -1.3, y: -2.6, width: 0.6, height: 2.4, fill: '#111' }));
+    head.appendChild(el('path', { d: 'M -10 3 L -9.2 4.6 L -8.4 3 M -7.4 3.2 L -6.6 4.8 L -5.8 3.2', fill: '#ffffff' }));
+    const fire = el('g', { transform: 'translate(-12,1.5)' });
+    fire.appendChild(el('path', { class: 'journey-dragon-fire', d: 'M 0 0 C -6 -5 -14 -3 -20 -7 C -16 -2 -18 2 -22 4 C -14 4 -8 6 0 1 Z', fill: '#ff9a2e', stroke: '#ffd23f', 'stroke-width': 0.8 }));
+    head.appendChild(fire);
+    breathe.appendChild(head);
+    const wingFront = el('g', { class: 'journey-dragon-wing d1' });
+    wingFront.appendChild(el('path', { d: 'M 4 -12 L 24 -26 L 20 -18 L 27 -17 L 18 -10 L 21 -8 L 8 -6 Z', fill: '#9c2531', stroke: '#4a0f14', 'stroke-width': 0.7 }));
+    breathe.appendChild(wingFront);
+    dragon.appendChild(breathe);
+    dpos.appendChild(dragon);
+    g.appendChild(dpos);
+    return g;
+  }
+
+  // A checkpoint — a wooden banner pole topped with a fire basket that
+  // lights once the task is done; a blocked one has a giant frog in front
+  // of it (croaking, with a crown) that the knight has to get past.
+  function castleBuildCheckpoint(i, isDone, isNext, blocked, scale, shadowFilterId) {
+    const color = isDone ? '#b3202c' : isNext ? NEXT_COLOR : PENDING_COLOR;
+    const s = scale;
+    const g = el('g', { class: 'journey-flag' });
+    if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 5 * s, cy: -20 * s, r: 15 * s, fill: NEXT_COLOR, opacity: 0.5 }));
+    g.appendChild(el('ellipse', { cx: 2 * s, cy: 0.5 * s, rx: 6 * s, ry: 1.8 * s, fill: '#0b1220', opacity: 0.25 }));
+    g.appendChild(el('rect', { x: -1.1 * s, y: -30 * s, width: 2.2 * s, height: 30 * s, rx: 0.8 * s, fill: '#6b4a2e', stroke: '#3f2a16', 'stroke-width': 0.5 * s }));
+    // fire basket
+    g.appendChild(el('path', { d: `M ${-4 * s} ${-33 * s} L ${4 * s} ${-33 * s} L ${2.4 * s} ${-29.6 * s} L ${-2.4 * s} ${-29.6 * s} Z`, fill: '#2d2d33' }));
+    if (isDone) {
+      const fpos = el('g', { transform: `translate(0,${-33 * s})` });
+      fpos.appendChild(el('circle', { cx: 0, cy: -3 * s, r: 7 * s, fill: '#ffb347', opacity: 0.35 }));
+      const flame = el('g', { class: 'journey-flame' });
+      flame.appendChild(el('path', { d: `M ${-3.2 * s} 0 Q ${-3.6 * s} ${-4.6 * s} 0 ${-9 * s} Q ${3.6 * s} ${-4.6 * s} ${3.2 * s} 0 Z`, fill: '#ff8a2a' }));
+      flame.appendChild(el('path', { d: `M ${-1.6 * s} 0 Q ${-1.8 * s} ${-2.8 * s} 0 ${-5.4 * s} Q ${1.8 * s} ${-2.8 * s} ${1.6 * s} 0 Z`, fill: '#ffe08a' }));
+      fpos.appendChild(flame);
+      g.appendChild(fpos);
+    }
+    const pos = el('g', { transform: `translate(${1.1 * s},${-26 * s})` });
+    const flag = el('g', { class: 'journey-flag-wave' });
+    flag.appendChild(el('path', {
+      d: `M 0 0 L ${13 * s} 0 L ${13 * s} ${9 * s} L ${10.4 * s} ${7 * s} L ${7.8 * s} ${9 * s} L 0 ${9 * s} Z`, fill: color, stroke: '#1f2937', 'stroke-width': 0.6 * s, 'stroke-linejoin': 'round',
+      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
+    }));
+    const label = el('text', {
+      x: 5.6 * s, y: 4.6 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': 6.4 * s, 'font-weight': 800, fill: isDone ? '#ffffff' : '#1f2937', 'font-family': 'Arial, sans-serif',
+    });
+    label.textContent = isDone ? '✓' : String(i + 1);
+    flag.appendChild(label);
+    pos.appendChild(flag);
+    g.appendChild(pos);
+    if (blocked) {
+      const ox = -24 * s, oy = 0;
+      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy - 9 * s, r: 19 * s, fill: '#ef4444', opacity: 0.45 }));
+      const frog = el('g', { transform: `translate(${ox},${oy}) scale(${s})` });
+      frog.appendChild(el('ellipse', { cx: 1, cy: 0.6, rx: 13, ry: 2.6, fill: '#0b1220', opacity: 0.22 }));
+      [-9, 9].forEach(fx => frog.appendChild(el('ellipse', { cx: fx, cy: -3, rx: 5, ry: 4, fill: '#3f9440', stroke: '#1f5a24', 'stroke-width': 0.6 })));
+      frog.appendChild(el('ellipse', { cx: 0, cy: -8, rx: 11, ry: 8, fill: '#4fae4a', stroke: '#1f5a24', 'stroke-width': 0.8 }));
+      frog.appendChild(el('ellipse', { cx: 0, cy: -5, rx: 7, ry: 4.4, fill: '#e3efb0' }));
+      const sacPos = el('g', { transform: 'translate(0,-3.6)' });
+      sacPos.appendChild(el('ellipse', { class: 'journey-frog-sac', cx: 0, cy: 1.6, rx: 3.4, ry: 2.2, fill: '#f2f5c8', stroke: '#b9c27a', 'stroke-width': 0.4 }));
+      frog.appendChild(sacPos);
+      frog.appendChild(el('path', { d: 'M -5.4 -7.4 Q 0 -4.4 5.4 -7.4', fill: 'none', stroke: '#24391a', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
+      [-4.6, 4.6].forEach(ex => {
+        frog.appendChild(el('circle', { cx: ex, cy: -15, r: 3.6, fill: '#4fae4a', stroke: '#1f5a24', 'stroke-width': 0.6 }));
+        frog.appendChild(el('circle', { cx: ex, cy: -15.4, r: 2.4, fill: '#ffffff' }));
+        frog.appendChild(el('circle', { cx: ex + 0.3, cy: -15, r: 1.2, fill: '#111111' }));
+      });
+      frog.appendChild(el('path', { d: 'M -2.6 -16.6 L -2.6 -19.6 L -1.3 -18 L 0 -20.2 L 1.3 -18 L 2.6 -19.6 L 2.6 -16.6 Z', fill: '#f2c14e', stroke: '#9a6a12', 'stroke-width': 0.3 }));
+      [[-5, -10], [4, -11.4], [-1, -12.6]].forEach(([sx, sy]) => frog.appendChild(el('circle', { cx: sx, cy: sy, r: 1.1, fill: '#2f7d32' })));
+      g.appendChild(frog);
+      g.appendChild(lockIcon(ox, -30 * s, s));
+    }
+    return g;
+  }
+
+  // The castle finish: from the last banner the knight swings his sword,
+  // the dragon flashes and falls, the portcullis lifts, the princess steps
+  // out to wave, "QUEST COMPLETE!" pops, and fireworks burst over the towers.
+  function castleCelebrateFinish(entry, from, scale, burst) {
+    const { svg, avatarLayer, goalPt } = entry;
+    const av = avatarLayer.firstChild;
+    const dragon = svg.querySelector('.journey-dragon');
+    if (av) av.classList.add('journey-slash');
+    setTimeout(() => {
+      if (!svg.isConnected) return;
+      if (av) av.classList.remove('journey-slash');
+      if (dragon) dragon.classList.add('journey-dragon-hit');
+      const slash = el('path', {
+        class: 'journey-slash-arc', d: `M ${goalPt.x - 40} ${goalPt.y - 8} Q ${goalPt.x - 20} ${goalPt.y - 30} ${goalPt.x - 2} ${goalPt.y - 14}`,
+        fill: 'none', stroke: '#ffffff', 'stroke-width': 3, 'stroke-linecap': 'round',
+      });
+      svg.insertBefore(slash, entry.vignette);
+      setTimeout(() => slash.remove(), 500);
+    }, 260);
+    setTimeout(() => { if (svg.isConnected && dragon) dragon.classList.add('journey-dragon-fall'); }, 700);
+    setTimeout(() => {
+      if (!svg.isConnected) return;
+      if (dragon) dragon.classList.remove('journey-dragon-hit', 'journey-dragon-fall');
+      entry.shotPending = false;
+      svg.classList.add('journey-quest-done');
+      const ty = goalPt.y > 90 ? goalPt.y - 70 : goalPt.y + 52;
+      const txt = el('text', {
+        class: 'journey-goal-pop', x: goalPt.x, y: ty, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+        'font-size': 24, 'font-weight': 900, 'font-family': 'Georgia, "Times New Roman", serif',
+        fill: '#ffe39a', stroke: '#6b3a07', 'stroke-width': 2.4, 'paint-order': 'stroke', 'letter-spacing': 1,
+      });
+      txt.textContent = 'QUEST COMPLETE!';
+      svg.insertBefore(txt, entry.vignette);
+      setTimeout(() => txt.remove(), 2700);
+      // three fireworks over the castle, one after another
+      [[-30, -48, '#ffd23f'], [28, -56, '#ff5d8f'], [0, -66, '#6ec6ff']].forEach(([fx, fy, c], k) => {
+        const pos = el('g', { transform: `translate(${goalPt.x + fx},${Math.max(14, goalPt.y + fy)})` });
+        const fw = el('g', { class: 'journey-firework', style: `animation-delay:${k * 0.35}s` });
+        for (let a = 0; a < 12; a++) {
+          const ang = (a / 12) * Math.PI * 2;
+          fw.appendChild(el('line', { x1: Math.cos(ang) * 3, y1: Math.sin(ang) * 3, x2: Math.cos(ang) * 12, y2: Math.sin(ang) * 12, stroke: c, 'stroke-width': 1.6, 'stroke-linecap': 'round' }));
+        }
+        pos.appendChild(fw);
+        svg.insertBefore(pos, entry.vignette);
+        setTimeout(() => pos.remove(), 2400);
+      });
+      burst();
+    }, 1500);
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // THEME REGISTRY — picked by app.js (Settings-free: a small selector
   // right in the Journey header, see index.html's #journey-theme-select)
   // and passed in as state.theme on every sync() call.
@@ -1228,6 +1558,16 @@ const JourneyGame = (() => {
       // The player stops at the last flag and shoots, instead of walking
       // into the net.
       finishAtLastFlag: true, celebrateFinish: footballCelebrateFinish,
+    },
+    castle: {
+      label: 'Castle', avatarFill: '#c62828',
+      sky: [[0, '#4a78c0'], [12, '#9cc3e6'], [22, '#f6d9a8'], [24, '#86b552'], [100, '#5f9a3d']],
+      goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
+      path: { outline: '#6b5f4b', fill: '#cbbd9e', dash: '#8a7a5c', progress: '#ffd27a' },
+      decorate: castleDecorate, scatter: castleScatter, buildAvatar: castleBuildAvatar, buildGoal: castleBuildGoal, buildCheckpoint: castleBuildCheckpoint,
+      // The knight stops at the last banner to fight the dragon, instead
+      // of walking into the gate.
+      finishAtLastFlag: true, celebrateFinish: castleCelebrateFinish,
     },
   };
   function resolveThemeKey(key) { return THEMES[key] ? key : 'road'; }
@@ -1692,6 +2032,9 @@ const JourneyGame = (() => {
     if (netBall) netBall.style.display = scored ? '' : 'none';
     const feetBall = avatarLayer.querySelector('.journey-feet-ball');
     if (feetBall) feetBall.style.display = scored ? 'none' : '';
+    // Castle: once the quest is done the dragon is gone, the gate is up
+    // and the princess stands outside (see .journey-quest-done in index.html).
+    svg.classList.toggle('journey-quest-done', scored);
 
     const from = entry.curFrac;
     if (from === null || reduceMotion || Math.abs(targetFrac - from) < 0.0005) {
@@ -1710,9 +2053,11 @@ const JourneyGame = (() => {
   // when one is picked. Each names the 2D theme to fall back to if the
   // device has no WebGL or the module/model fails to load, so the Journey
   // always shows something.
-  const THREE_D_THEMES = { football3d: { module: '/js/journey3d.js', fallback: 'football', failed: false } };
+  const THREE_D_THEMES = {
+    football3d: { module: '/js/journey3d.js', factory: 'createFootball3D', fallback: 'football', failed: false, loading: null },
+    castle3d: { module: '/js/journeyCastle3d.js', factory: 'createCastle3D', fallback: 'castle', failed: false, loading: null },
+  };
   const instances3d = new Set();
-  let module3d = null;
   let webglOk = null;
   function supportsWebGL() {
     if (webglOk === null) {
@@ -1727,34 +2072,37 @@ const JourneyGame = (() => {
     instances3d.delete(container._j3d);
     container._j3d.destroy();
     container._j3d = null;
+    container._j3dTheme = null;
     container.innerHTML = '';
   }
   function sync3d(container, state, cfg) {
     container._j3dState = state;
+    // Switching from one 3D stage to another replaces the running one.
+    if (container._j3d && container._j3dTheme !== state.theme) teardown3d(container);
     if (container._j3d) { container._j3d.sync(state); return Promise.resolve(); }
     // Leaving the 2D scene: stop its walk and drop it (its ResizeObserver
     // finds no entry while the 3D stage is up, so it stays idle).
     const entry = containers.get(container);
     if (entry) { stopWalk(entry); containers.delete(container); container.innerHTML = ''; }
     if (!container._j3dLoading) {
-      module3d = module3d || import(cfg.module);
-      container._j3dLoading = module3d.then(mod => {
+      cfg.loading = cfg.loading || import(cfg.module);
+      container._j3dLoading = cfg.loading.then(mod => {
         container._j3dLoading = null;
         const latest = container._j3dState;
         if (!latest || !THREE_D_THEMES[latest.theme] || container._j3d) return;
-        container._j3d = mod.createFootball3D(container);
+        // The user switched to another 3D stage while this one loaded.
+        if (THREE_D_THEMES[latest.theme] !== cfg) return JourneyGameApi.sync(container, latest);
+        container._j3d = mod[cfg.factory](container);
+        container._j3dTheme = latest.theme;
         instances3d.add(container._j3d);
         container._j3d.sync(latest);
       }).catch(err => {
         console.error('3D Journey unavailable, showing the 2D stage instead:', err);
-        cfg.failed = true; module3d = null; container._j3dLoading = null;
-        if (container._j3d) { instances3d.delete(container._j3d); container._j3d = null; }
+        cfg.failed = true; cfg.loading = null; container._j3dLoading = null;
+        if (container._j3d) { instances3d.delete(container._j3d); container._j3d = null; container._j3dTheme = null; }
         container.innerHTML = '';
         const latest = container._j3dState;
-        if (latest && THREE_D_THEMES[latest.theme]) {
-          ensureResizeObserver(container);
-          apply(container, Object.assign({}, latest, { theme: cfg.fallback }));
-        }
+        if (latest && THREE_D_THEMES[latest.theme]) JourneyGameApi.sync(container, latest);
       });
     }
     return container._j3dLoading;
@@ -1771,7 +2119,7 @@ const JourneyGame = (() => {
     container._journeyRO = ro;
   }
 
-  return {
+  const JourneyGameApi = {
     buildPhaseLabel(frac) {
       if (frac >= 1) return 'Reached the target';
       let label = 'At the starting line';
@@ -1800,4 +2148,5 @@ const JourneyGame = (() => {
       }
     },
   };
+  return JourneyGameApi;
 })();
