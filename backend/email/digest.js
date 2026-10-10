@@ -1,8 +1,7 @@
 const cron = require('node-cron');
 const db = require('../db/db');
 const { getTransporter } = require('./mailer');
-
-const APP_URL = process.env.APP_URL || 'http://localhost:3000';
+const { APP_URL } = require('./appUrl');
 
 // Local (not UTC) date key — matches the same technique used client-side
 // for the in-app daily digest banner, for the same reason: a task's due
