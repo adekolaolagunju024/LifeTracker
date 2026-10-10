@@ -405,6 +405,19 @@
     @keyframes journey-sway { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
     @keyframes journey-jelly { 0%, 100% { transform: translateY(0) scale(1,1); } 50% { transform: translateY(-3px) scale(.92,1.08); } }
 
+    /* A completed task's own title, popping up beside its flag then
+       floating away — removed by JS on a timer either way, so reduced
+       motion still sees it appear and disappear, just without the drift. */
+    .journey-task-popup-text { font-size: 13px; font-weight: 800; fill: #1f2937; font-family: Arial, sans-serif; dominant-baseline: middle; }
+    .journey-task-popup-bg { fill: #ffffff; fill-opacity: .94; stroke: rgba(0,0,0,.08); stroke-width: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+    .journey-task-popup-inner { animation: journey-task-popup 2.2s ease-out 1 forwards; transform-box: fill-box; transform-origin: center; }
+    @keyframes journey-task-popup {
+      0% { opacity: 0; transform: translateY(6px) scale(.85); }
+      12% { opacity: 1; transform: translateY(0) scale(1); }
+      72% { opacity: 1; transform: translateY(-4px) scale(1); }
+      100% { opacity: 0; transform: translateY(-26px) scale(.96); }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .journey-flag-pop, .journey-net-ripple.journey-net-bulge, .journey-goal-pop, .journey-cheer .journey-crowd-bob,
       .journey-ball-dribble, .journey-net-ripple, .journey-sparkle, .journey-cloud-drift, .journey-sway, .journey-jelly,
@@ -416,7 +429,8 @@
       .journey-star-twinkle, .journey-comet, .journey-asteroid,
       .journey-crowd-bob, .journey-flag-wave, .journey-speedline,
       .journey-sparkle, .journey-checkpoint-pop,
-      .journey-leg-l, .journey-leg-r, .journey-wheel-l, .journey-wheel-r { animation: none; }
+      .journey-leg-l, .journey-leg-r, .journey-wheel-l, .journey-wheel-r,
+      .journey-task-popup-inner { animation: none; }
     }
 
     /* Native-feeling iOS toggle switch, reused anywhere a setting is a

@@ -1384,6 +1384,7 @@ const JourneyGame = (() => {
     const flagsLayer = el('g', { class: 'journey-flags' });
     const ghostLayer = el('g', { class: 'journey-ghost' });
     const avatarLayer = el('g', { class: 'journey-avatar-layer' });
+    const popupLayer = el('g', { class: 'journey-popups', 'pointer-events': 'none' });
     svg.appendChild(flagsLayer);
     svg.appendChild(ghostLayer);
 
@@ -1391,6 +1392,7 @@ const JourneyGame = (() => {
     const goalPt = pathBase.getPointAtLength(goalLen);
     svg.appendChild(theme.buildGoal(goalPt.x, goalPt.y, goalGradId, shadowId, glowId));
     svg.appendChild(avatarLayer);
+    svg.appendChild(popupLayer);
     const vignette = el('rect', { x: 0, y: 0, width: layout.w, height: layout.h, fill: `url(#${vignetteId})`, 'pointer-events': 'none' });
     svg.appendChild(vignette);
 
@@ -1398,7 +1400,7 @@ const JourneyGame = (() => {
 
     const entry = {
       svg, title, roadBase: pathBase, layoutKey: layout === LAYOUTS.tall ? 'tall' : 'wide', themeKey: resolveThemeKey(themeKey),
-      flagsLayer, ghostLayer, avatarLayer, progressPath, progressLen, shadowId, lastState: null, lastDoneIds: new Set(), lastSummit: false,
+      flagsLayer, ghostLayer, avatarLayer, popupLayer, progressPath, progressLen, shadowId, lastState: null, lastDoneIds: new Set(), lastSummit: false,
       goalPt: { x: goalPt.x, y: goalPt.y }, vignette, curFrac: null, walk: null, facing: 1, flagEls: [], shotPending: false,
     };
     containers.set(container, entry);
@@ -1519,8 +1521,38 @@ const JourneyGame = (() => {
     nextLeg();
   }
 
-  // A flag the avatar has just reached: it pops, and confetti bursts from it.
-  function celebrateFlag(entry, i, frac) {
+  // The completed task's own title, floating up beside its flag and fading
+  // away — a quick "what did I just finish?" readout, not a modal.
+  function spawnTaskPopup(entry, x, y, text) {
+    if (!entry || !entry.svg.isConnected || !text) return;
+    const label = text.length > 28 ? text.slice(0, 27) + '…' : text;
+    const outer = el('g', { class: 'journey-task-popup', transform: `translate(${x},${y - 34})` });
+    const inner = el('g', { class: 'journey-task-popup-inner' });
+    const txt = el('text', { class: 'journey-task-popup-text', x: 0, y: 0, 'text-anchor': 'middle' });
+    txt.textContent = label;
+    inner.appendChild(txt);
+    outer.appendChild(inner);
+    entry.popupLayer.appendChild(outer);
+    // The background pill is sized from the text's rendered bbox, so it has
+    // to wait a frame until the <text> actually has layout to measure.
+    requestAnimationFrame(() => {
+      if (!outer.isConnected) return;
+      const bbox = txt.getBBox();
+      const pad = 8;
+      const rect = el('rect', {
+        class: 'journey-task-popup-bg', x: bbox.x - pad, y: bbox.y - 4,
+        width: bbox.width + pad * 2, height: bbox.height + 8, rx: (bbox.height + 8) / 2,
+      });
+      inner.insertBefore(rect, txt);
+    });
+    // Removed on a timer regardless of the CSS animation, so reduced-motion
+    // viewers still see it appear and disappear, just without the float.
+    setTimeout(() => { if (outer.isConnected) outer.remove(); }, 2200);
+  }
+
+  // A flag the avatar has just reached: it pops, confetti bursts from it,
+  // and the task's own title floats up beside it.
+  function celebrateFlag(entry, i, frac, taskTitle) {
     if (!entry || !entry.svg.isConnected) return;
     const g = entry.flagEls[i];
     if (g) {
@@ -1529,11 +1561,12 @@ const JourneyGame = (() => {
       g.classList.add('journey-flag-pop');
       setTimeout(() => g.classList.remove('journey-flag-pop'), 700);
     }
+    const p = pointAtFrac(entry.roadBase, frac);
     if (window.fireScreenConfetti) {
-      const p = pointAtFrac(entry.roadBase, frac);
       const sp = screenPoint(entry.svg, p.x, p.y);
       window.fireScreenConfetti(sp.x, sp.y, 24);
     }
+    if (taskTitle) spawnTaskPopup(entry, p.x, p.y, taskTitle);
   }
 
   function apply(container, state) {
@@ -1604,7 +1637,7 @@ const JourneyGame = (() => {
     if (celebrate) {
       state.tasks.forEach((t, i) => {
         if (t.status === 'Completed' && !entry.lastDoneIds.has(t.id)) {
-          arrivals.push({ taskId: t.id, frac: fracs[i], fire: () => celebrateFlag(current(), i, fracs[i]) });
+          arrivals.push({ taskId: t.id, frac: fracs[i], fire: () => celebrateFlag(current(), i, fracs[i], t.title) });
         }
       });
     }
