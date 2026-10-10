@@ -606,7 +606,38 @@ export function createFootball3D(container) {
   }
   function allDone() { return tasks.every(t => t.done); }
 
+  // An obstacle ticked off on a task that's still open: the player
+  // dribbles up to its rivals and takes them on with a step-over (fn(true)
+  // when there, then a pause for the skill), and dribbles back to the
+  // flag. With another wall in the way or the shot under way, fn(false)
+  // runs at once and the rivals just leave.
+  const pendingEngage = [];
+  let excursionBack = null;
+  function engage(i, fn, pause) {
+    if (reduceMotion || P.mode === 'shoot' || P.mode === 'celebrate' || P.scored) { fn(false); return; }
+    if (P.mode !== 'idle') { pendingEngage.push({ i, fn, pause }); return; }
+    const at = wallFrac(i) - 0.012;
+    const inTheWay = walls.some(w => w.taskIndex !== i && !w.cleared && !w.clearing && !w.open
+      && wallFrac(w.taskIndex) - 0.012 > P.frac + 1e-4 && wallFrac(w.taskIndex) - 0.012 < at - 1e-4);
+    if (inTheWay || at < P.frac - 1e-4) { fn(false); return; }
+    excursionBack = P.frac;
+    P.stops = [{ frac: at, events: [{ fn: () => fn(true), raw: fn, kind: 'engage' }], pause }, { frac: P.frac, events: [], pause: 0 }];
+    P.mode = 'run'; cam.goalTime = 0;
+  }
   function plan() {
+    // Mid-excursion: carry on if nothing else changed; otherwise the rivals
+    // leave where they stand and the run is planned as usual.
+    const engaging = P.stops.flatMap(s => s.events).filter(e => e.kind === 'engage');
+    if (excursionBack !== null && (engaging.length || P.stops.length)) {
+      const n0 = tasks.length, done0 = tasks.filter(t => t.done).length;
+      let to0 = progressToFrac(done0, n0);
+      walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to0 = Math.min(to0, wallFrac(w.taskIndex) - 0.012); });
+      const fresh = tasks.some(t => t.done !== celebrated.has(t.id));
+      if (!fresh && Math.abs(to0 - excursionBack) < 1e-4) return;
+      engaging.forEach(e => e.raw(false));
+      P.stops = [];
+    }
+    excursionBack = null;
     const n = tasks.length, done = tasks.filter(t => t.done).length;
     const events = [];
     tasks.forEach((t, i) => {
@@ -617,7 +648,8 @@ export function createFootball3D(container) {
         if (wall && wall.open && !wall.cleared) { wall.cleared = true; wall.t = 99; }
         if (wall && !wall.cleared && !wall.clearing) {
           wall.clearing = true;
-          events.push({ frac: wallFrac(i) - 0.012, fn: () => clearWall(wall), pause: 0.7 + 0.22 * Math.max(1, wall.defenders.length), kind: 'wall', wall });
+          // no stopping: the player dribbles straight through the rivals
+          events.push({ frac: wallFrac(i) - 0.012, fn: () => clearWall(wall), pause: 0, kind: 'wall', wall, through: true });
         }
         events.push({ frac: checkpointFrac(i, n), fn: () => popFlag(i, t.title), pause: 0.8, kind: 'flag', taskId: t.id });
       }
@@ -646,10 +678,12 @@ export function createFootball3D(container) {
     const stops = [];
     all.filter(onRoute).sort((a, b) => dir * (a.frac - b.frac)).forEach(e => {
       const last = stops[stops.length - 1];
-      if (last && Math.abs(last.frac - e.frac) < 1e-3) { last.events.push(e); last.pause = Math.max(last.pause, e.pause); }
-      else stops.push({ frac: e.frac, events: [e], pause: e.pause });
+      if (last && Math.abs(last.frac - e.frac) < 1e-3) { last.events.push(e); last.pause = Math.max(last.pause, e.pause); last.through = last.through && !!e.through; }
+      else stops.push({ frac: e.frac, events: [e], pause: e.pause, through: !!e.through });
     });
     if (moving && (!stops.length || Math.abs(stops[stops.length - 1].frac - to) > 1e-3)) stops.push({ frac: to, events: [], pause: 0 });
+    // the last stop is where the player ends up, so it's never run through
+    if (stops.length) stops[stops.length - 1].through = false;
     P.stops = stops;
     if (moving) { P.mode = 'run'; cam.goalTime = 0; } else if (P.mode === 'run') P.mode = 'idle';
     all.filter(e => !onRoute(e)).forEach(e => e.fn());
@@ -753,10 +787,12 @@ export function createFootball3D(container) {
       walls.push(w);
     });
   }
-  // Dribbling past: the rivals leap aside one after another.
+  // Dribbling past: the player weaves through with the ball (see
+  // dribbleOffset) as the rivals leap aside one after another.
   function clearWall(w) {
     if (w.cleared) return;
     w.cleared = true; w.t = 0;
+    if (!reduceMotion) dribble.wall = w;
     burst(w.lock.position.clone(), 40, 4);
     notify();
   }
@@ -776,23 +812,43 @@ export function createFootball3D(container) {
     scene.remove(w.tag); w.tag.material.map.dispose(); w.tag.material.dispose();
     scene.add(tag); w.tag = tag;
   }
-  // An obstacle ticked off (or unticked) on its own: its rivals leap out of
-  // the way (or come back), and its name pops up over the wall.
+  // An obstacle ticked off (or unticked) on its own: the player dribbles up
+  // and beats its rivals (see engageResolved), or they come back, and its
+  // name pops up over the wall.
   function applyResolves(changes) {
+    const engaging = [];
     changes.forEach((c, j) => {
       const w = walls.find(x => x.taskIndex === c.index);
       const at = w ? w.at.clone() : curve.getPointAt(wallFrac(c.index));
-      if (c.resolved) { timers.push(setTimeout(() => spawnTaskLabel(at.clone().setY(3.8), c.name, 'foe'), j * 450)); peek.at.copy(at); peek.t = 3.4; }
-      if (!w) return;
+      const label = c.resolved ? () => spawnTaskLabel(at.clone().setY(3.8), c.name, 'foe') : null;
+      const now = () => { if (label) { timers.push(setTimeout(label, j * 450)); peek.at.copy(at); peek.t = 3.4; } };
+      let engagedHere = false;
+      if (!w) { now(); return; }
       w.defenders.forEach(d => {
         if (d.owner !== c.id) return;
-        if (c.resolved && !d.gone) { d.gone = true; d.goneT = 0; d.jumped = false; }
-        else if (!c.resolved && d.gone && !w.cleared) reviveDefender(d);
+        if (c.resolved && !d.gone) {
+          d.gone = true; d.goneT = 0; d.jumped = false;
+          if (!reduceMotion && !w.cleared && d.holder.visible) { d.goneT = -1e9; engaging.push({ w, d, label: engagedHere ? null : label }); engagedHere = true; }
+        } else if (!c.resolved && d.gone && !w.cleared) reviveDefender(d);
         else if (!c.resolved) d.gone = false;
       });
+      if (!engagedHere) now();
     });
     walls.forEach(w => { w.open = !tasks[w.taskIndex].foes; });
     new Set(changes.map(c => c.index)).forEach(i => { const w = walls.find(x => x.taskIndex === i); if (w) retagWall(w); });
+    engageResolved(engaging);
+  }
+  // The player dribbles up to a ticked-off obstacle's rivals, beats them
+  // with a step-over each (they leap aside as it happens), then heads back.
+  function engageResolved(list) {
+    const byWall = new Map();
+    list.forEach(e => { if (!byWall.has(e.w)) byWall.set(e.w, []); byWall.get(e.w).push(e); });
+    byWall.forEach((items, w) => engage(w.taskIndex, near => {
+      items.forEach((e, k) => { e.d.goneT = near ? -0.25 - k * 0.55 : 0; });
+      if (near) { dribble.feint = { t: 0, n: items.length }; play(player, 'Running', 0.15, 1.3); }
+      items.filter(e => e.label).forEach((e, k) => timers.push(setTimeout(e.label, k * 450 + (near ? 300 : 0))));
+      peek.at.copy(w.at); peek.t = 3.4;
+    }, 0.6 + 0.55 * items.length));
   }
   function updateWalls(dt, time) {
     walls.forEach(w => {
@@ -870,9 +926,39 @@ export function createFootball3D(container) {
 
   // ── Placement helpers ────────────────────────────────────────────────
   const tmpV = new THREE.Vector3(), tmpT = new THREE.Vector3();
-  function placePlayer(snapHeading) {
+  // The dribble: running through a cleared wall the player weaves left
+  // and right round the rivals (a slalom over DRIBBLE_LEN metres from just
+  // before the wall), and a step-over feint (side-step and back) beats a
+  // ticked-off rival. Both are sideways offsets from the path; the ball
+  // follows the feet, so it weaves too.
+  const DRIBBLE_LEN = 6.5;
+  const dribble = { wall: null, feint: null, offset: 0 };
+  function dribbleOffset(dt) {
+    let off = 0;
+    if (dribble.wall) {
+      const sM = (P.frac - (wallFrac(dribble.wall.taskIndex) - 0.03)) * curveLen;
+      if (sM > 0 && sM < DRIBBLE_LEN) off = Math.sin((sM / DRIBBLE_LEN) * Math.PI * 2) * 0.95 * Math.sin((sM / DRIBBLE_LEN) * Math.PI);
+      else if (sM >= DRIBBLE_LEN || P.mode !== 'run') dribble.wall = null;
+    }
+    if (dribble.feint) {
+      const f = dribble.feint; f.t += dt;
+      const each = 0.55, k = f.t / each, i = Math.floor(k);
+      if (i >= f.n) dribble.feint = null;
+      else off = Math.sin((k - i) * Math.PI) * 0.8 * (i % 2 ? -1 : 1);
+    }
+    return off;
+  }
+  function placePlayer(snapHeading, dt = 0) {
     const p = curve.getPointAt(THREE.MathUtils.clamp(P.frac, 0, 1));
     player.holder.position.copy(p);
+    const off = dribbleOffset(dt);
+    if (off || dribble.offset) {
+      const t = curve.getTangentAt(THREE.MathUtils.clamp(P.frac, 0, 1));
+      player.holder.position.x += t.z * off; player.holder.position.z -= t.x * off;
+      // lean the heading into each cut
+      if (dt > 0 && P.mode === 'run') P.heading += Math.atan2(off - dribble.offset, Math.max(0.05, P.speed * dt)) * 0.12;
+    }
+    dribble.offset = off;
     if (snapHeading) {
       const t = curve.getTangentAt(THREE.MathUtils.clamp(P.frac, 0, 1));
       P.heading = P.targetHeading = Math.atan2(t.x, t.z);
@@ -925,17 +1011,23 @@ export function createFootball3D(container) {
     if (P.mode === 'run' && stop) {
       const dir = Math.sign(stop.frac - P.frac);
       const distM = Math.abs(stop.frac - P.frac) * curveLen;
-      const brake = Math.sqrt(2 * 7 * distM) + 0.3;
+      // brake only for a stop the player actually stops at
+      const halt = P.stops.find(s => !s.through) || stop;
+      const brake = Math.sqrt(2 * 7 * Math.abs(halt.frac - P.frac) * curveLen) + 0.3;
       P.speed = Math.min(RUN_SPEED, P.speed + 9 * dt, brake);
       const stepM = Math.min(distM, P.speed * dt);
       P.frac += dir * (stepM / curveLen);
       const t = curve.getTangentAt(THREE.MathUtils.clamp(P.frac, 0, 1));
       P.targetHeading = Math.atan2(t.x * dir, t.z * dir);
       P.heading = angleLerp(P.heading, P.targetHeading, Math.min(1, dt * 10));
-      if (P.speed > 0.4) play(player, 'Running', 0.2, Math.max(0.6, P.speed / RUN_SPEED));
-      placePlayer(false);
-      if (distM - stepM < 0.005) {
-        P.frac = stop.frac; P.speed = 0; placePlayer(false);
+      if (P.speed > 0.4) play(player, 'Running', 0.2, Math.max(0.6, P.speed / RUN_SPEED) * (dribble.wall ? 1.25 : 1));
+      placePlayer(false, dt);
+      if (distM - stepM < 0.005 && stop.through) {
+        P.frac = stop.frac;
+        stop.events.forEach(e => e.fn());
+        P.stops.shift();
+      } else if (distM - stepM < 0.005) {
+        P.frac = stop.frac; P.speed = 0; placePlayer(false, dt);
         stop.events.forEach(e => e.fn());
         P.stops.shift();
         if (P.mode === 'shoot') return;
@@ -946,6 +1038,10 @@ export function createFootball3D(container) {
       P.mode = 'idle'; play(player, 'Idle', 0.3);
     } else if (P.mode === 'pause') {
       P.pauseLeft -= dt;
+      if (dribble.feint) {
+        placePlayer(false, dt);
+        if (!dribble.feint && player.current === player.actions.Running) play(player, 'Idle', 0.2);
+      }
       if (P.pauseLeft <= 0) P.mode = P.stops.length ? 'run' : 'idle';
     } else if (P.mode === 'shoot') {
       P.shotT += dt;
@@ -968,8 +1064,10 @@ export function createFootball3D(container) {
         player.holder.rotation.y = P.heading;
       }
       if (P.celebrateT > 5) { P.mode = 'idle'; play(player, 'Wave', 0.3); }
-    } else if (P.mode === 'idle' && player.current && !player.current.isRunning()) {
-      play(player, 'Idle', 0.3);
+    } else if (P.mode === 'idle') {
+      if (player.current && !player.current.isRunning()) play(player, 'Idle', 0.3);
+      if (excursionBack !== null && !P.stops.length) excursionBack = null;
+      if (pendingEngage.length) { const e = pendingEngage.shift(); engage(e.i, e.fn, e.pause); }
     }
   }
 
@@ -1084,7 +1182,7 @@ export function createFootball3D(container) {
       // A rebuild places everything directly, so nothing already done replays.
       celebrated.clear();
       tasks.forEach(t => { if (t.done) celebrated.add(t.id); });
-      P.stops = []; P.speed = 0; P.mode = 'idle'; cam.goalTime = 0;
+      P.stops = []; P.speed = 0; P.mode = 'idle'; cam.goalTime = 0; pendingEngage.length = 0; excursionBack = null; dribble.wall = dribble.feint = null;
       buildFlags(); buildWalls(); refreshFlags();
       P.frac = targetFrac(); placePlayer(true); play(player, 'Idle', 0.2);
       if (allDone() && tasks.length) {

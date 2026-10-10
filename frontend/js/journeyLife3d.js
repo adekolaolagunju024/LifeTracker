@@ -562,7 +562,7 @@ export function createLife3D(container) {
     w.foes.forEach(f => { if (!f.ticked) reviveFoe(f); });
   }
   function reviveFoe(f) {
-    Object.assign(f, { done: false, started: false, ticked: false, tickT: 0, hit: false });
+    Object.assign(f, { done: false, started: false, ticked: false, engaged: false, tickT: 0, hit: false });
     f.g.visible = true; f.g.position.copy(f.home); f.g.rotation.set(0, f.face, 0); f.g.scale.setScalar(1);
     f.body.rotation.set(0, 0, 0); f.body.position.x = 0;
     f.mats.forEach(m => m.emissive && m.emissive.setRGB(0, 0, 0));
@@ -578,24 +578,45 @@ export function createLife3D(container) {
     scene.add(tag); w.tag = tag;
   }
   function applyResolves(changes) {
+    const engaging = [];
     changes.forEach((c, j) => {
       const w = walls.find(x => x.taskIndex === c.index);
       const at = w ? w.center.clone() : curve.getPointAt(wallFrac(c.index));
-      if (c.resolved) { timers.push(setTimeout(() => shell.spawnTaskLabel(at.clone().setY(at.y + 4.5), c.name, 'foe', CLEARED), j * 450)); peek.at.copy(at); peek.t = 3.6; }
-      if (!w) return;
+      const label = c.resolved ? () => shell.spawnTaskLabel(at.clone().setY(at.y + 4.5), c.name, 'foe', CLEARED) : null;
+      const now = () => { if (label) { timers.push(setTimeout(label, j * 450)); peek.at.copy(at); peek.t = 3.6; } };
+      let engagedHere = false;
+      if (!w) { now(); return; }
       w.foes.forEach(f => {
         if (f.owner !== c.id) return;
         if (c.resolved && !f.ticked) {
           f.ticked = true; f.tickT = 0;
+          // still standing: the character goes up and deals with it (engageResolved)
+          if (!reduceMotion && !f.done && !w.cleared) { f.tickT = -1e9; engaging.push({ w, f, label: engagedHere ? null : label }); engagedHere = true; }
           if (reduceMotion || f.done) { f.done = true; f.g.visible = false; }
         } else if (!c.resolved && f.ticked) {
           if (w.cleared) f.ticked = false; else reviveFoe(f);
         }
       });
+      if (!engagedHere) now();
     });
     walls.forEach(w => { w.open = !tasks[w.taskIndex].foes; });
     new Set(changes.map(c => c.index)).forEach(i => { const w = walls.find(x => x.taskIndex === i); if (w) retagWall(w); });
+    engageResolved(engaging);
   }
+  // Ticked-off blockers the character goes up to and deals with itself
+  // (walker.engage): their clearing (and name popup) starts once it's there,
+  // one after another. near is false when it couldn't get there, and then
+  // they just go where they stand.
+  function engageResolved(list) {
+    const byWall = new Map();
+    list.forEach(e => { if (!byWall.has(e.w)) byWall.set(e.w, []); byWall.get(e.w).push(e); });
+    byWall.forEach((items, w) => walker.engage(w.taskIndex, near => {
+      items.forEach((e, k) => { e.f.engaged = near; e.f.tickT = -k * 0.6; });
+      items.filter(e => e.label).forEach((e, k) => timers.push(setTimeout(e.label, k * 450 + (near ? 300 : 0))));
+      peek.at.copy(w.center); peek.t = 3.6;
+    }, 1 + 0.6 * items.length + 0.8));
+  }
+
   function idleFoe(f, time) {
     const t = time + f.ph;
     if (f.kind === 'troll') { f.body.position.y = Math.abs(Math.sin(t * 2.4)) * 0.08; f.body.rotation.y = Math.sin(t * 0.8) * 0.25; }
@@ -610,7 +631,7 @@ export function createLife3D(container) {
     if (lt < 0) { idleFoe(f, time); return; }
     if (!f.started) {
       f.started = true;
-      if (traveller && !f.ticked) {
+      if (traveller && (!f.ticked || f.engaged)) {
         P.heading = Math.atan2(f.home.x - traveller.holder.position.x, f.home.z - traveller.holder.position.z);
         traveller.holder.rotation.y = P.heading;
         play(traveller, 'Interact', { fade: 0.12, once: true, timeScale: 1.2 });

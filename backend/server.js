@@ -56,7 +56,15 @@ app.use(session({
 }));
 
 // ── SERVE FRONTEND (public — the login screen itself lives here) ──
-app.use(express.static(path.join(__dirname, '../frontend'), { index: false }));
+// Pages, scripts and styles must always be checked against the server, so
+// a deploy shows up on the next load instead of a stale cached copy (the
+// files keep their names between releases). Images and models can cache.
+const NO_CACHE = /\.(html|js|mjs|css)$/;
+const noCache = res => res.setHeader('Cache-Control', 'no-cache');
+app.use(express.static(path.join(__dirname, '../frontend'), {
+  index: false,
+  setHeaders(res, filePath) { if (NO_CACHE.test(filePath)) noCache(res); },
+}));
 // Three.js for the 3D Journey stage, served from the npm package so it's
 // self-hosted and version-locked by package.json (only the two folders the
 // browser imports from).
@@ -67,9 +75,10 @@ app.use('/vendor/three/examples/jsm', express.static(path.join(__dirname, '../no
 // users (and the app's own login screen at /app) get the app itself.
 app.get('/', (req, res) => {
   const file = req.session && req.session.userId ? 'index.html' : 'landing.html';
+  noCache(res);
   res.sendFile(path.join(__dirname, '../frontend', file));
 });
-app.get('/app', (req, res) => res.sendFile(path.join(__dirname, '../frontend/index.html')));
+app.get('/app', (req, res) => { noCache(res); res.sendFile(path.join(__dirname, '../frontend/index.html')); });
 
 // ── PUBLIC ROUTES ──
 app.use('/api/auth', require('./routes/auth'));
@@ -100,6 +109,7 @@ app.use('/api/journey-gaming', require('./routes/journeyGaming'));
 
 // ── CATCH ALL — serve frontend ──
 app.get('*', (req, res) => {
+  noCache(res);
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
