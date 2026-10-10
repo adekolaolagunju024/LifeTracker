@@ -175,8 +175,56 @@ function obstacleBadge(t) {
   if (!obs.length || t.status === 'Completed') return '';
   const n = pendingFoes(t);
   const names = obstacleNames(t);
-  if (!n) return `<button type="button" onclick="event.stopPropagation(); openObstacles('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-green-700 bg-green-50 hover:bg-green-100 border border-green-100 rounded px-1 leading-4" title="⚔️ All obstacles cleared: ${esc(names)}" aria-label="All obstacles cleared: ${esc(names)}">⚔️ ✓</button>`;
-  return `<button type="button" onclick="event.stopPropagation(); openObstacles('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded px-1 leading-4" title="⚔️ Obstacles: ${esc(names)}" aria-label="${n} obstacle enemies: ${esc(names)}">⚔️ ${n}</button>`;
+  if (!n) return `<button type="button" data-obstacle-badge="${t.id}" onclick="event.stopPropagation(); openObstacles('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-green-700 bg-green-50 hover:bg-green-100 border border-green-100 rounded px-1 leading-4" title="⚔️ All obstacles cleared: ${esc(names)}" aria-label="All obstacles cleared: ${esc(names)}">⚔️ ✓</button>`;
+  return `<button type="button" data-obstacle-badge="${t.id}" onclick="event.stopPropagation(); openObstacles('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded px-1 leading-4" title="⚔️ Obstacles: ${esc(names)}" aria-label="${n} obstacle enemies: ${esc(names)}">⚔️ ${n}</button>`;
+}
+// A task's blockers as a little checklist right under it (Journey task
+// list, Kanban cards, task table): tick one when it's sorted and the
+// Journey knocks out just that blocker's enemies, without opening the task.
+// variant 'quest' uses the Journey panel's own themed styles.
+const blockerTasks = new Map(); // task id -> the task objects rendered with a checklist
+function blockerChecklist(t, canEdit, variant) {
+  const obs = t.obstacles || [];
+  if (!obs.length || t.status === 'Completed') return '';
+  if (!blockerTasks.has(t.id)) blockerTasks.set(t.id, new Set());
+  blockerTasks.get(t.id).add(t);
+  const stop = `onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()"`;
+  const rows = obs.map(o => `
+      <label class="${variant === 'quest' ? `journey-blocker-row${o.resolved ? ' is-resolved' : ''}` : `flex items-center gap-1.5 text-xs ${o.resolved ? 'text-gray-400 line-through' : 'text-red-700'} ${canEdit ? 'cursor-pointer' : ''}`}" ${stop} title="${o.resolved ? 'Cleared. Untick if it is back in the way' : 'Tick when this blocker is cleared'}">
+        <input type="checkbox" class="${variant === 'quest' ? 'journey-blocker-check' : 'w-3.5 h-3.5 accent-green-600'}" data-obstacle-id="${o.id}" ${o.resolved ? 'checked' : ''} ${canEdit ? '' : 'disabled'} onchange="tickBlocker('${t.id}', '${o.id}', this)" aria-label="${esc(o.name)} cleared">
+        <span class="${variant === 'quest' ? 'journey-blocker-name' : 'truncate'}">${o.resolved ? '✅' : '⚔️'} ${esc(o.name)}${(o.count || 1) > 1 ? ` ×${o.count}` : ''}</span>
+      </label>`).join('');
+  return `<div class="${variant === 'quest' ? 'journey-blocker-list' : 'mt-1.5 flex flex-col gap-0.5'}" data-blocker-list="${t.id}">${rows}</div>`;
+}
+async function tickBlocker(taskId, obstacleId, checkbox) {
+  const resolved = checkbox.checked;
+  checkbox.disabled = true;
+  try {
+    await API.updateObstacle(obstacleId, { resolved });
+  } catch (e) {
+    checkbox.checked = !resolved; checkbox.disabled = false;
+    showToast('❌ ' + (e.message || 'Could not update that blocker'), 'error');
+    return;
+  }
+  // Every cached copy of the task (board, table, Journey) takes the change.
+  const copies = new Set(blockerTasks.get(taskId) || []);
+  if (mountainState) mountainState.tasks.filter(x => x.id === taskId).forEach(x => copies.add(x));
+  let name = '';
+  copies.forEach(t => (t.obstacles || []).forEach(o => { if (o.id === obstacleId) { o.resolved = resolved; name = o.name; } }));
+  const any = [...copies][0];
+  if (any) {
+    document.querySelectorAll(`[data-obstacle-badge="${taskId}"]`).forEach(b => {
+      const html = obstacleBadge(any);
+      if (html) b.outerHTML = html; else b.remove();
+    });
+    document.querySelectorAll(`[data-blocker-list="${taskId}"]`).forEach(list => {
+      const quest = list.classList.contains('journey-blocker-list');
+      if (!quest) list.outerHTML = blockerChecklist(any, true, 'board');
+    });
+  }
+  if (mountainState && mountainState.tasks.some(x => x.id === taskId)) { renderMountainScene(); renderMountainTaskList(); }
+  if (APP_currentDetailTaskId === taskId) refreshObstacles(taskId);
+  if (resolved && name) showToast(`⚔️ "${name}" cleared!`);
 }
 // On hover, a quick way to add an obstacle to a task that has none yet.
 function addObstacleButton(t, canEdit) {
@@ -885,6 +933,7 @@ async function renderTaskTable(projectId) {
             ${canEdit ? `<td class="px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()"></td>` : ''}
             <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">
               <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}${t.commentCount ? ` <span class="text-gray-400 font-normal text-xs" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">💬 ${t.commentCount}</span>` : ''}${statusUpdateBadge(t)} ${obstacleBadge(t)}</div>
+              ${blockerChecklist(t, canEdit, 'board')}
               ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
               ${taskProgressBarHTML(t)}
             </td>
@@ -1820,6 +1869,7 @@ function renderKanbanBoard(tasks, projectById) {
             <span class="truncate flex items-center gap-1.5">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}${statusUpdateBadge(t)}${obstacleBadge(t)}${addObstacleButton(t, canEdit)}</span>
             ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
           </div>
+          ${blockerChecklist(t, canEdit, 'board')}
           ${taskProgressBarHTML(t)}
         </div>`;
     }).join('') || `<p class="text-xs text-gray-400 text-center py-6">No tasks</p>`;
@@ -4896,7 +4946,7 @@ function renderMountainTaskList() {
       ${!isDone && foeCount(t) ? `<span class="journey-quest-foes" title="${esc(obstacleNames(t) || 'Blocked')}">⚔️${foeCount(t)}</span>` : ''}
       ${t.endDate ? `<span class="journey-quest-date">${esc(t.endDate.slice(0, 10))}</span>` : ''}
       <button type="button" class="journey-quest-foe-btn" onclick="event.preventDefault(); event.stopPropagation(); openTaskDetail('${t.id}')" title="Obstacles and details" aria-label="Obstacles and details for ${esc(t.title)}">⚔️</button>
-    </label>`;
+    </label>${blockerChecklist(t, canEdit, 'quest')}`;
   }).join('');
 }
 

@@ -262,6 +262,13 @@
     .journey-quest-foe-btn { flex-shrink: 0; font-size: 12px; line-height: 1; padding: 4px 6px; border-radius: 8px; background: transparent; border: 1px solid var(--quest-divider); color: var(--quest-text); cursor: pointer; }
     .journey-quest-foe-btn:hover { background: var(--quest-hover); }
     .journey-quest-foe-btn:focus-visible { outline: 2px solid var(--quest-accent); outline-offset: 1px; }
+    /* A task's blockers, ticked off one by one right under its row. */
+    .journey-blocker-list { display: flex; flex-direction: column; gap: 2px; margin: -2px 0 4px 40px; }
+    .journey-blocker-row { display: flex; align-items: center; gap: 7px; padding: 3px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; color: #fca5a5; cursor: pointer; min-width: 0; }
+    .journey-blocker-row:hover { background: var(--quest-hover); }
+    .journey-blocker-row.is-resolved { color: var(--quest-text-done); text-decoration: line-through; }
+    .journey-blocker-check { flex-shrink: 0; width: 14px; height: 14px; accent-color: #10b981; cursor: pointer; }
+    .journey-blocker-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .journey-quest-empty { text-align: center; font-size: 12px; font-weight: 600; color: var(--quest-text-done); padding: 10px 0; }
     .journey-quest-checkbox { position: absolute; opacity: 0; width: 1px; height: 1px; }
     @media (prefers-reduced-motion: reduce) { .journey-quest-badge.is-next { animation: none; } }
