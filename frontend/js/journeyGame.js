@@ -83,6 +83,16 @@ const JourneyGame = (() => {
     return d + 'Z';
   }
 
+  // A soft white gloss gradient and a dark core-shadow gradient — both
+  // purely tonal (no theme color in them), so unlike the sky/goal
+  // gradients they use one fixed id reused by every build rather than a
+  // per-build uid suffix. A duplicate id across multiple SVGs in the
+  // same document is harmless here since every copy has identical
+  // stops. Together they're the cheapest way to make a flat-filled
+  // shape read as lit-from-above and rounded instead of a flat cutout.
+  const GLOSS_ID = 'journey-gloss', GLOSS = `url(#${GLOSS_ID})`;
+  const SHADE_ID = 'journey-shade', SHADE = `url(#${SHADE_ID})`;
+
   let uid = 0; // per-build suffix so each SVG's <defs> ids never collide with a previous one
 
   function el(tag, attrs, children) {
@@ -140,6 +150,28 @@ const JourneyGame = (() => {
       cg.appendChild(el('ellipse', { cx: 0, cy: 7, rx: 22, ry: 3.4, fill: '#cfdeec', opacity: 0.8 }));
       svg.appendChild(cg);
     });
+  }
+
+  // A small cluster of shimmering sparkle accents — shared by every
+  // theme's goal marker, each on its own delay so they twinkle
+  // independently rather than in lockstep. Each sparkle's position
+  // lives on an un-animated outer <g>; the CSS animation (see index.
+  // html's .journey-sparkle) targets the inner shape, which carries no
+  // transform attribute of its own — keeping a position set via
+  // attribute and a transform animated via CSS on the same element
+  // would have the CSS one silently win and the sparkle jump to the
+  // origin for the animation's duration.
+  function sparkles(positions) {
+    const g = el('g', { class: 'journey-sparkles' });
+    positions.forEach(([sx, sy, r], i) => {
+      const outer = el('g', { transform: `translate(${sx},${sy})` });
+      outer.appendChild(el('path', {
+        d: starPath(r, r * 0.35, 4), fill: '#ffffff', opacity: 0.85,
+        class: 'journey-sparkle', style: `animation-delay:${(i * 0.35).toFixed(2)}s`,
+      }));
+      g.appendChild(outer);
+    });
+    return g;
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -293,10 +325,9 @@ const JourneyGame = (() => {
       filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
     });
     g.appendChild(star);
+    g.appendChild(el('ellipse', { cx: 3, cy: 7, rx: 6, ry: 4, fill: SHADE }));
     g.appendChild(el('rect', { class: 'journey-shine', x: -2.5, y: -16, width: 5, height: 32, fill: '#ffffff', opacity: 0 }));
-    [[-20, -16, 2.6], [21, -10, 1.8], [16, 16, 2.1]].forEach(([sx, sy, r]) => {
-      g.appendChild(el('path', { d: starPath(r, r * 0.35, 4), transform: `translate(${sx},${sy})`, fill: '#ffffff', opacity: 0.85 }));
-    });
+    g.appendChild(sparkles([[-20, -16, 2.6], [21, -10, 1.8], [16, 16, 2.1]]));
     return g;
   }
 
@@ -315,6 +346,7 @@ const JourneyGame = (() => {
       fill: color, stroke: '#1f2937', 'stroke-width': 0.7 * s, 'stroke-linejoin': 'round',
       filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
     }));
+    g.appendChild(el('path', { d: `M ${2.6 * s} ${-25.6 * s} L ${9 * s} ${-22.6 * s}`, fill: 'none', stroke: GLOSS, 'stroke-width': 1.6 * s, 'stroke-linecap': 'round', opacity: 0.7 }));
     const label = el('text', {
       x: 6.4 * s, y: -20.6 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
       'font-size': 7.6 * s, 'font-weight': 800, fill: isDone || isNext ? '#1f2937' : '#4b5563', 'font-family': 'Arial, sans-serif',
@@ -421,17 +453,31 @@ const JourneyGame = (() => {
     const g = el('g', { class: 'journey-avatar' });
     g.appendChild(el('ellipse', { cx: 0, cy: 24, rx: 12, ry: 3.2, fill: '#1f2937', opacity: 0.22 }));
     const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
-    bob.appendChild(el('rect', { x: -6.6, y: 8, width: 5, height: 11, rx: 2.2, fill: '#eef2f7', stroke: '#1f2937', 'stroke-width': 1 }));
-    bob.appendChild(el('rect', { x: 1.6, y: 8, width: 5, height: 11, rx: 2.2, fill: '#dde4ee', stroke: '#1f2937', 'stroke-width': 1 }));
-    bob.appendChild(el('rect', { x: -7.4, y: 16.5, width: 6.6, height: 3.4, rx: 1.4, fill: '#374151' }));
-    bob.appendChild(el('rect', { x: 0.8, y: 16.5, width: 6.6, height: 3.4, rx: 1.4, fill: '#374151' }));
+    // Each leg + its boot sole travel together as one group, so the CSS
+    // walk-cycle rotation (see index.html) swings the whole leg unit
+    // from the hip instead of just the upper leg sliding away from a
+    // fixed boot.
+    const legL = el('g', { class: 'journey-leg journey-leg-l' });
+    legL.appendChild(el('rect', { x: -6.6, y: 8, width: 5, height: 11, rx: 2.2, fill: '#eef2f7', stroke: '#1f2937', 'stroke-width': 1 }));
+    legL.appendChild(el('rect', { x: -7.4, y: 16.5, width: 6.6, height: 3.4, rx: 1.4, fill: '#374151' }));
+    bob.appendChild(legL);
+    const legR = el('g', { class: 'journey-leg journey-leg-r' });
+    legR.appendChild(el('rect', { x: 1.6, y: 8, width: 5, height: 11, rx: 2.2, fill: '#dde4ee', stroke: '#1f2937', 'stroke-width': 1 }));
+    legR.appendChild(el('rect', { x: 0.8, y: 16.5, width: 6.6, height: 3.4, rx: 1.4, fill: '#374151' }));
+    bob.appendChild(legR);
     bob.appendChild(el('ellipse', { cx: -9.8, cy: 1, rx: 3.6, ry: 5.6, fill: '#eef2f7', stroke: '#1f2937', 'stroke-width': 1, transform: 'rotate(18 -9.8 1)' }));
     bob.appendChild(el('ellipse', { cx: 9.8, cy: 1, rx: 3.6, ry: 5.6, fill: '#eef2f7', stroke: '#1f2937', 'stroke-width': 1, transform: 'rotate(-18 9.8 1)' }));
     bob.appendChild(el('rect', { x: -9.4, y: -7.5, width: 18.8, height: 18.5, rx: 7, fill: '#eef2f7', stroke: '#1f2937', 'stroke-width': 1.2 }));
+    bob.appendChild(el('ellipse', { cx: -2, cy: -4.5, rx: 6.5, ry: 3.6, fill: GLOSS }));
+    bob.appendChild(el('ellipse', { cx: 2, cy: 6, rx: 7, ry: 4.2, fill: SHADE }));
     bob.appendChild(el('rect', { x: -4.5, y: -2, width: 9, height: 5, rx: 1.6, fill }));
+    // A collar ring where the helmet seals to the suit — the kind of
+    // functional detail a real spacesuit actually has.
+    bob.appendChild(el('ellipse', { cx: 0, cy: -8.5, rx: 6.6, ry: 2.4, fill: '#c7cedb', stroke: '#1f2937', 'stroke-width': 1 }));
     bob.appendChild(el('circle', { cx: 0, cy: -15.5, r: 9.2, fill: '#eef2f7', stroke: '#1f2937', 'stroke-width': 1.2 }));
     bob.appendChild(el('circle', { cx: 0.6, cy: -15, r: 6.6, fill: '#1b2a5e' }));
     bob.appendChild(el('path', { d: 'M -4.4 -18.4 Q 0 -20.6 4.2 -18', fill: 'none', stroke: '#9fd8ff', 'stroke-width': 1.6, 'stroke-linecap': 'round', opacity: 0.8 }));
+    bob.appendChild(el('ellipse', { cx: 1.5, cy: -8.5, rx: 6.5, ry: 2.2, fill: SHADE }));
     bob.appendChild(el('rect', { x: -0.5, y: -24.6, width: 1, height: 4, fill: '#9aa5b1' }));
     bob.appendChild(el('circle', { cx: 0, cy: -24.8, r: 1.4, fill: '#e5e7eb', stroke: '#1f2937', 'stroke-width': 0.8 }));
     g.appendChild(bob);
@@ -452,9 +498,8 @@ const JourneyGame = (() => {
     });
     g.appendChild(planet);
     g.appendChild(el('ellipse', { cx: -4, cy: -5, rx: 5, ry: 2.6, fill: '#ffffff', opacity: 0.35 }));
-    [[-21, -17, 2.4], [20, -12, 1.7], [15, 17, 2]].forEach(([sx, sy, r]) => {
-      g.appendChild(el('path', { d: starPath(r, r * 0.35, 4), transform: `translate(${sx},${sy})`, fill: '#ffffff', opacity: 0.85 }));
-    });
+    g.appendChild(el('ellipse', { cx: 4, cy: 7, rx: 6, ry: 3.6, fill: SHADE }));
+    g.appendChild(sparkles([[-21, -17, 2.4], [20, -12, 1.7], [15, 17, 2]]));
     return g;
   }
 
@@ -471,6 +516,7 @@ const JourneyGame = (() => {
       filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
     });
     g.appendChild(star);
+    g.appendChild(el('path', { d: `M ${-3.2 * s} ${-29 * s} L ${-1 * s} ${-26.4 * s}`, fill: 'none', stroke: GLOSS, 'stroke-width': 1.4 * s, 'stroke-linecap': 'round', opacity: 0.8 }));
     const label = el('text', {
       x: 0, y: -25.6 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
       'font-size': 6.6 * s, 'font-weight': 800, fill: '#1f2937', 'font-family': 'Arial, sans-serif',
@@ -597,8 +643,17 @@ const JourneyGame = (() => {
     bob.appendChild(el('ellipse', { cx: -8, cy: 10, rx: 3.6, ry: 2.2, fill, stroke: '#1f2937', 'stroke-width': 1, transform: 'rotate(-10 -8 10)' }));
     bob.appendChild(el('ellipse', { cx: 8, cy: 10, rx: 3.6, ry: 2.2, fill, stroke: '#1f2937', 'stroke-width': 1, transform: 'rotate(10 8 10)' }));
     bob.appendChild(el('ellipse', { cx: 0, cy: 0, rx: 13.5, ry: 10.5, fill, stroke: '#1f2937', 'stroke-width': 1.3 }));
-    bob.appendChild(el('path', { d: 'M -7 -3 L 0 -7 L 7 -3 L 4 4 L -4 4 Z', fill: 'none', stroke: '#1f2937', 'stroke-width': 0.8, opacity: 0.4 }));
+    bob.appendChild(el('ellipse', { cx: -3, cy: -3.5, rx: 8, ry: 5, fill: GLOSS }));
+    bob.appendChild(el('ellipse', { cx: 3.5, cy: 5, rx: 8, ry: 4.6, fill: SHADE }));
+    // A fuller hexagonal scute pattern across the shell, not just one
+    // outline — the kind of surface detail that separates a textured
+    // shell from a plain flat-colored dome.
+    bob.appendChild(el('path', {
+      d: 'M -7 -3 L 0 -7 L 7 -3 L 4 4 L -4 4 Z M -7 -3 L -11 -1 M 7 -3 L 11 -1 M -4 4 L -6 8 M 4 4 L 6 8 M 0 -7 L 0 -10',
+      fill: 'none', stroke: '#1f2937', 'stroke-width': 0.8, opacity: 0.35,
+    }));
     bob.appendChild(el('circle', { cx: 0, cy: -13, r: 5.6, fill: '#8fd4a0', stroke: '#1f2937', 'stroke-width': 1.1 }));
+    bob.appendChild(el('ellipse', { cx: -1.5, cy: -15, rx: 2.6, ry: 1.6, fill: GLOSS }));
     bob.appendChild(el('circle', { cx: -2, cy: -14, r: 0.9, fill: '#1f2937' }));
     bob.appendChild(el('circle', { cx: 2, cy: -14, r: 0.9, fill: '#1f2937' }));
     bob.appendChild(el('path', { d: 'M -2.4 -11 Q 0 -9.6 2.4 -11', fill: 'none', stroke: '#1f2937', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
@@ -615,14 +670,14 @@ const JourneyGame = (() => {
     const chest = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
     chest.appendChild(el('rect', { x: -15, y: -2, width: 30, height: 15, rx: 2.4, fill: '#8b5e3c', stroke: '#5c3c22', 'stroke-width': 1.3 }));
     chest.appendChild(el('path', { d: 'M -15 -2 Q -15 -14 0 -14 Q 15 -14 15 -2 Z', fill: '#a9774c', stroke: '#5c3c22', 'stroke-width': 1.3 }));
+    chest.appendChild(el('path', { d: 'M -10 -4 Q -10 -11 -2 -12', fill: 'none', stroke: '#ffffff', 'stroke-width': 2, 'stroke-linecap': 'round', opacity: 0.35 }));
     chest.appendChild(el('rect', { x: -15, y: -2, width: 30, height: 3, fill: '#5c3c22' }));
     chest.appendChild(el('rect', { x: -2.6, y: -14, width: 5.2, height: 14, fill: `url(#${gradId})`, stroke: '#8b650f', 'stroke-width': 1 }));
     chest.appendChild(el('circle', { cx: 0, cy: -1, r: 3, fill: `url(#${gradId})`, stroke: '#8b650f', 'stroke-width': 1 }));
+    chest.appendChild(el('rect', { x: -15, y: 6, width: 30, height: 7, fill: SHADE }));
     g.appendChild(chest);
     g.appendChild(el('path', { d: starPath(5.4, 2.2, 4), transform: 'translate(0,-16)', fill: '#67e8f9', stroke: '#0e7490', 'stroke-width': 1 }));
-    [[-17, -10, 2.2], [17, -6, 1.8], [12, 10, 2]].forEach(([sx, sy, r]) => {
-      g.appendChild(el('path', { d: starPath(r, r * 0.35, 4), transform: `translate(${sx},${sy})`, fill: '#ffffff', opacity: 0.85 }));
-    });
+    g.appendChild(sparkles([[-17, -10, 2.2], [17, -6, 1.8], [12, 10, 2]]));
     return g;
   }
 
@@ -637,7 +692,9 @@ const JourneyGame = (() => {
       cx: 0, cy: -16 * s, rx: 9 * s, ry: 8 * s, fill: '#ffffff', stroke: '#1f2937', 'stroke-width': 0.8 * s,
       filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
     }));
+    g.appendChild(el('ellipse', { cx: -2.5 * s, cy: -21.5 * s, rx: 3.2 * s, ry: 1.8 * s, fill: GLOSS }));
     g.appendChild(el('rect', { x: -7 * s, y: -18.2 * s, width: 14 * s, height: 4.4 * s, rx: 1.4 * s, fill: color }));
+    g.appendChild(el('ellipse', { cx: 2 * s, cy: -11.8 * s, rx: 4.5 * s, ry: 2.2 * s, fill: SHADE }));
     const label = el('text', {
       x: 0, y: -16.4 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
       'font-size': 7.2 * s, 'font-weight': 800, fill: '#1f2937', 'font-family': 'Arial, sans-serif',
@@ -717,11 +774,24 @@ const JourneyGame = (() => {
     const g = el('g', { class: 'journey-avatar' });
     g.appendChild(el('ellipse', { cx: 0, cy: 10, rx: 14, ry: 3.4, fill: '#1f2937', opacity: 0.22 }));
     const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
-    bob.appendChild(el('circle', { cx: -8, cy: 8, r: 3.6, fill: '#1f2937' }));
-    bob.appendChild(el('circle', { cx: -8, cy: 8, r: 1.4, fill: '#6b7280' }));
-    bob.appendChild(el('circle', { cx: 8, cy: 8, r: 3.6, fill: '#1f2937' }));
-    bob.appendChild(el('circle', { cx: 8, cy: 8, r: 1.4, fill: '#6b7280' }));
+    // Each wheel (tire + hub + spokes) is its own group so the CSS
+    // spin animation (see index.html) rotates the whole wheel while
+    // moving, instead of just the body sliding over static circles.
+    const wheelL = el('g', { class: 'journey-wheel journey-wheel-l' });
+    wheelL.appendChild(el('circle', { cx: -8, cy: 8, r: 3.6, fill: '#1f2937' }));
+    wheelL.appendChild(el('circle', { cx: -8, cy: 8, r: 1.4, fill: '#9aa5b1' }));
+    [0, 90, 180, 270].forEach(a => wheelL.appendChild(el('line', { x1: -8, y1: 8, x2: -8, y2: 6.4, stroke: '#4b5563', 'stroke-width': 0.6, transform: `rotate(${a} -8 8)` })));
+    bob.appendChild(wheelL);
+    const wheelR = el('g', { class: 'journey-wheel journey-wheel-r' });
+    wheelR.appendChild(el('circle', { cx: 8, cy: 8, r: 3.6, fill: '#1f2937' }));
+    wheelR.appendChild(el('circle', { cx: 8, cy: 8, r: 1.4, fill: '#9aa5b1' }));
+    [0, 90, 180, 270].forEach(a => wheelR.appendChild(el('line', { x1: 8, y1: 8, x2: 8, y2: 6.4, stroke: '#4b5563', 'stroke-width': 0.6, transform: `rotate(${a} 8 8)` })));
+    bob.appendChild(wheelR);
     bob.appendChild(el('rect', { x: -14, y: -2, width: 28, height: 11, rx: 4.4, fill, stroke: '#1f2937', 'stroke-width': 1.2 }));
+    bob.appendChild(el('ellipse', { cx: -9, cy: 1.5, rx: 5, ry: 3.4, fill: GLOSS }));
+    bob.appendChild(el('rect', { x: -13, y: 5, width: 26, height: 4, fill: SHADE }));
+    bob.appendChild(el('path', { d: 'M -10 -0.5 L -10.5 7', fill: 'none', stroke: '#1f2937', 'stroke-width': 0.7, opacity: 0.3, 'stroke-linecap': 'round' }));
+    bob.appendChild(el('path', { d: 'M 10 -0.5 L 10.5 7', fill: 'none', stroke: '#1f2937', 'stroke-width': 0.7, opacity: 0.3, 'stroke-linecap': 'round' }));
     bob.appendChild(el('path', { d: 'M -8 -2 Q -6 -11 0 -11 Q 6 -11 8 -2 Z', fill: '#bae6fd', stroke: '#1f2937', 'stroke-width': 1.1 }));
     bob.appendChild(el('rect', { x: -3, y: -2, width: 6, height: 11, fill: '#ffffff', opacity: 0.85 }));
     bob.appendChild(el('rect', { x: -15.4, y: 1.4, width: 2.6, height: 4, rx: 1, fill: '#1f2937' }));
@@ -748,6 +818,8 @@ const JourneyGame = (() => {
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 26, fill: '#ffd54a', opacity: 0.22 }));
     const trophy = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
     trophy.appendChild(el('path', { d: 'M -9 -16 Q -9 -4 0 -2 Q 9 -4 9 -16 Z', fill: `url(#${gradId})`, stroke: '#b8780f', 'stroke-width': 1.3, 'stroke-linejoin': 'round' }));
+    trophy.appendChild(el('ellipse', { cx: -3.5, cy: -11, rx: 3.6, ry: 5.2, fill: GLOSS }));
+    trophy.appendChild(el('ellipse', { cx: 3.5, cy: -5, rx: 4.2, ry: 4.5, fill: SHADE }));
     trophy.appendChild(el('path', { d: 'M -9 -16 Q -15 -16 -15 -11 Q -15 -6 -9.5 -7', fill: 'none', stroke: '#b8780f', 'stroke-width': 1.6 }));
     trophy.appendChild(el('path', { d: 'M 9 -16 Q 15 -16 15 -11 Q 15 -6 9.5 -7', fill: 'none', stroke: '#b8780f', 'stroke-width': 1.6 }));
     trophy.appendChild(el('rect', { x: -1.6, y: -2, width: 3.2, height: 6, fill: '#f3b429' }));
@@ -773,9 +845,7 @@ const JourneyGame = (() => {
     flagPole.appendChild(flagPos);
     g.appendChild(flagPole);
 
-    [[-18, -14, 2.4], [18, -10, 1.8], [14, 10, 2]].forEach(([sx, sy, r]) => {
-      g.appendChild(el('path', { d: starPath(r, r * 0.35, 4), transform: `translate(${sx},${sy})`, fill: '#ffffff', opacity: 0.85 }));
-    });
+    g.appendChild(sparkles([[-18, -14, 2.4], [18, -10, 1.8], [14, 10, 2]]));
     return g;
   }
 
@@ -792,6 +862,7 @@ const JourneyGame = (() => {
       filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
     });
     g.appendChild(cone);
+    g.appendChild(el('path', { d: `M ${-1 * s} ${-17 * s} L ${-1.6 * s} ${0} L ${0.5 * s} ${0}`, fill: 'none', stroke: GLOSS, 'stroke-width': 1.2 * s, 'stroke-linecap': 'round', opacity: 0.6 }));
     g.appendChild(el('rect', { x: -2.2 * s, y: -13 * s, width: 4.4 * s, height: 3.6 * s, fill: color, stroke: '#1f2937', 'stroke-width': 0.4 * s }));
     const label = el('text', {
       x: 0, y: -6.6 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
@@ -817,28 +888,28 @@ const JourneyGame = (() => {
       label: 'Road', avatarFill: '#ff6b5b',
       sky: [[0, '#4e8fd6'], [30, '#7fb8e8'], [58, '#bfe2f5'], [82, '#ffe4ae'], [100, '#ffcf8a']],
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
-      path: { outline: '#d8a862', fill: '#fff6e4', dash: '#f4a53b' },
+      path: { outline: '#d8a862', fill: '#fff6e4', dash: '#f4a53b', progress: '#ffe28a' },
       decorate: roadDecorate, scatter: roadScatter, buildAvatar: roadBuildAvatar, buildGoal: roadBuildGoal, buildCheckpoint: roadBuildCheckpoint,
     },
     space: {
       label: 'Space', avatarFill: '#ef4444',
       sky: [[0, '#0f0a2e'], [50, '#2a1760'], [100, '#4b2e83']],
       goalGrad: [[0, '#ffe7b0'], [45, '#ffb24a'], [100, '#e8762b']],
-      path: { outline: '#3347a8', fill: '#dfe6ff', dash: '#7dd3fc' },
+      path: { outline: '#3347a8', fill: '#dfe6ff', dash: '#7dd3fc', progress: '#67e8f9' },
       decorate: spaceDecorate, scatter: spaceScatter, buildAvatar: spaceBuildAvatar, buildGoal: spaceBuildGoal, buildCheckpoint: spaceBuildCheckpoint,
     },
     ocean: {
       label: 'Ocean', avatarFill: '#4caf7d',
       sky: [[0, '#bdeeff'], [45, '#5ec8e0'], [100, '#1b6fa8']],
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
-      path: { outline: '#c9a46a', fill: '#f0e2c0', dash: '#2f9e6e' },
+      path: { outline: '#c9a46a', fill: '#f0e2c0', dash: '#2f9e6e', progress: '#34d399' },
       decorate: oceanDecorate, scatter: oceanScatter, buildAvatar: oceanBuildAvatar, buildGoal: oceanBuildGoal, buildCheckpoint: oceanBuildCheckpoint,
     },
     race: {
       label: 'Race', avatarFill: '#ef4444',
       sky: [[0, '#334155'], [8, '#62a95a'], [100, '#6fb865']],
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
-      path: { outline: '#1f2937', fill: '#6b7280', dash: '#ffffff' },
+      path: { outline: '#1f2937', fill: '#6b7280', dash: '#ffffff', progress: '#fde047' },
       decorate: raceDecorate, scatter: raceScatter, buildAvatar: raceBuildAvatar, buildGoal: raceBuildGoal, buildCheckpoint: raceBuildCheckpoint,
     },
   };
@@ -914,6 +985,20 @@ const JourneyGame = (() => {
         grad.appendChild(el('stop', { offset: '100%', 'stop-color': '#000000', 'stop-opacity': 0.32 }));
         return grad;
       })(),
+      (() => {
+        const grad = el('linearGradient', { id: GLOSS_ID, x1: 0, y1: 0, x2: 0, y2: 1 });
+        grad.appendChild(el('stop', { offset: '0%', 'stop-color': '#ffffff', 'stop-opacity': 0.6 }));
+        grad.appendChild(el('stop', { offset: '60%', 'stop-color': '#ffffff', 'stop-opacity': 0 }));
+        return grad;
+      })(),
+      (() => {
+        // SHADE mirrors GLOSS from the bottom instead of the top — a
+        // soft core shadow, not a hard line, so it reads as roundness.
+        const grad = el('linearGradient', { id: SHADE_ID, x1: 0, y1: 0, x2: 0, y2: 1 });
+        grad.appendChild(el('stop', { offset: '55%', 'stop-color': '#000000', 'stop-opacity': 0 }));
+        grad.appendChild(el('stop', { offset: '100%', 'stop-color': '#000000', 'stop-opacity': 0.3 }));
+        return grad;
+      })(),
     ]);
     svg.appendChild(defs);
 
@@ -947,6 +1032,18 @@ const JourneyGame = (() => {
     svg.appendChild(pathBase);
     svg.appendChild(pathSheen);
     svg.appendChild(pathLine);
+
+    // The "ground covered so far" glow — a brighter copy of the path,
+    // revealed from the start up to the avatar's current position via
+    // the standard stroke-dasharray/dashoffset path-draw trick. Its
+    // dashoffset is updated every apply() call (see there); starts
+    // fully hidden here (offset = full length) since nothing's walked yet.
+    const progressLen = pathBase.getTotalLength();
+    const progressPath = el('path', {
+      d, fill: 'none', stroke: theme.path.progress, 'stroke-width': 6, 'stroke-linecap': 'round',
+      'stroke-dasharray': `${progressLen} ${progressLen}`, 'stroke-dashoffset': progressLen, opacity: 0.85,
+    });
+    svg.appendChild(progressPath);
 
     // Sample the real path once so scenery can stay a safe distance from
     // it — props are placed by a seeded generator (stable across rebuilds,
@@ -983,7 +1080,8 @@ const JourneyGame = (() => {
 
     const entry = {
       svg, title, roadBase: pathBase, layoutKey: layout === LAYOUTS.tall ? 'tall' : 'wide', themeKey: resolveThemeKey(themeKey),
-      flagsLayer, ghostLayer, avatarLayer, shadowId, lastState: null, lastDoneIds: new Set(), lastYouFrac: null, lastSummit: false,
+      flagsLayer, ghostLayer, avatarLayer, progressPath, progressLen, shadowId,
+      lastState: null, lastDoneIds: new Set(), lastYouFrac: null, lastSummit: false, walkTimer: null,
     };
     containers.set(container, entry);
     return entry;
@@ -1013,12 +1111,17 @@ const JourneyGame = (() => {
       // confetti for all of them at once.
       const prevDoneIds = entry ? entry.lastDoneIds : new Set();
       const prevSummit = entry ? entry.lastSummit : false;
+      if (entry && entry.walkTimer) clearTimeout(entry.walkTimer);
       entry = build(container, desiredTheme);
       entry.lastDoneIds = prevDoneIds;
       entry.lastSummit = prevSummit;
     }
     const theme = getTheme(desiredTheme);
-    const { svg, title, roadBase, flagsLayer, ghostLayer, avatarLayer, shadowId } = entry;
+    const { svg, title, roadBase, flagsLayer, ghostLayer, avatarLayer, progressPath, progressLen, shadowId } = entry;
+    // Respect prefers-reduced-motion everywhere below: the avatar glide,
+    // the progress trail fill-in, and the checkpoint pop-in all check
+    // this once rather than re-querying matchMedia per element.
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     const totalN = state.tasks.length;
     const doneN = state.tasks.filter(t => t.status === 'Completed').length;
@@ -1029,6 +1132,10 @@ const JourneyGame = (() => {
     title.textContent = totalN
       ? `Journey progress: ${pct} percent. ${doneN} of ${totalN} tasks completed. Current milestone: ${phaseLabel}.`
       : 'Journey not started — no tasks yet.';
+
+    // Whether checkpoint pop-ins / confetti / balloons play at all —
+    // Settings → Preferences → Celebration Effects.
+    const celebrate = state.celebrationsEnabled !== false;
 
     // Checkpoints — one per task, placed at the real path length fraction
     // so they're evenly spaced along the actual curve, not the
@@ -1048,14 +1155,21 @@ const JourneyGame = (() => {
       positions.push(pt);
       const isDone = t.status === 'Completed';
       const isNext = !isDone && i === doneCount;
-      const g = theme.buildCheckpoint(i, isDone, isNext, t.latestUpdateIsBlocker, scale, shadowId);
-      g.setAttribute('transform', `translate(${pt.x},${pt.y})`);
-      flagsLayer.appendChild(g);
+      const inner = theme.buildCheckpoint(i, isDone, isNext, t.latestUpdateIsBlocker, scale, shadowId);
+      // A little "pop" the moment a checkpoint turns done — but only on
+      // an un-positioned wrapper around it (`inner`), never on the
+      // positioned element itself: CSS-animating `transform` on the same
+      // element that also carries a static `translate(...)` attribute
+      // would silently replace that attribute, teleporting the
+      // checkpoint to the origin for the animation's duration.
+      if (celebrate && isDone && !entry.lastDoneIds.has(t.id)) inner.classList.add('journey-checkpoint-pop');
+      const wrapper = el('g', { transform: `translate(${pt.x},${pt.y})` });
+      wrapper.appendChild(inner);
+      flagsLayer.appendChild(wrapper);
     });
 
     // Celebrate any checkpoint newly done since the last sync, unless
     // Celebration Effects is off.
-    const celebrate = state.celebrationsEnabled !== false;
     const nowDoneIds = new Set(state.tasks.filter(t => t.status === 'Completed').map(t => t.id));
     if (celebrate && window.fireScreenConfetti) {
       state.tasks.forEach((t, i) => {
@@ -1078,18 +1192,35 @@ const JourneyGame = (() => {
       ghostLayer.appendChild(g);
     }
 
-    // Avatar — walks to its new spot; CSS handles the smooth glide (see
-    // the .journey-avatar-layer transition in index.html's inline style
-    // below), so no animation library is needed for this simple a move.
+    // The "ground covered" glow trail — fills in from the start up to
+    // the avatar's current position, in sync with its own glide (same
+    // "first sync snaps, every sync after that eases" rule as the
+    // avatar, so it doesn't animate in from nothing on first paint).
+    const progressFrac = Math.max(0, Math.min(1, state.youFrac));
+    progressPath.style.transition = (entry.lastYouFrac === null || reduceMotion) ? 'none' : 'stroke-dashoffset 700ms ease-out';
+    progressPath.setAttribute('stroke-dashoffset', String(progressLen * (1 - progressFrac)));
+
+    // Avatar — walks to its new spot. A bouncy easing (slight overshoot,
+    // then settle) reads as a little hop rather than a flat slide — CSS
+    // handles the whole glide (see the .journey-avatar-layer rule in
+    // index.html), so no animation library is needed for this simple a move.
     if (!avatarLayer.firstChild) avatarLayer.appendChild(theme.buildAvatar(theme.avatarFill, shadowId));
     const you = pointAtFrac(roadBase, state.youFrac);
     // Respect prefers-reduced-motion: the avatar still ends up in the
     // right place, it just snaps instead of gliding — progress stays
     // fully conveyed, the motion (the part some people asked their OS
     // to minimize) is what's removed.
-    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    avatarLayer.style.transition = (entry.lastYouFrac === null || reduceMotion) ? 'none' : 'transform 650ms ease-in-out';
+    avatarLayer.style.transition = (entry.lastYouFrac === null || reduceMotion) ? 'none' : 'transform 700ms cubic-bezier(0.34, 1.56, 0.64, 1)';
     avatarLayer.setAttribute('transform', `translate(${you.x},${you.y}) scale(${scale})`);
+    // Legs (Road's rig animates continuously on its own; this covers
+    // Space's boots and Race's wheels) only swing/spin for the moment
+    // the avatar actually moves — not on first paint and not with
+    // reduced motion. See the .journey-walking rule in index.html.
+    if (!reduceMotion && entry.lastYouFrac !== null && entry.lastYouFrac !== state.youFrac) {
+      avatarLayer.classList.add('journey-walking');
+      clearTimeout(entry.walkTimer);
+      entry.walkTimer = setTimeout(() => avatarLayer.classList.remove('journey-walking'), 750);
+    }
     entry.lastYouFrac = state.youFrac;
 
     if (state.summitLit && !entry.lastSummit && celebrate) {
@@ -1130,6 +1261,8 @@ const JourneyGame = (() => {
     destroy(container) {
       if (container) {
         if (container._journeyRO) { container._journeyRO.disconnect(); delete container._journeyRO; }
+        const entry = containers.get(container);
+        if (entry && entry.walkTimer) clearTimeout(entry.walkTimer);
         containers.delete(container);
         container.innerHTML = '';
       }
