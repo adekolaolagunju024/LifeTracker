@@ -4419,6 +4419,9 @@ const REVISE_LABELS = {
   moveTask: 'Move task',
   renamePhase: 'Rename phase',
   addPhase: 'Add phase',
+  addBlocker: 'Add blocker',
+  updateBlocker: 'Change blocker',
+  removeBlocker: 'Remove blocker',
 };
 
 function describeReviseOp(op) {
@@ -4429,6 +4432,12 @@ function describeReviseOp(op) {
   if (op.type === 'addTask') return `"${esc(op.task.title)}" (${esc(op.task.priority)}${op.task.endDate ? ', due ' + esc(op.task.endDate) : ''})`;
   if (op.type === 'moveTask') return `"${esc(op.currentTitle)}" to "${esc(op.toPhaseTitle)}"`;
   if (op.type === 'renamePhase') return `to "${esc(op.title)}"`;
+  if (op.type === 'addBlocker') return `⚔️ "${esc(op.blocker.name)}" ×${op.blocker.count} on "${esc(op.taskTitle)}"`;
+  if (op.type === 'removeBlocker') return `⚔️ "${esc(op.currentName)}" from "${esc(op.taskTitle)}"`;
+  if (op.type === 'updateBlocker') {
+    const changes = Object.entries(op.changes).map(([k, v]) => k === 'resolved' ? (v ? 'ticked off as cleared' : 'back to pending') : `${k} → ${k === 'count' ? '×' + v : v}`).join(', ');
+    return `⚔️ "${esc(op.currentName)}" on "${esc(op.taskTitle)}": ${esc(changes)}`;
+  }
   return `"${esc(op.title)}" with ${op.tasks.length} task${op.tasks.length === 1 ? '' : 's'}`;
 }
 
@@ -4448,6 +4457,12 @@ async function applyOperations(projectId, ops) {
     } else if (op.type === 'addPhase') {
       const phase = await API.addProject({ title: op.title, parentId: projectId });
       for (const task of op.tasks) await API.addTask({ ...task, projectId: phase.id });
+    } else if (op.type === 'addBlocker') {
+      await API.addObstacle(op.taskId, op.blocker.name, op.blocker.count);
+    } else if (op.type === 'updateBlocker') {
+      await API.updateObstacle(op.blockerId, op.changes);
+    } else if (op.type === 'removeBlocker') {
+      await API.deleteObstacle(op.blockerId);
     }
   }
 }

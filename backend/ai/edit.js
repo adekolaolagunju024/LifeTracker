@@ -17,11 +17,12 @@ const NEW_TASK_SCHEMA = {
   required: ['title'],
 };
 
-// Only add and edit operations exist, so the model has no way to express a
-// deletion. Completed tasks are never offered as editable targets.
+// Only add and edit operations exist for tasks and phases, so the model has
+// no way to express deleting one; the one thing it may remove is a blocker
+// (an obstacle on a task). Completed tasks are never offered as targets.
 const EDIT_TOOL = {
   name: 'propose_edits',
-  description: 'Propose changes to an existing plan. You may edit tasks, add tasks, move tasks between phases, rename phases, and add phases. You may not delete anything.',
+  description: 'Propose changes to an existing plan. You may edit tasks, add tasks, move tasks between phases, rename phases, and add phases. You may also manage a task\'s blockers (the obstacles standing in its way): add one, rename it or change how many enemies it puts on the Journey (1 to 5), tick it off as cleared (or back to pending), or remove it. You may not delete tasks or phases.',
   input_schema: {
     type: 'object',
     properties: {
@@ -31,8 +32,18 @@ const EDIT_TOOL = {
         items: {
           type: 'object',
           properties: {
-            type: { type: 'string', enum: ['updateTask', 'addTask', 'moveTask', 'renamePhase', 'addPhase'] },
-            taskId: { type: 'string', description: 'For updateTask: an existing task id from the plan' },
+            type: { type: 'string', enum: ['updateTask', 'addTask', 'moveTask', 'renamePhase', 'addPhase', 'addBlocker', 'updateBlocker', 'removeBlocker'] },
+            taskId: { type: 'string', description: 'For updateTask and addBlocker: an existing task id from the plan' },
+            blockerId: { type: 'string', description: 'For updateBlocker and removeBlocker: an existing blocker id from the plan' },
+            blocker: {
+              type: 'object',
+              description: 'For addBlocker: the new blocker. For updateBlocker: only what changes',
+              properties: {
+                name: { type: 'string', description: 'What is in the way, e.g. "Waiting on the supplier quote"' },
+                count: { type: 'integer', minimum: 1, maximum: 5, description: 'How many enemies it puts on the Journey (1-5)' },
+                resolved: { type: 'boolean', description: 'For updateBlocker: true when it has been cleared, false to put it back to pending' },
+              },
+            },
             phaseId: { type: 'string', description: 'For addTask: the phase to add to. For moveTask: the phase to move the task into. For renamePhase: the phase to rename. Always an existing phase id from the plan' },
             title: { type: 'string', description: 'For renamePhase and addPhase' },
             fields: {
@@ -70,7 +81,15 @@ function buildEditContext(userId, project) {
   const phaseTitles = new Map([[project.id, project.title], ...children.map(c => [c.id, c.title])]);
 
   const lines = [`Project: "${project.title}" (id: ${project.id})`];
-  const describe = t => `  - task id:${t.id} | "${t.title}" | status:${t.status} | priority:${t.priority} | start:${t.startDate || 'none'} | due:${t.endDate || 'none'}`;
+  const blockerById = new Map();
+  const describe = t => {
+    const line = `  - task id:${t.id} | "${t.title}" | status:${t.status} | priority:${t.priority} | start:${t.startDate || 'none'} | due:${t.endDate || 'none'}`;
+    const blockers = (t.obstacles || []).map(o => {
+      blockerById.set(o.id, { ...o, taskId: t.id, taskTitle: t.title, taskStatus: t.status });
+      return `      blocker id:${o.id} | "${o.name}" | x${o.count} | ${o.resolved ? 'cleared' : 'pending'}`;
+    });
+    return [line, ...blockers].join('\n');
+  };
   const topTasks = tasks.filter(t => t.projectId === project.id);
   if (topTasks.length) lines.push('Tasks directly in the project:', ...topTasks.map(describe));
   for (const child of children) {
@@ -79,8 +98,11 @@ function buildEditContext(userId, project) {
     lines.push(...(phaseTasks.length ? phaseTasks.map(describe) : ['  (no tasks yet)']));
   }
 
-  return { text: lines.join('\n'), index: { phaseIds, subIds, taskById, phaseTitles } };
+  return { text: lines.join('\n'), index: { phaseIds, subIds, taskById, phaseTitles, blockerById } };
 }
+
+const cleanBlockerName = name => (typeof name === 'string' ? name.trim().slice(0, 80) : '');
+const validCount = n => Number.isInteger(n) && n >= 1 && n <= 5;
 
 function validDate(value) {
   return typeof value === 'string' && (value === '' || DATE_RE.test(value));
@@ -139,6 +161,25 @@ function validateOperations(operations, index) {
       const tasks = (Array.isArray(op.tasks) ? op.tasks : []).map(sanitizeNewTask).filter(Boolean);
       if (!title) { dropped++; continue; }
       valid.push({ type: 'addPhase', title, tasks, reason });
+    } else if (op.type === 'addBlocker') {
+      const task = index.taskById.get(op.taskId);
+      const name = cleanBlockerName(op.blocker?.name);
+      if (!task || task.status === 'Completed' || !name) { dropped++; continue; }
+      valid.push({ type: 'addBlocker', taskId: task.id, taskTitle: task.title, blocker: { name, count: validCount(op.blocker?.count) ? op.blocker.count : 1 }, reason });
+    } else if (op.type === 'updateBlocker' || op.type === 'removeBlocker') {
+      const current = index.blockerById && index.blockerById.get(op.blockerId);
+      if (!current || current.taskStatus === 'Completed') { dropped++; continue; }
+      if (op.type === 'removeBlocker') {
+        valid.push({ type: 'removeBlocker', blockerId: current.id, currentName: current.name, taskTitle: current.taskTitle, reason });
+        continue;
+      }
+      const changes = {};
+      const name = cleanBlockerName(op.blocker?.name);
+      if (name && name !== current.name) changes.name = name;
+      if (validCount(op.blocker?.count) && op.blocker.count !== current.count) changes.count = op.blocker.count;
+      if (typeof op.blocker?.resolved === 'boolean' && op.blocker.resolved !== !!current.resolved) changes.resolved = op.blocker.resolved;
+      if (!Object.keys(changes).length) { dropped++; continue; }
+      valid.push({ type: 'updateBlocker', blockerId: current.id, currentName: current.name, taskTitle: current.taskTitle, changes, reason });
     } else {
       dropped++;
     }
