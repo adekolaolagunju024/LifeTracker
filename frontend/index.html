@@ -483,7 +483,7 @@
       #page-gantt { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
       #gantt-header-scroll, #gantt-rows-scroll { overflow: visible !important; max-height: none !important; }
       .gantt-sticky { position: static !important; box-shadow: none !important; }
-      #gantt-project-filter, #gantt-view-toggle, .gantt-view-btn, #gantt-export-actions, #gantt-fields-btn, #gantt-fields-menu, #gantt-page-view-toggle { display: none !important; }
+      #gantt-project-filter, #gantt-view-toggle, .gantt-view-btn, #gantt-export-actions, #gantt-fields-btn, #gantt-fields-menu, #gantt-page-view-toggle, #gantt-stats-strip { display: none !important; }
       /* Deliberately NOT forcing wrap here — print should match whatever
          is on screen (the .gantt-wrap-on rule above already applies during
          print too, since it isn't itself scoped to a media query). If the
@@ -1334,6 +1334,15 @@
           </div>
         </div>
       </div>
+
+      <!-- A compact stats strip shared by the Gantt Chart and Kanban
+           views — percent complete, day streak, pace vs. schedule — for
+           whatever the project filter above currently shows. Journey has
+           its own themed version of the same three numbers built into
+           its game panel, so this one hides itself there instead of
+           showing a second, visually mismatched copy (see
+           applyGanttPageView() in app.js). -->
+      <div class="flex items-center gap-5 bg-white rounded-xl border border-gray-200 px-4 py-2.5 mb-4 flex-wrap" id="gantt-stats-strip"></div>
 
       <!-- ═══ TIMELINE (Gantt) VIEW ═══ -->
       <div id="gantt-timeline-view">

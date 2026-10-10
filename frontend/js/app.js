@@ -1269,6 +1269,44 @@ function buildTimelineColumns(mode, start, end, totalDays) {
   return { widths: cols.map(c => (c.days / totalDays) * 100), labels: cols.map(c => c.label) };
 }
 
+// The same three numbers Journey's own stats strip shows (percent
+// complete, day streak, pace vs. schedule), reused here for whatever
+// the Gantt/Kanban project filter currently shows — all tasks, or one
+// project's tree. Plain white-card styling matching the rest of this
+// page, not Journey's themed game-HUD look; hidden automatically while
+// Journey mode is active (see applyGanttPageView()) since that view
+// already shows its own better-integrated version of the same data.
+function renderGanttStats(tasks, project) {
+  const wrap = document.getElementById('gantt-stats-strip');
+  if (!wrap) return;
+  const total = tasks.length;
+  const done = tasks.filter(t => t.status === 'Completed').length;
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  const streak = (APP.profile && APP.profile.currentStreak) || 0;
+  const fallbackStart = project && (project.startDate || (project.createdAt && project.createdAt.slice(0, 10)));
+  const expectedFrac = total ? expectedFractionForTasks(tasks, fallbackStart) : null;
+  const youFrac = total ? done / total : 0;
+  let paceIcon, paceValue, paceLabel;
+  if (!total || expectedFrac === null) {
+    paceIcon = '⏱️'; paceValue = '—'; paceLabel = 'Own pace';
+  } else {
+    const deltaPct = Math.round((youFrac - expectedFrac) * 100);
+    if (youFrac > expectedFrac + 0.03) { paceIcon = '🏆'; paceValue = `+${deltaPct}%`; paceLabel = 'Ahead'; }
+    else if (youFrac < expectedFrac - 0.03) { paceIcon = '⏳'; paceValue = `${deltaPct}%`; paceLabel = 'Behind'; }
+    else { paceIcon = '🤝'; paceValue = 'Even'; paceLabel = 'On pace'; }
+  }
+  const stat = (value, label) => `
+    <div class="flex items-baseline gap-1.5">
+      <span class="text-base font-black text-navy whitespace-nowrap">${value}</span>
+      <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide whitespace-nowrap">${esc(label)}</span>
+    </div>`;
+  wrap.innerHTML = [
+    stat(`🎯 ${pct}%`, 'Complete'),
+    stat(streak ? `🔥 ${streak}` : '—', 'Day streak'),
+    stat(`${paceIcon} ${paceValue}`, paceLabel),
+  ].join('<div class="w-px self-stretch bg-gray-100"></div>');
+}
+
 async function renderGantt() {
   try {
     const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
@@ -1319,6 +1357,7 @@ async function renderGantt() {
     const dateSourceTasks = allowedGroupIds
       ? tasks.filter(t => allowedGroupIds.has(t.projectId))
       : tasks;
+    renderGanttStats(dateSourceTasks, APP.ganttProjectFilter ? projectById[APP.ganttProjectFilter] : null);
     const dated = dateSourceTasks
       .flatMap(t => [t.startDate, t.endDate])
       .filter(Boolean)
@@ -1619,6 +1658,9 @@ function applyGanttPageView(mode) {
   document.getElementById('gantt-timeline-view').classList.toggle('hidden', mode !== 'timeline');
   document.getElementById('gantt-kanban-view').classList.toggle('hidden', mode !== 'kanban');
   document.getElementById('gantt-journey-view').classList.toggle('hidden', mode !== 'journey');
+  // Journey shows its own themed version of these same numbers inside
+  // its game panel — this plain one would be a mismatched duplicate there.
+  document.getElementById('gantt-stats-strip').classList.toggle('hidden', mode === 'journey');
   // Zoom level and Print/Export only make sense for the timeline.
   document.getElementById('gantt-view-toggle').classList.toggle('hidden', mode !== 'timeline');
   document.getElementById('gantt-export-actions').classList.toggle('hidden', mode !== 'timeline');
@@ -4601,15 +4643,24 @@ document.addEventListener('fullscreenchange', () => {
   if (btn) btn.textContent = document.fullscreenElement ? '✕ Exit Fullscreen' : '⛶ Fullscreen';
 });
 
-function mountainExpectedFraction() {
-  const dated = mountainState.tasks.filter(t => t.endDate);
+// How far through its own date range `tasks` "should" be right now, by
+// wall-clock time — 0 at the earliest start date, 1 at the latest due
+// date, null if there's nothing dated to anchor it to. Shared by
+// Journey's own pace-vs-competitor read (mountainExpectedFraction) and
+// the plain Gantt/Kanban stats strip below.
+function expectedFractionForTasks(tasks, fallbackStart) {
+  const dated = tasks.filter(t => t.endDate);
   if (!dated.length) return null;
-  const starts = mountainState.tasks.map(t => t.startDate).filter(Boolean).sort();
-  const start = starts[0] || mountainState.project.startDate || mountainState.project.createdAt.slice(0, 10);
+  const starts = tasks.map(t => t.startDate).filter(Boolean).sort();
+  const start = starts[0] || fallbackStart;
+  if (!start) return null;
   const end = dated.map(t => t.endDate).sort().slice(-1)[0];
   const startMs = new Date(start).getTime(), endMs = new Date(end).getTime(), nowMs = Date.now();
   if (!(endMs > startMs)) return null;
   return Math.max(0, Math.min(1, (nowMs - startMs) / (endMs - startMs)));
+}
+function mountainExpectedFraction() {
+  return expectedFractionForTasks(mountainState.tasks, mountainState.project.startDate || mountainState.project.createdAt.slice(0, 10));
 }
 
 // A compact stats strip above the quest log — percent complete, the
