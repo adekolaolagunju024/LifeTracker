@@ -1618,6 +1618,285 @@ const JourneyGame = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════
+  // THEME: LIFE PATH — "My Road to Success". A storybook journey for
+  // parents to share with their children: the road runs from the home
+  // village past the school, the college and the city to a dream home on
+  // the hill, and the traveller grows up along the way (a child, then a
+  // schoolkid, a graduate and a grown-up, see lifeUpdateGoal). Blockers
+  // are gentle (a grumpy troll, a fallen log, a puddle, thorns, a storm
+  // cloud) and get solved, not beaten.
+  // ════════════════════════════════════════════════════════════════
+  function lifeDecorate(svg, layout, glowId, glowLgId) {
+    const { w, h } = layout;
+    svg.appendChild(el('circle', { cx: w * 0.12, cy: h * 0.1, r: w * 0.1, fill: '#fff1b8', opacity: 0.5, filter: glowLgId ? `url(#${glowLgId})` : undefined }));
+    const sun = el('g', { transform: `translate(${w * 0.12},${h * 0.1})` });
+    sun.appendChild(el('circle', { cx: 0, cy: 0, r: 16, fill: '#ffd54a' }));
+    [[-4, -2], [4, -2]].forEach(([ex, ey]) => sun.appendChild(el('circle', { cx: ex, cy: ey, r: 1.6, fill: '#7c4a03' })));
+    sun.appendChild(el('path', { d: 'M -5 4 Q 0 8 5 4', fill: 'none', stroke: '#7c4a03', 'stroke-width': 1.4, 'stroke-linecap': 'round' }));
+    svg.appendChild(sun);
+    cloudGroup(svg, layout, [[0.42, 0.08, 0.8], [0.72, 0.14, 0.65], [0.25, 0.2, 0.5]]);
+    // soft rolling hills in storybook greens
+    svg.appendChild(el('path', { d: `M 0 ${h * 0.3} Q ${w * 0.2} ${h * 0.18} ${w * 0.42} ${h * 0.27} T ${w * 0.85} ${h * 0.22} T ${w} ${h * 0.25} L ${w} ${h} L 0 ${h} Z`, fill: '#b9e3a0' }));
+    svg.appendChild(el('path', { d: `M 0 ${h * 0.45} Q ${w * 0.3} ${h * 0.36} ${w * 0.55} ${h * 0.44} T ${w} ${h * 0.4} L ${w} ${h} L 0 ${h} Z`, fill: '#a3d98a' }));
+    svg.appendChild(el('path', { d: `M 0 ${h * 0.68} Q ${w * 0.4} ${h * 0.6} ${w * 0.7} ${h * 0.66} T ${w} ${h * 0.62} L ${w} ${h} L 0 ${h} Z`, fill: '#8fd07a' }));
+    // a little stream
+    const s = `M ${-10} ${h * 0.6} C ${w * 0.25} ${h * 0.52} ${w * 0.45} ${h * 0.72} ${w * 0.7} ${h * 0.58} S ${w * 0.95} ${h * 0.5} ${w + 10} ${h * 0.55}`;
+    svg.appendChild(el('path', { d: s, fill: 'none', stroke: '#7cc8ee', 'stroke-width': 14, 'stroke-linecap': 'round', opacity: 0.9 }));
+    svg.appendChild(el('path', { class: 'journey-river-flow', d: s, fill: 'none', stroke: '#d4f1ff', 'stroke-width': 2, 'stroke-dasharray': '8 22', 'stroke-linecap': 'round' }));
+    [[0.3, 0.14, 1, 0], [0.34, 0.17, 0.8, 1.2]].forEach(([fx, fy, sc, delay]) => {
+      const pos = el('g', { transform: `translate(${w * fx},${h * fy}) scale(${sc})` });
+      const b = el('g', { class: 'journey-bird', style: `animation-delay:${delay}s` });
+      b.appendChild(el('path', { d: 'M -6 0 Q -3 -3 0 0 Q 3 -3 6 0', fill: 'none', stroke: '#5b4b8a', 'stroke-width': 1.4, 'stroke-linecap': 'round' }));
+      pos.appendChild(b);
+      svg.appendChild(pos);
+    });
+  }
+  // The landmarks of a life: home village, school, college and city.
+  function lifeLandmark(kind) {
+    const g = el('g');
+    g.appendChild(el('ellipse', { cx: 2, cy: 1, rx: 26, ry: 5, fill: '#0b1220', opacity: 0.14 }));
+    if (kind === 'village') {
+      [[-14, '#f8b4b4', '#b45309'], [8, '#fde68a', '#be123c']].forEach(([x, wall, roof]) => {
+        g.appendChild(el('rect', { x: x - 8, y: -14, width: 16, height: 14, fill: wall, stroke: '#7c2d12', 'stroke-width': 0.7 }));
+        g.appendChild(el('path', { d: `M ${x - 10} -14 L ${x} -24 L ${x + 10} -14 Z`, fill: roof, stroke: '#7c2d12', 'stroke-width': 0.7 }));
+        g.appendChild(el('rect', { x: x - 2, y: -8, width: 4, height: 8, fill: '#92400e' }));
+        g.appendChild(el('rect', { x: x + 3, y: -11, width: 3.4, height: 3.4, fill: '#bae6fd' }));
+      });
+      const t = el('text', { x: -2, y: 10, 'text-anchor': 'middle', 'font-size': 6.4, 'font-weight': 800, fill: '#7c2d12', 'font-family': 'Arial, sans-serif' });
+      t.textContent = 'Home';
+      g.appendChild(t);
+    } else if (kind === 'school') {
+      g.appendChild(el('rect', { x: -18, y: -18, width: 36, height: 18, fill: '#ef4444', stroke: '#7f1d1d', 'stroke-width': 0.8 }));
+      g.appendChild(el('path', { d: 'M -21 -18 L 0 -28 L 21 -18 Z', fill: '#7f1d1d' }));
+      g.appendChild(el('rect', { x: -3, y: -36, width: 6, height: 8, fill: '#ef4444', stroke: '#7f1d1d', 'stroke-width': 0.6 }));
+      g.appendChild(el('path', { d: 'M -4 -36 L 0 -40 L 4 -36 Z', fill: '#7f1d1d' }));
+      g.appendChild(el('circle', { cx: 0, cy: -32, r: 1.6, fill: '#fbbf24' }));
+      [-12, -5, 5, 12].forEach(x => g.appendChild(el('rect', { x: x - 2.4, y: -14, width: 4.8, height: 5, fill: '#fef9c3', stroke: '#7f1d1d', 'stroke-width': 0.4 })));
+      g.appendChild(el('rect', { x: -3, y: -8, width: 6, height: 8, fill: '#7c2d12' }));
+      const t = el('text', { x: 0, y: 10, 'text-anchor': 'middle', 'font-size': 6.4, 'font-weight': 800, fill: '#7f1d1d', 'font-family': 'Arial, sans-serif' });
+      t.textContent = 'School';
+      g.appendChild(t);
+    } else if (kind === 'college') {
+      g.appendChild(el('rect', { x: -22, y: -4, width: 44, height: 4, fill: '#e5e7eb', stroke: '#6b7280', 'stroke-width': 0.6 }));
+      g.appendChild(el('rect', { x: -20, y: -26, width: 40, height: 22, fill: '#f5f5f4', stroke: '#6b7280', 'stroke-width': 0.6 }));
+      [-15, -7.5, 0, 7.5, 15].forEach(x => g.appendChild(el('rect', { x: x - 1.6, y: -24, width: 3.2, height: 20, fill: '#d6d3d1' })));
+      g.appendChild(el('path', { d: 'M -23 -26 L 0 -38 L 23 -26 Z', fill: '#e7e5e4', stroke: '#6b7280', 'stroke-width': 0.6 }));
+      g.appendChild(el('path', { d: 'M -6 -32 L 0 -35 L 6 -32 L 0 -29 Z', fill: '#1f2937' }));
+      g.appendChild(el('rect', { x: 0, y: -48, width: 0.8, height: 10, fill: '#6b7280' }));
+      g.appendChild(el('path', { d: 'M 0.8 -48 L 8 -46 L 0.8 -44 Z', fill: '#2563eb' }));
+      const t = el('text', { x: 0, y: 10, 'text-anchor': 'middle', 'font-size': 6.4, 'font-weight': 800, fill: '#1e3a8a', 'font-family': 'Arial, sans-serif' });
+      t.textContent = 'College';
+      g.appendChild(t);
+    } else {
+      [[-16, 20, '#93c5fd'], [-5, 32, '#60a5fa'], [7, 24, '#a5b4fc'], [17, 16, '#c4b5fd']].forEach(([x, hgt, c]) => {
+        g.appendChild(el('rect', { x: x - 5, y: -hgt, width: 10, height: hgt, fill: c, stroke: '#3730a3', 'stroke-width': 0.6 }));
+        for (let y = -hgt + 3; y < -2; y += 5) g.appendChild(el('rect', { x: x - 3, y, width: 6, height: 2, fill: '#fef9c3', opacity: 0.85 }));
+      });
+      const t = el('text', { x: 0, y: 10, 'text-anchor': 'middle', 'font-size': 6.4, 'font-weight': 800, fill: '#3730a3', 'font-family': 'Arial, sans-serif' });
+      t.textContent = 'Career';
+      g.appendChild(t);
+    }
+    return g;
+  }
+  function lifeScatter(layer, layout, isClear, rand) {
+    // the landmarks, each beside its own stretch of the road
+    const pts = layout.points;
+    const spots = [['village', 0.02], ['school', 0.3], ['college', 0.55], ['city', 0.78]];
+    const placedMarks = [];
+    spots.forEach(([kind, at]) => {
+      const f = at * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), k = f - i;
+      const base = { x: pts[i].x + (pts[i + 1].x - pts[i].x) * k, y: pts[i].y + (pts[i + 1].y - pts[i].y) * k };
+      for (let r = 60; r <= 150; r += 15) {
+        let done = false;
+        for (let a = 0; a < 12 && !done; a++) {
+          const ang = (a / 12) * Math.PI * 2 + 0.3, x = base.x + Math.cos(ang) * r, y = base.y + Math.sin(ang) * r * 0.7;
+          if (y < layout.h * 0.22 || !isClear(x, y, 34) || placedMarks.some(p => Math.hypot(p.x - x, p.y - y) < 80)) continue;
+          const g = el('g', { transform: `translate(${x.toFixed(1)},${y.toFixed(1)})` });
+          g.appendChild(lifeLandmark(kind));
+          layer.appendChild(g);
+          placedMarks.push({ x, y });
+          done = true;
+        }
+        if (done) break;
+      }
+    });
+    const clearOfMarks = (x, y, m) => isClear(x, y, m) && placedMarks.every(p => Math.hypot(p.x - x, p.y - y) > 40 + m);
+    // round fruit trees and flowers
+    scatterProps(layer, layout, clearOfMarks, rand, {
+      count: 12, margin: 14, spacing: 38, minY: layout.h * 0.3, sway: true,
+      draw(g, v) {
+        g.appendChild(el('ellipse', { cx: 5, cy: 1, rx: 12, ry: 3.4, fill: '#0b1220', opacity: 0.16 }));
+        g.appendChild(el('rect', { x: -1.8, y: -14, width: 3.6, height: 14, rx: 1, fill: '#8b5e3c' }));
+        g.appendChild(el('circle', { cx: 0, cy: -21, r: 10, fill: v < 0.5 ? '#4ade80' : '#22c55e' }));
+        g.appendChild(el('circle', { cx: -3, cy: -24, r: 4.6, fill: '#86efac', opacity: 0.8 }));
+        if (v > 0.4) [[-4, -18], [4, -23], [3, -15]].forEach(([fx, fy]) => g.appendChild(el('circle', { cx: fx, cy: fy, r: 1.6, fill: v > 0.7 ? '#f97316' : '#ef4444' })));
+      },
+    });
+    const petal = ['#ffffff', '#fde047', '#f9a8d4', '#c4b5fd'];
+    scatterProps(layer, layout, clearOfMarks, rand, {
+      count: 18, margin: 4, spacing: 18, minY: layout.h * 0.32,
+      draw(g, v) {
+        const c = petal[Math.floor(v * petal.length)];
+        [[-2.2, 0], [2.2, 0], [0, -2.2], [0, 2.2]].forEach(([px, py]) => g.appendChild(el('circle', { cx: px, cy: py - 3, r: 1.7, fill: c })));
+        g.appendChild(el('circle', { cx: 0, cy: -3, r: 1.1, fill: '#f59e0b' }));
+      },
+    });
+  }
+
+  // The traveller at four ages, only one shown at a time (lifeUpdateGoal
+  // picks it from progress): a little kid with a cap and a backpack, a
+  // schoolkid with books, a graduate in cap and gown, and a grown-up.
+  function lifeAge(age, fill) {
+    const a = el('g', { class: 'journey-age', 'data-age': age });
+    const kid = age < 2;
+    const s = age === 0 ? 0.78 : age === 1 ? 0.9 : 1;
+    const body = el('g', { transform: `translate(0,${(1 - s) * 22}) scale(${s})` });
+    const shirt = age === 0 ? fill : age === 1 ? '#2563eb' : age === 2 ? '#111827' : '#0f766e';
+    const legs = age === 2 ? '#111827' : age === 3 ? '#334155' : '#1e40af';
+    if (kid) body.appendChild(el('rect', { x: -11, y: -8, width: 7, height: 12, rx: 2, fill: age === 0 ? '#facc15' : '#f97316', stroke: '#1f2937', 'stroke-width': 0.6 }));
+    body.appendChild(avatarLimb('journey-leg-back', legs, -3.4, 9, 4.2, 10, 3.2, 1.7, '#7c2d12'));
+    const armBack = avatarLimb('journey-arm-back', shirt, -7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae');
+    if (age === 3) armBack.firstChild.appendChild(el('rect', { x: -5, y: 10, width: 10, height: 7, rx: 1.2, fill: '#7c4a1e', stroke: '#3f2410', 'stroke-width': 0.6 }));
+    body.appendChild(armBack);
+    if (age === 2) body.appendChild(el('path', { d: 'M -9.6 -9 L 9.6 -9 L 11 13 L -11 13 Z', fill: shirt, stroke: '#000000', 'stroke-width': 0.8 }));
+    else body.appendChild(el('rect', { x: -8.6, y: -9, width: 17.2, height: 19, rx: 6.5, fill: shirt, stroke: '#1f2937', 'stroke-width': 1 }));
+    if (age === 0) body.appendChild(el('path', { d: 'M -4 -2 L 4 -2', stroke: '#ffffff', 'stroke-width': 2.4, opacity: 0.6 }));
+    if (age === 1) body.appendChild(el('path', { d: 'M -3 -9 L 0 -4 L 3 -9', fill: 'none', stroke: '#ffffff', 'stroke-width': 1.4 }));
+    if (age === 3) body.appendChild(el('path', { d: 'M -3.4 -9 L 0 -3 L 3.4 -9 Z', fill: '#ffffff' }));
+    body.appendChild(avatarLimb('journey-leg-front', legs, 3.4, 9, 4.2, 10, 3.2, 1.7, '#7c2d12'));
+    const armFront = avatarLimb('journey-arm-front', shirt, 7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae');
+    if (age === 1) armFront.firstChild.appendChild(el('rect', { x: -3, y: 6, width: 7, height: 9, rx: 1, fill: '#16a34a', stroke: '#14532d', 'stroke-width': 0.6 }));
+    if (age === 2) armFront.firstChild.appendChild(el('rect', { x: -1.4, y: 6, width: 3, height: 9, rx: 1.2, fill: '#fef3c7', stroke: '#92400e', 'stroke-width': 0.5 }));
+    body.appendChild(armFront);
+    const head = cartoonHead({ hair: ['#7c2d12', '#3b2416', '#1f2937', '#4a2f1e'][age], style: age === 1 ? 'bun' : 'short', r: kid ? 9.8 : 9.2 });
+    if (age === 0) {
+      head.appendChild(el('path', { d: 'M -9.6 -3.6 A 9.6 9.6 0 0 1 9.6 -3.6 Z', fill: '#ef4444' }));
+      head.appendChild(el('path', { d: 'M 6 -4 L 15 -3 L 9.6 -1.6 Z', fill: '#dc2626' }));
+    }
+    if (age === 2) {
+      head.appendChild(el('path', { d: 'M -12 -8 L 0 -13 L 12 -8 L 0 -3 Z', fill: '#111827' }));
+      head.appendChild(el('rect', { x: -5, y: -8, width: 10, height: 3, fill: '#111827' }));
+      head.appendChild(el('path', { d: 'M 10 -8.6 L 11 -1', stroke: '#facc15', 'stroke-width': 1 }));
+    }
+    head.setAttribute('transform', 'translate(0,-18.5)');
+    body.appendChild(head);
+    a.appendChild(body);
+    return a;
+  }
+  function lifeBuildAvatar(fill, shadowFilterId) {
+    const g = el('g', { class: 'journey-avatar' });
+    g.appendChild(el('ellipse', { cx: 0, cy: 24, rx: 14, ry: 3.4, fill: '#1f2937', opacity: 0.22 }));
+    const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    [0, 1, 2, 3].forEach(age => bob.appendChild(lifeAge(age, fill)));
+    g.appendChild(bob);
+    return g;
+  }
+  // The traveller's age follows progress; the family and rainbow at the
+  // dream home wait for the finish (CSS on .journey-quest-done).
+  const LIFE_AGES = [0, 0.25, 0.5, 0.8];
+  function lifeUpdateGoal(entry, frac, state) {
+    const ageAt = f => LIFE_AGES.reduce((age, at, k) => (f >= at - 1e-6 ? k : age), 0);
+    const show = (layer, age) => layer.querySelectorAll('.journey-age').forEach(a => { a.style.display = Number(a.getAttribute('data-age')) === age ? '' : 'none'; });
+    show(entry.avatarLayer, ageAt(frac));
+    // the pace ghost is drawn at the age its own progress would reach
+    show(entry.ghostLayer, ageAt(state && state.ghost ? state.ghost.frac || 0 : 0));
+  }
+
+  // The dream home on the hill: a cottage with a heart window, a garden
+  // and a big tree; the family comes out and a rainbow appears at the end.
+  function lifeBuildGoal(x, y, gradId, shadowFilterId, glowId) {
+    const g = el('g', { transform: `translate(${x},${y + 4}) scale(0.78)` });
+    g.appendChild(el('circle', { cx: 0, cy: -20, r: 46, fill: '#ffe08a', opacity: 0.3, filter: glowId ? `url(#${glowId})` : undefined }));
+    // the rainbow (hidden until the finish)
+    const rainbow = el('g', { class: 'journey-rainbow' });
+    ['#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#8b5cf6'].forEach((c, k) => rainbow.appendChild(el('path', { d: `M ${-46 + k * 3} 0 A ${46 - k * 3} ${40 - k * 3} 0 0 1 ${46 - k * 3} 0`, fill: 'none', stroke: c, 'stroke-width': 3, opacity: 0.85 })));
+    g.appendChild(rainbow);
+    g.appendChild(el('ellipse', { cx: 0, cy: 4, rx: 44, ry: 8, fill: '#86c96e' }));
+    const body = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    body.appendChild(el('rect', { x: 18, y: -26, width: 4, height: 28, fill: '#8b5e3c' }));
+    body.appendChild(el('circle', { cx: 20, cy: -30, r: 12, fill: '#4ade80' }));
+    body.appendChild(el('circle', { cx: 15, cy: -34, r: 6, fill: '#86efac', opacity: 0.8 }));
+    body.appendChild(el('rect', { x: -20, y: -22, width: 30, height: 22, fill: '#fef3c7', stroke: '#92400e', 'stroke-width': 0.9 }));
+    body.appendChild(el('path', { d: 'M -24 -22 L -5 -38 L 14 -22 Z', fill: '#f87171', stroke: '#991b1b', 'stroke-width': 0.9 }));
+    body.appendChild(el('rect', { x: 2, y: -36, width: 5, height: 9, fill: '#b45309' }));
+    body.appendChild(el('rect', { x: -9, y: -12, width: 8, height: 12, rx: 3.5, fill: '#92400e' }));
+    body.appendChild(el('path', { d: 'M -14 -16 C -18 -20 -18 -12 -14 -10 C -10 -12 -10 -20 -14 -16 Z', fill: '#f472b6', class: 'journey-home-heart' }));
+    body.appendChild(el('rect', { x: 2, y: -16, width: 6, height: 6, fill: '#bae6fd', stroke: '#92400e', 'stroke-width': 0.5 }));
+    for (let fx = -30; fx <= 30; fx += 6) body.appendChild(el('rect', { x: fx, y: -4, width: 1.6, height: 7, fill: '#ffffff', stroke: '#d1d5db', 'stroke-width': 0.3 }));
+    body.appendChild(el('rect', { x: -31, y: -2.6, width: 62, height: 1.4, fill: '#ffffff' }));
+    g.appendChild(body);
+    // the family, waiting to come out and celebrate
+    const family = el('g', { class: 'journey-family' });
+    [[-34, 1.1, '#ec4899', '#3b2416'], [-26, 1.15, '#2563eb', '#1f2937'], [30, 0.75, '#facc15', '#7c2d12']].forEach(([fx, sc, c, hair]) => {
+      const p = el('g', { transform: `translate(${fx},2) scale(${sc})` });
+      p.appendChild(el('path', { d: 'M -4.4 0 L 4.4 0 L 3 -10 L -3 -10 Z', fill: c, stroke: '#1f2937', 'stroke-width': 0.5 }));
+      p.appendChild(el('circle', { cx: 0, cy: -13, r: 3.4, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 0.5 }));
+      p.appendChild(el('path', { d: 'M -3.4 -13.6 Q 0 -18.6 3.4 -13.6 Q 0 -15.6 -3.4 -13.6 Z', fill: hair }));
+      p.appendChild(el('path', { class: 'journey-princess-wave', d: 'M 3 -8 L 7 -14', stroke: '#ffd9ae', 'stroke-width': 1.6, 'stroke-linecap': 'round' }));
+      family.appendChild(p);
+    });
+    g.appendChild(family);
+    // the trophy star over the home
+    const star = el('g', { class: 'journey-life-star', transform: 'translate(-5,-54)' });
+    star.appendChild(el('path', { d: starPath(9, 4, 5), fill: `url(#${gradId})`, stroke: '#b8780f', 'stroke-width': 1 }));
+    g.appendChild(star);
+    g.appendChild(sparkles([[-34, -40, 2.2], [32, -50, 1.8], [8, -62, 2]]));
+    return g;
+  }
+
+  // A checkpoint: a wooden signpost with a star, gold once done.
+  function lifeBuildCheckpoint(i, isDone, isNext, blocked, scale, shadowFilterId) {
+    const s = scale;
+    const g = el('g', { class: 'journey-flag' });
+    if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 2 * s, cy: -22 * s, r: 15 * s, fill: NEXT_COLOR, opacity: 0.5 }));
+    g.appendChild(el('ellipse', { cx: 1.5 * s, cy: 0.5 * s, rx: 6 * s, ry: 1.6 * s, fill: '#0b1220', opacity: 0.2 }));
+    g.appendChild(el('rect', { x: -1.2 * s, y: -26 * s, width: 2.4 * s, height: 26 * s, rx: 0.8 * s, fill: '#a16207', stroke: '#713f12', 'stroke-width': 0.5 * s }));
+    const board = el('g', { class: 'journey-flag-wave' });
+    board.appendChild(el('path', {
+      d: `M ${-2 * s} ${-26 * s} L ${12 * s} ${-26 * s} L ${16 * s} ${-21.5 * s} L ${12 * s} ${-17 * s} L ${-2 * s} ${-17 * s} Z`,
+      fill: isDone ? '#fde68a' : isNext ? '#fff7d6' : '#fef3c7', stroke: '#713f12', 'stroke-width': 0.7 * s,
+      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
+    }));
+    if (isDone) board.appendChild(el('path', { d: starPath(4.2 * s, 1.8 * s, 5), transform: `translate(${6 * s},${-21.5 * s})`, fill: '#f59e0b', stroke: '#b45309', 'stroke-width': 0.5 * s }));
+    else {
+      const label = el('text', { x: 6 * s, y: -21.2 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 6.6 * s, 'font-weight': 900, fill: '#713f12', 'font-family': 'Arial, sans-serif' });
+      label.textContent = String(i + 1);
+      board.appendChild(label);
+    }
+    g.appendChild(board);
+    if (blocked) g.appendChild(drawFoes(blocked, s, LIFE_FOES));
+    return g;
+  }
+
+  // The finish: the family comes out to celebrate, a rainbow, hearts,
+  // the trophy star and "YOU DID IT!".
+  function lifeCelebrateFinish(entry, from, scale, burst) {
+    entry.shotPending = false;
+    entry.svg.classList.add('journey-quest-done');
+    const { svg, goalPt } = entry;
+    const hg = el('g');
+    svg.insertBefore(hg, entry.vignette);
+    const hearts = Array.from({ length: 14 }, (_, k) => {
+      const h = el('path', { d: 'M 0 2 C -4 -2 -4 -6 0 -4 C 4 -6 4 -2 0 2 Z', fill: ['#f472b6', '#fb7185', '#f43f5e'][k % 3] });
+      hg.appendChild(h);
+      return { h, x: goalPt.x + (hash01(k + 40) - 0.5) * 80, sp: 30 + hash01(k + 41) * 30, ph: hash01(k + 42) * 6, s: 1 + hash01(k + 43) };
+    });
+    const t0 = performance.now();
+    const step = now => {
+      if (!svg.isConnected) return;
+      const t = (now - t0) / 1000;
+      hearts.forEach(o => {
+        o.h.setAttribute('transform', `translate(${(o.x + Math.sin(t * 2 + o.ph) * 8).toFixed(1)},${(goalPt.y - 10 - o.sp * t).toFixed(1)}) scale(${o.s.toFixed(2)})`);
+        o.h.setAttribute('opacity', Math.max(0, 1 - t / 2.6).toFixed(2));
+      });
+      if (t < 2.6) requestAnimationFrame(step); else hg.remove();
+    };
+    requestAnimationFrame(step);
+    finishFlourish(entry, 'YOU DID IT!', '#fde047', '#7c3aed', ['#f472b6', '#fde047', '#60a5fa']);
+    burst();
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // OBSTACLES — each task's named obstacles become that many enemies on
   // the road before its flag, drawn in the theme's own style (rival
   // players, mini-bosses, sharks, asteroids...), with the obstacle's name
@@ -1756,6 +2035,41 @@ const JourneyGame = (() => {
       g.appendChild(el('path', { d: 'M -9 -4 L 9 -9', stroke: '#7c2d12', 'stroke-width': 1.4, 'stroke-linecap': 'round' }));
     }
   };
+  // Life Path: gentle blockers, never scary — a grumpy little troll, a
+  // fallen log, a muddy puddle, a thorny bush and a small storm cloud.
+  const LIFE_FOES = (g, k) => {
+    const kind = k % 5;
+    if (kind === 0) {
+      g.appendChild(el('ellipse', { cx: 0, cy: -8, rx: 8, ry: 8.6, fill: '#86c26a', stroke: '#3f6212', 'stroke-width': 0.8 }));
+      [-5.6, 5.6].forEach(ex => g.appendChild(el('ellipse', { cx: ex * 1.5, cy: -10, rx: 2.2, ry: 1.4, fill: '#86c26a', stroke: '#3f6212', 'stroke-width': 0.6 })));
+      [-2.8, 2.8].forEach(ex => g.appendChild(el('circle', { cx: ex, cy: -10, r: 1.2, fill: '#1f2937' })));
+      g.appendChild(el('path', { d: 'M -4.2 -13 L -1.6 -12 M 4.2 -13 L 1.6 -12', stroke: '#1f2937', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
+      g.appendChild(el('path', { d: 'M -2.4 -5 Q 0 -6.6 2.4 -5', fill: 'none', stroke: '#1f2937', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
+      g.appendChild(el('path', { d: 'M -6 -3 L 6 -3', stroke: '#3f6212', 'stroke-width': 2.4, 'stroke-linecap': 'round' }));
+      g.appendChild(el('path', { d: 'M -1.4 -17 L 0 -20 L 1.4 -17', fill: '#a16207' }));
+    } else if (kind === 1) {
+      g.appendChild(el('rect', { x: -12, y: -7, width: 24, height: 7, rx: 3.5, fill: '#92400e', stroke: '#5b2a0a', 'stroke-width': 0.7 }));
+      g.appendChild(el('ellipse', { cx: 12, cy: -3.5, rx: 2.6, ry: 3.5, fill: '#d6a46a', stroke: '#5b2a0a', 'stroke-width': 0.6 }));
+      g.appendChild(el('ellipse', { cx: 12, cy: -3.5, rx: 1.1, ry: 1.6, fill: 'none', stroke: '#92400e', 'stroke-width': 0.5 }));
+      g.appendChild(el('path', { d: 'M -6 -7 L -8 -12 M 2 -7 L 3 -11', stroke: '#5b2a0a', 'stroke-width': 1 }));
+      g.appendChild(el('circle', { cx: -8, cy: -12.6, r: 1.6, fill: '#4ade80' }));
+    } else if (kind === 2) {
+      g.appendChild(el('ellipse', { cx: 0, cy: -1, rx: 13, ry: 4, fill: '#7c5a3a', opacity: 0.85 }));
+      g.appendChild(el('ellipse', { cx: -1, cy: -1.6, rx: 9, ry: 2.6, fill: '#a07a52' }));
+      g.appendChild(el('path', { d: 'M -6 -2 Q -3 -3.6 0 -2 M 2 -1.4 Q 5 -3 8 -1.4', fill: 'none', stroke: '#e5d3b3', 'stroke-width': 0.6 }));
+    } else if (kind === 3) {
+      [[-5, -6, 6], [3, -8, 7], [0, -4, 7]].forEach(([cx, cy, r]) => g.appendChild(el('circle', { cx, cy, r, fill: '#3f7a3a' })));
+      for (let a = 0; a < 10; a++) {
+        const ang = (a / 10) * Math.PI * 2, x = Math.cos(ang) * 9, y = -6 + Math.sin(ang) * 7;
+        g.appendChild(el('path', { d: `M ${x} ${y} L ${x * 1.3} ${y * 1.15 - 1}`, stroke: '#7c2d12', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
+      }
+    } else {
+      [[-5, -18, 5], [1, -20.6, 6], [6.4, -17.6, 4.4], [0, -15.6, 5.6]].forEach(([cx, cy, r]) => g.appendChild(el('circle', { cx, cy, r, fill: '#9ca3af' })));
+      [-2.4, 2.4].forEach(ex => g.appendChild(el('circle', { cx: ex, cy: -17, r: 0.9, fill: '#374151' })));
+      g.appendChild(el('path', { d: 'M -1.6 -14.4 Q 0 -15.4 1.6 -14.4', fill: 'none', stroke: '#374151', 'stroke-width': 0.7 }));
+      [-5, -1, 3, 7].forEach(rx => g.appendChild(el('path', { d: `M ${rx} -10 L ${rx - 1.4} -5`, stroke: '#60a5fa', 'stroke-width': 1, 'stroke-linecap': 'round' })));
+    }
+  };
   const FOOTBALL_FOES = g => {
     g.appendChild(el('rect', { x: -2.4, y: -7, width: 2, height: 7, fill: '#f1f5f9' }));
     g.appendChild(el('rect', { x: 0.4, y: -7, width: 2, height: 7, fill: '#f1f5f9' }));
@@ -1847,6 +2161,14 @@ const JourneyGame = (() => {
       path: { outline: '#8b6b45', fill: '#e8d5b0', dash: '#f97316', progress: '#fde047' },
       decorate: constructionDecorate, scatter: constructionScatter, buildAvatar: constructionBuildAvatar, buildGoal: constructionBuildGoal, buildCheckpoint: constructionBuildCheckpoint, foes: CONSTRUCTION_FOES,
       updateGoal: constructionUpdateGoal, celebrateFinish: constructionCelebrateFinish,
+    },
+    life: {
+      label: 'Life Path', avatarFill: '#ef4444', clearedWord: 'SOLVED!',
+      sky: [[0, '#8ec5f0'], [20, '#c7e5fb'], [28, '#fde7f3'], [30, '#b9e3a0'], [100, '#8fd07a']],
+      goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
+      path: { outline: '#c08a4f', fill: '#fbe7c6', dash: '#f472b6', progress: '#fde047' },
+      decorate: lifeDecorate, scatter: lifeScatter, buildAvatar: lifeBuildAvatar, buildGoal: lifeBuildGoal, buildCheckpoint: lifeBuildCheckpoint, foes: LIFE_FOES,
+      updateGoal: lifeUpdateGoal, celebrateFinish: lifeCelebrateFinish,
     },
   };
   function resolveThemeKey(key) { return THEMES[key] ? key : 'football'; }
@@ -2015,6 +2337,7 @@ const JourneyGame = (() => {
     const vignette = el('rect', { x: 0, y: 0, width: layout.w, height: layout.h, fill: `url(#${vignetteId})`, 'pointer-events': 'none' });
     svg.appendChild(vignette);
 
+    svg.classList.add(`journey-theme-${resolveThemeKey(themeKey)}`);
     container.appendChild(svg);
 
     const entry = {
@@ -2246,8 +2569,6 @@ const JourneyGame = (() => {
     let phaseLabel = 'At the starting line';
     PHASES.forEach(p => { if (totalN && doneN / totalN > p.at) phaseLabel = p.label; });
     if (totalN && doneN === totalN) phaseLabel = 'Reached the target';
-    // Stages whose goal itself reflects progress (the Construction building).
-    if (theme.updateGoal) theme.updateGoal(entry, totalN ? doneN / totalN : 0);
     title.textContent = totalN
       ? `Journey progress: ${pct} percent. ${doneN} of ${totalN} tasks completed. Current milestone: ${phaseLabel}.`
       : 'Journey not started — no tasks yet.';
@@ -2350,6 +2671,9 @@ const JourneyGame = (() => {
 
     if (!avatarLayer.firstChild) avatarLayer.appendChild(theme.buildAvatar(theme.avatarFill, shadowId));
     avatarLayer.style.transition = 'none';
+    // Stages where the scene itself reflects progress (the Construction
+    // building, the Life Path traveller growing up).
+    if (theme.updateGoal) theme.updateGoal(entry, totalN ? doneN / totalN : 0, state);
 
     // Football: the ball sits at the player's feet until the goal is
     // scored, then in the net.
@@ -2386,6 +2710,7 @@ const JourneyGame = (() => {
     space3d: { module: '/js/journeySpace3d.js', factory: 'createSpace3D', fallback: 'space', failed: false, loading: null },
     corporate3d: { module: '/js/journeyCorporate3d.js', factory: 'createCorporate3D', fallback: 'corporate', failed: false, loading: null },
     construction3d: { module: '/js/journeyConstruction3d.js', factory: 'createConstruction3D', fallback: 'construction', failed: false, loading: null },
+    life3d: { module: '/js/journeyLife3d.js', factory: 'createLife3D', fallback: 'life', failed: false, loading: null },
   };
   const instances3d = new Set();
   let webglOk = null;

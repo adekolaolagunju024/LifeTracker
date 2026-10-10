@@ -227,6 +227,11 @@
       --quest-text: #fef3c7; --quest-text-done: #8a7a5c; --quest-date: #d6b98a; --quest-hover: rgba(250,204,21,.1);
       --quest-accent: #facc15;
     }
+    .journey-quest-panel.theme-life, .journey-quest-panel.theme-life3d {
+      --quest-bg1: #3b2563; --quest-bg2: #241640; --quest-divider: rgba(244,114,182,.3);
+      --quest-text: #fdf4ff; --quest-text-done: #9d8bb8; --quest-date: #e9c6f2; --quest-hover: rgba(244,114,182,.1);
+      --quest-accent: #f9a8d4;
+    }
     .journey-quest-panel.theme-castle, .journey-quest-panel.theme-castle3d {
       --quest-bg1: #1c2547; --quest-bg2: #0d1326; --quest-divider: rgba(231,180,67,.28);
       --quest-text: #f6f0e1; --quest-text-done: #8a8470; --quest-date: #c9b98f; --quest-hover: rgba(231,180,67,.1);
@@ -495,6 +500,19 @@
     .journey-ribbon-l, .journey-ribbon-r { transform-box: fill-box; transition: transform .8s; }
     .journey-quest-done .journey-ribbon-l { transform-origin: left center; transform: rotate(70deg); }
     .journey-quest-done .journey-ribbon-r { transform-origin: right center; transform: rotate(-70deg); }
+    /* Life Path: the family and rainbow at the dream home appear at the
+       finish, and blockers are "solved" (they float up in a sparkle)
+       rather than knocked out. */
+    .journey-family, .journey-rainbow { opacity: 0; transition: opacity 1s; }
+    .journey-quest-done .journey-family, .journey-quest-done .journey-rainbow { opacity: 1; }
+    .journey-rainbow { transform-box: fill-box; transform-origin: center bottom; }
+    .journey-quest-done .journey-rainbow { animation: journey-rainbow 1.2s ease-out 1 both; }
+    @keyframes journey-rainbow { from { transform: scale(.2); } to { transform: scale(1); } }
+    .journey-life-star { transform-box: fill-box; transform-origin: center; }
+    .journey-quest-done .journey-life-star path { animation: journey-star-spin 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    @keyframes journey-star-spin { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.25); } }
+    .journey-theme-life .journey-foes-defeated .journey-foe { animation: journey-foe-solve .7s ease-out 1 forwards; }
+    @keyframes journey-foe-solve { 0% { transform: translateY(0) scale(1); opacity: 1; filter: none; } 40% { transform: translateY(-4px) scale(1.15); opacity: 1; filter: brightness(1.8); } 100% { transform: translateY(-22px) scale(.3); opacity: 0; filter: brightness(2.2); } }
     .journey-deal-anim { animation: journey-deal-pop .8s cubic-bezier(.3,1.6,.5,1) 1 both; }
     @keyframes journey-deal-pop { from { opacity: 0; transform: scale(.2) rotate(-12deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
     @keyframes journey-firework { 0% { opacity: 1; transform: scale(.2); } 70% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
@@ -537,8 +555,8 @@
       .journey-task-popup-inner,
       .journey-flame, .journey-river-flow, .journey-frog-sac, .journey-dragon-breathe, .journey-dragon-wing,
       .journey-dragon-fire, .journey-dragon-hit, .journey-dragon-fall, .journey-slash .journey-arm-front,
-      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise, .journey-hq-beacon, .journey-deal-anim, .journey-topping,
-      .journey-foe, .journey-foes-defeated .journey-foe { animation: none; }
+      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise, .journey-hq-beacon, .journey-deal-anim, .journey-topping, .journey-rainbow, .journey-life-star path,
+      .journey-foe, .journey-foes-defeated .journey-foe, .journey-theme-life .journey-foes-defeated .journey-foe { animation: none; }
       .journey-portcullis, .journey-princess-free { transition: none; }
     }
 
@@ -1563,6 +1581,8 @@
               <option value="corporate3d">🏢 Corporate 3D</option>
               <option value="construction">🏗️ Construction</option>
               <option value="construction3d">🏗️ Construction 3D</option>
+              <option value="life">🌱 Life Path</option>
+              <option value="life3d">🌱 Life Path 3D</option>
             </select>
             <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started and untick its cleared blockers">↺ Reset</button>
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>

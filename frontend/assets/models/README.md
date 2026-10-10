@@ -18,3 +18,5 @@ animations the stage uses (idle, run, walk, sword attacks, block, cheer, hit,
 jump, interact) and to one sword and one shield. `Princess.glb` is the pack's
 `Mage.glb` with its animations, hat and props removed; she shares the knight's
 animations (same rig), and the stage re-dyes her robe and adds a crown in code.
+
+Both models are also re-dressed in code for the Corporate, Construction and Life Path stages (suits, hi-vis and hard hats, the traveller at four ages, and the family at the dream home).
