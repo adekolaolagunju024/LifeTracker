@@ -573,26 +573,47 @@ export function createSpace3D(container) {
     scene.remove(w.tag); w.tag.material.map.dispose(); w.tag.material.dispose();
     scene.add(tag); w.tag = tag;
   }
-  // An obstacle ticked off (or unticked) on its own: the rocket blasts just
-  // its enemies (or they drift back), and its name pops up over the route.
+  // An obstacle ticked off (or unticked) on its own: the rocket flies up
+  // beside its enemies and blasts them (see engageResolved), or they drift
+  // back, and its name pops up over the route.
   function applyResolves(changes) {
+    const engaging = [];
     changes.forEach((c, j) => {
       const w = walls.find(x => x.taskIndex === c.index);
       const at = w ? w.center.clone().addScaledVector(w.up, 5.2) : curve.getPointAt(wallFrac(c.index));
-      if (c.resolved) { timers.push(setTimeout(() => shell.spawnTaskLabel(at, c.name, 'foe'), j * 450)); if (w) { peek.at.copy(w.center); peek.t = 3.4; } }
-      if (!w) return;
+      const label = c.resolved ? () => shell.spawnTaskLabel(at, c.name, 'foe') : null;
+      const now = () => { if (label) { timers.push(setTimeout(label, j * 450)); if (w) { peek.at.copy(w.center); peek.t = 3.4; } } };
+      let engagedHere = false;
+      if (!w) { now(); return; }
       w.foes.forEach((f, k) => {
         if (f.owner !== c.id) return;
         if (c.resolved && !f.ticked) {
           f.ticked = true;
-          if (!f.blasted) timers.push(setTimeout(() => { if (f.ticked && !f.blasted) blast(f); }, j * 450 + k * 160));
+          if (f.blasted) return;
+          // still out there: the rocket goes and blasts it (engageResolved)
+          if (!reduceMotion && !w.cleared) { engaging.push({ w, f, label: engagedHere ? null : label }); engagedHere = true; }
+          else timers.push(setTimeout(() => { if (f.ticked && !f.blasted) blast(f); }, j * 450 + k * 160));
         } else if (!c.resolved && f.ticked) {
           if (w.cleared) f.ticked = false; else reviveFoe(f);
         }
       });
+      if (!engagedHere) now();
     });
     walls.forEach(w => { w.open = !tasks[w.taskIndex].foes; });
     new Set(changes.map(c => c.index)).forEach(i => { const w = walls.find(x => x.taskIndex === i); if (w) retagWall(w); });
+    engageResolved(engaging);
+  }
+  // The rocket flies up beside a ticked-off obstacle's enemies and blasts
+  // them one after another (walker.engage); near is false when it couldn't
+  // get there, and they're blasted from where it is.
+  function engageResolved(list) {
+    const byWall = new Map();
+    list.forEach(e => { if (!byWall.has(e.w)) byWall.set(e.w, []); byWall.get(e.w).push(e); });
+    byWall.forEach((items, w) => walker.engage(w.taskIndex, near => {
+      items.forEach((e, k) => timers.push(setTimeout(() => { if (e.f.ticked && !e.f.blasted) blast(e.f); }, (near ? 250 : 0) + k * 350)));
+      items.filter(e => e.label).forEach((e, k) => timers.push(setTimeout(e.label, k * 450 + (near ? 300 : 0))));
+      peek.at.copy(w.center); peek.t = 3.4;
+    }, 0.6 + 0.35 * items.length));
   }
   function updateWalls(dt, time) {
     walls.forEach(w => {
