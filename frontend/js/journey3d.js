@@ -594,50 +594,43 @@ export function createFootball3D(container) {
   };
   const celebrated = new Set(tasks.filter(t => t.done).map(t => t.id));
 
-  function standingWallLimit() {
-    // A blocker literally blocks the path: you can't run past an un-cleared wall.
-    let limit = 1;
-    walls.forEach(w => { if (!w.cleared && !w.open) limit = Math.min(limit, wallFrac(w.taskIndex) - 0.012); });
-    return limit;
-  }
-  function targetFrac() {
+  // Where the player stands between runs: the last done task's flag; but
+  // once one of the next task's rivals is ticked off, up at that task's
+  // wall (camped), taking each rival on as it's ticked instead of
+  // dribbling back to the flag in between. Never past a wall whose task
+  // is still blocked.
+  const campedAt = i => { const t = tasks[i]; return !!t && !t.done && (t.foeList || []).some(o => o.resolved); };
+  function restFrac() {
     const n = tasks.length, done = tasks.filter(t => t.done).length;
-    return Math.min(progressToFrac(done, n), standingWallLimit());
+    let to = progressToFrac(done, n);
+    const next = tasks.findIndex(t => !t.done);
+    const wall = walls.find(w => w.taskIndex === next);
+    if (wall && !wall.cleared && campedAt(next)) to = Math.max(to, wallFrac(next) - 0.012);
+    walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to = Math.min(to, wallFrac(w.taskIndex) - 0.012); });
+    return to;
   }
+  const targetFrac = () => restFrac();
   function allDone() { return tasks.every(t => t.done); }
 
-  // An obstacle ticked off on a task that's still open: the player
-  // dribbles up to its rivals and takes them on with a step-over (fn(true)
-  // when there, then a pause for the skill), and dribbles back to the
-  // flag. With another wall in the way or the shot under way, fn(false)
-  // runs at once and the rivals just leave.
-  const pendingEngage = [];
-  let excursionBack = null;
+  // An obstacle ticked off: fn(true) when the player is standing at its
+  // rivals (at once if already there, else on arrival, see plan), then a
+  // pause for the step-overs. With another wall in the way or the shot
+  // under way, fn(false) runs at once and the rivals just leave.
+  const engageQueue = [];
   function engage(i, fn, pause) {
     if (reduceMotion || P.mode === 'shoot' || P.mode === 'celebrate' || P.scored) { fn(false); return; }
-    if (P.mode !== 'idle') { pendingEngage.push({ i, fn, pause }); return; }
     const at = wallFrac(i) - 0.012;
     const inTheWay = walls.some(w => w.taskIndex !== i && !w.cleared && !w.clearing && !w.open
       && wallFrac(w.taskIndex) - 0.012 > P.frac + 1e-4 && wallFrac(w.taskIndex) - 0.012 < at - 1e-4);
-    if (inTheWay || at < P.frac - 1e-4) { fn(false); return; }
-    excursionBack = P.frac;
-    P.stops = [{ frac: at, events: [{ fn: () => fn(true), raw: fn, kind: 'engage' }], pause }, { frac: P.frac, events: [], pause: 0 }];
-    P.mode = 'run'; cam.goalTime = 0;
+    if (inTheWay || at < P.frac - 1e-3) { fn(false); return; }
+    if (Math.abs(P.frac - at) < 1e-3 && (P.mode === 'idle' || P.mode === 'pause')) {
+      fn(true);
+      P.mode = 'pause'; P.pauseLeft = Math.max(P.pauseLeft, pause);
+      return;
+    }
+    engageQueue.push({ i, fn, pause });
   }
   function plan() {
-    // Mid-excursion: carry on if nothing else changed; otherwise the rivals
-    // leave where they stand and the run is planned as usual.
-    const engaging = P.stops.flatMap(s => s.events).filter(e => e.kind === 'engage');
-    if (excursionBack !== null && (engaging.length || P.stops.length)) {
-      const n0 = tasks.length, done0 = tasks.filter(t => t.done).length;
-      let to0 = progressToFrac(done0, n0);
-      walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to0 = Math.min(to0, wallFrac(w.taskIndex) - 0.012); });
-      const fresh = tasks.some(t => t.done !== celebrated.has(t.id));
-      if (!fresh && Math.abs(to0 - excursionBack) < 1e-4) return;
-      engaging.forEach(e => e.raw(false));
-      P.stops = [];
-    }
-    excursionBack = null;
     const n = tasks.length, done = tasks.filter(t => t.done).length;
     const events = [];
     tasks.forEach((t, i) => {
@@ -663,13 +656,12 @@ export function createFootball3D(container) {
     // Celebrations still waiting on an interrupted run are kept if still valid.
     const carried = P.stops.flatMap(s => s.events).filter(e =>
       e.kind === 'wall' ? e.wall.clearing && !e.wall.cleared
-        : e.kind === 'flag' ? !!(tasks.find(t => t.id === e.taskId) || {}).done : false);
+        : e.kind === 'flag' ? !!(tasks.find(t => t.id === e.taskId) || {}).done : e.kind === 'engage');
+    engageQueue.splice(0).forEach(q => events.push({ frac: wallFrac(q.i) - 0.012, fn: () => q.fn(true), raw: q.fn, pause: q.pause, kind: 'engage' }));
     const all = carried.concat(events);
 
-    // How far the player may go: k done → k-th flag, but never past a defender
-    // wall whose task is still blocked (one that's about to clear is fine).
-    let to = progressToFrac(done, n);
-    walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to = Math.min(to, wallFrac(w.taskIndex) - 0.012); });
+    // How far the player may go (see restFrac)
+    const to = restFrac();
     if (allDone() && !P.scored && Math.abs(to - progressToFrac(n, n)) < 1e-6) all.push({ frac: to, fn: startShot, pause: 0, kind: 'shot' });
 
     const from = P.frac, dir = to >= from ? 1 : -1;
@@ -686,7 +678,7 @@ export function createFootball3D(container) {
     if (stops.length) stops[stops.length - 1].through = false;
     P.stops = stops;
     if (moving) { P.mode = 'run'; cam.goalTime = 0; } else if (P.mode === 'run') P.mode = 'idle';
-    all.filter(e => !onRoute(e)).forEach(e => e.fn());
+    all.filter(e => !onRoute(e)).forEach(e => (e.kind === 'engage' ? e.raw(false) : e.fn()));
 
     if (reduceMotion) {
       P.stops.forEach(s => { P.frac = s.frac; s.events.forEach(e => e.fn()); });
@@ -1064,10 +1056,8 @@ export function createFootball3D(container) {
         player.holder.rotation.y = P.heading;
       }
       if (P.celebrateT > 5) { P.mode = 'idle'; play(player, 'Wave', 0.3); }
-    } else if (P.mode === 'idle') {
-      if (player.current && !player.current.isRunning()) play(player, 'Idle', 0.3);
-      if (excursionBack !== null && !P.stops.length) excursionBack = null;
-      if (pendingEngage.length) { const e = pendingEngage.shift(); engage(e.i, e.fn, e.pause); }
+    } else if (P.mode === 'idle' && player.current && !player.current.isRunning()) {
+      play(player, 'Idle', 0.3);
     }
   }
 
@@ -1182,7 +1172,7 @@ export function createFootball3D(container) {
       // A rebuild places everything directly, so nothing already done replays.
       celebrated.clear();
       tasks.forEach(t => { if (t.done) celebrated.add(t.id); });
-      P.stops = []; P.speed = 0; P.mode = 'idle'; cam.goalTime = 0; pendingEngage.length = 0; excursionBack = null; dribble.wall = dribble.feint = null;
+      P.stops = []; P.speed = 0; P.mode = 'idle'; cam.goalTime = 0; engageQueue.length = 0; dribble.wall = dribble.feint = null;
       buildFlags(); buildWalls(); refreshFlags();
       P.frac = targetFrac(); placePlayer(true); play(player, 'Idle', 0.2);
       if (allDone() && tasks.length) {

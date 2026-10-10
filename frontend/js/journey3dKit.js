@@ -388,7 +388,7 @@ export const angleLerp = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b
 //   clearWall(w) / restoreWall(w)
 //   stopFrac(i)                where to stop in front of task i's obstacle
 //   startFinale() / undoFinale() / updateFinale(dt) / updateVictory(dt)
-export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, reduceMotion, getTasks, walls, hooks }) {
+export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, reduceMotion, getTasks, walls, hooks, camp = true }) {
   const curveLen = curve.getLength();
   const P = {
     frac: 0, speed: 0, heading: 0, pitch: 0, stops: [], pauseLeft: 0,
@@ -398,46 +398,46 @@ export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, redu
   const celebrated = new Set();
   const progressToFrac = (done, n) => (!n || done <= 0 ? 0 : checkpointFracOf(Math.min(done, n) - 1, n));
   const allDone = () => getTasks().every(t => t.done);
-  function targetFrac() {
+  const targetFrac = () => restFrac();
+  // Once one of the next task's blockers is ticked off, the character
+  // goes up to that task's wall and stays there (camped), dealing with
+  // each blocker as it's ticked, instead of walking back to its flag in
+  // between; finishing the task carries it on along the path. (camp:
+  // false keeps a stage's character at its flag, as Space does.)
+  const campedAt = i => {
+    const t = getTasks()[i];
+    return !!t && !t.done && (t.foeList || []).some(o => o.resolved);
+  };
+  function restFrac() {
     const tasks = getTasks(), n = tasks.length, done = tasks.filter(t => t.done).length;
     let to = progressToFrac(done, n);
-    walls.forEach(w => { if (!w.cleared && !w.open) to = Math.min(to, hooks.stopFrac(w.taskIndex)); });
+    const next = tasks.findIndex(t => !t.done);
+    const wall = walls.find(w => w.taskIndex === next);
+    if (camp && wall && !wall.cleared && campedAt(next)) to = Math.max(to, hooks.stopFrac(next));
+    walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to = Math.min(to, hooks.stopFrac(w.taskIndex)); });
     return to;
   }
-  // A blocker ticked off on its own, while its task is still open: the
-  // character runs up to that task's wall, deals with it there (fn, then a
-  // pause for the action to play), and walks back to where progress says it
-  // stands; fn(true) runs once it's there. When something else is in the
-  // way (another blocked wall in front) or the character is finishing,
-  // fn(false) runs straight away and the blocker goes without it.
-  const pendingEngage = [];
-  let excursionBack = null;
+  // A blocker ticked off on its own: fn(true) runs when the character is
+  // standing at its wall (straight away if it's already there, else on
+  // arrival, see plan), then a pause for the action. With another blocked
+  // wall in the way, or the finale under way, fn(false) runs at once and
+  // the blocker goes without it.
+  const engageQueue = [];
   function engage(i, fn, pause) {
     if (reduceMotion || P.mode === 'finale' || P.mode === 'victory') { fn(false); return; }
-    if (P.mode !== 'idle') { pendingEngage.push({ i, fn, pause }); return; }
     const at = hooks.stopFrac(i);
     const inTheWay = walls.some(w => w.taskIndex !== i && !w.cleared && !w.clearing && !w.open
       && hooks.stopFrac(w.taskIndex) > P.frac + 1e-4 && hooks.stopFrac(w.taskIndex) < at - 1e-4);
-    if (inTheWay || at < P.frac - 1e-4) { fn(false); return; }
-    excursionBack = P.frac;
-    P.stops = [{ frac: at, events: [{ fn: () => fn(true), raw: fn, kind: 'engage' }], pause }, { frac: P.frac, events: [], pause: 0 }];
-    P.mode = 'run';
+    if (inTheWay || at < P.frac - 1e-3) { fn(false); return; }
+    if (Math.abs(P.frac - at) < 1e-3 && (P.mode === 'idle' || P.mode === 'pause')) {
+      fn(true);
+      P.mode = 'pause'; P.pauseLeft = Math.max(P.pauseLeft, pause); hooks.idleAnim(true);
+      return;
+    }
+    engageQueue.push({ i, fn, pause });
   }
   function plan() {
     const tasks = getTasks();
-    // Mid-excursion (see engage): carry on if nothing else changed;
-    // otherwise deal with the blocker on the spot and re-plan as usual.
-    const engaging = P.stops.flatMap(s => s.events).filter(e => e.kind === 'engage');
-    if (excursionBack !== null && (engaging.length || P.stops.length)) {
-      const n0 = tasks.length, done0 = tasks.filter(t => t.done).length;
-      let to0 = progressToFrac(done0, n0);
-      walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to0 = Math.min(to0, hooks.stopFrac(w.taskIndex)); });
-      const fresh = tasks.some(t => t.done !== celebrated.has(t.id));
-      if (!fresh && Math.abs(to0 - excursionBack) < 1e-4) return;
-      engaging.forEach(e => e.raw(false));
-      P.stops = [];
-    }
-    excursionBack = null;
     if (P.mode === 'finale' || P.mode === 'victory') {
       if (allDone()) return;
       hooks.undoFinale();
@@ -463,10 +463,10 @@ export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, redu
     });
     const carried = P.stops.flatMap(s => s.events).filter(e =>
       e.kind === 'wall' ? e.wall.clearing && !e.wall.cleared
-        : e.kind === 'flag' ? !!(tasks.find(t => t.id === e.taskId) || {}).done : false);
+        : e.kind === 'flag' ? !!(tasks.find(t => t.id === e.taskId) || {}).done : e.kind === 'engage');
+    engageQueue.splice(0).forEach(q => events.push({ frac: hooks.stopFrac(q.i), fn: () => q.fn(true), raw: q.fn, pause: q.pause, kind: 'engage' }));
     const all = carried.concat(events);
-    let to = progressToFrac(done, n);
-    walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to = Math.min(to, hooks.stopFrac(w.taskIndex)); });
+    const to = restFrac();
     if (n && allDone() && !P.won && Math.abs(to - progressToFrac(n, n)) < 1e-6) all.push({ frac: to, fn: hooks.startFinale, pause: 0, kind: 'finale' });
 
     const from = P.frac, dir = to >= from ? 1 : -1;
@@ -481,7 +481,7 @@ export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, redu
     if (moving && (!stops.length || Math.abs(stops[stops.length - 1].frac - to) > 1e-3)) stops.push({ frac: to, events: [], pause: 0 });
     P.stops = stops;
     if (moving) P.mode = 'run'; else if (P.mode === 'run') P.mode = 'idle';
-    all.filter(e => !onRoute(e)).forEach(e => e.fn());
+    all.filter(e => !onRoute(e)).forEach(e => (e.kind === 'engage' ? e.raw(false) : e.fn()));
     if (reduceMotion) {
       P.stops.forEach(s => { P.frac = s.frac; s.events.forEach(e => e.fn()); });
       P.stops = []; if (P.mode === 'run') P.mode = 'idle';
@@ -527,11 +527,7 @@ export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, redu
       hooks.updateVictory(dt);
     } else {
       hooks.place(P.frac, false);
-      if (P.mode === 'idle') {
-        hooks.idleAnim(false, true);
-        if (excursionBack !== null && !P.stops.length) excursionBack = null;
-        if (pendingEngage.length) { const e = pendingEngage.shift(); engage(e.i, e.fn, e.pause); }
-      }
+      if (P.mode === 'idle') hooks.idleAnim(false, true);
     }
   }
   // A rebuild (tasks added/removed/reordered, blockers changed): jump
@@ -541,7 +537,7 @@ export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, redu
     celebrated.clear();
     tasks.forEach(t => { if (t.done) celebrated.add(t.id); });
     P.stops = []; P.speed = 0; P.mode = 'idle';
-    pendingEngage.length = 0; excursionBack = null;
+    engageQueue.length = 0;
     P.frac = targetFrac(); snapHeading(); hooks.place(P.frac, false);
   }
   return { P, plan, update, reset, engage, targetFrac, snapHeading, curveLen, progressToFrac, allDone };

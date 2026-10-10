@@ -1330,48 +1330,42 @@ export function createCastle3D(container) {
     finT: 0, won: false, fin: {},
   };
   const celebrated = new Set(tasks.filter(t => t.done).map(t => t.id));
-  function standingWallLimit() {
-    let limit = 1;
-    walls.forEach(w => { if (!w.cleared && !w.open) limit = Math.min(limit, frogStopFrac(w.taskIndex)); });
-    return limit;
-  }
-  function targetFrac() {
-    const n = tasks.length, done = tasks.filter(t => t.done).length;
-    return Math.min(progressToFrac(done, n), standingWallLimit());
-  }
+  const targetFrac = () => restFrac();
   const allDone = () => tasks.every(t => t.done);
 
-  // A ticked-off obstacle on a task that's still open: the knight runs up
-  // to its foes, fn(true) when he's there (then a pause for the swings),
-  // and walks back to his banner. With another blocked wall in the way, or
-  // the finale under way, fn(false) runs at once instead.
-  const pendingEngage = [];
-  let excursionBack = null;
+  // Once one of the next task's foes is ticked off, the knight goes up to
+  // them and stands his ground there (camped), striking each one down as
+  // it's ticked instead of walking back to his banner in between;
+  // finishing the task sends him on along the road.
+  const campedAt = i => { const t = tasks[i]; return !!t && !t.done && (t.foeList || []).some(o => o.resolved); };
+  function restFrac() {
+    const n = tasks.length, done = tasks.filter(t => t.done).length;
+    let to = progressToFrac(done, n);
+    const next = tasks.findIndex(t => !t.done);
+    const wall = walls.find(w => w.taskIndex === next);
+    if (wall && !wall.cleared && campedAt(next)) to = Math.max(to, frogStopFrac(next));
+    walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to = Math.min(to, frogStopFrac(w.taskIndex)); });
+    return to;
+  }
+  // A ticked-off obstacle: fn(true) when the knight is standing at its foes
+  // (at once if he's there, else on arrival, see plan), then a pause for
+  // the swings. With another blocked wall in the way or the finale under
+  // way, fn(false) runs at once and they fall where they stand.
+  const engageQueue = [];
   function engage(i, fn, pause) {
     if (reduceMotion || P.mode === 'finale' || P.mode === 'victory') { fn(false); return; }
-    if (P.mode !== 'idle') { pendingEngage.push({ i, fn, pause }); return; }
     const at = frogStopFrac(i);
     const inTheWay = walls.some(w => w.taskIndex !== i && !w.cleared && !w.clearing && !w.open
       && frogStopFrac(w.taskIndex) > P.frac + 1e-4 && frogStopFrac(w.taskIndex) < at - 1e-4);
-    if (inTheWay || at < P.frac - 1e-4) { fn(false); return; }
-    excursionBack = P.frac;
-    P.stops = [{ frac: at, events: [{ fn: () => fn(true), raw: fn, kind: 'engage' }], pause }, { frac: P.frac, events: [], pause: 0 }];
-    P.mode = 'run';
+    if (inTheWay || at < P.frac - 1e-3) { fn(false); return; }
+    if (Math.abs(P.frac - at) < 1e-3 && (P.mode === 'idle' || P.mode === 'pause')) {
+      fn(true);
+      P.mode = 'pause'; P.pauseLeft = Math.max(P.pauseLeft, pause);
+      return;
+    }
+    engageQueue.push({ i, fn, pause });
   }
   function plan() {
-    // Mid-excursion: carry on if nothing else changed; otherwise the foes
-    // fall where they stand and the walk is planned as usual.
-    const engaging = P.stops.flatMap(s => s.events).filter(e => e.kind === 'engage');
-    if (excursionBack !== null && (engaging.length || P.stops.length)) {
-      const n0 = tasks.length, done0 = tasks.filter(t => t.done).length;
-      let to0 = progressToFrac(done0, n0);
-      walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to0 = Math.min(to0, frogStopFrac(w.taskIndex)); });
-      const fresh = tasks.some(t => t.done !== celebrated.has(t.id));
-      if (!fresh && Math.abs(to0 - excursionBack) < 1e-4) return;
-      engaging.forEach(e => e.raw(false));
-      P.stops = [];
-    }
-    excursionBack = null;
     if (P.mode === 'finale' || P.mode === 'victory') {
       if (allDone()) return;
       undoVictory();
@@ -1397,10 +1391,10 @@ export function createCastle3D(container) {
     });
     const carried = P.stops.flatMap(s => s.events).filter(e =>
       e.kind === 'wall' ? e.wall.clearing && !e.wall.cleared
-        : e.kind === 'flag' ? !!(tasks.find(t => t.id === e.taskId) || {}).done : false);
+        : e.kind === 'flag' ? !!(tasks.find(t => t.id === e.taskId) || {}).done : e.kind === 'engage');
+    engageQueue.splice(0).forEach(q => events.push({ frac: frogStopFrac(q.i), fn: () => q.fn(true), raw: q.fn, pause: q.pause, kind: 'engage' }));
     const all = carried.concat(events);
-    let to = progressToFrac(done, n);
-    walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to = Math.min(to, frogStopFrac(w.taskIndex)); });
+    const to = restFrac();
     if (allDone() && !P.won && Math.abs(to - progressToFrac(n, n)) < 1e-6) all.push({ frac: to, fn: startFinale, pause: 0, kind: 'finale' });
 
     const from = P.frac, dir = to >= from ? 1 : -1;
@@ -1415,7 +1409,7 @@ export function createCastle3D(container) {
     if (moving && (!stops.length || Math.abs(stops[stops.length - 1].frac - to) > 1e-3)) stops.push({ frac: to, events: [], pause: 0 });
     P.stops = stops;
     if (moving) P.mode = 'run'; else if (P.mode === 'run') P.mode = 'idle';
-    all.filter(e => !onRoute(e)).forEach(e => e.fn());
+    all.filter(e => !onRoute(e)).forEach(e => (e.kind === 'engage' ? e.raw(false) : e.fn()));
 
     if (reduceMotion) {
       P.stops.forEach(s => { P.frac = s.frac; s.events.forEach(e => e.fn()); });
@@ -1514,10 +1508,8 @@ export function createCastle3D(container) {
       updateFinale(dt);
     } else if (P.mode === 'victory') {
       updateVictory(dt);
-    } else if (P.mode === 'idle') {
-      if (finished(knight)) play(knight, 'Idle', { fade: 0.3 });
-      if (excursionBack !== null && !P.stops.length) excursionBack = null;
-      if (pendingEngage.length) { const e = pendingEngage.shift(); engage(e.i, e.fn, e.pause); }
+    } else if (P.mode === 'idle' && finished(knight)) {
+      play(knight, 'Idle', { fade: 0.3 });
     }
   }
 
@@ -1859,7 +1851,7 @@ export function createCastle3D(container) {
       tasks = next;
       celebrated.clear();
       tasks.forEach(t => { if (t.done) celebrated.add(t.id); });
-      P.stops = []; P.speed = 0; P.mode = 'idle'; cam.shake = 0; pendingEngage.length = 0; excursionBack = null;
+      P.stops = []; P.speed = 0; P.mode = 'idle'; cam.shake = 0; engageQueue.length = 0;
       buildFlags(); buildWalls(); refreshFlags();
       tasks.forEach((t, i) => { if (t.done) setLit(flags[i], true); });
       P.frac = targetFrac(); placeKnight(true); play(knight, 'Idle', { fade: 0.2 });
