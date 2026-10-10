@@ -1053,7 +1053,7 @@ export function createCastle3D(container) {
     w.foes.forEach(f => { if (!f.gone) reviveFoe(f); });
   }
   function reviveFoe(f) {
-    Object.assign(f, { hit: false, poofed: false, swung: false, gone: false });
+    Object.assign(f, { hit: false, poofed: false, swung: false, gone: false, engaged: false });
     f.root.visible = true; f.root.position.copy(f.home); f.body.rotation.set(0, 0, 0); f.body.position.set(0, 0, 0);
     f.mats.forEach(m => m.emissive.setRGB(0, 0, 0));
     if (f.ch) play(f.ch, 'Blocking', { fade: 0.2 });
@@ -1066,26 +1066,48 @@ export function createCastle3D(container) {
     scene.remove(w.tag); w.tag.material.map.dispose(); w.tag.material.dispose();
     scene.add(tag); w.tag = tag;
   }
-  // An obstacle ticked off (or unticked) on its own: its foes are struck
-  // down where they stand (or come back), and its name pops up.
+  // An obstacle ticked off (or unticked) on its own: the knight runs up
+  // and strikes its foes down (see engageResolved), or they come back, and
+  // its name pops up.
   function applyResolves(changes) {
+    const engaging = [];
     changes.forEach((c, j) => {
       const w = walls.find(x => x.taskIndex === c.index);
       const at = w ? w.home.clone() : curve.getPointAt(wallFrac(c.index));
-      if (c.resolved) { timers.push(setTimeout(() => spawnTaskLabel(at.clone().setY(at.y + 4.1), c.name, 'foe'), j * 450)); peek.at.copy(at); peek.t = 3.4; }
-      if (!w) return;
+      const label = c.resolved ? () => spawnTaskLabel(at.clone().setY(at.y + 4.1), c.name, 'foe') : null;
+      const now = () => { if (label) { timers.push(setTimeout(label, j * 450)); peek.at.copy(at); peek.t = 3.4; } };
+      let engagedHere = false;
+      if (!w) { now(); return; }
       w.foes.forEach(f => {
         if (f.owner !== c.id) return;
         if (c.resolved && !f.gone) {
           f.gone = true;
-          if (!f.poofed) { f.goneT = 0; f.hit = false; f.swung = true; if (reduceMotion) { f.poofed = true; f.root.visible = false; } }
+          if (!f.poofed) {
+            f.goneT = 0; f.hit = false; f.swung = true;
+            if (reduceMotion) { f.poofed = true; f.root.visible = false; }
+            else if (!w.cleared) { f.goneT = -1e9; engaging.push({ w, f, label: engagedHere ? null : label }); engagedHere = true; }
+          }
         } else if (!c.resolved && f.gone) {
           if (w.cleared) f.gone = false; else reviveFoe(f);
         }
       });
+      if (!engagedHere) now();
     });
     walls.forEach(w => { w.open = !tasks[w.taskIndex].foes; });
     new Set(changes.map(c => c.index)).forEach(i => { const w = walls.find(x => x.taskIndex === i); if (w) retagWall(w); });
+    engageResolved(engaging);
+  }
+  // The knight runs up to a ticked-off obstacle's foes and takes them on
+  // one after another with his sword, then walks back to his banner. near
+  // is false when he couldn't get there, and they fall where they stand.
+  function engageResolved(list) {
+    const byWall = new Map();
+    list.forEach(e => { if (!byWall.has(e.w)) byWall.set(e.w, []); byWall.get(e.w).push(e); });
+    byWall.forEach((items, w) => engage(w.taskIndex, near => {
+      items.forEach((e, k) => { e.f.engaged = near; e.f.swung = !near; e.f.goneT = -k * 0.9; });
+      items.filter(e => e.label).forEach((e, k) => timers.push(setTimeout(e.label, k * 450 + (near ? 400 : 0))));
+      peek.at.copy(w.home); peek.t = 3.4;
+    }, 0.6 + 0.9 * items.length));
   }
   function idleFoe(f, time) {
     const t = time + f.phase;
@@ -1112,10 +1134,10 @@ export function createCastle3D(container) {
       w.foes.forEach((f, k) => {
         if (f.poofed) return;
         // a foe whose own obstacle was ticked off is struck on its own clock
-        // (no swing: the blow lands straight away); the rest fall in turn
-        // to the knight's sword once the whole task is done
+        // (by the knight's sword when he went up to it, else the blow lands
+        // straight away); the rest fall in turn once the whole task is done
         let lt;
-        if (f.gone) { f.goneT += dt; lt = 0.35 + f.goneT; }
+        if (f.gone) { f.goneT += dt; lt = f.engaged ? f.goneT : 0.35 + f.goneT; }
         else if (w.cleared) lt = w.t - f.delay;
         else { idleFoe(f, time); return; }
         if (lt < 0) { idleFoe(f, time); return; }
@@ -1128,7 +1150,7 @@ export function createCastle3D(container) {
           if (f.ch) play(f.ch, 'Blocking', { fade: 0.1 });
         }
         if (lt > 0.35 && !f.hit) {
-          f.hit = true; if (!f.gone) cam.shake = 0.25;
+          f.hit = true; if (!f.gone || f.engaged) cam.shake = 0.25;
           sparkle(f.home.clone().setY(f.home.y + 1.2), 30, ['#ffffff', '#ffe28a'], 5);
           if (f.ch) play(f.ch, 'Hit_A', { fade: 0.05, once: true });
         }
@@ -1319,7 +1341,37 @@ export function createCastle3D(container) {
   }
   const allDone = () => tasks.every(t => t.done);
 
+  // A ticked-off obstacle on a task that's still open: the knight runs up
+  // to its foes, fn(true) when he's there (then a pause for the swings),
+  // and walks back to his banner. With another blocked wall in the way, or
+  // the finale under way, fn(false) runs at once instead.
+  const pendingEngage = [];
+  let excursionBack = null;
+  function engage(i, fn, pause) {
+    if (reduceMotion || P.mode === 'finale' || P.mode === 'victory') { fn(false); return; }
+    if (P.mode !== 'idle') { pendingEngage.push({ i, fn, pause }); return; }
+    const at = frogStopFrac(i);
+    const inTheWay = walls.some(w => w.taskIndex !== i && !w.cleared && !w.clearing && !w.open
+      && frogStopFrac(w.taskIndex) > P.frac + 1e-4 && frogStopFrac(w.taskIndex) < at - 1e-4);
+    if (inTheWay || at < P.frac - 1e-4) { fn(false); return; }
+    excursionBack = P.frac;
+    P.stops = [{ frac: at, events: [{ fn: () => fn(true), raw: fn, kind: 'engage' }], pause }, { frac: P.frac, events: [], pause: 0 }];
+    P.mode = 'run';
+  }
   function plan() {
+    // Mid-excursion: carry on if nothing else changed; otherwise the foes
+    // fall where they stand and the walk is planned as usual.
+    const engaging = P.stops.flatMap(s => s.events).filter(e => e.kind === 'engage');
+    if (excursionBack !== null && (engaging.length || P.stops.length)) {
+      const n0 = tasks.length, done0 = tasks.filter(t => t.done).length;
+      let to0 = progressToFrac(done0, n0);
+      walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to0 = Math.min(to0, frogStopFrac(w.taskIndex)); });
+      const fresh = tasks.some(t => t.done !== celebrated.has(t.id));
+      if (!fresh && Math.abs(to0 - excursionBack) < 1e-4) return;
+      engaging.forEach(e => e.raw(false));
+      P.stops = [];
+    }
+    excursionBack = null;
     if (P.mode === 'finale' || P.mode === 'victory') {
       if (allDone()) return;
       undoVictory();
@@ -1462,8 +1514,10 @@ export function createCastle3D(container) {
       updateFinale(dt);
     } else if (P.mode === 'victory') {
       updateVictory(dt);
-    } else if (P.mode === 'idle' && finished(knight)) {
-      play(knight, 'Idle', { fade: 0.3 });
+    } else if (P.mode === 'idle') {
+      if (finished(knight)) play(knight, 'Idle', { fade: 0.3 });
+      if (excursionBack !== null && !P.stops.length) excursionBack = null;
+      if (pendingEngage.length) { const e = pendingEngage.shift(); engage(e.i, e.fn, e.pause); }
     }
   }
 
@@ -1805,7 +1859,7 @@ export function createCastle3D(container) {
       tasks = next;
       celebrated.clear();
       tasks.forEach(t => { if (t.done) celebrated.add(t.id); });
-      P.stops = []; P.speed = 0; P.mode = 'idle'; cam.shake = 0;
+      P.stops = []; P.speed = 0; P.mode = 'idle'; cam.shake = 0; pendingEngage.length = 0; excursionBack = null;
       buildFlags(); buildWalls(); refreshFlags();
       tasks.forEach((t, i) => { if (t.done) setLit(flags[i], true); });
       P.frac = targetFrac(); placeKnight(true); play(knight, 'Idle', { fade: 0.2 });

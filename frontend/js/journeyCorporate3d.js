@@ -615,7 +615,7 @@ export function createCorporate3D(container) {
     w.foes.forEach(f => { if (!f.ticked) reviveFoe(f); });
   }
   function reviveFoe(f) {
-    Object.assign(f, { done: false, swung: false, ticked: false, tickT: 0 });
+    Object.assign(f, { done: false, swung: false, ticked: false, engaged: false, tickT: 0 });
     f.g.visible = true; f.g.position.copy(f.home); f.g.rotation.set(0, f.face, 0); f.g.scale.setScalar(1);
     f.body.rotation.set(0, 0, 0);
     f.mats.forEach(m => m.emissive && m.emissive.setRGB(0, 0, 0));
@@ -632,24 +632,45 @@ export function createCorporate3D(container) {
   // An obstacle ticked off (or unticked) on its own: its blockers are
   // stamped APPROVED and whisked away (or come back), and its name pops up.
   function applyResolves(changes) {
+    const engaging = [];
     changes.forEach((c, j) => {
       const w = walls.find(x => x.taskIndex === c.index);
       const at = w ? w.center.clone() : curve.getPointAt(wallFrac(c.index));
-      if (c.resolved) { timers.push(setTimeout(() => shell.spawnTaskLabel(at.clone().setY(4.2), c.name, 'foe', CLEARED), j * 450)); peek.at.copy(at); peek.t = 3.4; }
-      if (!w) return;
+      const label = c.resolved ? () => shell.spawnTaskLabel(at.clone().setY(4.2), c.name, 'foe', CLEARED) : null;
+      const now = () => { if (label) { timers.push(setTimeout(label, j * 450)); peek.at.copy(at); peek.t = 3.4; } };
+      let engagedHere = false;
+      if (!w) { now(); return; }
       w.foes.forEach(f => {
         if (f.owner !== c.id) return;
         if (c.resolved && !f.ticked) {
           f.ticked = true; f.tickT = 0;
+          // still standing: the character goes up and deals with it (engageResolved)
+          if (!reduceMotion && !f.done && !w.cleared) { f.tickT = -1e9; engaging.push({ w, f, label: engagedHere ? null : label }); engagedHere = true; }
           if (reduceMotion || f.done) { f.done = true; f.g.visible = false; }
         } else if (!c.resolved && f.ticked) {
           if (w.cleared) f.ticked = false; else reviveFoe(f);
         }
       });
+      if (!engagedHere) now();
     });
     walls.forEach(w => { w.open = !tasks[w.taskIndex].foes; });
     new Set(changes.map(c => c.index)).forEach(i => { const w = walls.find(x => x.taskIndex === i); if (w) retagWall(w); });
+    engageResolved(engaging);
   }
+  // Ticked-off blockers the character goes up to and deals with itself
+  // (walker.engage): their clearing (and name popup) starts once it's there,
+  // one after another. near is false when it couldn't get there, and then
+  // they just go where they stand.
+  function engageResolved(list) {
+    const byWall = new Map();
+    list.forEach(e => { if (!byWall.has(e.w)) byWall.set(e.w, []); byWall.get(e.w).push(e); });
+    byWall.forEach((items, w) => walker.engage(w.taskIndex, near => {
+      items.forEach((e, k) => { e.f.engaged = near; e.f.tickT = -k * 0.6; });
+      items.filter(e => e.label).forEach((e, k) => timers.push(setTimeout(e.label, k * 450 + (near ? 300 : 0))));
+      peek.at.copy(w.center); peek.t = 3.4;
+    }, 1 + 0.6 * items.length + 0.8));
+  }
+
   function idleFoe(f, time) {
     const t = time + f.ph;
     if (f.kind === 'paper') { f.body.rotation.z = Math.sin(t * 1.3) * 0.05; f.body.position.y = 0; }
@@ -662,7 +683,7 @@ export function createCorporate3D(container) {
     if (!f.swung) {
       f.swung = true;
       f.stamp.visible = true; f.stamp.material.opacity = 0;
-      if (person && !f.ticked) {
+      if (person && (!f.ticked || f.engaged)) {
         P.heading = Math.atan2(f.home.x - person.holder.position.x, f.home.z - person.holder.position.z);
         person.holder.rotation.y = P.heading;
         play(person, 'Interact', { fade: 0.12, once: true, timeScale: 1.3 });
@@ -675,7 +696,7 @@ export function createCorporate3D(container) {
     f.stamp.material.opacity = Math.min(1, lt * 5) * (1 - smooth(1.2, 1.7, lt));
     const s = 1.3 * (1 + (lt > 0.3 && lt < 0.45 ? 0.25 : 0));
     f.stamp.scale.set(s, s * 0.377, 1);
-    if (lt > 0.3 && !f.hit) { f.hit = true; sparkle(f.home.clone().setY(top - 0.3), 26, ['#86efac', '#ffffff'], 3); if (!f.ticked) cam.shake = 0.12; }
+    if (lt > 0.3 && !f.hit) { f.hit = true; sparkle(f.home.clone().setY(top - 0.3), 26, ['#86efac', '#ffffff'], 3); if (!f.ticked || f.engaged) cam.shake = 0.12; }
     const flash = lt > 0.3 ? Math.max(0, 1 - (lt - 0.3) * 3) : 0;
     f.mats.forEach(m => m.emissive && m.emissive.setRGB(flash * 0.2, flash, flash * 0.3));
     // then it's swept up and away

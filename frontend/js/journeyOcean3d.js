@@ -759,7 +759,7 @@ export function createOcean3D(container) {
     w.foes.forEach(f => { if (!f.ticked) reviveFoe(f); });
   }
   function reviveFoe(f) {
-    f.flee = null; f.gone = false; f.ticked = false; f.g.visible = true;
+    f.flee = null; f.gone = false; f.ticked = false; f.engaged = false; f.g.visible = true;
     f.mats.forEach(m => { m.transparent = f.kind === 'jelly'; m.opacity = f.kind === 'jelly' ? 0.6 : 1; });
   }
   // Swaps a wall's red tag for one naming only what's still pending.
@@ -773,24 +773,45 @@ export function createOcean3D(container) {
   // An obstacle ticked off (or unticked) on its own: its predators flee
   // into the blue (or swim back), and its name pops up over the trail.
   function applyResolves(changes) {
+    const engaging = [];
     changes.forEach((c, j) => {
       const w = walls.find(x => x.taskIndex === c.index);
       const at = w ? w.center.clone() : curve.getPointAt(wallFrac(c.index));
-      if (c.resolved) { timers.push(setTimeout(() => shell.spawnTaskLabel(at.clone().add(V(0, 3.6, 0)), c.name, 'foe'), j * 450)); peek.at.copy(at); peek.t = 3.4; }
-      if (!w) return;
+      const label = c.resolved ? () => shell.spawnTaskLabel(at.clone().add(V(0, 3.6, 0)), c.name, 'foe') : null;
+      const now = () => { if (label) { timers.push(setTimeout(label, j * 450)); peek.at.copy(at); peek.t = 3.4; } };
+      let engagedHere = false;
+      if (!w) { now(); return; }
       w.foes.forEach(f => {
         if (f.owner !== c.id) return;
         if (c.resolved && !f.ticked) {
           f.ticked = true; f.tickT = 0;
+          // still standing: the character goes up and deals with it (engageResolved)
+          if (!reduceMotion && !f.gone && !w.cleared) { f.tickT = -1e9; engaging.push({ w, f, label: engagedHere ? null : label }); engagedHere = true; }
           if (reduceMotion) { f.gone = true; f.g.visible = false; }
         } else if (!c.resolved && f.ticked) {
           if (w.cleared) f.ticked = false; else reviveFoe(f);
         }
       });
+      if (!engagedHere) now();
     });
     walls.forEach(w => { w.open = !tasks[w.taskIndex].foes; });
     new Set(changes.map(c => c.index)).forEach(i => { const w = walls.find(x => x.taskIndex === i); if (w) retagWall(w); });
+    engageResolved(engaging);
   }
+  // Ticked-off blockers the character goes up to and deals with itself
+  // (walker.engage): their clearing (and name popup) starts once it's there,
+  // one after another. near is false when it couldn't get there, and then
+  // they just go where they stand.
+  function engageResolved(list) {
+    const byWall = new Map();
+    list.forEach(e => { if (!byWall.has(e.w)) byWall.set(e.w, []); byWall.get(e.w).push(e); });
+    byWall.forEach((items, w) => walker.engage(w.taskIndex, near => {
+      items.forEach((e, k) => { e.f.engaged = near; e.f.tickT = -k * 0.5; });
+      items.filter(e => e.label).forEach((e, k) => timers.push(setTimeout(e.label, k * 450 + (near ? 300 : 0))));
+      peek.at.copy(w.center); peek.t = 3.4;
+    }, 1 + 0.5 * items.length + 0.8));
+  }
+
   // One predator turning tail and fleeing into the blue; lt is the time
   // since it was told to go.
   function fleeFoe(w, f, lt, dt) {
@@ -839,7 +860,17 @@ export function createOcean3D(container) {
       // the rest flee one after another once the whole task is done
       w.foes.forEach(f => {
         if (f.gone) return;
-        if (f.ticked) { f.tickT += dt; fleeFoe(w, f, f.tickT, dt); return; }
+        if (f.ticked) {
+          f.tickT += dt;
+          if (f.tickT < 0) { circleFoe(w, f, dt, time); return; }
+          // the diver shoos away a predator it swam up to
+          if (f.engaged && !f.flee && diver) {
+            P.heading = Math.atan2(f.g.position.x - diver.holder.position.x, f.g.position.z - diver.holder.position.z);
+            play(diver, 'Interact', { fade: 0.15, once: true, timeScale: 1.2 });
+            bubble(diverHeadPos(), 14, 0.3, 0.16);
+          }
+          fleeFoe(w, f, f.tickT, dt); return;
+        }
         const lt = w.cleared ? w.t - f.delay - 0.3 : -1;
         if (lt < 0) circleFoe(w, f, dt, time);
         else fleeFoe(w, f, lt, dt);

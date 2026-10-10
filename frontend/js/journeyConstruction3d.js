@@ -901,6 +901,7 @@ export function createConstruction3D(container) {
   function clearWall(w) {
     if (w.cleared) return;
     w.cleared = true; w.t = 0;
+    liftShot(w, 1.4 + 0.7 * standing(w).length);
     standing(w).forEach((f, j) => { f.delay = j * 0.7; });
     if (reduceMotion) { w.t = 99; w.foes.forEach(f => { f.g.visible = false; f.done = true; }); }
     notify();
@@ -910,7 +911,7 @@ export function createConstruction3D(container) {
     w.foes.forEach(f => { if (!f.ticked) reviveFoe(f); });
   }
   function reviveFoe(f) {
-    Object.assign(f, { done: false, started: false, ticked: false, tickT: 0 });
+    Object.assign(f, { done: false, started: false, ticked: false, engaged: false, tickT: 0 });
     f.g.visible = true; f.g.position.copy(f.home); f.g.rotation.set(0, f.face, 0); f.g.scale.setScalar(1);
     f.body.rotation.set(0, 0, f.kind === 'truck' ? -0.06 : 0);
     f.mats.forEach(m => m.emissive && m.emissive.setRGB(0, 0, 0));
@@ -927,24 +928,46 @@ export function createConstruction3D(container) {
   // An obstacle ticked off (or unticked) on its own: its blockers are
   // cleared away (or come back), and its name pops up.
   function applyResolves(changes) {
+    const engaging = [];
     changes.forEach((c, j) => {
       const w = walls.find(x => x.taskIndex === c.index);
       const at = w ? w.center.clone() : curve.getPointAt(wallFrac(c.index));
-      if (c.resolved) { timers.push(setTimeout(() => shell.spawnTaskLabel(at.clone().setY(4.6), c.name, 'foe', CLEARED), j * 450)); peek.at.copy(at); peek.t = 3.6; }
-      if (!w) return;
+      const label = c.resolved ? () => shell.spawnTaskLabel(at.clone().setY(4.6), c.name, 'foe', CLEARED) : null;
+      const now = () => { if (label) { timers.push(setTimeout(label, j * 450)); peek.at.copy(at); peek.t = 3.6; } };
+      let engagedHere = false;
+      if (!w) { now(); return; }
       w.foes.forEach(f => {
         if (f.owner !== c.id) return;
         if (c.resolved && !f.ticked) {
           f.ticked = true; f.tickT = 0;
+          // still standing: the character goes up and deals with it (engageResolved)
+          if (!reduceMotion && !f.done && !w.cleared) { f.tickT = -1e9; engaging.push({ w, f, label: engagedHere ? null : label }); engagedHere = true; }
           if (reduceMotion || f.done) { f.done = true; f.g.visible = false; }
         } else if (!c.resolved && f.ticked) {
           if (w.cleared) f.ticked = false; else reviveFoe(f);
         }
       });
+      if (!engagedHere) now();
     });
     walls.forEach(w => { w.open = !tasks[w.taskIndex].foes; });
     new Set(changes.map(c => c.index)).forEach(i => { const w = walls.find(x => x.taskIndex === i); if (w) retagWall(w); });
+    engageResolved(engaging);
   }
+  // Ticked-off blockers the character goes up to and deals with itself
+  // (walker.engage): their clearing (and name popup) starts once it's there,
+  // one after another. near is false when it couldn't get there, and then
+  // they just go where they stand.
+  function engageResolved(list) {
+    const byWall = new Map();
+    list.forEach(e => { if (!byWall.has(e.w)) byWall.set(e.w, []); byWall.get(e.w).push(e); });
+    byWall.forEach((items, w) => walker.engage(w.taskIndex, near => {
+      items.forEach((e, k) => { e.f.engaged = near; e.f.tickT = -k * 0.7; });
+      items.filter(e => e.label).forEach((e, k) => timers.push(setTimeout(e.label, k * 450 + (near ? 300 : 0))));
+      peek.at.copy(w.center); peek.t = 3.6;
+      if (near) liftShot(w, 1.6 + 0.7 * items.length);
+    }, 1 + 0.7 * items.length + 0.8));
+  }
+
   function idleFoe(f, time, dt) {
     const t = time + f.ph;
     if (f.kind === 'barrier') f.lamp.material.emissiveIntensity = (t % 1) < 0.5 ? 1.4 : 0.1;
@@ -964,7 +987,7 @@ export function createConstruction3D(container) {
     if (lt < 0) { idleFoe(f, time, dt); return; }
     if (!f.started) {
       f.started = true;
-      if (builder && !f.ticked) {
+      if (builder && (!f.ticked || f.engaged)) {
         P.heading = Math.atan2(f.home.x - builder.holder.position.x, f.home.z - builder.holder.position.z);
         builder.holder.rotation.y = P.heading;
         play(builder, 'Interact', { fade: 0.12, once: true, timeScale: 1.2 });
@@ -985,7 +1008,7 @@ export function createConstruction3D(container) {
       const q = smooth(0.1, 1.2, lt);
       f.g.position.copy(hp).addScaledVector(side, q * 3).setY(-q * 0.9);
       f.body.rotation.z = q * 0.6;
-      if (lt > 0.1 && !f.hit) { f.hit = true; dustCloud(hp.clone().setY(0.6), 30, 2.2); if (!f.ticked) cam.shake = 0.15; }
+      if (lt > 0.1 && !f.hit) { f.hit = true; dustCloud(hp.clone().setY(0.6), 30, 2.2); if (!f.ticked || f.engaged) cam.shake = 0.15; }
       if (lt >= 1.3 && !f.done) { f.done = true; f.g.visible = false; dustCloud(hp.clone().addScaledVector(side, 3).setY(0.3), 16, 1.2); }
       return;
     }
@@ -1166,7 +1189,14 @@ export function createConstruction3D(container) {
     if (b.textContent === 'Overview') b.textContent = 'Site view';
     b.setAttribute('aria-pressed', String(b.textContent === 'Site view'));
   });
-  const cam = { look: V(0, 1, 20), shake: 0, orbit: -0.9 };
+  const cam = { look: V(0, 1, 20), shake: 0, orbit: -0.9, liftT: 0, liftAt: V(0, 0, 0), buildT: 0 };
+  // Close-ups, whichever camera is picked: the crane lifting a task's
+  // blockers off the road (liftShot), and the building going up a phase
+  // when a task is done (cam.buildT, before the builder sets off).
+  function liftShot(w, seconds) {
+    if (reduceMotion) return;
+    cam.liftAt.copy(w.center); cam.liftT = Math.max(cam.liftT, seconds);
+  }
   const camDesired = new THREE.Vector3(), lookDesired = new THREE.Vector3();
   const peek = { at: new THREE.Vector3(), t: 0 };
   const workHeight = () => (build < 3 ? 1 : BASE_Y + Math.min(FLOORS, (build - 3) * FLOORS) * FLOOR_H * 0.6);
@@ -1184,6 +1214,25 @@ export function createConstruction3D(container) {
       camDesired.copy(entrance).add(V(-10, 12, 34));
       lookDesired.copy(entrance).add(V(0, P.mode === 'victory' ? 8 + Math.min(1, (P.vicT || 0) / 3) * 3 : 6, -6));
       rate = 1.8;
+    } else if (cam.liftT > 0) {
+      // from outside the site road, looking in: the hook, the blockers
+      // and the building behind them
+      cam.liftT -= dt;
+      const out = cam.liftAt.clone().sub(PLOT).setY(0).normalize();
+      const across = V(out.z, 0, -out.x);
+      camDesired.copy(cam.liftAt).addScaledVector(out, 10).addScaledVector(across, 3).setY(6.5);
+      lookDesired.copy(cam.liftAt).setY(3.2);
+      rate = 2.4;
+    } else if (cam.buildT > 0) {
+      cam.buildT -= dt;
+      siteView(camDesired, lookDesired, 30, 12);
+      rate = 1.8;
+    } else if (shell.cam.mode === 'overview' && (P.mode === 'run' || P.mode === 'pause')) {
+      // the site view rides along with the builder while they walk
+      const side = V(fwd.z, 0, -fwd.x);
+      camDesired.copy(pp).addScaledVector(fwd, -9).addScaledVector(side, 3).setY(5.5);
+      lookDesired.copy(pp).addScaledVector(fwd, 3).setY(1.4);
+      rate = 2;
     } else if (shell.cam.mode === 'overview') {
       siteView(camDesired, lookDesired);
       rate = 1.5;
@@ -1264,18 +1313,22 @@ export function createConstruction3D(container) {
       next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; tasks[i].foeList = t.foeList; });
       if (changes.length) applyResolves(changes);
       refreshFlags();
+      const grew = progressTarget * 6 > buildTarget + 1e-6;
       buildTarget = progressTarget * 6;
-      walker.plan();
+      // a task just done: show the building going up first, then the walk
+      if (grew && !reduceMotion && P.mode !== 'finale' && P.mode !== 'victory') { cam.buildT = 3.4; planAt = simTime + 2.8; }
+      if (simTime >= planAt) walker.plan(); else planPending = true;
     }
     updateGhost(state.ghost);
     notify();
   }
 
   // ── Loop ─────────────────────────────────────────────────────────────
-  let simTime = 0;
+  let simTime = 0, planAt = 0, planPending = false;
   function simulate(dt) {
     simTime += dt;
     const time = simTime;
+    if (planPending && simTime >= planAt) { planPending = false; walker.plan(); }
     if (builder) { builder.mixer.update(dt); walker.update(dt); }
     if (surveyor) {
       surveyor.holder.visible = theodolite.visible;
