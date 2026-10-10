@@ -4929,7 +4929,7 @@ async function renderJourneyView() {
     if (competitorSel) competitorSel.classList.add('hidden');
     if (resetBtn) resetBtn.classList.add('hidden');
     const themeSel0 = document.getElementById('journey-theme-select');
-    if (themeSel0) themeSel0.value = getJourneyTheme();
+    if (themeSel0) themeSel0.value = getJourneyStage();
     mountainState = null;
     API.getJourneyGaming().then(updateJourneyLevelBadge).catch(() => {});
     return;
@@ -4967,7 +4967,7 @@ async function renderJourneyView() {
       }
     }
     const themeSel = document.getElementById('journey-theme-select');
-    if (themeSel) themeSel.value = getJourneyTheme();
+    if (themeSel) themeSel.value = getJourneyStage();
     renderMountainScene();
     renderMountainTaskList();
     API.getJourneyGaming().then(updateJourneyLevelBadge).catch(() => {});
@@ -4987,20 +4987,82 @@ function setJourneyCompetitor(value) {
 }
 
 // Which stage the Journey scene draws itself in — Football, Castle,
-// Ocean, Space, ... — purely cosmetic, same underlying mechanics either
-// way (see journeyGame.js's THEMES registry). One global preference
-// rather than per-project, since it's "how I like it to look," not
-// something tied to any one goal. The old Road and Race stages were
-// retired; anyone who had one picked lands on Football.
+// Ocean, Space, ... — and how: in 2D, or in 3D with a follow or overview
+// camera. Two separate choices: the dropdown in the Journey header picks
+// the stage, and the toggle on the scene itself (2D · Follow cam ·
+// Overview) picks the view, the same toggle in 2D and 3D. Purely
+// cosmetic, same mechanics either way (see journeyGame.js's THEMES), and
+// one global preference rather than per-project. The old Road and Race
+// stages were retired; anyone who had one picked lands on Football. An
+// older saved "football3d"-style choice splits into the stage and the 3D
+// view.
 const RETIRED_JOURNEY_THEMES = ['road', 'race'];
-function getJourneyTheme() {
-  let theme = 'football';
-  try { theme = localStorage.getItem('journeyTheme') || 'football'; } catch { /* private mode etc */ }
-  return RETIRED_JOURNEY_THEMES.includes(theme) ? 'football' : theme;
+const JOURNEY_STAGES = ['football', 'castle', 'ocean', 'space', 'corporate', 'construction', 'life', 'launch'];
+function journeyPref(key) {
+  try { return localStorage.getItem(key); } catch { return null; /* private mode etc */ }
 }
-function setJourneyTheme(value) {
-  try { localStorage.setItem('journeyTheme', value); } catch { /* private mode etc */ }
+function setJourneyPref(key, value) {
+  try { localStorage.setItem(key, value); } catch { /* private mode etc */ }
+}
+function getJourneyStage() {
+  const saved = (journeyPref('journeyTheme') || 'football').replace(/3d$/, '');
+  return JOURNEY_STAGES.includes(saved) && !RETIRED_JOURNEY_THEMES.includes(saved) ? saved : 'football';
+}
+function getJourneyView() {
+  const view = journeyPref('journeyView');
+  if (view === '2d' || view === '3d') return view;
+  // first read since the split: keep whichever the old choice implied
+  const implied = /3d$/.test(journeyPref('journeyTheme') || '') ? '3d' : '2d';
+  setJourneyPref('journeyView', implied);
+  return implied;
+}
+const getJourneyCam = () => (journeyPref('journeyCam') === 'overview' ? 'overview' : journeyPref('journeyCam') === 'follow' ? 'follow' : '');
+function getJourneyTheme() { return getJourneyStage() + (getJourneyView() === '3d' ? '3d' : ''); }
+function setJourneyTheme(stage) {
+  getJourneyView(); // settles the view before the old stage name is replaced
+  setJourneyPref('journeyTheme', stage);
   if (mountainState) renderMountainScene();
+}
+function setJourneyView(view, cam) {
+  if (cam) setJourneyPref('journeyCam', cam);
+  setJourneyPref('journeyView', view);
+  if (mountainState) renderMountainScene();
+}
+// The 3D stages' own toggles report back here: a camera change is just
+// remembered, a click on 2D switches the view.
+document.addEventListener('journeyview', e => {
+  const { view, cam } = e.detail || {};
+  if (cam) setJourneyPref('journeyCam', cam);
+  if (view && view !== getJourneyView()) setJourneyView(view);
+});
+let journeyWebGL = null;
+function journeyCanDo3D() {
+  if (journeyWebGL === null) {
+    try { const c = document.createElement('canvas'); journeyWebGL = !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch { journeyWebGL = false; }
+  }
+  return journeyWebGL;
+}
+// The view toggle over the 2D scene, matching the one the 3D stages draw
+// in their own corner (2D · Follow cam · Overview): picking a camera
+// switches to 3D with that camera.
+function renderJourneyViewBar() {
+  const wrap = document.getElementById('mountain-scene-wrap');
+  let bar = document.getElementById('journey-view-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'journey-view-bar';
+    bar.className = 'journey-view-bar';
+    bar.setAttribute('role', 'group');
+    bar.setAttribute('aria-label', 'View');
+    wrap.appendChild(bar);
+  }
+  const show = getJourneyView() === '2d' || !journeyCanDo3D();
+  bar.hidden = !show;
+  if (!show) return;
+  const overview = getJourneyStage() === 'construction' ? 'Site view' : 'Overview';
+  bar.innerHTML = '<button type="button" aria-pressed="true">2D</button>' + (journeyCanDo3D()
+    ? `<button type="button" aria-pressed="false" onclick="event.stopPropagation(); setJourneyView('3d','follow')">Follow cam</button><button type="button" aria-pressed="false" onclick="event.stopPropagation(); setJourneyView('3d','overview')">${overview}</button>`
+    : '');
 }
 
 // Resolves the current competitor to a progress fraction + display label —
@@ -5119,6 +5181,9 @@ function renderMountainScene() {
 
   const container = document.getElementById('mountain-scene');
   const theme = getJourneyTheme();
+  // the camera a 3D stage starts with (its own toggle can change it)
+  container.dataset.cam = getJourneyCam();
+  renderJourneyViewBar();
   // The quest panel (stats strip + task list) is reskinned per theme
   // (see .journey-quest-panel.theme-* in index.html) so it reads as
   // part of that world instead of one fixed HUD style bolted onto all.

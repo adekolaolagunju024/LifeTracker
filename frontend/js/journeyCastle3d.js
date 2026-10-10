@@ -19,7 +19,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera } from './journey3dKit.js';
+import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera, makeViewToggle } from './journey3dKit.js';
 
 const KNIGHT_URL = '/assets/models/Knight.glb';
 const PRINCESS_URL = '/assets/models/Princess.glb';
@@ -75,21 +75,9 @@ export function createCastle3D(container) {
   const loadingEl = document.createElement('div');
   loadingEl.className = 'jc3d-loading';
   loadingEl.textContent = 'Raising the drawbridge…';
-  const camBar = document.createElement('div');
+  const viewToggle = makeViewToggle(container, mode => { cam.mode = mode; });
+  const camBar = viewToggle.bar;
   camBar.className = 'jc3d-cam';
-  camBar.setAttribute('role', 'group');
-  camBar.setAttribute('aria-label', 'Camera');
-  const camBtns = {};
-  [['follow', 'Follow cam'], ['overview', 'Overview']].forEach(([mode, text]) => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.textContent = text; b.setAttribute('aria-pressed', String(mode === 'follow'));
-    b.addEventListener('click', e => {
-      e.stopPropagation();
-      cam.mode = mode;
-      Object.entries(camBtns).forEach(([m, btn]) => btn.setAttribute('aria-pressed', String(m === mode)));
-    });
-    camBtns[mode] = b; camBar.appendChild(b);
-  });
   const winEl = document.createElement('div');
   winEl.className = 'jc3d-win'; winEl.hidden = true;
   winEl.innerHTML = '<div><strong>Quest Complete</strong><span>The dragon is beaten and the princess is free</span></div>';
@@ -1683,7 +1671,7 @@ export function createCastle3D(container) {
   }
 
   // ── Camera: follow, overview, and the finale's cinematic angles ───────
-  const cam = { mode: 'follow', look: new THREE.Vector3(0, 1, 20), shake: 0 };
+  const cam = { mode: viewToggle.start, look: new THREE.Vector3(0, 1, 20), shake: 0 };
   const peek = { at: new THREE.Vector3(), t: 0 };
   const camDesired = new THREE.Vector3(), lookDesired = new THREE.Vector3();
   function updateCamera(dt, time) {
