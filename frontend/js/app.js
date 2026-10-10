@@ -818,6 +818,7 @@ async function renderProjectDetail(projectId) {
     document.getElementById('btn-add-task-header').classList.toggle('hidden', !canEdit);
     document.getElementById('btn-edit-project').classList.toggle('hidden', !canEdit);
     document.getElementById('btn-assistant-project').classList.toggle('hidden', !!proj.parentId);
+    document.getElementById('btn-assistant-project-menu').classList.toggle('hidden', !!proj.parentId);
     document.getElementById('btn-revise-tasks').classList.toggle('hidden', !canEdit || !!proj.parentId);
 
     // Chat only makes sense once there's someone else to talk to.
@@ -957,37 +958,37 @@ async function renderTaskTable(projectId) {
     document.getElementById('task-table-body').innerHTML = tasks.length
       ? tasks.map(t => `
           <tr class="border-b border-gray-100 hover:bg-gray-50">
-            ${canEdit ? `<td class="px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()"></td>` : ''}
-            <td class="px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">
+            ${canEdit ? `<td class="tt-sel px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()"></td>` : ''}
+            <td class="tt-title px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">
               <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}${t.commentCount ? ` <span class="text-gray-400 font-normal text-xs" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">💬 ${t.commentCount}</span>` : ''}${statusUpdateBadge(t)} ${obstacleBadge(t)} ${waitingBadge(t)}</div>
               ${blockerChecklist(t, canEdit, 'board')}
               ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
               ${taskProgressBarHTML(t)}
             </td>
-            <td class="px-4 py-3">
+            <td class="tt-status px-4 py-3">
               <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}" ${canEdit ? '' : 'disabled'}
                 onchange="updateTaskStatus('${t.id}', this.value, '${projectId}')">
                 ${['Not Started','In Progress','Completed'].map(s =>
                   `<option ${t.status === s ? 'selected' : ''}>${s}</option>`).join('')}
               </select>
             </td>
-            <td class="px-4 py-3">
+            <td class="tt-priority px-4 py-3">
               <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(priorityBorderColor(t.priority))}" ${canEdit ? '' : 'disabled'}
                 onchange="updateTaskPriority('${t.id}', this.value, '${projectId}')">
                 ${['High','Medium','Low'].map(p =>
                   `<option ${t.priority === p ? 'selected' : ''}>${p}</option>`).join('')}
               </select>
             </td>
-            <td class="px-4 py-3">${assigneeAvatar(t.assigneeName)}</td>
-            <td class="px-4 py-3">
+            <td class="tt-assignee px-4 py-3">${assigneeAvatar(t.assigneeName)}</td>
+            <td class="tt-start px-4 py-3">
               <input type="date" value="${t.startDate || ''}" min="${minStart}" class="rounded-lg px-2 py-1 text-xs border border-gray-200 focus:outline-none focus:border-teal w-full" ${canEdit ? '' : 'disabled'}
                 onchange="updateTaskStartDate('${t.id}', this.value, '${projectId}')">
             </td>
-            <td class="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">${t.endDate || '—'}</td>
-            <td class="px-4 py-3 text-xs font-mono font-semibold ${(t.cost || 0) > 0 ? 'text-green-600' : 'text-gray-300'}">
+            <td class="tt-due px-4 py-3 text-xs text-gray-400 whitespace-nowrap" data-label="Due">${t.endDate || '—'}</td>
+            <td class="tt-cost px-4 py-3 text-xs font-mono font-semibold ${(t.cost || 0) > 0 ? 'text-green-600' : 'text-gray-300'}">
               ${(t.cost || 0) > 0 ? '£' + t.cost.toLocaleString() : '—'}
             </td>
-            <td class="px-4 py-3">
+            <td class="tt-actions px-4 py-3">
               <div class="flex gap-1">
                 <button onclick="addTaskToGoogleCalendar('${t.id}')" title="Add to Google Calendar"
                   class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">📅</button>
@@ -1310,7 +1311,7 @@ async function exportGanttImage() {
   // right away — show the loading state on the always-visible toolbar
   // button instead, so there's feedback during the ~10-15s render.
   const btn = document.getElementById('gantt-fields-btn');
-  const originalLabel = btn.textContent;
+  const originalLabel = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = `<span class="spinner"></span> Rendering…`;
   try {
@@ -1331,7 +1332,7 @@ async function exportGanttImage() {
     showToast('❌ ' + (e.message || 'Failed to export image'), 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = originalLabel;
+    btn.innerHTML = originalLabel;
   }
 }
 
@@ -1703,7 +1704,7 @@ async function renderGantt() {
               <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">🗑️</button>` : ''}
             </div>
             <div class="gantt-sticky gantt-sticky-2 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
-              <select class="w-full rounded px-1 py-1 text-[10px] font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}" ${canEditGroup ? '' : 'disabled'}
+              <select class="ui-select-compact w-full rounded px-1 py-1 text-[10px] font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}" ${canEditGroup ? '' : 'disabled'}
                 onclick="event.stopPropagation()" onchange="updateGanttTaskStatus('${t.id}', this.value)">
                 ${['Not Started','In Progress','Completed'].map(s =>
                   `<option ${t.status === s ? 'selected' : ''}>${s}</option>`).join('')}
@@ -1792,6 +1793,7 @@ function applyGanttPageView(mode) {
   if (mode === 'journey') document.getElementById('gantt-reset-btn').classList.add('hidden');
   // Zoom level and Print/Export only make sense for the timeline.
   document.getElementById('gantt-view-toggle').classList.toggle('hidden', mode !== 'timeline');
+  document.getElementById('gantt-view-toggle-menu').classList.toggle('hidden', mode !== 'timeline');
   document.getElementById('gantt-export-actions').classList.toggle('hidden', mode !== 'timeline');
 
   const heading = { timeline: 'Gantt Chart', kanban: 'Kanban Board', journey: 'Journey' }[mode];

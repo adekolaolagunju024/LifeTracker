@@ -35,33 +35,59 @@
     })();
   </script>
 
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
-
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
-          },
-          colors: {
-            navy:   { DEFAULT: '#0D1B2A', 2: '#1B3A5C' },
-            teal:   { DEFAULT: '#0A7E8C', light: '#E0F4F6' },
-            gold:   { DEFAULT: '#C49A00', light: '#FEF9E7' },
-            brand:  { green: '#1A7A4A', orange: '#C0642A', red: '#B03020' },
-          }
-        }
-      }
-    }
-  </script>
+  <!-- Tailwind, built ahead of time (npm run build:css; config in tailwind.config.js) -->
+  <link rel="stylesheet" href="/css/app.css">
 
   <style>
+    /* ── UI kit: the few shared rules every page leans on ───────────────
+       A toolbar is one row that wraps only on a phone, a control can be
+       desktop-only without fighting the JS that hides and shows it, and
+       every dropdown looks the same (one height, one chevron, one focus
+       ring) instead of each browser's default. */
+    .ui-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    @media (min-width: 640px) { .ui-toolbar { flex-wrap: nowrap; } }
+    @media (max-width: 639px) { .ui-desktop-only { display: none !important; } }
+    .ui-noscrollbar { scrollbar-width: none; }
+    .ui-noscrollbar::-webkit-scrollbar { display: none; }
+    .page select:not([multiple]), .modal-overlay select:not([multiple]), #task-detail-panel select:not([multiple]) {
+      -webkit-appearance: none; appearance: none; cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%236b7280' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right .55rem center; background-size: 12px 12px;
+      padding-right: 1.9rem !important; text-overflow: ellipsis;
+    }
+    .dark .page select:not([multiple]), .dark .modal-overlay select:not([multiple]), .dark #task-detail-panel select:not([multiple]) {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%239ca3af' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+    /* small selects inside table cells: a smaller arrow, closer in */
+    .page select.ui-select-compact { background-position: right .2rem center; background-size: 9px 9px; padding-right: .95rem !important; }
+    /* The project's task table becomes a list of cards on a phone: the
+       title across the top, status and priority under it, the due date
+       and the action icons at the bottom; assignee, start and cost stay
+       in the task's own panel. No sideways scrolling. */
+    @media (max-width: 639px) {
+      .task-table thead { display: none; }
+      .task-table #task-table-body tr { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "sel title title" "sel status priority" "sel due actions"; gap: 8px 10px; padding: 12px 12px 10px 8px; align-items: center; }
+      .task-table #task-table-body td { padding: 0 !important; }
+      .task-table .tt-sel { grid-area: sel; align-self: start; padding-top: 2px !important; }
+      .task-table .tt-title { grid-area: title; max-width: none; padding-left: 10px !important; }
+      .task-table .tt-status { grid-area: status; padding-left: 14px !important; }
+      .task-table .tt-priority { grid-area: priority; }
+      .task-table .tt-due { grid-area: due; padding-left: 14px !important; }
+      .task-table .tt-due::before { content: attr(data-label) " "; font-weight: 600; color: #9ca3af; }
+      .task-table .tt-actions { grid-area: actions; }
+      .task-table .tt-assignee, .task-table .tt-start, .task-table .tt-cost { display: none; }
+      .task-table #task-table-body tr td[colspan] { grid-column: 1 / -1; display: block; padding: 32px 12px !important; }
+    }
+    :where(button, a, select, input, textarea):focus-visible { outline: 2px solid #0A7E8C; outline-offset: 2px; }
+    /* Phones: a little less padding round each page and no subtitle
+       under the page title, so the content starts higher up. */
+    @media (max-width: 639px) {
+      .page.p-6 { padding: 16px; }
+      .page > .mb-6:first-child { margin-bottom: 14px; }
+      .page > .mb-6:first-child > h2 { font-size: 1.3rem; }
+      .page > .mb-6:first-child > p { display: none; }
+    }
+
     /* Only things Tailwind can't do */
     .page { display: none; }
     .page.active { display: block; }
@@ -1314,10 +1340,10 @@
       <div class="hidden items-center gap-1.5 text-xs text-gray-400 mb-3" id="detail-breadcrumb"></div>
 
       <!-- Header -->
-      <div class="bg-white rounded-xl border border-gray-200 p-5 mb-5 flex items-center gap-4 relative z-20">
-        <span class="text-4xl" id="detail-icon">📁</span>
+      <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 mb-5 flex items-center gap-3 sm:gap-4 relative z-20 flex-wrap sm:flex-nowrap">
+        <span class="text-3xl sm:text-4xl" id="detail-icon">📁</span>
         <div class="w-1.5 h-10 rounded-full flex-shrink-0" id="detail-color"></div>
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
             <h2 class="text-xl font-black text-navy" id="detail-title">Project</h2>
             <span class="hidden text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full" id="detail-shared-badge"></span>
@@ -1325,14 +1351,17 @@
           </div>
           <p class="text-gray-500 text-sm mt-1" id="detail-desc"></p>
         </div>
-        <div class="flex gap-2 ml-auto flex-wrap items-start">
-          <button onclick="openAddTask(APP.currentProjectId)" id="btn-add-task-header" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">+ Add Task</button>
-          <button onclick="openJourneyFromProject(APP.currentProjectId)" id="btn-mountain-view" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm">🧭 Journey</button>
-          <button onclick="openAssistant(APP.currentProjectId)" id="btn-assistant-project" class="hidden bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-4 py-2 rounded-lg">🎙️ Assistant</button>
-          <button onclick="openShareProject(APP.currentProjectId)" id="btn-share-project" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">👥 <span id="btn-share-label">Share</span></button>
+        <div class="flex gap-2 ml-auto items-center w-full sm:w-auto">
+          <button onclick="openAddTask(APP.currentProjectId)" id="btn-add-task-header" class="flex-1 sm:flex-none bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">+ Add Task</button>
+          <button onclick="openJourneyFromProject(APP.currentProjectId)" id="btn-mountain-view" class="flex-1 sm:flex-none whitespace-nowrap bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm">🧭 Journey</button>
+          <button onclick="openAssistant(APP.currentProjectId)" id="btn-assistant-project" class="hidden ui-desktop-only bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-4 py-2 rounded-lg">🎙️ Assistant</button>
+          <button onclick="openShareProject(APP.currentProjectId)" id="btn-share-project" class="ui-desktop-only bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">👥 <span id="btn-share-label">Share</span></button>
           <div class="relative">
             <button onclick="toggleProjectDetailMenu(event)" id="detail-more-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg">⋯</button>
             <div class="hidden absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50 whitespace-nowrap" id="detail-more-menu">
+              <button onclick="closeProjectDetailMenu();openAssistant(APP.currentProjectId)" id="btn-assistant-project-menu" class="sm:hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">🎙️ Assistant</button>
+              <button onclick="closeProjectDetailMenu();openShareProject(APP.currentProjectId)" class="sm:hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">👥 Share</button>
+              <div class="sm:hidden border-t border-gray-100 my-1"></div>
               <button onclick="closeProjectDetailMenu();openAddSubfolder(APP.currentProjectId)" id="btn-new-subfolder" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">📁 New Sub-folder</button>
               <button onclick="closeProjectDetailMenu();openProjectChat(APP.currentProjectId)" id="btn-project-chat" class="hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">💬 Chat</button>
               <button onclick="closeProjectDetailMenu();editProject(APP.currentProjectId)" id="btn-edit-project" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">✏️ Edit</button>
@@ -1358,13 +1387,14 @@
       </div>
 
       <!-- Mini KPIs -->
-      <div class="flex gap-4 mb-5" id="detail-stats"></div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-5" id="detail-stats"></div>
 
       <!-- Filters -->
-      <div class="flex gap-3 mb-4 flex-wrap">
+      <div class="flex gap-2 sm:gap-3 mb-4 flex-wrap sm:flex-nowrap">
         <input type="text" id="filter-search" placeholder="🔍 Search tasks..."
-          class="flex-1 min-w-48 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal"
+          class="w-full sm:w-auto sm:flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal"
           oninput="applyFilters(APP.currentProjectId)">
+        <div class="flex gap-2 sm:gap-3 w-full sm:w-auto overflow-x-auto ui-noscrollbar">
         <select id="filter-status" onchange="applyFilters(APP.currentProjectId)"
           class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
           <option value="">All Statuses</option>
@@ -1380,7 +1410,8 @@
           <option value="">All Tags</option>
         </select>
         <button onclick="clearFilters(APP.currentProjectId)"
-          class="bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold px-4 py-2 rounded-lg">Clear</button>
+          class="bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold px-4 py-2 rounded-lg flex-shrink-0">Clear</button>
+        </div>
       </div>
 
       <!-- Bulk actions bar — only shown once 1+ task checkboxes are ticked -->
@@ -1409,7 +1440,7 @@
       <!-- Task Table -->
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
-        <table class="w-full">
+        <table class="w-full task-table">
           <thead><tr class="bg-navy text-white text-xs">
             <th class="px-4 py-3 text-left font-semibold w-8" id="th-bulk-select"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAllTasks(this.checked)"></th>
             <th class="px-4 py-3 text-left font-semibold">Task</th>
@@ -1433,34 +1464,44 @@
         <h2 class="text-2xl font-black text-navy" id="gantt-page-heading">Gantt Chart</h2>
         <p class="text-gray-500 text-sm mt-1" id="gantt-page-subtitle">Visual timeline of all tasks across every project.</p>
       </div>
-      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div class="flex flex-wrap gap-2 items-center">
-          <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">+ Add Project</button>
-          <button onclick="toggleAllGantt()" id="gantt-toggle-all-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">Collapse All</button>
+      <!-- One toolbar row: the view switch on the left; the project
+           filter, zoom, Add Project and the ⋯ More menu on the right. On a
+           phone the view switch takes its own full-width row and the rest
+           share one row (zoom and Collapse All move into ⋯ More), so the
+           toolbar never stacks up and pushes the chart off the screen. -->
+      <div class="ui-toolbar mb-3" id="gantt-toolbar">
+        <div class="relative flex bg-gray-100 rounded-full p-1 w-full sm:w-auto sm:min-w-[300px]" id="gantt-page-view-toggle">
+          <div id="gantt-switch-thumb" class="absolute top-1 bottom-1 left-1 rounded-full bg-white shadow" style="width:calc(33.333% - 4px); transition:transform .2s ease-out"></div>
+          <button onclick="setGanttPageView('timeline')" data-pageview="timeline" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">📊 Gantt</button>
+          <button onclick="setGanttPageView('kanban')" data-pageview="kanban" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">📋 Kanban</button>
+          <button onclick="setGanttPageView('journey')" data-pageview="journey" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">🧭 Journey</button>
         </div>
-        <div class="flex items-center gap-3 flex-wrap">
-          <select id="gantt-project-filter" onchange="setGanttProjectFilter(this.value)"
-            class="border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
+        <div class="flex items-center gap-2 w-full sm:w-auto sm:ml-auto min-w-0">
+          <select id="gantt-project-filter" onchange="setGanttProjectFilter(this.value)" aria-label="Project"
+            class="flex-1 sm:flex-none min-w-0 sm:w-48 border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
             <option value="">All Projects</option>
           </select>
           <!-- Same reset Journey offers, for whichever single project the
                filter above points at — hidden for "All Projects" (ambiguous
                scope) and while Journey mode is showing (it has its own). -->
-          <button onclick="resetGanttProjectProgress()" id="gantt-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task in this project back to Not Started and untick its cleared blockers">↺ Reset</button>
-          <div class="relative flex bg-gray-100 rounded-full p-1 min-w-[280px] w-auto" id="gantt-page-view-toggle">
-            <div id="gantt-switch-thumb" class="absolute top-1 bottom-1 left-1 rounded-full bg-white shadow" style="width:calc(33.333% - 4px); transition:transform .2s ease-out"></div>
-            <button onclick="setGanttPageView('timeline')" data-pageview="timeline" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">📊 Gantt Chart</button>
-            <button onclick="setGanttPageView('kanban')" data-pageview="kanban" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">📋 Kanban</button>
-            <button onclick="setGanttPageView('journey')" data-pageview="journey" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">🧭 Journey</button>
+          <button onclick="resetGanttProjectProgress()" id="gantt-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task in this project back to Not Started and untick its cleared blockers">↺<span class="hidden sm:inline"> Reset</span></button>
+          <div class="ui-desktop-only flex gap-1 bg-gray-100 rounded-lg p-1" id="gantt-view-toggle">
+            <button onclick="setGanttViewMode('week')" data-mode="week" class="gantt-view-btn px-3 py-1 rounded-md text-xs font-semibold transition-all">Week</button>
+            <button onclick="setGanttViewMode('month')" data-mode="month" class="gantt-view-btn px-3 py-1 rounded-md text-xs font-semibold transition-all">Month</button>
+            <button onclick="setGanttViewMode('year')" data-mode="year" class="gantt-view-btn px-3 py-1 rounded-md text-xs font-semibold transition-all">Year</button>
           </div>
-          <div class="flex gap-1 bg-gray-100 rounded-lg p-1" id="gantt-view-toggle">
-            <button onclick="setGanttViewMode('week')" data-mode="week" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Week</button>
-            <button onclick="setGanttViewMode('month')" data-mode="month" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Month</button>
-            <button onclick="setGanttViewMode('year')" data-mode="year" class="gantt-view-btn px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Year</button>
-          </div>
+          <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap" title="Add a project">+<span class="hidden sm:inline"> Add Project</span></button>
           <div class="relative">
-            <button onclick="toggleGanttFieldsMenu(event)" id="gantt-fields-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">⋯ More</button>
-            <div class="hidden absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-200 py-2 px-3 z-50 whitespace-nowrap" id="gantt-fields-menu">
+            <button onclick="toggleGanttFieldsMenu(event)" id="gantt-fields-btn" aria-label="More options" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">⋯<span class="hidden sm:inline"> More</span></button>
+            <div class="hidden absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-200 py-2 px-3 z-50 whitespace-nowrap max-h-[70vh] overflow-y-auto" id="gantt-fields-menu">
+              <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 px-1">View</p>
+              <button onclick="closeGanttFieldsMenu(); toggleAllGantt()" id="gantt-toggle-all-btn" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">Collapse All</button>
+              <div class="sm:hidden flex gap-1 bg-gray-100 rounded-lg p-1 my-1" id="gantt-view-toggle-menu">
+                <button onclick="setGanttViewMode('week')" data-mode="week" class="gantt-view-btn flex-1 px-3 py-1 rounded-md text-xs font-semibold">Week</button>
+                <button onclick="setGanttViewMode('month')" data-mode="month" class="gantt-view-btn flex-1 px-3 py-1 rounded-md text-xs font-semibold">Month</button>
+                <button onclick="setGanttViewMode('year')" data-mode="year" class="gantt-view-btn flex-1 px-3 py-1 rounded-md text-xs font-semibold">Year</button>
+              </div>
+              <div class="border-t border-gray-100 my-2"></div>
               <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 px-1">Show on cards</p>
               <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-assignee" onchange="toggleCardField('assignee')"> Assignee</label>
               <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="field-toggle-priority" onchange="toggleCardField('priority')"> Priority</label>
@@ -1583,23 +1624,27 @@
               <option value="schedule">🖥️ The Schedule</option>
             </select>
             <select id="journey-theme-select" onchange="setJourneyTheme(this.value)" title="Change the Journey scene's look" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
-              <option value="football">⚽ Football</option>
-              <option value="football3d">🏟️ Football 3D</option>
-              <option value="castle">🏰 Castle</option>
-              <option value="castle3d">🏰 Castle 3D</option>
-              <option value="ocean">🌊 Ocean</option>
-              <option value="ocean3d">🌊 Ocean 3D</option>
-              <option value="space">🚀 Space</option>
-              <option value="space3d">🚀 Space 3D</option>
-              <option value="corporate">🏢 Corporate</option>
-              <option value="corporate3d">🏢 Corporate 3D</option>
-              <option value="construction">🏗️ Construction</option>
-              <option value="construction3d">🏗️ Construction 3D</option>
-              <option value="life">🌱 Life Path</option>
-              <option value="life3d">🌱 Life Path 3D</option>
+              <optgroup label="Sport &amp; adventure">
+                <option value="football">⚽ Football</option>
+                <option value="football3d">🏟️ Football 3D</option>
+                <option value="castle">🏰 Castle</option>
+                <option value="castle3d">🏰 Castle 3D</option>
+                <option value="ocean">🌊 Ocean</option>
+                <option value="ocean3d">🌊 Ocean 3D</option>
+                <option value="space">🚀 Space</option>
+                <option value="space3d">🚀 Space 3D</option>
+              </optgroup>
+              <optgroup label="Work &amp; life">
+                <option value="corporate">🏢 Corporate</option>
+                <option value="corporate3d">🏢 Corporate 3D</option>
+                <option value="construction">🏗️ Construction</option>
+                <option value="construction3d">🏗️ Construction 3D</option>
+                <option value="life">🌱 Life Path</option>
+                <option value="life3d">🌱 Life Path 3D</option>
+              </optgroup>
             </select>
-            <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started and untick its cleared blockers">↺ Reset</button>
-            <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
+            <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started and untick its cleared blockers" aria-label="Reset">↺<span class="hidden sm:inline"> Reset</span></button>
+            <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" aria-label="Fullscreen">⛶ Fullscreen</button>
           </div>
         </div>
         <div class="rounded-2xl overflow-hidden journey-scene-frame" id="journey-hud">
@@ -2352,11 +2397,12 @@
       <p class="hidden text-xs text-gray-400" id="td-comment-viewonly">👁 View-only access — you can't comment on this project.</p>
     </div>
   </div>
-  <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 flex-wrap">
-    <button onclick="closeTaskDetail()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Close</button>
-    <button onclick="addTaskToGoogleCalendar(APP_currentDetailTaskId)" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-semibold px-4 py-2 rounded-lg">📅 Add to Google Calendar</button>
-    <button onclick="duplicateTaskFromDetail()" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-semibold px-4 py-2 rounded-lg">⧉ Duplicate</button>
-    <button onclick="editTaskFromDetail()" id="btn-edit-task-detail" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">✏️ Edit Task</button>
+  <!-- One row: icon buttons for the secondary actions (the ✕ at the top
+       closes the panel), then the main action, full width. -->
+  <div class="flex items-center gap-2 px-4 sm:px-6 py-3 border-t border-gray-100">
+    <button onclick="addTaskToGoogleCalendar(APP_currentDetailTaskId)" title="Add to Google Calendar" aria-label="Add to Google Calendar" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-sm w-10 h-9 rounded-lg flex-shrink-0">📅</button>
+    <button onclick="duplicateTaskFromDetail()" title="Duplicate this task" aria-label="Duplicate this task" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-sm w-10 h-9 rounded-lg flex-shrink-0">⧉</button>
+    <button onclick="editTaskFromDetail()" id="btn-edit-task-detail" class="flex-1 bg-teal hover:bg-teal/90 text-white text-sm font-semibold px-4 h-9 rounded-lg">✏️ Edit Task</button>
   </div>
 </div>
 
