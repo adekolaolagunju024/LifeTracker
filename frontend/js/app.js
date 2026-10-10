@@ -4612,6 +4612,34 @@ function mountainExpectedFraction() {
   return Math.max(0, Math.min(1, (nowMs - startMs) / (endMs - startMs)));
 }
 
+// A compact stats strip above the quest log — percent complete, the
+// same app-wide streak number shown on the Dashboard, and pace vs.
+// whatever's being raced against (reusing the exact ahead/behind/even
+// thresholds and emoji the status line below the scene already uses,
+// so the two never disagree). Deliberately just these three — XP,
+// levels, and achievements already live one tap away in the 🏆 Trophy
+// Case, and duplicating them here would just be more clutter in a view
+// with a long history of exactly that complaint.
+function renderJourneyStats(done, total, youFrac, expectedFrac, competitor) {
+  const wrap = document.getElementById('mountain-stats');
+  const pct = total ? Math.round(youFrac * 100) : 0;
+  const streak = (APP.profile && APP.profile.currentStreak) || 0;
+  let paceIcon, paceValue, paceLabel;
+  if (!total || expectedFrac === null) {
+    paceIcon = '⏱️'; paceValue = '—'; paceLabel = 'Own pace';
+  } else {
+    const deltaPct = Math.round((youFrac - expectedFrac) * 100);
+    if (youFrac > expectedFrac + 0.03) { paceIcon = '🏆'; paceValue = `+${deltaPct}%`; paceLabel = 'Ahead'; }
+    else if (youFrac < expectedFrac - 0.03) { paceIcon = '⏳'; paceValue = `${deltaPct}%`; paceLabel = 'Behind'; }
+    else { paceIcon = '🤝'; paceValue = 'Even'; paceLabel = competitor ? competitor.label : 'Pace'; }
+  }
+  wrap.innerHTML = `
+    <div class="journey-stat"><span class="journey-stat-value">🎯 ${pct}%</span><span class="journey-stat-label">Complete</span></div>
+    <div class="journey-stat"><span class="journey-stat-value">${streak ? `🔥 ${streak}` : '—'}</span><span class="journey-stat-label">Day streak</span></div>
+    <div class="journey-stat"><span class="journey-stat-value">${paceIcon} ${paceValue}</span><span class="journey-stat-label">${esc(paceLabel)}</span></div>
+  `;
+}
+
 // Computes the current state and hands it to the SVG scene (see
 // frontend/js/journeyGame.js) to actually draw and animate — this
 // function only owns the derived numbers and the status-line text.
@@ -4626,10 +4654,11 @@ function renderMountainScene() {
 
   const container = document.getElementById('mountain-scene');
   const theme = getJourneyTheme();
-  // The quest log is reskinned per theme (see .journey-quest-log.theme-*
-  // in index.html) so it reads as part of that world instead of one
-  // fixed HUD style bolted onto all four.
-  document.getElementById('mountain-tasklist').className = `journey-quest-log overflow-y-auto theme-${theme}`;
+  // The quest panel (stats strip + task list) is reskinned per theme
+  // (see .journey-quest-panel.theme-* in index.html) so it reads as
+  // part of that world instead of one fixed HUD style bolted onto all.
+  document.getElementById('mountain-quest-panel').className = `journey-quest-panel flex flex-col theme-${theme}`;
+  renderJourneyStats(done, total, youFrac, expectedFrac, competitor);
   JourneyGame.sync(container, {
     tasks, youFrac, summitLit, theme,
     // Null when there's nothing to actually pace against (no dates set, or

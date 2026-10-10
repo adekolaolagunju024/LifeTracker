@@ -155,10 +155,11 @@
        height rule needed. */
     #journey-hud { display: flex; flex-direction: column; }
     #journey-hud #mountain-scene-wrap { flex: 1 1 auto; min-height: 0; }
-    #journey-hud #mountain-tasklist { flex: 0 0 auto; max-height: 14rem; }
+    #journey-hud #mountain-quest-panel { flex: 0 0 auto; max-height: 18rem; min-height: 0; }
+    #journey-hud #mountain-tasklist { flex: 1 1 auto; min-height: 0; }
     @media (min-width: 640px) {
       #journey-hud { flex-direction: row; height: min(58vh, 480px); }
-      #journey-hud #mountain-tasklist { flex: 0 0 272px; width: 272px; max-height: none; }
+      #journey-hud #mountain-quest-panel { flex: 0 0 272px; width: 272px; max-height: none; }
     }
 
     /* A glassy "screen" bezel instead of a flat drop shadow — an inset
@@ -184,36 +185,53 @@
        they're the same green/amber/grey the scene's own checkpoints
        use, and that signal needs to stay unambiguous across all four
        skins rather than being "in theme" at the cost of clarity. */
-    .journey-quest-log {
+    .journey-quest-panel {
       --quest-bg1: #1b2538; --quest-bg2: #10172a; --quest-divider: rgba(255,255,255,.08);
       --quest-text: #e2e8f0; --quest-text-done: #64748b; --quest-date: #7c8aa5; --quest-hover: rgba(255,255,255,.06);
+      --quest-accent: #93c5fd;
       background: linear-gradient(180deg, var(--quest-bg1) 0%, var(--quest-bg2) 100%);
       border-top: 1px solid var(--quest-divider);
-      padding: 10px 12px;
     }
+    .journey-quest-log { padding: 10px 12px; }
     @media (min-width: 640px) {
-      .journey-quest-log { background: linear-gradient(90deg, var(--quest-bg1) 0%, var(--quest-bg2) 100%); border-top: none; border-left: 1px solid var(--quest-divider); }
+      .journey-quest-panel { background: linear-gradient(90deg, var(--quest-bg1) 0%, var(--quest-bg2) 100%); border-top: none; border-left: 1px solid var(--quest-divider); }
     }
-    .journey-quest-log.theme-road {
+    .journey-quest-panel.theme-road {
       --quest-bg1: #fcf2d8; --quest-bg2: #f1dcaa; --quest-divider: rgba(139,94,60,.35);
       --quest-text: #4a2f1e; --quest-text-done: #b08968; --quest-date: #8b6b4a; --quest-hover: rgba(139,94,60,.1);
+      --quest-accent: #b45309;
     }
-    .journey-quest-log.theme-space {
+    .journey-quest-panel.theme-space {
       --quest-bg1: #0d1130; --quest-bg2: #070813; --quest-divider: rgba(125,211,252,.25);
       --quest-text: #cdeeff; --quest-text-done: #4a5a7a; --quest-date: #6ea3c9; --quest-hover: rgba(125,211,252,.08);
+      --quest-accent: #7dd3fc;
     }
-    .journey-quest-log.theme-ocean {
+    .journey-quest-panel.theme-ocean {
       --quest-bg1: #0e4057; --quest-bg2: #082638; --quest-divider: rgba(255,255,255,.14);
       --quest-text: #e3f8ff; --quest-text-done: #5f93a8; --quest-date: #8fc7dd; --quest-hover: rgba(255,255,255,.08);
+      --quest-accent: #67e8f9;
     }
-    .journey-quest-log.theme-race {
+    .journey-quest-panel.theme-race {
       --quest-bg1: #2c3038; --quest-bg2: #15171b; --quest-divider: rgba(249,115,22,.3);
       --quest-text: #f1f5f9; --quest-text-done: #5c6470; --quest-date: #9aa5b1; --quest-hover: rgba(249,115,22,.12);
+      --quest-accent: #fb923c;
     }
-    .journey-quest-log.theme-football, .journey-quest-log.theme-football3d {
+    .journey-quest-panel.theme-football, .journey-quest-panel.theme-football3d {
       --quest-bg1: #1a5c33; --quest-bg2: #0c3019; --quest-divider: rgba(255,255,255,.18);
       --quest-text: #eafff0; --quest-text-done: #5f9a76; --quest-date: #9fd9b4; --quest-hover: rgba(255,255,255,.1);
+      --quest-accent: #fde047;
     }
+    /* The stats strip — percent complete, streak, pace vs. schedule — a
+       compact header above the task rows, in the same themed chrome as
+       the rest of the panel (see .journey-quest-panel.theme-* above). */
+    .journey-stats-strip {
+      display: flex; gap: 14px; padding: 10px 12px 9px;
+      border-bottom: 1px solid var(--quest-divider);
+      flex-wrap: wrap;
+    }
+    .journey-stat { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .journey-stat-value { font-size: 15px; font-weight: 800; color: var(--quest-accent); line-height: 1.1; white-space: nowrap; }
+    .journey-stat-label { font-size: 10px; font-weight: 700; color: var(--quest-date); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
     .journey-quest-row {
       display: flex; align-items: center; gap: 10px;
       padding: 7px 8px; border-radius: 10px;
@@ -1417,7 +1435,10 @@
               </div>
             </div>
           </div>
-          <div class="journey-quest-log overflow-y-auto" id="mountain-tasklist"></div>
+          <div class="journey-quest-panel flex flex-col" id="mountain-quest-panel">
+            <div class="journey-stats-strip" id="mountain-stats"></div>
+            <div class="journey-quest-log overflow-y-auto" id="mountain-tasklist"></div>
+          </div>
         </div>
       </div>
     </div>
