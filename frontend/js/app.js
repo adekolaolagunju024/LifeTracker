@@ -4638,6 +4638,11 @@ function renderMountainScene() {
     // standing around, not as "you're ahead/behind".
     ghost: (competitor && competitor.frac !== null) ? { frac: competitor.frac, label: competitor.label, isComputer: competitor.isComputer } : null,
     celebrationsEnabled: celebrationsEnabled(),
+    // Called once, by journeyGame.js/journey3d.js, right as the finish
+    // celebration actually starts on screen (which may be well after
+    // this sync() call returns, once the avatar's done walking/shooting)
+    // — see toggleMountainTask() for why this replaced a fixed delay.
+    onSummit: showMountainCelebration,
   });
 
   const statusEl = document.getElementById('mountain-status');
@@ -4704,11 +4709,12 @@ async function toggleMountainTask(checkbox) {
     if (nowComplete) {
       const total = mountainState.tasks.length;
       const done = mountainState.tasks.filter(x => x.status === 'Completed').length;
-      if (done === total) {
-        setTimeout(() => showMountainCelebration(), 500);
-      } else {
-        showToast(`🎉 Nice! "${task.title}" done.`);
-      }
+      // The "every task done" case shows the "Project Complete" modal
+      // itself — but only once the scene's own celebration (the avatar
+      // walking to the goal, football's shot/GOAL! moment) has actually
+      // had a beat to play, via the onSummit callback passed into
+      // JourneyGame.sync() below, not a fixed delay from right here.
+      if (done !== total) showToast(`🎉 Nice! "${task.title}" done.`);
     }
   } catch (e) {
     checkbox.checked = !nowComplete;
@@ -4753,6 +4759,11 @@ function resetJourneyProgress() {
 // in-scene modal, so finishing a project reads the same way everywhere,
 // not just inside Journey.
 function showMountainCelebration() {
+  // onSummit now fires after a real delay (long enough for the scene's
+  // own celebration to play) instead of a near-immediate one, so it's
+  // worth guarding against the user having since left the Journey tab
+  // or switched projects in that window.
+  if (!mountainState || APP.ganttProjectFilter !== mountainState.projectId) return;
   const competitor = competitorFraction();
   let message;
   if (competitor.frac === null) {

@@ -79,6 +79,12 @@ export function createFootball3D(container) {
 
   let tasks = [];
   let celebrationsOn = true;
+  // The app shows its own "Project Complete" modal a short beat after
+  // this fires — not on task-toggle like it used to, since the player
+  // now runs to the goal and takes a shot before the goal actually
+  // lands, and that travel + shot + celebration easily takes several
+  // seconds the old fixed-delay approach never accounted for.
+  let onSummitCb = null;
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const timers = [];
   function notify() { updateLabel(); }
@@ -740,6 +746,9 @@ export function createFootball3D(container) {
     if (!reduceMotion) { P.mode = 'celebrate'; P.celebrateT = 0; play(player, 'Dance', 0.3); }
     if (celebrationsOn) cam.goalTime = 6.2;
     notify();
+    // Let the shot/net/GOAL! moment actually land on screen before the
+    // app's own "Project Complete" modal shows up over it.
+    if (onSummitCb) { const cb = onSummitCb; onSummitCb = null; setTimeout(cb, celebrationsOn ? 1800 : 0); }
   }
   function undoGoal() {
     P.scored = false; ballState.mode = 'feet'; bulge = null; cam.goalTime = 0;
@@ -987,6 +996,7 @@ export function createFootball3D(container) {
     }
     updateGhost(state.ghost);
     updateLabel();
+    onSummitCb = state.onSummit || null;
   }
   function snapCamera() {
     const fwd = new THREE.Vector3(Math.sin(P.heading), 0, Math.cos(P.heading));

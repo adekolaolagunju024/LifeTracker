@@ -1626,6 +1626,12 @@ const JourneyGame = (() => {
             if (window.fireBalloons) window.fireBalloons(10);
           };
           const t = getTheme(e.themeKey);
+          // Let the app's own "Project Complete" modal show a beat after
+          // this celebration actually starts, not on a fixed delay from
+          // whenever the task was toggled — the avatar may still be
+          // walking here, and football's own shot/GOAL! animation needs
+          // a moment to land before the modal covers the scene.
+          if (state.onSummit) setTimeout(state.onSummit, t.celebrateFinish ? 1800 : 600);
           if (e.shotPending && t.celebrateFinish) t.celebrateFinish(e, pointAtFrac(e.roadBase, e.curFrac), checkpointScale(n), burst);
           else { e.shotPending = false; burst(); }
         },
