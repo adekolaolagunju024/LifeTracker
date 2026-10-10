@@ -11,6 +11,10 @@ const index = {
     ['t-done', { id: 't-done', title: 'Done task', status: 'Completed', projectId: 'phase-1' }],
     ['t-goal', { id: 't-goal', title: 'Top-level task', status: 'In Progress', projectId: 'goal' }],
   ]),
+  blockerById: new Map([
+    ['b-open', { id: 'b-open', name: 'Supplier quote', count: 2, resolved: false, taskId: 't-open', taskTitle: 'Open task', taskStatus: 'Not Started' }],
+    ['b-done', { id: 'b-done', name: 'Old snag', count: 1, resolved: false, taskId: 't-done', taskTitle: 'Done task', taskStatus: 'Completed' }],
+  ]),
 };
 
 test('a task can be moved to another phase, with the phase title for review', () => {
@@ -32,9 +36,9 @@ test('moves are dropped for completed tasks, unknown phases, or a task already i
   assert.equal(dropped, 3);
 });
 
-test('the edit tool cannot express a deletion', () => {
+test('the edit tool cannot express deleting a task or phase; the only removal is a blocker', () => {
   const types = EDIT_TOOL.input_schema.properties.operations.items.properties.type.enum;
-  assert.deepEqual(types.sort(), ['addPhase', 'addTask', 'moveTask', 'renamePhase', 'updateTask']);
+  assert.deepEqual([...types].sort(), ['addBlocker', 'addPhase', 'addTask', 'moveTask', 'removeBlocker', 'renamePhase', 'updateBlocker', 'updateTask']);
 });
 
 test('an edit to an open task is kept, with its real title and only allowed fields', () => {
@@ -93,4 +97,40 @@ test('unknown operation types are dropped', () => {
   const { operations, dropped } = validateOperations([{ type: 'deleteTask', taskId: 't-open', reason: 'x' }], index);
   assert.equal(operations.length, 0);
   assert.equal(dropped, 1);
+});
+
+test('blockers can be added to an open task, with a sensible count', () => {
+  const { operations, dropped } = validateOperations([
+    { type: 'addBlocker', taskId: 't-open', blocker: { name: '  Waiting on the landlord  ', count: 3 }, reason: 'x' },
+    { type: 'addBlocker', taskId: 't-goal', blocker: { name: 'Permit', count: 40 }, reason: 'x' },
+    { type: 'addBlocker', taskId: 't-done', blocker: { name: 'Too late', count: 1 }, reason: 'x' },
+    { type: 'addBlocker', taskId: 't-open', blocker: { name: '   ' }, reason: 'x' },
+    { type: 'addBlocker', taskId: 'nope', blocker: { name: 'Ghost' }, reason: 'x' },
+  ], index);
+  assert.equal(dropped, 3, 'completed tasks, empty names and unknown tasks are dropped');
+  assert.deepEqual(operations[0].blocker, { name: 'Waiting on the landlord', count: 3 });
+  assert.equal(operations[0].taskTitle, 'Open task');
+  assert.equal(operations[1].blocker.count, 1, 'an out-of-range count falls back to 1');
+});
+
+test('blockers can be renamed, recounted, ticked off or removed, only if they exist on an open task', () => {
+  const { operations, dropped } = validateOperations([
+    { type: 'updateBlocker', blockerId: 'b-open', blocker: { resolved: true }, reason: 'cleared' },
+    { type: 'updateBlocker', blockerId: 'b-open', blocker: { name: 'Signed quote', count: 1 }, reason: 'x' },
+    { type: 'updateBlocker', blockerId: 'b-open', blocker: { name: 'Supplier quote', count: 2 }, reason: 'no real change' },
+    { type: 'removeBlocker', blockerId: 'b-open', reason: 'not an issue any more' },
+    { type: 'removeBlocker', blockerId: 'b-done', reason: 'x' },
+    { type: 'updateBlocker', blockerId: 'nope', blocker: { resolved: true }, reason: 'x' },
+  ], index);
+  assert.equal(dropped, 3);
+  assert.deepEqual(operations.map(o => o.type), ['updateBlocker', 'updateBlocker', 'removeBlocker']);
+  assert.deepEqual(operations[0].changes, { resolved: true });
+  assert.deepEqual(operations[1].changes, { name: 'Signed quote', count: 1 });
+  assert.equal(operations[2].currentName, 'Supplier quote');
+});
+
+test('the edit tool tells the model it can manage blockers but not delete tasks', () => {
+  assert.ok(EDIT_TOOL.input_schema.properties.operations.items.properties.type.enum.includes('removeBlocker'));
+  assert.match(EDIT_TOOL.description, /blockers/);
+  assert.match(EDIT_TOOL.description, /may not delete tasks or phases/);
 });
