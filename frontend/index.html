@@ -142,6 +142,14 @@
     #gantt-journey-view:fullscreen #mountain-scene-wrap,
     #gantt-journey-view:-webkit-full-screen #mountain-scene-wrap { height: calc(100vh - 160px) !important; }
 
+    /* A glassy "screen" bezel instead of a flat drop shadow — an inset
+       highlight along the top/left plus a soft inset shadow along the
+       bottom/right reads as a lit physical panel, and the outer shadow
+       lifts the whole thing off the page. */
+    .journey-scene-frame {
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -10px 24px rgba(0,0,0,.14), 0 10px 28px rgba(15,23,42,.14);
+    }
+
     /* Journey scene idle flourishes — a gentle bob on the avatar and a
        pulse on the current checkpoint's glow, both purely decorative
        (see frontend/js/journeyGame.js). transform-box is needed for
@@ -232,6 +240,31 @@
     @keyframes journey-flag-wave { 0%, 100% { transform: skewY(-4deg); } 50% { transform: skewY(4deg); } }
     @keyframes journey-speedline { 0% { opacity: .7; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-14px); } }
 
+    /* Goal-marker sparkle shimmer and the checkpoint "pop" the moment a
+       task completes — every element these target carries no transform
+       attribute of its own (position lives on a parent <g> instead), so
+       the CSS animation never fights a static transform. */
+    .journey-sparkle, .journey-checkpoint-pop { transform-box: fill-box; transform-origin: center; }
+    .journey-sparkle { animation: journey-sparkle 1.8s ease-in-out infinite; }
+    .journey-checkpoint-pop { animation: journey-checkpoint-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes journey-sparkle { 0%, 100% { opacity: .4; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.15); } }
+    @keyframes journey-checkpoint-pop { 0% { transform: scale(0); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+    /* Space's boots and Race's wheels swing/spin only while the avatar
+       is actively moving (the .journey-walking class on the avatar
+       layer, toggled briefly in journeyGame.js's apply()) — a
+       complement to Road's own always-animating limb rig above, for
+       the two themes that don't have one. */
+    .journey-leg-l, .journey-leg-r, .journey-wheel-l, .journey-wheel-r { transform-box: fill-box; }
+    .journey-leg-l, .journey-leg-r { transform-origin: center top; }
+    .journey-wheel-l, .journey-wheel-r { transform-origin: center; }
+    .journey-walking .journey-leg-l { animation: journey-leg-swing-a 0.32s ease-in-out infinite; }
+    .journey-walking .journey-leg-r { animation: journey-leg-swing-b 0.32s ease-in-out infinite; }
+    .journey-walking .journey-wheel-l, .journey-walking .journey-wheel-r { animation: journey-wheel-spin 0.4s linear infinite; }
+    @keyframes journey-leg-swing-a { 0%, 100% { transform: rotate(-16deg); } 50% { transform: rotate(16deg); } }
+    @keyframes journey-leg-swing-b { 0%, 100% { transform: rotate(16deg); } 50% { transform: rotate(-16deg); } }
+    @keyframes journey-wheel-spin { to { transform: rotate(360deg); } }
+
     /* Road birds gliding, Ocean light shafts shimmering. */
     .journey-bird { animation: journey-bird-glide 9s ease-in-out infinite; }
     .journey-ray-shimmer { animation: journey-ray-shimmer 5s ease-in-out infinite; }
@@ -274,7 +307,9 @@
       .journey-ring-spin, .journey-ring-spin-rev, .journey-shine,
       .journey-fish-swim, .journey-shark-swim, .journey-bubble-rise, .journey-seaweed,
       .journey-star-twinkle, .journey-comet, .journey-asteroid,
-      .journey-crowd-bob, .journey-flag-wave, .journey-speedline { animation: none; }
+      .journey-crowd-bob, .journey-flag-wave, .journey-speedline,
+      .journey-sparkle, .journey-checkpoint-pop,
+      .journey-leg-l, .journey-leg-r, .journey-wheel-l, .journey-wheel-r { animation: none; }
     }
 
     /* Native-feeling iOS toggle switch, reused anywhere a setting is a
@@ -1281,7 +1316,7 @@
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
           </div>
         </div>
-        <div class="relative rounded-2xl overflow-hidden shadow-sm" id="mountain-scene-wrap" style="height:min(62vh,520px); min-height:380px; background:linear-gradient(180deg, #8fd3fb 0%, #c7e9fd 55%, #fff3da 100%);" title="Tap the scene for a spark — real progress still only comes from finishing tasks below">
+        <div class="relative rounded-2xl overflow-hidden journey-scene-frame" id="mountain-scene-wrap" style="height:min(62vh,520px); min-height:380px; background:linear-gradient(180deg, #8fd3fb 0%, #c7e9fd 55%, #fff3da 100%);" title="Tap the scene for a spark — real progress still only comes from finishing tasks below">
           <div class="absolute inset-0" id="mountain-scene"></div>
           <div class="hidden absolute inset-0 z-20 items-center justify-center bg-black/40" id="mountain-celebrate">
             <div class="bg-white rounded-2xl p-6 max-w-sm mx-4 text-center shadow-2xl">
