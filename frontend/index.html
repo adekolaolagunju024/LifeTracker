@@ -88,6 +88,14 @@
       .page > .mb-6:first-child > p, .page h2.text-2xl + p { display: none; }
     }
 
+    /* The Journey's view toggle over the 2D scene (2D · Follow cam ·
+       Overview), styled like the one the 3D stages draw in their corner. */
+    .journey-view-bar { position: absolute; top: 10px; right: 10px; z-index: 4; display: flex; padding: 3px; border-radius: 999px;
+      background: rgba(10,18,32,.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+    .journey-view-bar[hidden] { display: none; }
+    .journey-view-bar button { font: 600 12px system-ui, sans-serif; color: #dbe4f2; background: transparent; border: 0; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+    .journey-view-bar button[aria-pressed="true"] { background: #f3f6fc; color: #0a1220; }
+
     /* Only things Tailwind can't do */
     .page { display: none; }
     .page.active { display: block; }
@@ -1643,26 +1651,18 @@
             <select id="journey-competitor-select" onchange="setJourneyCompetitor(this.value)" class="hidden border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
               <option value="schedule">🖥️ The Schedule</option>
             </select>
-            <select id="journey-theme-select" onchange="setJourneyTheme(this.value)" title="Change the Journey scene's look" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
+            <select id="journey-theme-select" onchange="setJourneyTheme(this.value)" title="Pick the Journey stage (2D or 3D is chosen on the scene itself)" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
               <optgroup label="Sport &amp; adventure">
                 <option value="football">⚽ Football</option>
-                <option value="football3d">🏟️ Football 3D</option>
                 <option value="castle">🏰 Castle</option>
-                <option value="castle3d">🏰 Castle 3D</option>
                 <option value="ocean">🌊 Ocean</option>
-                <option value="ocean3d">🌊 Ocean 3D</option>
                 <option value="space">🚀 Space</option>
-                <option value="space3d">🚀 Space 3D</option>
               </optgroup>
               <optgroup label="Work &amp; life">
                 <option value="corporate">🏢 Corporate</option>
-                <option value="corporate3d">🏢 Corporate 3D</option>
                 <option value="construction">🏗️ Construction</option>
-                <option value="construction3d">🏗️ Construction 3D</option>
                 <option value="life">🌱 Life Path</option>
-                <option value="life3d">🌱 Life Path 3D</option>
-                <option value="launch">🚀 Product Launch</option>
-                <option value="launch3d">🚀 Product Launch 3D</option>
+                <option value="launch">💡 Product Launch</option>
               </optgroup>
             </select>
             <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started and untick its cleared blockers" aria-label="Reset">↺<span class="hidden sm:inline"> Reset</span></button>

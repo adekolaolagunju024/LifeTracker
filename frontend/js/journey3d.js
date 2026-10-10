@@ -15,7 +15,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera } from './journey3dKit.js';
+import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera, makeViewToggle } from './journey3dKit.js';
 
 const MODEL_URL = '/assets/models/RobotExpressive.glb';
 const UI_FONT = '"Arial Black", Impact, "Arial Narrow", sans-serif';
@@ -71,21 +71,9 @@ export function createFootball3D(container) {
   const loadingEl = document.createElement('div');
   loadingEl.className = 'j3d-loading';
   loadingEl.textContent = 'Loading the stadium…';
-  const camBar = document.createElement('div');
+  const viewToggle = makeViewToggle(container, mode => { cam.mode = mode; });
+  const camBar = viewToggle.bar;
   camBar.className = 'j3d-cam';
-  camBar.setAttribute('role', 'group');
-  camBar.setAttribute('aria-label', 'Camera');
-  const camBtns = {};
-  [['follow', 'Follow cam'], ['overview', 'Overview']].forEach(([mode, text]) => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.textContent = text; b.setAttribute('aria-pressed', String(mode === 'follow'));
-    b.addEventListener('click', e => {
-      e.stopPropagation();
-      cam.mode = mode;
-      Object.entries(camBtns).forEach(([m, btn]) => btn.setAttribute('aria-pressed', String(m === mode)));
-    });
-    camBtns[mode] = b; camBar.appendChild(b);
-  });
   const goalOverlay = document.createElement('div');
   goalOverlay.className = 'j3d-goal'; goalOverlay.hidden = true;
   goalOverlay.innerHTML = '<span>GOAL!</span>';
@@ -1062,7 +1050,7 @@ export function createFootball3D(container) {
   }
 
   // ── Camera: chase cam behind the player, overview, and a goal cam ─────
-  const cam = { mode: 'follow', goalTime: 0, look: new THREE.Vector3(0, 1, 20) };
+  const cam = { mode: viewToggle.start, goalTime: 0, look: new THREE.Vector3(0, 1, 20) };
   const peek = { at: new THREE.Vector3(), t: 0 };
   const camDesired = new THREE.Vector3(), lookDesired = new THREE.Vector3();
   function updateCamera(dt, time) {

@@ -58,6 +58,34 @@ function injectKitStyles() {
 // container, the WebGL canvas, a loading note, a Follow/Overview camera
 // switch, a finish banner, and completed-task popups that track a world
 // position. Throws if WebGL can't start (journeyGame.js falls back to 2D).
+// The view toggle in a 3D stage's corner: 2D · Follow cam · Overview.
+// The camera buttons switch this stage's camera (onCam); every pick is
+// also reported to the app with a bubbling 'journeyview' event, which
+// remembers the camera and, for 2D, swaps in the 2D stage. The stage
+// starts on the camera last picked (container.dataset.cam, set by the
+// app), else the follow cam.
+export function makeViewToggle(container, onCam) {
+  const bar = document.createElement('div');
+  bar.setAttribute('role', 'group');
+  bar.setAttribute('aria-label', 'View');
+  const start = container.dataset.cam === 'overview' ? 'overview' : 'follow';
+  const report = detail => container.dispatchEvent(new CustomEvent('journeyview', { bubbles: true, detail }));
+  const two = document.createElement('button');
+  two.type = 'button'; two.textContent = '2D'; two.setAttribute('aria-pressed', 'false');
+  two.title = 'Show this stage in 2D';
+  two.addEventListener('click', e => { e.stopPropagation(); report({ view: '2d' }); });
+  bar.appendChild(two);
+  const btns = {};
+  const select = mode => Object.entries(btns).forEach(([m, b]) => b.setAttribute('aria-pressed', String(m === mode)));
+  [['follow', 'Follow cam'], ['overview', 'Overview']].forEach(([mode, text]) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = text;
+    b.addEventListener('click', e => { e.stopPropagation(); onCam(mode); select(mode); report({ view: '3d', cam: mode }); });
+    btns[mode] = b; bar.appendChild(b);
+  });
+  select(start);
+  return { bar, start, select, label(mode, text) { if (btns[mode]) btns[mode].textContent = text; } };
+}
 export function createShell(container, { label, background, loadingText, winTitle, winText, winFill, winEdge }) {
   injectKitStyles();
   const root = document.createElement('div');
@@ -69,21 +97,10 @@ export function createShell(container, { label, background, loadingText, winTitl
   loadingEl.className = 'jk-loading';
   loadingEl.textContent = loadingText;
   const cam = { mode: 'follow' };
-  const camBar = document.createElement('div');
+  const viewToggle = makeViewToggle(container, mode => { cam.mode = mode; });
+  cam.mode = viewToggle.start;
+  const camBar = viewToggle.bar;
   camBar.className = 'jk-cam';
-  camBar.setAttribute('role', 'group');
-  camBar.setAttribute('aria-label', 'Camera');
-  const camBtns = {};
-  [['follow', 'Follow cam'], ['overview', 'Overview']].forEach(([mode, text]) => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.textContent = text; b.setAttribute('aria-pressed', String(mode === 'follow'));
-    b.addEventListener('click', e => {
-      e.stopPropagation();
-      cam.mode = mode;
-      Object.entries(camBtns).forEach(([m, btn]) => btn.setAttribute('aria-pressed', String(m === mode)));
-    });
-    camBtns[mode] = b; camBar.appendChild(b);
-  });
   const labelLayer = document.createElement('div');
   labelLayer.className = 'jk-labels';
   const winEl = document.createElement('div');
@@ -151,7 +168,7 @@ export function createShell(container, { label, background, loadingText, winTitl
     });
   }
 
-  return { root, loadingEl, cam, winEl, renderer, timers, reduceMotion, showWin, spawnTaskLabel, updateTaskLabels };
+  return { root, loadingEl, cam, viewToggle, winEl, renderer, timers, reduceMotion, showWin, spawnTaskLabel, updateTaskLabels };
 }
 
 // Sizes the renderer to the shell's own root (not the container, whose

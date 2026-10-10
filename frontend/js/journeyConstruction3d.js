@@ -1184,11 +1184,8 @@ export function createConstruction3D(container) {
   // The default is the site view: a slow orbit round the building, looking
   // at whatever height the work has reached. Follow cam rides with the
   // builder round the site road.
-  shell.cam.mode = 'overview';
-  shell.root.querySelectorAll('.jk-cam button').forEach(b => {
-    if (b.textContent === 'Overview') b.textContent = 'Site view';
-    b.setAttribute('aria-pressed', String(b.textContent === 'Site view'));
-  });
+  shell.viewToggle.label('overview', 'Site view');
+  if (container.dataset.cam !== 'follow') { shell.cam.mode = 'overview'; shell.viewToggle.select('overview'); }
   const cam = { look: V(0, 1, 20), shake: 0, orbit: -0.9, liftT: 0, liftAt: V(0, 0, 0), buildT: 0 };
   // Close-ups, whichever camera is picked: the crane lifting a task's
   // blockers off the road (liftShot), and the building going up a phase
