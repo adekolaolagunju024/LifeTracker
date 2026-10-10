@@ -492,6 +492,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeFil
 // index.html, no history.pushState), so "back" is an in-app stack of
 // wherever showPage() was called from, not actual browser history.
 function showPage(id, projectId = null, _skipHistory = false) {
+  if (id !== 'gantt' && isJourneyFullscreen()) setJourneyFullscreen(false);
   if (!_skipHistory && APP.currentPage !== undefined) {
     const isSamePlace = APP.currentPage === id && APP.currentProjectId === projectId;
     if (!isSamePlace) {
@@ -1780,6 +1781,7 @@ function applyGanttPageView(mode) {
   document.getElementById('gantt-timeline-view').classList.toggle('hidden', mode !== 'timeline');
   document.getElementById('gantt-kanban-view').classList.toggle('hidden', mode !== 'kanban');
   document.getElementById('gantt-journey-view').classList.toggle('hidden', mode !== 'journey');
+  if (mode !== 'journey' && isJourneyFullscreen()) setJourneyFullscreen(false);
   // Journey shows its own themed version of these same numbers (and its
   // own Reset button) inside its game panel — these plain ones would be
   // mismatched duplicates there. Only hidden here, never shown: whether
@@ -4942,20 +4944,39 @@ function competitorFraction() {
   return { frac: mountainExpectedFraction(), label: 'The Schedule', isComputer: true };
 }
 
-// Literal whole-screen, via the Fullscreen API — the default already fills
-// the page's content area like the Gantt/Kanban views either side of it,
-// this goes further and drops the sidebar/topbar chrome too.
-function toggleJourneyFullscreen() {
-  const el = document.getElementById('gantt-journey-view');
-  if (!document.fullscreenElement) {
-    (el.requestFullscreen || el.webkitRequestFullscreen || function () {}).call(el);
-  } else {
-    (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
-  }
-}
-document.addEventListener('fullscreenchange', () => {
+// Fullscreen for the Journey: the view is stretched over the whole page
+// (body.journey-fs, see index.html) and the browser goes fullscreen on the
+// page itself where the Fullscreen API exists. Fullscreening only the view
+// element would hide everything outside it, including the Reset confirm
+// dialog, toasts and the task details panel, so those buttons would seem
+// to do nothing. Esc, the button again, or leaving the Journey all exit.
+function isJourneyFullscreen() { return document.body.classList.contains('journey-fs'); }
+function setJourneyFullscreen(on) {
+  document.body.classList.toggle('journey-fs', on);
   const btn = document.getElementById('journey-fullscreen-btn');
-  if (btn) btn.textContent = document.fullscreenElement ? '✕ Exit Fullscreen' : '⛶ Fullscreen';
+  if (btn) btn.textContent = on ? '✕ Exit Fullscreen' : '⛶ Fullscreen';
+  const root = document.documentElement;
+  const native = document.fullscreenElement || document.webkitFullscreenElement;
+  try {
+    if (on && !native) {
+      const req = root.requestFullscreen || root.webkitRequestFullscreen;
+      if (req) { const p = req.call(root); if (p && p.catch) p.catch(() => {}); }
+    } else if (!on && native) {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) { const p = exit.call(document); if (p && p.catch) p.catch(() => {}); }
+    }
+  } catch { /* the page still fills the window without the API */ }
+}
+function toggleJourneyFullscreen() { setJourneyFullscreen(!isJourneyFullscreen()); }
+['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => {
+  // Esc (or the browser's own exit) leaves native fullscreen: follow it.
+  if (!(document.fullscreenElement || document.webkitFullscreenElement) && isJourneyFullscreen()) setJourneyFullscreen(false);
+}));
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !isJourneyFullscreen()) return;
+  // Esc closes an open dialog or panel first, then fullscreen.
+  if (document.querySelector('.modal-overlay.open') || !document.getElementById('task-detail-panel')?.classList.contains('translate-x-full')) return;
+  setJourneyFullscreen(false);
 });
 
 // How far through its own date range `tasks` "should" be right now, by
