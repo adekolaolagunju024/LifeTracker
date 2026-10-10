@@ -1,0 +1,4 @@
+⚠️  SESSION_SECRET is not set in .env — using an insecure development default. Set one before deploying.
+
+🚀 Waypoint running at http://localhost:3995
+

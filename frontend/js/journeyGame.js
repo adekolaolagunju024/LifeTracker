@@ -1414,6 +1414,210 @@ const JourneyGame = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════
+  // THEME: CONSTRUCTION — "The Build Site". A builder in a hard hat and
+  // hi-vis walks a dirt haul road past site signboards to the plot,
+  // where the building rises phase by phase as tasks get done (unbuilt
+  // phases show as a faint blueprint). Blockers are barriers and cones,
+  // permit-pending signs, storm clouds, broken-down trucks and rubble.
+  // ════════════════════════════════════════════════════════════════
+  function constructionDecorate(svg, layout, glowId, glowLgId) {
+    const { w, h } = layout;
+    svg.appendChild(el('circle', { cx: w * 0.86, cy: h * 0.09, r: w * 0.1, fill: '#fff4cf', opacity: 0.45, filter: glowLgId ? `url(#${glowLgId})` : undefined }));
+    svg.appendChild(el('circle', { cx: w * 0.86, cy: h * 0.09, r: w * 0.032, fill: '#fff7dd' }));
+    cloudGroup(svg, layout, [[0.2, 0.07, 0.75], [0.55, 0.1, 0.6]]);
+    // a hazy city beyond the site
+    let x = -6;
+    for (let k = 0; x < w + 6; k++) {
+      const bw = w * (0.04 + hash01(k + 70) * 0.05), bh = h * (0.04 + hash01(k + 90) * 0.1);
+      svg.appendChild(el('rect', { x, y: h * 0.27 - bh, width: bw, height: bh + 2, fill: '#b9c6d4', opacity: 0.7 }));
+      x += bw + 2;
+    }
+    // the site: packed earth, gravel, tyre tracks
+    svg.appendChild(el('rect', { x: 0, y: h * 0.26, width: w, height: h * 0.74, fill: '#d2b48c' }));
+    svg.appendChild(el('path', { d: `M 0 ${h * 0.34} Q ${w * 0.3} ${h * 0.3} ${w * 0.6} ${h * 0.35} T ${w} ${h * 0.32} L ${w} ${h} L 0 ${h} Z`, fill: '#c9a67a' }));
+    for (let k = 0; k < 140; k++) {
+      svg.appendChild(el('circle', { cx: hash01(k + 300) * w, cy: h * 0.3 + hash01(k + 500) * h * 0.7, r: 0.8 + hash01(k + 700) * 1.4, fill: k % 3 ? '#a98b62' : '#e2cba4', opacity: 0.7 }));
+    }
+    [[0.05, 0.95, 0.4, 0.6, 0.9, 0.5], [0.2, 0.98, 0.6, 0.7, 0.98, 0.62]].forEach(([x1, y1, cx, cy, x2, y2]) => {
+      [-4, 4].forEach(off => svg.appendChild(el('path', { d: `M ${w * x1 + off} ${h * y1} Q ${w * cx + off} ${h * cy} ${w * x2 + off} ${h * y2}`, fill: 'none', stroke: '#a7865d', 'stroke-width': 3, 'stroke-dasharray': '5 3', opacity: 0.45 })));
+    });
+    svg.appendChild(el('ellipse', { cx: w * 0.3, cy: h * 0.78, rx: 26, ry: 7, fill: '#8fb7cf', opacity: 0.7 }));
+    // the site hoarding along the back, with a safety banner
+    svg.appendChild(el('rect', { x: 0, y: h * 0.255, width: w, height: h * 0.04, fill: '#e5e7eb', stroke: '#9ca3af', 'stroke-width': 0.8 }));
+    for (let px = 0; px < w; px += 36) svg.appendChild(el('rect', { x: px, y: h * 0.255, width: 2, height: h * 0.04, fill: '#9ca3af' }));
+    const banner = el('g', { transform: `translate(${w * 0.2},${h * 0.275})` });
+    banner.appendChild(el('rect', { x: -32, y: -6, width: 64, height: 12, rx: 1.5, fill: '#facc15', stroke: '#111827', 'stroke-width': 0.8 }));
+    const bt = el('text', { x: 0, y: 3.5, 'text-anchor': 'middle', 'font-size': 7.4, 'font-weight': 900, fill: '#111827', 'font-family': 'Arial, sans-serif' });
+    bt.textContent = 'SAFETY FIRST';
+    banner.appendChild(bt);
+    svg.appendChild(banner);
+  }
+
+  // Cones, brick pallets, pipe stacks, sand piles and drums around the site.
+  function constructionScatter(layer, layout, isClear, rand) {
+    scatterProps(layer, layout, isClear, rand, {
+      count: 14, margin: 16, spacing: 34, minY: layout.h * 0.32,
+      draw(g, v) {
+        g.appendChild(el('ellipse', { cx: 3, cy: 1, rx: 12, ry: 3, fill: '#0b1220', opacity: 0.16 }));
+        if (v < 0.25) {
+          g.appendChild(el('path', { d: 'M -4 0 L 0 -12 L 4 0 Z', fill: '#f97316', stroke: '#9a3412', 'stroke-width': 0.6 }));
+          g.appendChild(el('path', { d: 'M -2.4 -5 L 2.4 -5', stroke: '#ffffff', 'stroke-width': 1.6 }));
+          g.appendChild(el('rect', { x: -5.5, y: -1, width: 11, height: 1.6, fill: '#9a3412' }));
+        } else if (v < 0.45) {
+          g.appendChild(el('rect', { x: -9, y: -2, width: 18, height: 2.4, fill: '#a16207' }));
+          for (let r = 0; r < 3; r++) for (let c = 0; c < 4 - (r % 2); c++) g.appendChild(el('rect', { x: -8 + c * 4.2 + (r % 2) * 2, y: -5 - r * 3, width: 3.8, height: 2.6, fill: '#b45309', stroke: '#7c2d12', 'stroke-width': 0.4 }));
+        } else if (v < 0.65) {
+          [[-6, -2.4], [0, -2.4], [6, -2.4], [-3, -7], [3, -7], [0, -11.6]].forEach(([cx, cy]) => {
+            g.appendChild(el('circle', { cx, cy, r: 2.6, fill: '#94a3b8', stroke: '#475569', 'stroke-width': 0.6 }));
+            g.appendChild(el('circle', { cx, cy, r: 1.3, fill: '#334155' }));
+          });
+        } else if (v < 0.82) {
+          g.appendChild(el('path', { d: 'M -12 0 Q -4 -12 2 -11 Q 9 -10 13 0 Z', fill: '#e6c88f' }));
+          g.appendChild(el('path', { d: 'M -6 -6 Q -2 -10 2 -9', fill: 'none', stroke: '#f6e2b8', 'stroke-width': 1.4 }));
+        } else {
+          g.appendChild(el('rect', { x: -4, y: -11, width: 8, height: 11, rx: 1, fill: '#2563eb', stroke: '#1e3a8a', 'stroke-width': 0.6 }));
+          [-8, -4].forEach(by => g.appendChild(el('rect', { x: -4, y: by, width: 8, height: 0.8, fill: '#1e3a8a' })));
+        }
+      },
+    });
+  }
+
+  // A builder in a hard hat and hi-vis vest, a hammer in the front hand.
+  function constructionBuildAvatar(fill, shadowFilterId) {
+    const g = el('g', { class: 'journey-avatar' });
+    g.appendChild(el('ellipse', { cx: 0, cy: 24, rx: 15, ry: 3.6, fill: '#1f2937', opacity: 0.25 }));
+    const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    bob.appendChild(avatarLimb('journey-leg-back', '#1e40af', -3.4, 9, 4.2, 10, 3.6, 1.9, '#78350f'));
+    bob.appendChild(avatarLimb('journey-arm-back', '#2563eb', -7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+    bob.appendChild(el('rect', { x: -8.6, y: -9, width: 17.2, height: 19, rx: 6, fill: '#2563eb', stroke: '#1f2937', 'stroke-width': 1 }));
+    bob.appendChild(el('path', { d: 'M -8.4 -6 Q -8.6 -9 -5 -9 L -2 -9 L -2 10 L -6 10 Q -8.6 10 -8.4 7 Z M 8.4 -6 Q 8.6 -9 5 -9 L 2 -9 L 2 10 L 6 10 Q 8.6 10 8.4 7 Z', fill }));
+    [1, 5].forEach(sy => bob.appendChild(el('path', { d: `M -8.4 ${sy} L -2 ${sy} M 2 ${sy} L 8.4 ${sy}`, stroke: '#e5e7eb', 'stroke-width': 1.4 })));
+    bob.appendChild(el('rect', { x: -8.4, y: 7.4, width: 16.8, height: 2.2, fill: '#78350f' }));
+    bob.appendChild(avatarLimb('journey-leg-front', '#1d4ed8', 3.4, 9, 4.2, 10, 3.6, 1.9, '#78350f'));
+    const armFront = avatarLimb('journey-arm-front', '#2563eb', 7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae');
+    const hammer = el('g', { transform: 'translate(0,9.6) rotate(-120)' });
+    hammer.appendChild(el('rect', { x: -0.8, y: -2, width: 1.6, height: 12, rx: 0.6, fill: '#a16207' }));
+    hammer.appendChild(el('rect', { x: -3.4, y: 9, width: 6.8, height: 3, rx: 0.6, fill: '#6b7280', stroke: '#374151', 'stroke-width': 0.5 }));
+    armFront.firstChild.appendChild(hammer);
+    bob.appendChild(armFront);
+    const head = cartoonHead({ hair: '#5b3a22' });
+    head.appendChild(el('path', { d: 'M -10 -4 A 10 9.6 0 0 1 10 -4 Z', fill: '#facc15', stroke: '#a16207', 'stroke-width': 0.9 }));
+    head.appendChild(el('rect', { x: -12, y: -4.6, width: 24, height: 2.4, rx: 1.2, fill: '#eab308', stroke: '#a16207', 'stroke-width': 0.7 }));
+    head.appendChild(el('path', { d: 'M -1.4 -13 L 1.4 -13 L 1.4 -4.6 L -1.4 -4.6 Z', fill: '#fde047' }));
+    head.setAttribute('transform', 'translate(0,-18.5)');
+    bob.appendChild(head);
+    g.appendChild(bob);
+    return g;
+  }
+
+  // The plot: a foundation slab with the building's phases on it (frame,
+  // floors, walls, roof), each a faint blueprint until enough tasks are
+  // done (see constructionUpdateGoal), and a tower crane holding the final
+  // beam for the topping-out.
+  function constructionBuildGoal(x, y, gradId, shadowFilterId, glowId) {
+    const g = el('g', { class: 'journey-build', transform: `translate(${x},${y + 6}) scale(0.62)` });
+    g.appendChild(el('circle', { cx: 0, cy: -28, r: 48, fill: '#ffe08a', opacity: 0.24, filter: glowId ? `url(#${glowId})` : undefined }));
+    g.appendChild(el('ellipse', { cx: 0, cy: 3, rx: 44, ry: 7, fill: '#a98b62' }));
+    const body = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    body.appendChild(el('rect', { x: -28, y: -4, width: 56, height: 6, fill: '#9ca3af', stroke: '#4b5563', 'stroke-width': 0.8 }));
+    const phase = at => { const p = el('g', { class: 'journey-build-phase', 'data-at': at }); body.appendChild(p); return p; };
+    const steel = '#64748b', brick = '#c2410c', slab = '#cbd5e1';
+    // frame: ground and first floor columns and slabs
+    const p1 = phase(0.2);
+    [-24, -8, 8, 24].forEach(cx => p1.appendChild(el('rect', { x: cx - 1.4, y: -18, width: 2.8, height: 14, fill: steel })));
+    p1.appendChild(el('rect', { x: -27, y: -20, width: 54, height: 3, fill: slab, stroke: '#64748b', 'stroke-width': 0.6 }));
+    const p2 = phase(0.4);
+    [-24, -8, 8, 24].forEach(cx => p2.appendChild(el('rect', { x: cx - 1.4, y: -34, width: 2.8, height: 14, fill: steel })));
+    p2.appendChild(el('rect', { x: -27, y: -36, width: 54, height: 3, fill: slab, stroke: '#64748b', 'stroke-width': 0.6 }));
+    // walls with windows on the first two floors
+    const walls = (p, top) => {
+      [[-22.6, -9.4], [-6.6, 6.6], [9.4, 22.6]].forEach(([a, b]) => {
+        p.appendChild(el('rect', { x: a, y: top, width: b - a, height: 13, fill: brick }));
+        p.appendChild(el('rect', { x: a + 2.6, y: top + 3, width: b - a - 5.2, height: 6.4, fill: '#bfdbfe', stroke: '#e5e7eb', 'stroke-width': 0.8, class: 'journey-build-window' }));
+      });
+    };
+    const p3 = phase(0.6);
+    walls(p3, -17); walls(p3, -33);
+    p3.appendChild(el('rect', { x: -5, y: -15, width: 10, height: 11, fill: '#1f2937' }));
+    // top floor
+    const p4 = phase(0.8);
+    [-24, -8, 8, 24].forEach(cx => p4.appendChild(el('rect', { x: cx - 1.4, y: -50, width: 2.8, height: 14, fill: steel })));
+    walls(p4, -49);
+    // roof and parapet
+    const p5 = phase(1);
+    p5.appendChild(el('rect', { x: -28, y: -54, width: 56, height: 4, fill: '#475569' }));
+    p5.appendChild(el('rect', { x: -14, y: -59, width: 10, height: 5, fill: '#94a3b8' }));
+    g.appendChild(body);
+    // the tower crane beside it, with the topping-out beam on its hook
+    const crane = el('g', { transform: 'translate(36,0)' });
+    crane.appendChild(el('rect', { x: -2.4, y: -78, width: 4.8, height: 78, fill: 'none', stroke: '#eab308', 'stroke-width': 1.4 }));
+    for (let yy = -78; yy < 0; yy += 6) crane.appendChild(el('path', { d: `M -2.4 ${yy} L 2.4 ${yy + 6} M 2.4 ${yy} L -2.4 ${yy + 6}`, stroke: '#eab308', 'stroke-width': 0.7 }));
+    crane.appendChild(el('rect', { x: -58, y: -82, width: 74, height: 3.4, fill: '#eab308', stroke: '#a16207', 'stroke-width': 0.5 }));
+    crane.appendChild(el('rect', { x: 9, y: -86, width: 7, height: 4.4, fill: '#6b7280' }));
+    crane.appendChild(el('rect', { x: -4, y: -88, width: 8, height: 6, fill: '#fde047', stroke: '#a16207', 'stroke-width': 0.5 }));
+    crane.appendChild(el('path', { d: 'M 0 -88 L -40 -82 M 0 -88 L 14 -82', stroke: '#a16207', 'stroke-width': 0.6 }));
+    const hook = el('g', { class: 'journey-crane-hook' });
+    hook.appendChild(el('rect', { x: -36.4, y: -79, width: 0.8, height: 16, fill: '#374151' }));
+    hook.appendChild(el('rect', { x: -44, y: -63, width: 16, height: 2.6, fill: '#b91c1c', stroke: '#7f1d1d', 'stroke-width': 0.5 }));
+    hook.appendChild(el('rect', { x: -36.4, y: -71, width: 0.6, height: 8, fill: '#374151' }));
+    hook.appendChild(el('path', { d: 'M -36 -71 L -36 -77 L -30 -75 L -36 -73 Z', fill: '#22c55e' }));
+    crane.appendChild(hook);
+    g.appendChild(crane);
+    // the opening ribbon across the entrance
+    const ribbon = el('g', { class: 'journey-ribbon' });
+    ribbon.appendChild(el('path', { class: 'journey-ribbon-l', d: 'M -10 -6 L 0 -6', stroke: '#dc2626', 'stroke-width': 1.6 }));
+    ribbon.appendChild(el('path', { class: 'journey-ribbon-r', d: 'M 0 -6 L 10 -6', stroke: '#dc2626', 'stroke-width': 1.6 }));
+    ribbon.appendChild(el('circle', { cx: 0, cy: -6, r: 1.8, fill: '#dc2626' }));
+    g.appendChild(ribbon);
+    g.appendChild(sparkles([[-30, -60, 2.2], [26, -44, 1.8]]));
+    return g;
+  }
+  // Raises the building to match progress: phases at or below it are built.
+  function constructionUpdateGoal(entry, frac) {
+    entry.svg.querySelectorAll('.journey-build-phase').forEach(p => {
+      p.classList.toggle('is-built', frac >= Number(p.getAttribute('data-at')) - 1e-6);
+    });
+  }
+
+  // A checkpoint: a site signboard on two legs, hazard-striped, turning
+  // green with a tick when done.
+  function constructionBuildCheckpoint(i, isDone, isNext, blocked, scale, shadowFilterId) {
+    const s = scale;
+    const g = el('g', { class: 'journey-flag' });
+    if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 0, cy: -22 * s, r: 15 * s, fill: NEXT_COLOR, opacity: 0.5 }));
+    g.appendChild(el('ellipse', { cx: 1.5 * s, cy: 0.5 * s, rx: 7 * s, ry: 1.6 * s, fill: '#0b1220', opacity: 0.22 }));
+    [-6, 6].forEach(lx => g.appendChild(el('rect', { x: (lx - 0.7) * s, y: -18 * s, width: 1.4 * s, height: 18 * s, fill: '#4b5563' })));
+    const board = el('g', { class: 'journey-flag-wave' });
+    board.appendChild(el('rect', {
+      x: -10 * s, y: -31 * s, width: 20 * s, height: 14 * s, rx: 1 * s, fill: '#facc15', stroke: '#111827', 'stroke-width': 0.6 * s,
+      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
+    }));
+    for (let k = -9; k < 10; k += 4) board.appendChild(el('path', { d: `M ${k * s} ${-31 * s} L ${(k + 2) * s} ${-31 * s} L ${(k - 1) * s} ${-17 * s} L ${(k - 3) * s} ${-17 * s} Z`, fill: '#111827', opacity: 0.85 }));
+    board.appendChild(el('rect', { x: -7.6 * s, y: -28.6 * s, width: 15.2 * s, height: 9.2 * s, rx: 0.8 * s, fill: isDone ? '#10b981' : isNext ? '#fff7d6' : '#ffffff' }));
+    if (isDone) {
+      board.appendChild(el('path', { d: `M ${-4 * s} ${-24 * s} L ${-1.2 * s} ${-21.4 * s} L ${4.4 * s} ${-27 * s}`, fill: 'none', stroke: '#ffffff', 'stroke-width': 1.8 * s, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    } else {
+      const label = el('text', { x: 0, y: -23.6 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 7 * s, 'font-weight': 900, fill: '#1f2937', 'font-family': 'Arial, sans-serif' });
+      label.textContent = String(i + 1);
+      board.appendChild(label);
+    }
+    g.appendChild(board);
+    if (blocked) g.appendChild(drawFoes(blocked, s, CONSTRUCTION_FOES));
+    return g;
+  }
+
+  // The topping-out: the crane lowers the final beam onto the roof, the
+  // ribbon at the entrance is cut, "PROJECT COMPLETE!" and fireworks.
+  function constructionCelebrateFinish(entry, from, scale, burst) {
+    entry.shotPending = false;
+    entry.svg.classList.add('journey-quest-done');
+    const hook = entry.svg.querySelector('.journey-crane-hook');
+    if (hook) { hook.classList.remove('journey-topping'); hook.getBBox(); hook.classList.add('journey-topping'); }
+    finishFlourish(entry, 'PROJECT COMPLETE!', '#fde047', '#7c2d12', ['#fde047', '#fb923c', '#86efac']);
+    burst();
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // OBSTACLES — each task's named obstacles become that many enemies on
   // the road before its flag, drawn in the theme's own style (rival
   // players, mini-bosses, sharks, asteroids...), with the obstacle's name
@@ -1515,6 +1719,43 @@ const JourneyGame = (() => {
       g.appendChild(el('path', { d: 'M -1.6 -17.8 Q 0.6 -17 2 -18.4', fill: 'none', stroke: '#1f2937', 'stroke-width': 0.7, 'stroke-linecap': 'round' }));
     }
   };
+  // Construction: barriers and cones, a permit-pending sign, a storm
+  // cloud, a broken-down truck and a pile of rubble, in turn.
+  const CONSTRUCTION_FOES = (g, k) => {
+    const kind = k % 5;
+    if (kind === 0) {
+      [-8, 8].forEach(lx => g.appendChild(el('path', { d: `M ${lx - 1.6} 0 L ${lx} -10 L ${lx + 1.6} 0 Z`, fill: '#6b7280' })));
+      g.appendChild(el('rect', { x: -10, y: -11, width: 20, height: 5, fill: '#ffffff', stroke: '#111827', 'stroke-width': 0.5 }));
+      for (let x = -9; x < 10; x += 5) g.appendChild(el('path', { d: `M ${x} -11 L ${x + 2.4} -11 L ${x + 0.4} -6 L ${x - 2} -6 Z`, fill: '#dc2626' }));
+      g.appendChild(el('circle', { cx: -9, cy: -12.6, r: 1.4, fill: '#f59e0b' }));
+      g.appendChild(el('path', { d: 'M -14 0 L -11.6 -8 L -9.2 0 Z', fill: '#f97316' }));
+    } else if (kind === 1) {
+      g.appendChild(el('rect', { x: -0.8, y: -10, width: 1.6, height: 10, fill: '#4b5563' }));
+      g.appendChild(el('rect', { x: -10, y: -20, width: 20, height: 11, rx: 1.2, fill: '#dc2626', stroke: '#7f1d1d', 'stroke-width': 0.6 }));
+      const t1 = el('text', { x: 0, y: -15, 'text-anchor': 'middle', 'font-size': 4.4, 'font-weight': 900, fill: '#ffffff', 'font-family': 'Arial, sans-serif' });
+      t1.textContent = 'PERMIT';
+      const t2 = el('text', { x: 0, y: -10.6, 'text-anchor': 'middle', 'font-size': 3.6, 'font-weight': 800, fill: '#fde68a', 'font-family': 'Arial, sans-serif' });
+      t2.textContent = 'PENDING';
+      g.appendChild(t1); g.appendChild(t2);
+    } else if (kind === 2) {
+      [[-5, -18, 5.4], [1, -21, 6.4], [6.4, -17.6, 4.6], [0, -15.6, 6]].forEach(([cx, cy, r]) => g.appendChild(el('circle', { cx, cy, r, fill: '#6b7280' })));
+      g.appendChild(el('path', { d: 'M -4 -15 Q -1 -17.4 2 -15', fill: 'none', stroke: '#1f2937', 'stroke-width': 0.9 }));
+      [-6, -2, 2, 6].forEach(rx => g.appendChild(el('path', { d: `M ${rx} -10 L ${rx - 1.6} -4`, stroke: '#60a5fa', 'stroke-width': 1, 'stroke-linecap': 'round' })));
+      g.appendChild(el('path', { d: 'M 1 -12 L -1.4 -6 L 1.4 -6 L -1 0', fill: 'none', stroke: '#facc15', 'stroke-width': 1.4, 'stroke-linejoin': 'round' }));
+    } else if (kind === 3) {
+      g.appendChild(el('path', { d: 'M -11 -4 L -11 -11 L -1 -11 L 2 -15 L 10 -15 L 10 -4 Z', fill: '#eab308', stroke: '#713f12', 'stroke-width': 0.6 }));
+      g.appendChild(el('rect', { x: 3, y: -14, width: 5, height: 4, fill: '#bfdbfe' }));
+      g.appendChild(el('path', { d: 'M -12 -11 L -2 -11 L -4 -16 L -13 -15 Z', fill: '#a16207' }));
+      [-7, 6].forEach(wx => g.appendChild(el('circle', { cx: wx, cy: -3, r: 3, fill: '#111827', stroke: '#6b7280', 'stroke-width': 0.8 })));
+      g.appendChild(el('circle', { cx: -2, cy: -19, r: 3, fill: '#9ca3af', opacity: 0.8 }));
+      g.appendChild(el('circle', { cx: 1, cy: -22, r: 2.2, fill: '#9ca3af', opacity: 0.6 }));
+    } else {
+      [[-7, -2, 4, '#9ca3af'], [-1, -3, 5, '#78716c'], [6, -2, 3.6, '#a8a29e'], [-3, -7, 3.6, '#a8a29e'], [3, -7.6, 3, '#9ca3af'], [0, -11, 2.6, '#78716c']].forEach(([cx, cy, r, f]) => {
+        g.appendChild(el('path', { d: `M ${cx - r} ${cy + r * 0.6} L ${cx - r * 0.5} ${cy - r * 0.7} L ${cx + r * 0.6} ${cy - r * 0.8} L ${cx + r} ${cy + r * 0.5} Z`, fill: f, stroke: '#57534e', 'stroke-width': 0.5 }));
+      });
+      g.appendChild(el('path', { d: 'M -9 -4 L 9 -9', stroke: '#7c2d12', 'stroke-width': 1.4, 'stroke-linecap': 'round' }));
+    }
+  };
   const FOOTBALL_FOES = g => {
     g.appendChild(el('rect', { x: -2.4, y: -7, width: 2, height: 7, fill: '#f1f5f9' }));
     g.appendChild(el('rect', { x: 0.4, y: -7, width: 2, height: 7, fill: '#f1f5f9' }));
@@ -1598,6 +1839,14 @@ const JourneyGame = (() => {
       path: { outline: '#475569', fill: '#f8fafc', dash: '#f59e0b', progress: '#fde68a' },
       decorate: corporateDecorate, scatter: corporateScatter, buildAvatar: corporateBuildAvatar, buildGoal: corporateBuildGoal, buildCheckpoint: corporateBuildCheckpoint, foes: CORPORATE_FOES,
       celebrateFinish: corporateCelebrateFinish,
+    },
+    construction: {
+      label: 'Construction', avatarFill: '#f97316', clearedWord: 'CLEARED!',
+      sky: [[0, '#6aa9dc'], [18, '#b6d8f0'], [27, '#f3e3c3'], [28, '#d2b48c'], [100, '#c9a67a']],
+      goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
+      path: { outline: '#8b6b45', fill: '#e8d5b0', dash: '#f97316', progress: '#fde047' },
+      decorate: constructionDecorate, scatter: constructionScatter, buildAvatar: constructionBuildAvatar, buildGoal: constructionBuildGoal, buildCheckpoint: constructionBuildCheckpoint, foes: CONSTRUCTION_FOES,
+      updateGoal: constructionUpdateGoal, celebrateFinish: constructionCelebrateFinish,
     },
   };
   function resolveThemeKey(key) { return THEMES[key] ? key : 'football'; }
@@ -1995,6 +2244,8 @@ const JourneyGame = (() => {
     let phaseLabel = 'At the starting line';
     PHASES.forEach(p => { if (totalN && doneN / totalN > p.at) phaseLabel = p.label; });
     if (totalN && doneN === totalN) phaseLabel = 'Reached the target';
+    // Stages whose goal itself reflects progress (the Construction building).
+    if (theme.updateGoal) theme.updateGoal(entry, totalN ? doneN / totalN : 0);
     title.textContent = totalN
       ? `Journey progress: ${pct} percent. ${doneN} of ${totalN} tasks completed. Current milestone: ${phaseLabel}.`
       : 'Journey not started — no tasks yet.';
@@ -2132,6 +2383,7 @@ const JourneyGame = (() => {
     ocean3d: { module: '/js/journeyOcean3d.js', factory: 'createOcean3D', fallback: 'ocean', failed: false, loading: null },
     space3d: { module: '/js/journeySpace3d.js', factory: 'createSpace3D', fallback: 'space', failed: false, loading: null },
     corporate3d: { module: '/js/journeyCorporate3d.js', factory: 'createCorporate3D', fallback: 'corporate', failed: false, loading: null },
+    construction3d: { module: '/js/journeyConstruction3d.js', factory: 'createConstruction3D', fallback: 'construction', failed: false, loading: null },
   };
   const instances3d = new Set();
   let webglOk = null;
