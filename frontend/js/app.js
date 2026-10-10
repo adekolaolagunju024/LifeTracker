@@ -6661,3 +6661,31 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// ── NEW VERSION NOTICE ──────────────────────────────────────────
+// A tab left open keeps running the code it loaded, so after a deploy it
+// would quietly show the old behaviour. Every few minutes (and whenever
+// the tab comes back into view) it asks the server which build is live;
+// if that's changed, a small notice offers a one-click reload.
+let loadedVersion = null;
+async function checkForNewVersion() {
+  try {
+    const res = await fetch('/api/version', { cache: 'no-store' });
+    if (!res.ok) return;
+    const { version } = await res.json();
+    if (!loadedVersion) { loadedVersion = version; return; }
+    if (version !== loadedVersion) showNewVersionNotice();
+  } catch { /* offline: try again later */ }
+}
+function showNewVersionNotice() {
+  if (document.getElementById('new-version-notice')) return;
+  const bar = document.createElement('div');
+  bar.id = 'new-version-notice';
+  bar.setAttribute('role', 'status');
+  bar.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-navy text-white text-sm font-semibold pl-4 pr-2 py-2 rounded-xl shadow-2xl';
+  bar.innerHTML = '<span>✨ A new version of Waypoint is ready.</span><button class="bg-teal hover:bg-teal/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg" onclick="location.reload()">Reload</button><button class="text-white/60 hover:text-white text-lg leading-none px-1" aria-label="Dismiss" onclick="this.parentElement.remove()">×</button>';
+  document.body.appendChild(bar);
+}
+checkForNewVersion();
+setInterval(checkForNewVersion, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForNewVersion(); });
