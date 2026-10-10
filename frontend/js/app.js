@@ -1358,6 +1358,11 @@ async function renderGantt() {
       ? tasks.filter(t => allowedGroupIds.has(t.projectId))
       : tasks;
     renderGanttStats(dateSourceTasks, APP.ganttProjectFilter ? projectById[APP.ganttProjectFilter] : null);
+    const resetBtn = document.getElementById('gantt-reset-btn');
+    if (resetBtn) {
+      const filterProject = APP.ganttProjectFilter ? projectById[APP.ganttProjectFilter] : null;
+      resetBtn.classList.toggle('hidden', !filterProject || !(filterProject.role === 'owner' || filterProject.role === 'editor'));
+    }
     const dated = dateSourceTasks
       .flatMap(t => [t.startDate, t.endDate])
       .filter(Boolean)
@@ -1658,9 +1663,14 @@ function applyGanttPageView(mode) {
   document.getElementById('gantt-timeline-view').classList.toggle('hidden', mode !== 'timeline');
   document.getElementById('gantt-kanban-view').classList.toggle('hidden', mode !== 'kanban');
   document.getElementById('gantt-journey-view').classList.toggle('hidden', mode !== 'journey');
-  // Journey shows its own themed version of these same numbers inside
-  // its game panel — this plain one would be a mismatched duplicate there.
+  // Journey shows its own themed version of these same numbers (and its
+  // own Reset button) inside its game panel — these plain ones would be
+  // mismatched duplicates there. Only hidden here, never shown: whether
+  // it belongs on screen for Timeline/Kanban depends on edit permission,
+  // which renderGantt()'s own pass (always the caller, except for this
+  // direct journey switch) works out right after this runs.
   document.getElementById('gantt-stats-strip').classList.toggle('hidden', mode === 'journey');
+  if (mode === 'journey') document.getElementById('gantt-reset-btn').classList.add('hidden');
   // Zoom level and Print/Export only make sense for the timeline.
   document.getElementById('gantt-view-toggle').classList.toggle('hidden', mode !== 'timeline');
   document.getElementById('gantt-export-actions').classList.toggle('hidden', mode !== 'timeline');
@@ -4828,6 +4838,35 @@ function resetJourneyProgress() {
       }
     },
   );
+}
+
+// The same reset, offered from the Gantt Chart and Kanban views' own
+// shared header instead of Journey's — scoped to whatever single project
+// the (shared) project filter currently points at, same as the stats
+// strip above it. Self-contained rather than reading mountainState, since
+// that's only populated while the Journey sub-view is actually mounted.
+function resetGanttProjectProgress() {
+  const projectId = APP.ganttProjectFilter;
+  if (!projectId) return;
+  Promise.all([API.getProject(projectId), API.getProjects(), API.getTasks()]).then(([project, allProjects, allTasks]) => {
+    if (!(project.role === 'owner' || project.role === 'editor')) return;
+    const tasks = tasksInProjectTree(projectId, allProjects, allTasks);
+    const toReset = tasks.filter(t => t.status !== 'Not Started');
+    if (!toReset.length) { showToast('Already at the start — nothing to reset.'); return; }
+    confirmAction(
+      `Reset progress? All ${tasks.length} task${tasks.length === 1 ? '' : 's'} in "${project.title}" will be set back to Not Started. This can't be undone.`,
+      async () => {
+        try {
+          await Promise.all(toReset.map(t => API.updateTask(t.id, { status: 'Not Started' })));
+          renderGantt();
+          updateSidebar();
+          showToast('↺ Progress reset — back to the start.');
+        } catch (e) {
+          showToast('❌ ' + (e.message || 'Could not reset this project'), 'error');
+        }
+      },
+    );
+  }).catch(e => showToast('❌ ' + (e.message || 'Could not load this project'), 'error'));
 }
 
 // The modal text + the Journey scene's own big particle burst (fired
