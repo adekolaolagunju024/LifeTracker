@@ -4544,7 +4544,7 @@ async function renderJourneyView() {
     statusEl.textContent = 'Pick a specific project from the filter above — a Journey is one project at a time.';
     JourneyGame.destroy(document.getElementById('mountain-scene'));
     document.getElementById('mountain-tasklist').innerHTML = '';
-    document.getElementById('mountain-celebrate').classList.add('hidden');
+    dismissJourneyAchievement();
     if (competitorSel) competitorSel.classList.add('hidden');
     if (resetBtn) resetBtn.classList.add('hidden');
     const themeSel0 = document.getElementById('journey-theme-select');
@@ -4554,7 +4554,7 @@ async function renderJourneyView() {
     return;
   }
   statusEl.textContent = 'Loading…';
-  document.getElementById('mountain-celebrate').classList.add('hidden');
+  dismissJourneyAchievement();
   try {
     const [project, allProjects, allTasks, collaborators] = await Promise.all([
       API.getProject(projectId), API.getProjects(), API.getTasks(), API.getCollaborators(projectId).catch(() => []),
@@ -4892,7 +4892,7 @@ function showMountainCelebration() {
   } else {
     message = `You finished "${mountainState.project.title}". You made it — that's what counts!`;
   }
-  showProjectCompleteOverlay(mountainState.project.title, { message, heading: `${JOURNEY_META.doneLabel}!`, emoji: JOURNEY_META.doneEmoji });
+  showJourneyAchievement(mountainState.project.title, { message, heading: `${JOURNEY_META.doneLabel}!`, emoji: JOURNEY_META.doneEmoji });
 }
 
 // ── SCREEN-WIDE CELEBRATIONS ──────────────────────────────────
@@ -5039,6 +5039,29 @@ function fireBalloons(count) {
     }
   }
   tick();
+}
+
+// ── JOURNEY ACHIEVEMENT (corner card) ───────────────────────────
+// Journey's own "you reached the target" notice: the scene behind it
+// (avatar at the goal, confetti, balloons) *is* the celebration, so this
+// just confirms it from a corner instead of a full-screen sheet that
+// would cover that up. Slides in, auto-dismisses, or closed with its ×.
+let _jaDismissTimer = null;
+function showJourneyAchievement(title, { message, heading, emoji } = {}) {
+  if (!celebrationsEnabled()) return;
+  const banner = document.getElementById('journey-achieve-banner');
+  if (!banner) return;
+  document.getElementById('journey-achieve-emoji').textContent = emoji || '🏆';
+  document.getElementById('journey-achieve-heading').textContent = heading || 'Project Complete!';
+  document.getElementById('journey-achieve-message').textContent = message || `You finished every task in "${title}". Incredible work.`;
+  banner.classList.add('show');
+  clearTimeout(_jaDismissTimer);
+  _jaDismissTimer = setTimeout(dismissJourneyAchievement, 7000);
+}
+function dismissJourneyAchievement() {
+  clearTimeout(_jaDismissTimer);
+  const banner = document.getElementById('journey-achieve-banner');
+  if (banner) banner.classList.remove('show');
 }
 
 // ── PROJECT COMPLETE OVERLAY ────────────────────────────────────

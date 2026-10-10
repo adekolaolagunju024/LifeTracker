@@ -530,6 +530,9 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .toast { position: fixed; bottom: 24px; right: 24px; z-index: 999; opacity: 0; transform: translateY(10px); transition: all .25s; pointer-events: none; }
     .toast.show { opacity: 1; transform: translateY(0); }
+    .journey-achieve { position: fixed; top: 84px; right: 24px; z-index: 998; width: min(320px, calc(100vw - 32px)); opacity: 0; transform: translateX(16px); transition: opacity .3s, transform .3s cubic-bezier(0.16,1,0.3,1); pointer-events: none; }
+    .journey-achieve.show { opacity: 1; transform: translateX(0); pointer-events: auto; }
+    @media (prefers-reduced-motion: reduce) { .journey-achieve { transition: opacity .2s; } }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
     .project-card:hover .project-card-actions { opacity: 1 !important; }
@@ -1453,14 +1456,6 @@
         <div class="rounded-2xl overflow-hidden journey-scene-frame" id="journey-hud">
           <div class="relative" id="mountain-scene-wrap" style="height:min(55vh,460px); min-height:320px; background:linear-gradient(180deg, #8fd3fb 0%, #c7e9fd 55%, #fff3da 100%);" title="Tap the scene for a spark — real progress still only comes from finishing tasks below">
             <div class="absolute inset-0" id="mountain-scene"></div>
-            <div class="hidden absolute inset-0 z-20 items-center justify-center bg-black/40" id="mountain-celebrate">
-              <div class="bg-white rounded-2xl p-6 max-w-sm mx-4 text-center shadow-2xl">
-                <div class="text-5xl mb-2">🏆</div>
-                <h4 class="text-lg font-black text-navy mb-1" id="mountain-celebrate-title">Summit reached!</h4>
-                <p class="text-sm text-gray-600 mb-4" id="mountain-celebrate-text"></p>
-                <button onclick="document.getElementById('mountain-celebrate').classList.add('hidden')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-5 py-2 rounded-lg">Nice! 🎉</button>
-              </div>
-            </div>
           </div>
           <div class="journey-quest-panel flex flex-col" id="mountain-quest-panel">
             <div class="journey-stats-strip" id="mountain-stats"></div>
@@ -2364,6 +2359,21 @@
 <!-- TOAST -->
 <div class="toast bg-navy text-white px-5 py-3 rounded-xl text-sm font-medium shadow-xl" id="toast"></div>
 
+<!-- JOURNEY ACHIEVEMENT — a corner card for finishing a Journey, instead of
+     the full-screen Project Complete sheet below: the scene itself (avatar,
+     confetti, the goal) is the celebration here, so the notification just
+     confirms it off to the side rather than covering it up. Slides in,
+     dismissible by its own × or a wait, never captures clicks outside its
+     own small box. -->
+<div class="journey-achieve bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 flex items-start gap-3" id="journey-achieve-banner">
+  <div class="text-3xl leading-none flex-shrink-0" id="journey-achieve-emoji">🎯</div>
+  <div class="min-w-0 flex-1">
+    <h4 class="text-sm font-black text-navy" id="journey-achieve-heading">Reached the target!</h4>
+    <p class="text-xs text-gray-600 mt-0.5 leading-snug" id="journey-achieve-message"></p>
+  </div>
+  <button onclick="dismissJourneyAchievement()" class="text-gray-400 hover:text-gray-600 text-lg leading-none flex-shrink-0" title="Dismiss">✕</button>
+</div>
+
 <!-- Screen-wide celebration layers — fire from anywhere a task (or a whole
      project) is completed, not just inside Journey view. Always on top,
      never blocks clicks. Balloons get their own canvas so their rise-and-
@@ -2373,8 +2383,9 @@
 <canvas id="global-balloons" class="fixed inset-0 z-[9999] pointer-events-none"></canvas>
 
 <!-- PROJECT COMPLETE — a full-screen congratulations page, shown whenever
-     every task in a project is completed (any surface, including inside
-     Journey view). Slides up into view like a bottom sheet; swipe (or
+     every task in a project is completed from any surface except Journey
+     (which uses the smaller corner card above instead, so its own scene
+     stays visible). Slides up into view like a bottom sheet; swipe (or
      drag with a mouse) it back down to dismiss, or tap outside / press
      Escape / just wait — it dismisses itself after a while too. -->
 <div class="hidden fixed inset-0 z-[10000] items-end sm:items-center justify-center" id="project-complete-overlay">
