@@ -216,6 +216,11 @@
       --quest-text: #f1f5f9; --quest-text-done: #64748b; --quest-date: #94a3b8; --quest-hover: rgba(148,163,184,.1);
       --quest-accent: #fbbf24;
     }
+    .journey-quest-panel.theme-construction, .journey-quest-panel.theme-construction3d {
+      --quest-bg1: #3b2a1a; --quest-bg2: #1f160d; --quest-divider: rgba(250,204,21,.28);
+      --quest-text: #fef3c7; --quest-text-done: #8a7a5c; --quest-date: #d6b98a; --quest-hover: rgba(250,204,21,.1);
+      --quest-accent: #facc15;
+    }
     .journey-quest-panel.theme-castle, .journey-quest-panel.theme-castle3d {
       --quest-bg1: #1c2547; --quest-bg2: #0d1326; --quest-divider: rgba(231,180,67,.28);
       --quest-text: #f6f0e1; --quest-text-done: #8a8470; --quest-date: #c9b98f; --quest-hover: rgba(231,180,67,.1);
@@ -473,6 +478,16 @@
     @keyframes journey-beacon { 0% { opacity: 1; } 100% { opacity: .15; } }
     .journey-deal-pop { opacity: 0; transform-box: fill-box; transform-origin: center bottom; }
     .journey-quest-done .journey-deal-pop { opacity: 1; }
+    /* Construction: the building's phases are a faint blueprint until
+       built; the crane lowers the final beam and the ribbon is cut. */
+    .journey-build-phase { opacity: .14; transition: opacity .9s; }
+    .journey-build-phase.is-built { opacity: 1; }
+    .journey-quest-done .journey-crane-hook, .journey-topping { transform: translateY(14px); }
+    .journey-topping { animation: journey-topping 1.4s ease-in-out 1 both; }
+    @keyframes journey-topping { from { transform: translateY(0); } to { transform: translateY(14px); } }
+    .journey-ribbon-l, .journey-ribbon-r { transform-box: fill-box; transition: transform .8s; }
+    .journey-quest-done .journey-ribbon-l { transform-origin: left center; transform: rotate(70deg); }
+    .journey-quest-done .journey-ribbon-r { transform-origin: right center; transform: rotate(-70deg); }
     .journey-deal-anim { animation: journey-deal-pop .8s cubic-bezier(.3,1.6,.5,1) 1 both; }
     @keyframes journey-deal-pop { from { opacity: 0; transform: scale(.2) rotate(-12deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
     @keyframes journey-firework { 0% { opacity: 1; transform: scale(.2); } 70% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
@@ -510,7 +525,7 @@
       .journey-task-popup-inner,
       .journey-flame, .journey-river-flow, .journey-frog-sac, .journey-dragon-breathe, .journey-dragon-wing,
       .journey-dragon-fire, .journey-dragon-hit, .journey-dragon-fall, .journey-slash .journey-arm-front,
-      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise, .journey-hq-beacon, .journey-deal-anim,
+      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise, .journey-hq-beacon, .journey-deal-anim, .journey-topping,
       .journey-foe, .journey-foes-defeated .journey-foe { animation: none; }
       .journey-portcullis, .journey-princess-free { transition: none; }
     }
@@ -1534,6 +1549,8 @@
               <option value="space3d">🚀 Space 3D</option>
               <option value="corporate">🏢 Corporate</option>
               <option value="corporate3d">🏢 Corporate 3D</option>
+              <option value="construction">🏗️ Construction</option>
+              <option value="construction3d">🏗️ Construction 3D</option>
             </select>
             <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started and untick its cleared blockers">↺ Reset</button>
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
