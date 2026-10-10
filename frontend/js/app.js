@@ -4625,8 +4625,13 @@ function renderMountainScene() {
   const summitLit = total > 0 && done === total;
 
   const container = document.getElementById('mountain-scene');
+  const theme = getJourneyTheme();
+  // The quest log is reskinned per theme (see .journey-quest-log.theme-*
+  // in index.html) so it reads as part of that world instead of one
+  // fixed HUD style bolted onto all four.
+  document.getElementById('mountain-tasklist').className = `journey-quest-log overflow-y-auto theme-${theme}`;
   JourneyGame.sync(container, {
-    tasks, youFrac, summitLit, theme: getJourneyTheme(),
+    tasks, youFrac, summitLit, theme,
     // Null when there's nothing to actually pace against (no dates set, or
     // a teammate with none of these tasks assigned) — showing a ghost
     // frozen at the start forever would just read as a second character
@@ -4653,15 +4658,32 @@ function renderMountainScene() {
   }
 }
 
+// Renders as a "quest log" styled to match the Journey scene above it
+// (see .journey-quest-* in index.html) rather than a plain checklist —
+// each row's badge uses the exact same done/next/pending color language
+// as the scene's own checkpoints, and "next" is found the same way
+// journeyGame.js finds it (first incomplete task by index), so the row
+// that's glowing here is the same one glowing on the road.
 function renderMountainTaskList() {
   const { tasks, canEdit } = mountainState;
   const wrap = document.getElementById('mountain-tasklist');
-  wrap.innerHTML = tasks.length ? tasks.map(t => `
-    <label class="flex items-center gap-2.5 text-sm ${canEdit ? 'cursor-pointer' : 'cursor-default'}">
-      <input type="checkbox" data-task-id="${t.id}" onchange="toggleMountainTask(this)" ${t.status === 'Completed' ? 'checked' : ''} ${canEdit ? '' : 'disabled'} class="accent-emerald-500 w-4 h-4 flex-shrink-0">
-      <span class="${t.status === 'Completed' ? 'line-through text-gray-400' : 'text-navy'} truncate">${esc(t.title)}</span>
-      ${t.endDate ? `<span class="text-xs text-gray-400 flex-shrink-0 ml-auto">${esc(t.endDate.slice(0, 10))}</span>` : ''}
-    </label>`).join('') : '<p class="text-xs text-gray-400 text-center py-2">No tasks on this journey yet.</p>';
+  if (!tasks.length) {
+    wrap.innerHTML = '<p class="journey-quest-empty">No tasks on this journey yet.</p>';
+    return;
+  }
+  const doneCount = tasks.filter(t => t.status === 'Completed').length;
+  wrap.innerHTML = tasks.map((t, i) => {
+    const isDone = t.status === 'Completed';
+    const isNext = !isDone && i === doneCount;
+    const badgeClass = isDone ? 'is-done' : isNext ? 'is-next' : 'is-pending';
+    return `
+    <label class="journey-quest-row ${isDone ? 'is-done' : ''} ${canEdit ? 'is-editable' : ''}">
+      <input type="checkbox" class="journey-quest-checkbox" data-task-id="${t.id}" onchange="toggleMountainTask(this)" ${isDone ? 'checked' : ''} ${canEdit ? '' : 'disabled'}>
+      <span class="journey-quest-badge ${badgeClass}">${isDone ? '✓' : i + 1}</span>
+      <span class="journey-quest-title">${esc(t.title)}</span>
+      ${t.endDate ? `<span class="journey-quest-date">${esc(t.endDate.slice(0, 10))}</span>` : ''}
+    </label>`;
+  }).join('');
 }
 
 // The per-checkpoint confetti burst is no longer fired from here — the

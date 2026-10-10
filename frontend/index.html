@@ -139,8 +139,27 @@
        slides between 3 stops (Gantt/Kanban/Journey) rather than a fixed 2. */
     #gantt-journey-view:fullscreen { background: #fff; padding: 24px; overflow-y: auto; }
     #gantt-journey-view:-webkit-full-screen { background: #fff; padding: 24px; overflow-y: auto; }
-    #gantt-journey-view:fullscreen #mountain-scene-wrap,
-    #gantt-journey-view:-webkit-full-screen #mountain-scene-wrap { height: calc(100vh - 160px) !important; }
+    #gantt-journey-view:fullscreen #journey-hud,
+    #gantt-journey-view:-webkit-full-screen #journey-hud { height: calc(100vh - 220px) !important; }
+
+    /* The game panel: the scene and the quest log are one frame. Below
+       640px (same rough breakpoint journeyGame.js's own pickLayout()
+       switches to the tall/portrait road at) they stack, since there's
+       no room for a true side panel on a phone; at 640px+ the quest log
+       becomes a side column sitting inside the same frame as the scene,
+       not a separate block under it. #mountain-scene-wrap's own inline
+       height is what sizes it in the default stacked case; flex:1 only
+       takes over once a parent height exists to grow into (the 640px
+       row layout, or fullscreen), and flex's own default stretch
+       handles matching the row's height on both sides with no extra
+       height rule needed. */
+    #journey-hud { display: flex; flex-direction: column; }
+    #journey-hud #mountain-scene-wrap { flex: 1 1 auto; min-height: 0; }
+    #journey-hud #mountain-tasklist { flex: 0 0 auto; max-height: 14rem; }
+    @media (min-width: 640px) {
+      #journey-hud { flex-direction: row; height: min(58vh, 480px); }
+      #journey-hud #mountain-tasklist { flex: 0 0 272px; width: 272px; max-height: none; }
+    }
 
     /* A glassy "screen" bezel instead of a flat drop shadow — an inset
        highlight along the top/left plus a soft inset shadow along the
@@ -149,6 +168,76 @@
     .journey-scene-frame {
       box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -10px 24px rgba(0,0,0,.14), 0 10px 28px rgba(15,23,42,.14);
     }
+
+    /* The task list as a "quest log" HUD panel instead of a plain white
+       card bolted on below — same dark glass language regardless of
+       which Journey theme is active (a universal game-UI convention
+       that reads correctly over any of the four scenes), attached
+       directly under the scene with no visible seam. */
+    /* The quest log's chrome (background, text, divider) is all CSS
+       variables so each Journey theme can reskin it to actually look
+       like it belongs in that world — a parchment quest board for
+       Road, a mission terminal for Space, a captain's log for Ocean, a
+       pit-wall board for Race — while the structural rules (layout,
+       badge shapes, the pulse animation) stay shared. Checkpoint status
+       colors (done/next/pending) deliberately do NOT vary per theme —
+       they're the same green/amber/grey the scene's own checkpoints
+       use, and that signal needs to stay unambiguous across all four
+       skins rather than being "in theme" at the cost of clarity. */
+    .journey-quest-log {
+      --quest-bg1: #1b2538; --quest-bg2: #10172a; --quest-divider: rgba(255,255,255,.08);
+      --quest-text: #e2e8f0; --quest-text-done: #64748b; --quest-date: #7c8aa5; --quest-hover: rgba(255,255,255,.06);
+      background: linear-gradient(180deg, var(--quest-bg1) 0%, var(--quest-bg2) 100%);
+      border-top: 1px solid var(--quest-divider);
+      padding: 10px 12px;
+    }
+    @media (min-width: 640px) {
+      .journey-quest-log { background: linear-gradient(90deg, var(--quest-bg1) 0%, var(--quest-bg2) 100%); border-top: none; border-left: 1px solid var(--quest-divider); }
+    }
+    .journey-quest-log.theme-road {
+      --quest-bg1: #fcf2d8; --quest-bg2: #f1dcaa; --quest-divider: rgba(139,94,60,.35);
+      --quest-text: #4a2f1e; --quest-text-done: #b08968; --quest-date: #8b6b4a; --quest-hover: rgba(139,94,60,.1);
+    }
+    .journey-quest-log.theme-space {
+      --quest-bg1: #0d1130; --quest-bg2: #070813; --quest-divider: rgba(125,211,252,.25);
+      --quest-text: #cdeeff; --quest-text-done: #4a5a7a; --quest-date: #6ea3c9; --quest-hover: rgba(125,211,252,.08);
+    }
+    .journey-quest-log.theme-ocean {
+      --quest-bg1: #0e4057; --quest-bg2: #082638; --quest-divider: rgba(255,255,255,.14);
+      --quest-text: #e3f8ff; --quest-text-done: #5f93a8; --quest-date: #8fc7dd; --quest-hover: rgba(255,255,255,.08);
+    }
+    .journey-quest-log.theme-race {
+      --quest-bg1: #2c3038; --quest-bg2: #15171b; --quest-divider: rgba(249,115,22,.3);
+      --quest-text: #f1f5f9; --quest-text-done: #5c6470; --quest-date: #9aa5b1; --quest-hover: rgba(249,115,22,.12);
+    }
+    .journey-quest-log.theme-football, .journey-quest-log.theme-football3d {
+      --quest-bg1: #1a5c33; --quest-bg2: #0c3019; --quest-divider: rgba(255,255,255,.18);
+      --quest-text: #eafff0; --quest-text-done: #5f9a76; --quest-date: #9fd9b4; --quest-hover: rgba(255,255,255,.1);
+    }
+    .journey-quest-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 8px; border-radius: 10px;
+      color: var(--quest-text); font-size: 13px; font-weight: 600;
+      transition: background-color .15s;
+    }
+    .journey-quest-row.is-editable { cursor: pointer; }
+    .journey-quest-row.is-editable:hover { background: var(--quest-hover); }
+    .journey-quest-badge {
+      flex-shrink: 0; width: 22px; height: 22px; border-radius: 999px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; color: #0b1220;
+      border: 1.5px solid rgba(0,0,0,.25);
+    }
+    .journey-quest-badge.is-done { background: #10b981; color: #06281c; }
+    .journey-quest-badge.is-next { background: #fbbf24; animation: journey-quest-pulse 1.6s ease-in-out infinite; }
+    .journey-quest-badge.is-pending { background: #475569; color: #cbd5e1; }
+    @keyframes journey-quest-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(251,191,36,.55); } 50% { box-shadow: 0 0 0 5px rgba(251,191,36,0); } }
+    .journey-quest-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .journey-quest-row.is-done .journey-quest-title { text-decoration: line-through; color: var(--quest-text-done); font-weight: 500; }
+    .journey-quest-date { flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--quest-date); }
+    .journey-quest-empty { text-align: center; font-size: 12px; font-weight: 600; color: var(--quest-text-done); padding: 10px 0; }
+    .journey-quest-checkbox { position: absolute; opacity: 0; width: 1px; height: 1px; }
+    @media (prefers-reduced-motion: reduce) { .journey-quest-badge.is-next { animation: none; } }
 
     /* Journey scene idle flourishes — a gentle bob on the avatar and a
        pulse on the current checkpoint's glow, both purely decorative
@@ -1316,18 +1405,20 @@
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
           </div>
         </div>
-        <div class="relative rounded-2xl overflow-hidden journey-scene-frame" id="mountain-scene-wrap" style="height:min(62vh,520px); min-height:380px; background:linear-gradient(180deg, #8fd3fb 0%, #c7e9fd 55%, #fff3da 100%);" title="Tap the scene for a spark — real progress still only comes from finishing tasks below">
-          <div class="absolute inset-0" id="mountain-scene"></div>
-          <div class="hidden absolute inset-0 z-20 items-center justify-center bg-black/40" id="mountain-celebrate">
-            <div class="bg-white rounded-2xl p-6 max-w-sm mx-4 text-center shadow-2xl">
-              <div class="text-5xl mb-2">🏆</div>
-              <h4 class="text-lg font-black text-navy mb-1" id="mountain-celebrate-title">Summit reached!</h4>
-              <p class="text-sm text-gray-600 mb-4" id="mountain-celebrate-text"></p>
-              <button onclick="document.getElementById('mountain-celebrate').classList.add('hidden')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-5 py-2 rounded-lg">Nice! 🎉</button>
+        <div class="rounded-2xl overflow-hidden journey-scene-frame" id="journey-hud">
+          <div class="relative" id="mountain-scene-wrap" style="height:min(55vh,460px); min-height:320px; background:linear-gradient(180deg, #8fd3fb 0%, #c7e9fd 55%, #fff3da 100%);" title="Tap the scene for a spark — real progress still only comes from finishing tasks below">
+            <div class="absolute inset-0" id="mountain-scene"></div>
+            <div class="hidden absolute inset-0 z-20 items-center justify-center bg-black/40" id="mountain-celebrate">
+              <div class="bg-white rounded-2xl p-6 max-w-sm mx-4 text-center shadow-2xl">
+                <div class="text-5xl mb-2">🏆</div>
+                <h4 class="text-lg font-black text-navy mb-1" id="mountain-celebrate-title">Summit reached!</h4>
+                <p class="text-sm text-gray-600 mb-4" id="mountain-celebrate-text"></p>
+                <button onclick="document.getElementById('mountain-celebrate').classList.add('hidden')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-5 py-2 rounded-lg">Nice! 🎉</button>
+              </div>
             </div>
           </div>
+          <div class="journey-quest-log overflow-y-auto" id="mountain-tasklist"></div>
         </div>
-        <div class="bg-white rounded-xl border border-gray-100 max-h-56 overflow-y-auto px-4 py-3 mt-3 space-y-1.5" id="mountain-tasklist"></div>
       </div>
     </div>
 
