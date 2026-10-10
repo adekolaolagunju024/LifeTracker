@@ -45,7 +45,18 @@ function injectStyles() {
     @keyframes jc3d-win-pop { 0% { transform: scale(.3); opacity: 0; } 12% { transform: scale(1.08); opacity: 1; } 22% { transform: scale(1); } 85% { opacity: 1; } 100% { transform: translateY(-12px); opacity: 0; } }
     .jc3d-loading { position: absolute; inset: 0; display: grid; place-items: center; color: #b9b3a3; font: 600 14px system-ui, sans-serif; z-index: 1; text-align: center; padding: 0 16px; }
     .jc3d-loading[hidden] { display: none; }
-    @media (prefers-reduced-motion: reduce) { .jc3d-win div { animation: none; } }
+    .jc3d-labels { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+    .jc3d-task-label { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); }
+    .jc3d-task-label-inner { display: block; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+      background: rgba(255,255,255,.96); color: #1f2937; font: 800 13px system-ui, sans-serif; padding: 5px 10px; border-radius: 999px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.35); animation: jc3d-label-pop 2.2s ease-out both; }
+    @keyframes jc3d-label-pop {
+      0% { opacity: 0; transform: translateY(6px) scale(.85); }
+      12% { opacity: 1; transform: translateY(0) scale(1); }
+      72% { opacity: 1; transform: translateY(-4px) scale(1); }
+      100% { opacity: 0; transform: translateY(-26px) scale(.96); }
+    }
+    @media (prefers-reduced-motion: reduce) { .jc3d-win div, .jc3d-task-label-inner { animation: none; } }
   `;
   document.head.appendChild(style);
 }
@@ -77,7 +88,12 @@ export function createCastle3D(container) {
   const winEl = document.createElement('div');
   winEl.className = 'jc3d-win'; winEl.hidden = true;
   winEl.innerHTML = '<div><strong>Quest Complete</strong><span>The dragon is beaten and the princess is free</span></div>';
-  root.append(loadingEl, camBar, winEl);
+  // Completed tasks' own titles float up here — a DOM overlay rather than
+  // in-scene geometry, tracked onto each banner's screen position every
+  // frame since the camera itself moves (see updateTaskLabels).
+  const labelLayer = document.createElement('div');
+  labelLayer.className = 'jc3d-labels';
+  root.append(loadingEl, camBar, labelLayer, winEl);
   container.appendChild(root);
   if (container.parentElement) container.parentElement.style.background = '#0d1326';
 
@@ -1216,7 +1232,7 @@ export function createCastle3D(container) {
           wall.clearing = true;
           events.push({ frac: frogStopFrac(i), fn: () => clearWall(wall), pause: 1.35, kind: 'wall', wall });
         }
-        events.push({ frac: checkpointFrac(i, n), fn: () => popFlag(i), pause: 0.9, kind: 'flag', taskId: t.id });
+        events.push({ frac: checkpointFrac(i, n), fn: () => popFlag(i, t.title), pause: 0.9, kind: 'flag', taskId: t.id });
       }
       if (!t.done) {
         celebrated.delete(t.id);
@@ -1251,13 +1267,48 @@ export function createCastle3D(container) {
       placeKnight(true);
     }
   }
-  function popFlag(i) {
+  // Completed task titles, floating above their banner — world positions
+  // re-projected to screen space every frame (see updateTaskLabels) so
+  // they track their banner as the follow-cam moves, instead of a
+  // position computed once at spawn that drifts off as the camera pans.
+  const activeLabels = [];
+  function spawnTaskLabel(worldPos, text) {
+    if (!text) return;
+    const label = text.length > 28 ? text.slice(0, 27) + '…' : text;
+    const outer = document.createElement('div');
+    outer.className = 'jc3d-task-label';
+    const inner = document.createElement('div');
+    inner.className = 'jc3d-task-label-inner';
+    inner.textContent = label;
+    outer.appendChild(inner);
+    labelLayer.appendChild(outer);
+    const rec = { el: outer, pos: worldPos.clone() };
+    activeLabels.push(rec);
+    timers.push(setTimeout(() => {
+      outer.remove();
+      const idx = activeLabels.indexOf(rec);
+      if (idx >= 0) activeLabels.splice(idx, 1);
+    }, 2200));
+  }
+  function updateTaskLabels() {
+    if (!activeLabels.length) return;
+    const w = root.clientWidth, h = root.clientHeight;
+    activeLabels.forEach(rec => {
+      const v = rec.pos.clone().project(camera);
+      rec.el.style.left = ((v.x * 0.5 + 0.5) * w) + 'px';
+      rec.el.style.top = ((1 - (v.y * 0.5 + 0.5)) * h) + 'px';
+      rec.el.style.opacity = v.z > 1 ? '0' : '1';
+    });
+  }
+
+  function popFlag(i, title) {
     const f = flags[i];
     if (!f) return;
     f.pop = 1;
     setLit(f, true);
     sparkle(f.fireAt, 40, ['#ffe28a', '#ff9a2e', '#ffffff'], 4);
     if (knight && P.mode !== 'finale') play(knight, 'Cheer', { fade: 0.2, once: true, timeScale: 1.3 });
+    if (title) spawnTaskLabel(f.group.localToWorld(new THREE.Vector3(0, 3.4, 0)), title);
   }
 
   function placeKnight(snapHeading) {
@@ -1561,6 +1612,7 @@ export function createCastle3D(container) {
     waterTex.offset.x = time * 0.012; waterTex.offset.y = time * 0.006;
     clouds.forEach((c, i) => { c.position.x += dt * (0.8 + (i % 3) * 0.3); if (c.position.x > 200) c.position.x = -200; });
     updateCamera(dt, time);
+    updateTaskLabels();
   }
 
   // ── Pace ghost (the app's "competitor" marker): a faded knight standing
