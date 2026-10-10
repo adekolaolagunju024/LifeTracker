@@ -1381,7 +1381,7 @@
           <!-- Same reset Journey offers, for whichever single project the
                filter above points at — hidden for "All Projects" (ambiguous
                scope) and while Journey mode is showing (it has its own). -->
-          <button onclick="resetGanttProjectProgress()" id="gantt-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task in this project back to Not Started">↺ Reset</button>
+          <button onclick="resetGanttProjectProgress()" id="gantt-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task in this project back to Not Started and untick its cleared blockers">↺ Reset</button>
           <div class="relative flex bg-gray-100 rounded-full p-1 min-w-[280px] w-auto" id="gantt-page-view-toggle">
             <div id="gantt-switch-thumb" class="absolute top-1 bottom-1 left-1 rounded-full bg-white shadow" style="width:calc(33.333% - 4px); transition:transform .2s ease-out"></div>
             <button onclick="setGanttPageView('timeline')" data-pageview="timeline" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">📊 Gantt Chart</button>
@@ -1529,7 +1529,7 @@
               <option value="space">🚀 Space</option>
               <option value="space3d">🚀 Space 3D</option>
             </select>
-            <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started">↺ Reset</button>
+            <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started and untick its cleared blockers">↺ Reset</button>
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
           </div>
         </div>

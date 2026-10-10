@@ -4987,17 +4987,30 @@ async function toggleMountainTask(checkbox) {
 // Started, same as unchecking each one from the task list, just all at
 // once. A real, hard-to-reverse change to live task data, so it goes
 // through the same confirm-modal pattern as a bulk delete rather than
-// firing immediately on click.
+// firing immediately on click. Ticked-off blockers are unticked too, so
+// their enemies are back on the road for the fresh start.
+function tickedBlockers(tasks) {
+  return tasks.flatMap(t => (t.obstacles || []).filter(o => o.resolved));
+}
+function resetMessage(nTasks, nBlockers, title, verb) {
+  return `${verb} All ${nTasks} task${nTasks === 1 ? '' : 's'} in "${title}" will be set back to Not Started`
+    + (nBlockers ? ` and ${nBlockers} cleared blocker${nBlockers === 1 ? '' : 's'} will be unticked` : '') + `. This can't be undone.`;
+}
 function resetJourneyProgress() {
   if (!mountainState || !mountainState.canEdit) return;
   const toReset = mountainState.tasks.filter(t => t.status !== 'Not Started');
-  if (!toReset.length) { showToast('Already at the start — nothing to reset.'); return; }
+  const blockers = tickedBlockers(mountainState.tasks);
+  if (!toReset.length && !blockers.length) { showToast('Already at the start — nothing to reset.'); return; }
   confirmAction(
-    `Restart this climb? All ${mountainState.tasks.length} task${mountainState.tasks.length === 1 ? '' : 's'} in "${mountainState.project.title}" will be set back to Not Started. This can't be undone.`,
+    resetMessage(mountainState.tasks.length, blockers.length, mountainState.project.title, 'Restart this climb?'),
     async () => {
       try {
-        await Promise.all(toReset.map(t => API.updateTask(t.id, { status: 'Not Started' })));
+        await Promise.all([
+          ...toReset.map(t => API.updateTask(t.id, { status: 'Not Started' })),
+          ...blockers.map(o => API.updateObstacle(o.id, { resolved: false })),
+        ]);
         toReset.forEach(t => { t.status = 'Not Started'; });
+        blockers.forEach(o => { o.resolved = false; });
         renderMountainScene();
         renderMountainTaskList();
         updateSidebar();
@@ -5021,12 +5034,16 @@ function resetGanttProjectProgress() {
     if (!(project.role === 'owner' || project.role === 'editor')) return;
     const tasks = tasksInProjectTree(projectId, allProjects, allTasks);
     const toReset = tasks.filter(t => t.status !== 'Not Started');
-    if (!toReset.length) { showToast('Already at the start — nothing to reset.'); return; }
+    const blockers = tickedBlockers(tasks);
+    if (!toReset.length && !blockers.length) { showToast('Already at the start — nothing to reset.'); return; }
     confirmAction(
-      `Reset progress? All ${tasks.length} task${tasks.length === 1 ? '' : 's'} in "${project.title}" will be set back to Not Started. This can't be undone.`,
+      resetMessage(tasks.length, blockers.length, project.title, 'Reset progress?'),
       async () => {
         try {
-          await Promise.all(toReset.map(t => API.updateTask(t.id, { status: 'Not Started' })));
+          await Promise.all([
+            ...toReset.map(t => API.updateTask(t.id, { status: 'Not Started' })),
+            ...blockers.map(o => API.updateObstacle(o.id, { resolved: false })),
+          ]);
           renderGantt();
           updateSidebar();
           showToast('↺ Progress reset — back to the start.');
