@@ -2332,22 +2332,27 @@ async function renderActions() {
           <div class="w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer hover:border-teal hover:bg-teal/10"
             onclick="markActionDone('${t.id}')" title="Mark as completed"></div>
           <div class="flex-1 min-w-0">
-            <h5 class="text-sm font-semibold text-navy cursor-pointer hover:text-teal truncate" onclick="editTask('${t.id}')">${esc(t.title)}</h5>
+            <h5 class="text-sm font-semibold text-navy cursor-pointer hover:text-teal truncate" onclick="openTaskDetail('${t.id}')">${esc(t.title)}</h5>
             <p class="text-xs text-gray-400 mt-0.5 truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${reason ? ' · ' + reason : ''}</p>
           </div>
           <span class="text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${PRI_BADGE[t.priority] || 'bg-gray-100 text-gray-500'}">${esc(t.priority)}</span>
         </div>`;
     };
 
-    const section = (title, icon, items, reasonFn, emptyMsg) => `
+    // A section with nothing in it shrinks to a single quiet line, so the
+    // lists that do need attention aren't pushed down the page.
+    const section = (title, icon, items, reasonFn, emptyMsg) => items.length ? `
       <div class="mb-6">
         <div class="flex items-center gap-2 mb-3">
           <div class="w-1 h-4 bg-teal rounded-full"></div>
-          <h3 class="text-sm font-bold text-navy-2">${icon} ${title}</h3>
+          <h3 class="text-sm font-bold text-navy-2">${icon} ${title} <span class="text-gray-400 font-semibold">${items.length}</span></h3>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          ${items.length ? items.map(t => row(t, reasonFn(t))).join('') : `<p class="px-5 py-8 text-center text-gray-400 text-sm">${emptyMsg}</p>`}
+          ${items.map(t => row(t, reasonFn(t))).join('')}
         </div>
+      </div>` : `
+      <div class="mb-2 flex items-center gap-2 px-4 py-2.5 bg-white/60 rounded-lg border border-dashed border-gray-200 text-xs text-gray-400">
+        <span>${icon}</span><span class="font-semibold text-gray-500">${title}</span><span class="ml-auto">${emptyMsg}</span>
       </div>`;
 
     // Both sides parsed the same way (UTC midnight for the calendar date,
@@ -2356,6 +2361,15 @@ async function renderActions() {
     // the same local-date keys used for bucketing above.
     const daysBetweenKeys = (fromKey, toKey) => Math.round((new Date(toKey + 'T00:00:00Z') - new Date(fromKey + 'T00:00:00Z')) / 86400000);
 
+    if (!overdue.length && !dueThisWeek.length && !startingThisWeek.length && !highPriority.length) {
+      document.getElementById('action-list').innerHTML = `
+        <div class="bg-white rounded-xl border border-gray-200 px-6 py-10 text-center">
+          <p class="text-4xl mb-2">🎉</p>
+          <h3 class="text-base font-bold text-navy">You're all caught up</h3>
+          <p class="text-sm text-gray-500 mt-1">Nothing overdue, nothing due or starting in the next 7 days, and no high-priority work in progress.</p>
+        </div>`;
+      return;
+    }
     document.getElementById('action-list').innerHTML =
       section('Overdue', '🔴', overdue, t => {
         const days = daysBetweenKeys(t.endDate.slice(0, 10), todayKey);
@@ -2567,6 +2581,64 @@ function renderCalendarDayCell(cell, byDate, todayKey, opts) {
     </div>`;
 }
 
+// Phones: a task title can't fit in a seventh of the screen, so Month and
+// Week show a dot per task (red when overdue, else the priority colour)
+// and tapping a day lists its tasks under the grid (renderCalendarAgenda).
+const calendarCompact = () => window.matchMedia('(max-width: 639px)').matches;
+function renderCalendarDotCell(cell, byDate, todayKey, minHeight) {
+  const otherMonth = !cell.dateKey;
+  const isToday = cell.dateKey === todayKey;
+  const selected = cell.dateKey && cell.dateKey === APP.calendarSelectedDay;
+  const dayTasks = cell.dateKey ? (byDate[cell.dateKey] || []) : [];
+  const dots = dayTasks.slice(0, 4).map(t => {
+    const overdue = t.status !== 'Completed' && cell.dateKey < todayKey;
+    const color = overdue ? '#DC2626' : (PRIORITY_BORDER[t.priority] || '#9CA3AF');
+    return `<span class="w-1.5 h-1.5 rounded-full ${t.status === 'Completed' ? 'opacity-40' : ''}" style="background:${color}"></span>`;
+  }).join('') + (dayTasks.length > 4 ? '<span class="text-[9px] leading-none text-gray-400 font-bold">+</span>' : '');
+  return `
+    <div class="calendar-day-cell border-b border-r border-gray-100 flex flex-col items-center pt-1.5 gap-1 ${otherMonth ? 'bg-gray-50/60' : 'cursor-pointer'} ${selected ? 'bg-teal/10' : ''}"
+      style="min-height:${minHeight}" data-date-key="${cell.dateKey || ''}"
+      ${cell.dateKey ? `onclick="selectCalendarDay('${cell.dateKey}')" aria-label="${cell.dateKey}: ${dayTasks.length} task${dayTasks.length === 1 ? '' : 's'}"` : ''}>
+      <span class="text-xs font-semibold w-6 h-6 flex items-center justify-center rounded-full ${otherMonth ? 'text-gray-300' : isToday ? 'bg-teal text-white' : selected ? 'text-teal ring-1 ring-teal' : 'text-gray-600'}">${cell.day}</span>
+      <div class="flex flex-wrap justify-center gap-0.5 px-0.5">${dots}</div>
+    </div>`;
+}
+function selectCalendarDay(dateKey) {
+  APP.calendarSelectedDay = dateKey;
+  renderCalendar();
+}
+function renderCalendarAgenda(byDate, todayKey, visibleKeys) {
+  const box = document.getElementById('calendar-agenda');
+  if (!box) return;
+  // keep the picked day while it's on screen; otherwise today, else the
+  // first day with something due, else the first day shown
+  if (!visibleKeys.includes(APP.calendarSelectedDay)) {
+    APP.calendarSelectedDay = visibleKeys.includes(todayKey) ? todayKey
+      : visibleKeys.find(k => (byDate[k] || []).length) || visibleKeys[0];
+  }
+  const key = APP.calendarSelectedDay;
+  const d = new Date(key + 'T00:00:00');
+  const label = d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  const items = byDate[key] || [];
+  box.innerHTML = `
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="text-sm font-bold text-navy">${label}</h3>
+      <button onclick="openAddTaskWithDueDate('${key}')" class="text-xs font-semibold text-teal bg-teal/10 hover:bg-teal/20 px-3 py-1.5 rounded-lg">+ Add task</button>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      ${items.length ? items.map(t => {
+        const overdue = t.status !== 'Completed' && key < todayKey;
+        return `
+        <button onclick="openTaskDetail('${t.id}')" class="w-full flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-0 text-left hover:bg-gray-50">
+          <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${overdue ? '#DC2626' : (PRIORITY_BORDER[t.priority] || '#9CA3AF')}"></span>
+          <span class="flex-1 min-w-0 text-sm font-semibold text-navy truncate ${t.status === 'Completed' ? 'line-through opacity-50' : ''}">${esc(t.title)}</span>
+          <span class="text-[11px] font-semibold flex-shrink-0 ${overdue ? 'text-red-600' : 'text-gray-400'}">${overdue ? 'Overdue' : esc(t.status)}</span>
+        </button>`;
+      }).join('') : '<p class="px-4 py-6 text-center text-sm text-gray-400">Nothing due this day.</p>'}
+    </div>`;
+}
+window.matchMedia('(max-width: 639px)').addEventListener('change', () => { if (APP.currentPage === 'calendar') renderCalendar(); });
+
 // Compact read-only day cell for Year view's 12 mini-calendars — just a
 // number and a dot if anything's due, since there's no room for titles.
 function renderCalendarMiniCell(cell, byDate, todayKey) {
@@ -2630,14 +2702,17 @@ async function renderCalendar() {
       ? 'Every task with a due date. Click a day to jump into its month.'
       : 'Every task with a due date. Drag a task onto another day to reschedule it.';
 
+    const compact = calendarCompact() && !isYear;
+    document.getElementById('calendar-agenda').classList.toggle('hidden', !compact);
     if (APP.calendarViewMode === 'week') {
       const cells = buildCalendarWeekCells(APP.calendarDate);
       const first = cells[0], last = cells[6];
       document.getElementById('calendar-month-label').textContent =
         first.monthAbbr === last.monthAbbr ? `${first.monthAbbr} ${first.day}–${last.day}` : `${first.monthAbbr} ${first.day} – ${last.monthAbbr} ${last.day}`;
       document.getElementById('calendar-grid').innerHTML = cells
-        .map(cell => renderCalendarDayCell(cell, byDate, todayKey, { cap: 8, minHeight: '220px', showMonthAbbr: true }))
+        .map(cell => compact ? renderCalendarDotCell(cell, byDate, todayKey, '64px') : renderCalendarDayCell(cell, byDate, todayKey, { cap: 8, minHeight: '220px', showMonthAbbr: true }))
         .join('');
+      if (compact) renderCalendarAgenda(byDate, todayKey, cells.map(c => c.dateKey));
 
     } else if (APP.calendarViewMode === 'year') {
       const year = APP.calendarDate.getFullYear();
@@ -2660,8 +2735,9 @@ async function renderCalendar() {
       document.getElementById('calendar-month-label').textContent = `${CALENDAR_MONTH_NAMES[month]} ${year}`;
       const cells = buildCalendarMonthCells(year, month);
       document.getElementById('calendar-grid').innerHTML = cells
-        .map(cell => renderCalendarDayCell(cell, byDate, todayKey, { cap: 3, minHeight: '92px', showMonthAbbr: false }))
+        .map(cell => compact ? renderCalendarDotCell(cell, byDate, todayKey, '52px') : renderCalendarDayCell(cell, byDate, todayKey, { cap: 3, minHeight: '92px', showMonthAbbr: false }))
         .join('');
+      if (compact) renderCalendarAgenda(byDate, todayKey, cells.filter(c => c.dateKey).map(c => c.dateKey));
     }
   } catch (e) { console.error('Calendar error:', e); }
 }
