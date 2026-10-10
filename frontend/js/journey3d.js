@@ -15,7 +15,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { stageTasks, layoutSignature, nameTagSprite } from './journey3dKit.js';
+import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera } from './journey3dKit.js';
 
 const MODEL_URL = '/assets/models/RobotExpressive.glb';
 const UI_FONT = '"Arial Black", Impact, "Arial Narrow", sans-serif';
@@ -53,6 +53,8 @@ function injectStyles() {
       72% { opacity: 1; transform: translateY(-4px) scale(1); }
       100% { opacity: 0; transform: translateY(-26px) scale(.96); }
     }
+    .j3d-task-label-foe .j3d-task-label-inner { background: #15803d; color: #fff; text-align: center; animation-duration: 2.8s; }
+    .j3d-task-label-inner small { display: block; font: 900 10px system-ui, sans-serif; letter-spacing: .14em; color: #fde68a; }
     @media (prefers-reduced-motion: reduce) { .j3d-goal span, .j3d-task-label-inner { animation: none; } }
   `;
   document.head.appendChild(style);
@@ -593,7 +595,7 @@ export function createFootball3D(container) {
   function standingWallLimit() {
     // A blocker literally blocks the path: you can't run past an un-cleared wall.
     let limit = 1;
-    walls.forEach(w => { if (!w.cleared) limit = Math.min(limit, wallFrac(w.taskIndex) - 0.012); });
+    walls.forEach(w => { if (!w.cleared && !w.open) limit = Math.min(limit, wallFrac(w.taskIndex) - 0.012); });
     return limit;
   }
   function targetFrac() {
@@ -609,6 +611,8 @@ export function createFootball3D(container) {
       const wall = walls.find(w => w.taskIndex === i);
       if (t.done && !celebrated.has(t.id)) {
         celebrated.add(t.id);
+        // every obstacle already ticked off: nothing left standing to beat
+        if (wall && wall.open && !wall.cleared) { wall.cleared = true; wall.t = 99; }
         if (wall && !wall.cleared && !wall.clearing) {
           wall.clearing = true;
           events.push({ frac: wallFrac(i) - 0.012, fn: () => clearWall(wall), pause: 0.7 + 0.22 * Math.max(1, wall.defenders.length), kind: 'wall', wall });
@@ -631,7 +635,7 @@ export function createFootball3D(container) {
     // How far the player may go: k done → k-th flag, but never past a defender
     // wall whose task is still blocked (one that's about to clear is fine).
     let to = progressToFrac(done, n);
-    walls.forEach(w => { if (!w.cleared && !w.clearing) to = Math.min(to, wallFrac(w.taskIndex) - 0.012); });
+    walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to = Math.min(to, wallFrac(w.taskIndex) - 0.012); });
     if (allDone() && !P.scored && Math.abs(to - progressToFrac(n, n)) < 1e-6) all.push({ frac: to, fn: startShot, pause: 0, kind: 'shot' });
 
     const from = P.frac, dir = to >= from ? 1 : -1;
@@ -660,14 +664,16 @@ export function createFootball3D(container) {
   // they track their flag as the follow-cam moves, instead of a position
   // computed once at spawn that drifts off as soon as the camera pans.
   const activeLabels = [];
-  function spawnTaskLabel(worldPos, text) {
+  // kind 'foe': a ticked-off obstacle's name, in green, over "ELIMINATED!".
+  function spawnTaskLabel(worldPos, text, kind) {
     if (!text) return;
     const label = text.length > 28 ? text.slice(0, 27) + '…' : text;
     const outer = document.createElement('div');
-    outer.className = 'j3d-task-label';
+    outer.className = 'j3d-task-label' + (kind === 'foe' ? ' j3d-task-label-foe' : '');
     const inner = document.createElement('div');
     inner.className = 'j3d-task-label-inner';
-    inner.textContent = label;
+    inner.textContent = (kind === 'foe' ? '✓ ' : '') + label;
+    if (kind === 'foe') { const sub = document.createElement('small'); sub.textContent = 'ELIMINATED!'; inner.appendChild(sub); }
     outer.appendChild(inner);
     labelLayer.appendChild(outer);
     const rec = { el: outer, pos: worldPos.clone() };
@@ -676,7 +682,7 @@ export function createFootball3D(container) {
       outer.remove();
       const idx = activeLabels.indexOf(rec);
       if (idx >= 0) activeLabels.splice(idx, 1);
-    }, 2200));
+    }, kind === 'foe' ? 2800 : 2200));
   }
   function updateTaskLabels() {
     if (!activeLabels.length) return;
@@ -709,14 +715,15 @@ export function createFootball3D(container) {
     walls.length = 0;
     let budget = 12; // each defender is a skinned model; keep the cost bounded
     tasks.forEach((t, i) => {
-      if (!t.foes) return;
+      if (!t.foeList.length) return;
       const u = wallFrac(i), p = curve.getPointAt(u), tan = curve.getTangentAt(u);
       const side = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
       const face = Math.atan2(-tan.x, -tan.z);
       // One rival per obstacle point, in rows of up to three across the
       // path, each row a step further toward the flag.
-      const n = Math.max(0, Math.min(t.foes, 5, budget));
+      const n = Math.max(0, Math.min(t.foeList.length, 5, budget));
       budget -= n;
+      const owners = pickFoes(t.foeList, n);
       const defenders = Array.from({ length: n }, (_, k) => {
         const row = Math.floor(k / 3), inRow = Math.min(3, n - row * 3), col = k % 3;
         const o = (col - (inRow - 1) / 2) * 1.05;
@@ -726,15 +733,18 @@ export function createFootball3D(container) {
         const aside = home.clone().addScaledVector(side, out * (3.2 + Math.abs(o)));
         d.holder.position.copy(home); d.holder.rotation.y = face;
         play(d, 'Idle', 0); d.mixer.update(Math.random() * 2);
-        return Object.assign(d, { home, aside, face, k, delay: k * 0.22, jumped: false });
+        // owner: the obstacle this rival stands for; gone once it's ticked off
+        const gone = owners[k].resolved;
+        if (gone) { d.holder.position.copy(aside); d.holder.visible = false; }
+        return Object.assign(d, { home, aside, face, k, delay: k * 0.22, jumped: gone, owner: owners[k].id, gone, goneT: gone ? 99 : 0 });
       });
       const lock = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, transparent: true }));
       lock.position.copy(p).setY(2.6); lock.scale.setScalar(0.6); scene.add(lock);
-      const tag = nameTagSprite(`${t.blocker}${t.foes > 1 ? ` ×${t.foes}` : ''}`);
+      const tag = nameTagSprite(t.foes ? tagText(t) : 'Clear');
       tag.position.copy(p).setY(3.2); scene.add(tag);
       const ring = new THREE.Mesh(new THREE.RingGeometry(1.9, 2.2, 48), new THREE.MeshBasicMaterial({ color: '#ff6157', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
       ring.rotation.x = -Math.PI / 2; ring.position.copy(p).setY(0.04); scene.add(ring);
-      const w = { taskIndex: i, defenders, lock, tag, ring, cleared: !!t.done, t: t.done ? 99 : 0 };
+      const w = { taskIndex: i, defenders, lock, tag, ring, cleared: !!t.done, t: t.done ? 99 : 0, open: !t.foes, fade: t.done || !t.foes ? 1 : 0, at: p.clone() };
       // Already-done obstacles start cleared: their rivals aren't on the pitch.
       if (w.cleared) { defenders.forEach(d => { d.holder.position.copy(d.aside); d.holder.visible = false; d.jumped = true; }); lock.visible = tag.visible = ring.visible = false; }
       walls.push(w);
@@ -749,31 +759,64 @@ export function createFootball3D(container) {
   }
   function restoreWall(w) {
     w.cleared = false; w.clearing = false; w.t = 0;
-    w.defenders.forEach(d => { d.holder.visible = true; d.jumped = false; d.holder.position.copy(d.home); d.holder.rotation.y = d.face; play(d, 'Idle', 0.2); });
+    w.defenders.forEach(d => { if (!d.gone) reviveDefender(d); });
+  }
+  function reviveDefender(d) {
+    d.gone = false; d.holder.visible = true; d.jumped = false;
+    d.holder.position.copy(d.home); d.holder.rotation.y = d.face; play(d, 'Idle', 0.2);
+  }
+  // Swaps a wall's red tag for one naming only what's still pending.
+  function retagWall(w) {
+    const t = tasks[w.taskIndex];
+    const tag = nameTagSprite(t.foes ? tagText(t) : 'Clear');
+    tag.position.copy(w.tag.position); tag.material.opacity = w.tag.material.opacity; tag.visible = w.tag.visible;
+    scene.remove(w.tag); w.tag.material.map.dispose(); w.tag.material.dispose();
+    scene.add(tag); w.tag = tag;
+  }
+  // An obstacle ticked off (or unticked) on its own: its rivals leap out of
+  // the way (or come back), and its name pops up over the wall.
+  function applyResolves(changes) {
+    changes.forEach((c, j) => {
+      const w = walls.find(x => x.taskIndex === c.index);
+      const at = w ? w.at.clone() : curve.getPointAt(wallFrac(c.index));
+      if (c.resolved) { timers.push(setTimeout(() => spawnTaskLabel(at.clone().setY(3.8), c.name, 'foe'), j * 450)); peek.at.copy(at); peek.t = 3.4; }
+      if (!w) return;
+      w.defenders.forEach(d => {
+        if (d.owner !== c.id) return;
+        if (c.resolved && !d.gone) { d.gone = true; d.goneT = 0; d.jumped = false; }
+        else if (!c.resolved && d.gone && !w.cleared) reviveDefender(d);
+        else if (!c.resolved) d.gone = false;
+      });
+    });
+    walls.forEach(w => { w.open = !tasks[w.taskIndex].foes; });
+    new Set(changes.map(c => c.index)).forEach(i => { const w = walls.find(x => x.taskIndex === i); if (w) retagWall(w); });
   }
   function updateWalls(dt, time) {
     walls.forEach(w => {
       w.defenders.forEach(d => { if (d.holder.visible) d.mixer.update(dt); });
-      if (w.cleared) {
-        if (w.t > 60) return;
-        w.t += dt;
-        let last = 0;
-        w.defenders.forEach(d => {
-          if (!d.jumped && w.t >= d.delay) { d.jumped = true; play(d, 'Jump', 0.1); }
-          const k = Math.min(1, Math.max(0, (w.t - d.delay) / 0.75));
-          d.holder.position.lerpVectors(d.home, d.aside, 1 - Math.pow(1 - k, 3));
-          if (k >= 1 && d.current === d.actions.Jump && !d.actions.Jump.isRunning()) play(d, 'Idle', 0.3);
-          last = Math.max(last, d.delay + 0.75);
-        });
-        const e = Math.min(1, w.t / Math.max(0.75, last));
-        w.lock.material.opacity = 1 - e; w.tag.material.opacity = 1 - e; w.ring.material.opacity = 0.55 * (1 - e);
-        w.lock.visible = w.tag.visible = w.ring.visible = e < 1;
-      } else {
-        w.lock.visible = w.tag.visible = w.ring.visible = true;
-        w.lock.material.opacity = 1; w.tag.material.opacity = 1;
-        w.ring.material.opacity = 0.35 + 0.25 * Math.sin(time * 4);
-        w.lock.position.y = 2.6 + Math.sin(time * 2.2) * 0.08;
-      }
+      if (w.cleared && w.t <= 60) w.t += dt;
+      w.defenders.forEach(d => {
+        // a rival whose own obstacle was ticked off runs its own clock;
+        // the rest go when the whole wall clears
+        let local;
+        if (d.gone) { if (d.goneT > 60) return; d.goneT += dt; local = d.goneT; }
+        else if (w.cleared) { if (w.t > 60) return; local = w.t - d.delay; }
+        else return;
+        if (!d.jumped && local >= 0) { d.jumped = true; play(d, 'Jump', 0.1); }
+        const k = Math.min(1, Math.max(0, local / 0.75));
+        d.holder.position.lerpVectors(d.home, d.aside, 1 - Math.pow(1 - k, 3));
+        if (k >= 1 && d.current === d.actions.Jump && !d.actions.Jump.isRunning()) play(d, 'Idle', 0.3);
+        // ticked-off rivals leave the pitch in a puff once they've landed
+        if (d.gone && local >= 1.1 && d.holder.visible) { d.holder.visible = false; burst(d.holder.position.clone().setY(0.8), 24, 3); }
+      });
+      // the lock, tag and ring fade out once nothing is left blocking
+      const shut = !w.cleared && !w.open;
+      w.fade = THREE.MathUtils.clamp(w.fade + (shut ? -dt : dt) / 0.75, 0, 1);
+      const e = w.fade;
+      w.lock.material.opacity = 1 - e; w.tag.material.opacity = 1 - e;
+      w.ring.material.opacity = (shut ? 0.35 + 0.25 * Math.sin(time * 4) : 0.55) * (1 - e);
+      w.lock.visible = w.tag.visible = w.ring.visible = e < 1;
+      if (shut) w.lock.position.y = 2.6 + Math.sin(time * 2.2) * 0.08;
     });
   }
 
@@ -929,6 +972,7 @@ export function createFootball3D(container) {
 
   // ── Camera: chase cam behind the player, overview, and a goal cam ─────
   const cam = { mode: 'follow', goalTime: 0, look: new THREE.Vector3(0, 1, 20) };
+  const peek = { at: new THREE.Vector3(), t: 0 };
   const camDesired = new THREE.Vector3(), lookDesired = new THREE.Vector3();
   function updateCamera(dt, time) {
     if (!player) return;
@@ -953,6 +997,7 @@ export function createFootball3D(container) {
       const side = new THREE.Vector3(fwd.z, 0, -fwd.x);
       camDesired.copy(pp).addScaledVector(fwd, -6.5).addScaledVector(side, 1.8 + orbit).setY(3.4);
       lookDesired.copy(pp).addScaledVector(fwd, 3.5).setY(1.0);
+      peekCamera(peek, pp, camDesired, lookDesired, dt);
     }
     const k = 1 - Math.exp(-dt * (cam.goalTime > 0 ? 2.2 : 3));
     camera.position.lerp(camDesired, k);
@@ -1013,7 +1058,7 @@ export function createFootball3D(container) {
   function updateLabel() {
     const n = tasks.length, done = tasks.filter(t => t.done).length;
     let text = n ? `Football Journey: ${done} of ${n} tasks done.` : 'Football Journey: no tasks yet.';
-    const blockedAhead = walls.find(w => !w.cleared && !w.clearing && wallFrac(w.taskIndex) <= progressToFrac(done, n) + 1e-3);
+    const blockedAhead = walls.find(w => !w.cleared && !w.clearing && !w.open && wallFrac(w.taskIndex) <= progressToFrac(done, n) + 1e-3);
     if (blockedAhead) text += ` Blocked by: ${tasks[blockedAhead.taskIndex].blocker}.`;
     if (n && done === n) text += P.scored ? ' Goal scored!' : '';
     root.setAttribute('aria-label', text);
@@ -1051,7 +1096,9 @@ export function createFootball3D(container) {
       }
       if (firstBuild) snapCamera();
     } else {
-      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; });
+      const changes = resolveChanges(tasks, next);
+      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; tasks[i].foeList = t.foeList; });
+      if (changes.length) applyResolves(changes);
       refreshFlags();
       plan();
     }
@@ -1155,7 +1202,7 @@ export function createFootball3D(container) {
       get state() {
         return {
           ready: !!player, frac: P.frac, mode: P.mode, scored: P.scored, ball: ballState.mode, stops: P.stops.length,
-          flagFracs: tasks.map((t, i) => checkpointFrac(i, tasks.length)), walls: walls.map(w => ({ task: w.taskIndex, cleared: w.cleared, defenders: w.defenders.length })),
+          flagFracs: tasks.map((t, i) => checkpointFrac(i, tasks.length)), walls: walls.map(w => ({ task: w.taskIndex, cleared: w.cleared, defenders: w.defenders.length, gone: w.defenders.filter(d => d.gone).length, open: !!w.open })),
           ghost: ghost ? ghost.holder.visible : false, label: root.getAttribute('aria-label'),
           onPath: player ? (() => { let d = 1e9; for (let i = 0; i <= 400; i++) d = Math.min(d, curve.getPointAt(i / 400).distanceTo(player.holder.position)); return d; })() : null,
         };

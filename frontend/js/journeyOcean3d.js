@@ -19,7 +19,7 @@ import {
   createShell, createLoop, makeCanvasTexture, seededRandom, softDotTexture, Particles, particleScaleFor,
   loadGLTF, makeCharacter, play, finished, recolorCharacter, findBone, attachToBone,
   checkpointFracOf, progressToPathFracSmooth, angleLerp, createWalker,
-  stageTasks, layoutSignature, nameTagSprite,
+  stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera,
 } from './journey3dKit.js';
 
 const DIVER_URL = '/assets/models/Knight.glb';
@@ -716,29 +716,36 @@ export function createOcean3D(container) {
     walls.forEach(w => { w.foes.forEach(f => scene.remove(f.g)); scene.remove(w.lock, w.ring, w.tag); });
     walls.length = 0;
     tasks.forEach((t, i) => {
-      if (!t.foes) return;
+      if (!t.foeList.length) return;
       const u = wallFrac(i), p = curve.getPointAt(u);
       const ground = groundHeight(p.x, p.z);
-      const n = Math.min(t.foes, 5);
+      const n = Math.min(t.foeList.length, 5);
+      const owners = pickFoes(t.foeList, n);
       const foes = Array.from({ length: n }, (_, k) => {
         const f = k % 2 === 0 ? buildShark() : buildJellySwarm();
-        return Object.assign(f, { r: 2.4 + (k % 3) * 0.9, angle: (k / n) * Math.PI * 2, h: 0.2 + (k % 2) * 0.9, sp: 0.5 + (k % 3) * 0.12, ph: rnd() * 6, delay: k * 0.45, flee: null, gone: false });
+        // owner: the obstacle this predator stands for; ticked once it's resolved
+        const ticked = owners[k].resolved;
+        if (ticked) f.g.visible = false;
+        return Object.assign(f, { r: 2.4 + (k % 3) * 0.9, angle: (k / n) * Math.PI * 2, h: 0.2 + (k % 2) * 0.9, sp: 0.5 + (k % 3) * 0.12, ph: rnd() * 6, delay: k * 0.45, flee: null, gone: ticked, owner: owners[k].id, ticked, tickT: 0 });
       });
       const lock = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, transparent: true }));
       lock.position.set(p.x, ground + 3.8, p.z); lock.scale.setScalar(0.6); scene.add(lock);
-      const tag = nameTagSprite(`${t.blocker}${t.foes > 1 ? ` ×${t.foes}` : ''}`);
+      const tag = nameTagSprite(t.foes ? tagText(t) : 'Clear');
       tag.position.set(p.x, ground + 4.45, p.z); scene.add(tag);
       const ring = new THREE.Mesh(new THREE.RingGeometry(2.6, 2.9, 48), new THREE.MeshBasicMaterial({ color: '#ff6b5e', transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
       ring.rotation.x = -Math.PI / 2; ring.position.set(p.x, ground + 0.1, p.z); scene.add(ring);
-      const w = { taskIndex: i, foes, lock, tag, ring, center: V(p.x, p.y + 0.4, p.z), cleared: !!t.done, clearing: false, t: t.done ? 99 : 0 };
-      if (w.cleared) { foes.forEach(f => { f.g.visible = false; f.gone = true; }); lock.visible = tag.visible = ring.visible = false; }
+      const w = { taskIndex: i, foes, lock, tag, ring, center: V(p.x, p.y + 0.4, p.z), cleared: !!t.done, clearing: false, t: t.done ? 99 : 0, open: !t.foes, fade: t.done || !t.foes ? 1 : 0 };
+      if (w.cleared) foes.forEach(f => { f.g.visible = false; f.gone = true; });
+      if (w.fade) lock.visible = tag.visible = ring.visible = false;
       walls.push(w);
     });
   }
-  const wallPause = w => 0.9 + 0.45 * Math.max(1, w.foes.length);
+  const standing = w => w.foes.filter(f => !f.ticked);
+  const wallPause = w => 0.9 + 0.45 * Math.max(1, standing(w).length);
   function clearWall(w) {
     if (w.cleared) return;
     w.cleared = true; w.t = 0;
+    standing(w).forEach((f, j) => { f.delay = j * 0.45; });
     if (diver) {
       P.heading = Math.atan2(w.center.x - diver.holder.position.x, w.center.z - diver.holder.position.z);
       play(diver, 'Interact', { fade: 0.15, once: true, timeScale: 1.2 });
@@ -749,7 +756,61 @@ export function createOcean3D(container) {
   }
   function restoreWall(w) {
     w.cleared = false; w.clearing = false; w.t = 0;
-    w.foes.forEach(f => { f.flee = null; f.gone = false; f.g.visible = true; f.mats.forEach(m => { m.transparent = f.kind === 'jelly'; m.opacity = f.kind === 'jelly' ? 0.6 : 1; }); });
+    w.foes.forEach(f => { if (!f.ticked) reviveFoe(f); });
+  }
+  function reviveFoe(f) {
+    f.flee = null; f.gone = false; f.ticked = false; f.g.visible = true;
+    f.mats.forEach(m => { m.transparent = f.kind === 'jelly'; m.opacity = f.kind === 'jelly' ? 0.6 : 1; });
+  }
+  // Swaps a wall's red tag for one naming only what's still pending.
+  function retagWall(w) {
+    const t = tasks[w.taskIndex];
+    const tag = nameTagSprite(t.foes ? tagText(t) : 'Clear');
+    tag.position.copy(w.tag.position); tag.material.opacity = w.tag.material.opacity; tag.visible = w.tag.visible;
+    scene.remove(w.tag); w.tag.material.map.dispose(); w.tag.material.dispose();
+    scene.add(tag); w.tag = tag;
+  }
+  // An obstacle ticked off (or unticked) on its own: its predators flee
+  // into the blue (or swim back), and its name pops up over the trail.
+  function applyResolves(changes) {
+    changes.forEach((c, j) => {
+      const w = walls.find(x => x.taskIndex === c.index);
+      const at = w ? w.center.clone() : curve.getPointAt(wallFrac(c.index));
+      if (c.resolved) { timers.push(setTimeout(() => shell.spawnTaskLabel(at.clone().add(V(0, 3.6, 0)), c.name, 'foe'), j * 450)); peek.at.copy(at); peek.t = 3.4; }
+      if (!w) return;
+      w.foes.forEach(f => {
+        if (f.owner !== c.id) return;
+        if (c.resolved && !f.ticked) {
+          f.ticked = true; f.tickT = 0;
+          if (reduceMotion) { f.gone = true; f.g.visible = false; }
+        } else if (!c.resolved && f.ticked) {
+          if (w.cleared) f.ticked = false; else reviveFoe(f);
+        }
+      });
+    });
+    walls.forEach(w => { w.open = !tasks[w.taskIndex].foes; });
+    new Set(changes.map(c => c.index)).forEach(i => { const w = walls.find(x => x.taskIndex === i); if (w) retagWall(w); });
+  }
+  // One predator turning tail and fleeing into the blue; lt is the time
+  // since it was told to go.
+  function fleeFoe(w, f, lt, dt) {
+    if (!f.flee) {
+      const away = f.g.position.clone().sub(w.center).setY(0).normalize();
+      f.flee = { dir: away.lengthSq() ? away : V(1, 0, 0), speed: 2 };
+      bubble(f.g.position.clone(), 10, 0.4, 0.14);
+    }
+    f.flee.speed = Math.min(14, f.flee.speed + dt * 18);
+    if (f.kind === 'shark') {
+      const want = Math.atan2(f.flee.dir.x, f.flee.dir.z);
+      f.g.rotation.y = angleLerp(f.g.rotation.y, want, Math.min(1, dt * 6));
+      f.g.rotation.z *= 0.9;
+      f.g.position.addScaledVector(V(Math.sin(f.g.rotation.y), 0.12, Math.cos(f.g.rotation.y)), f.flee.speed * dt);
+    } else {
+      f.g.position.addScaledVector(f.flee.dir.clone().setY(1.2).normalize(), f.flee.speed * 0.4 * dt);
+    }
+    const fade = Math.max(0, 1 - (lt - 1.2) / 1.4);
+    f.mats.forEach(m => { m.transparent = true; m.opacity = fade * (f.kind === 'jelly' ? 0.6 : 1); });
+    if (fade <= 0) { f.gone = true; f.g.visible = false; }
   }
   function circleFoe(w, f, dt, time) {
     f.angle += dt * f.sp;
@@ -766,40 +827,22 @@ export function createOcean3D(container) {
           f.bells.forEach(b => { const q = Math.sin(time * 2.6 + b.ph); b.bell.scale.set(1 + q * 0.12, 1 - q * 0.15, 1 + q * 0.12); b.j.position.y += Math.sin(time * 1.2 + b.ph) * 0.002; });
         }
       });
-      if (!w.cleared) {
-        w.foes.forEach(f => circleFoe(w, f, dt, time));
-        w.lock.visible = w.tag.visible = w.ring.visible = true;
-        w.ring.material.opacity = 0.3 + 0.2 * Math.sin(time * 4);
-        w.lock.position.y = w.center.y + 2.4 + Math.sin(time * 2.2) * 0.08;
-        return;
-      }
-      if (w.t > 60) return;
-      w.t += dt;
-      const e = Math.min(1, w.t / 0.6);
-      w.lock.material.opacity = w.tag.material.opacity = 1 - e; w.ring.material.opacity = 0.5 * (1 - e);
-      if (w.t > 0.6) w.lock.visible = w.tag.visible = w.ring.visible = false;
-      // one after another, each predator turns tail and flees into the blue
+      // the lock, tag and ring fade out once nothing is left blocking
+      const shut = !w.cleared && !w.open;
+      w.fade = THREE.MathUtils.clamp(w.fade + (shut ? -dt : dt) / 0.6, 0, 1);
+      w.lock.material.opacity = w.tag.material.opacity = 1 - w.fade;
+      w.ring.material.opacity = (shut ? 0.3 + 0.2 * Math.sin(time * 4) : 0.5) * (1 - w.fade);
+      w.lock.visible = w.tag.visible = w.ring.visible = w.fade < 1;
+      if (shut) w.lock.position.y = w.center.y + 2.4 + Math.sin(time * 2.2) * 0.08;
+      if (w.cleared && w.t <= 60) w.t += dt;
+      // a predator whose own obstacle was ticked off flees on its own clock;
+      // the rest flee one after another once the whole task is done
       w.foes.forEach(f => {
         if (f.gone) return;
-        const lt = w.t - f.delay - 0.3;
-        if (lt < 0) { circleFoe(w, f, dt, time); return; }
-        if (!f.flee) {
-          const away = f.g.position.clone().sub(w.center).setY(0).normalize();
-          f.flee = { dir: away.lengthSq() ? away : V(1, 0, 0), speed: 2 };
-          bubble(f.g.position.clone(), 10, 0.4, 0.14);
-        }
-        f.flee.speed = Math.min(14, f.flee.speed + dt * 18);
-        if (f.kind === 'shark') {
-          const want = Math.atan2(f.flee.dir.x, f.flee.dir.z);
-          f.g.rotation.y = angleLerp(f.g.rotation.y, want, Math.min(1, dt * 6));
-          f.g.rotation.z *= 0.9;
-          f.g.position.addScaledVector(V(Math.sin(f.g.rotation.y), 0.12, Math.cos(f.g.rotation.y)), f.flee.speed * dt);
-        } else {
-          f.g.position.addScaledVector(f.flee.dir.clone().setY(1.2).normalize(), f.flee.speed * 0.4 * dt);
-        }
-        const fade = Math.max(0, 1 - (lt - 1.2) / 1.4);
-        f.mats.forEach(m => { m.transparent = true; m.opacity = fade * (f.kind === 'jelly' ? 0.6 : 1); });
-        if (fade <= 0) { f.gone = true; f.g.visible = false; }
+        if (f.ticked) { f.tickT += dt; fleeFoe(w, f, f.tickT, dt); return; }
+        const lt = w.cleared ? w.t - f.delay - 0.3 : -1;
+        if (lt < 0) circleFoe(w, f, dt, time);
+        else fleeFoe(w, f, lt, dt);
       });
     });
   }
@@ -980,6 +1023,7 @@ export function createOcean3D(container) {
   // ── Camera ─────────────────────────────────────────────────────────────
   const cam = { look: V(0, 1, 20), shake: 0 };
   const camDesired = new THREE.Vector3(), lookDesired = new THREE.Vector3();
+  const peek = { at: new THREE.Vector3(), t: 0 };
   function updateCamera(dt) {
     if (!diver) return;
     const dp = diver.holder.position;
@@ -997,6 +1041,7 @@ export function createOcean3D(container) {
       const side = V(fwd.z, 0, -fwd.x);
       camDesired.copy(dp).addScaledVector(fwd, -5.6).addScaledVector(side, 1.4).setY(dp.y + 2.6);
       lookDesired.copy(dp).addScaledVector(fwd, 3).setY(dp.y + 0.8);
+      peekCamera(peek, dp, camDesired, lookDesired, dt, 10, 3.5, 2.4);
     }
     camDesired.y = Math.min(camDesired.y, SURFACE_Y - 0.8);
     const k = 1 - Math.exp(-dt * rate);
@@ -1044,7 +1089,7 @@ export function createOcean3D(container) {
   function notify() {
     const n = tasks.length, done = tasks.filter(t => t.done).length;
     let text = n ? `Ocean Journey: ${done} of ${n} tasks done.` : 'Ocean Journey: no tasks yet.';
-    const blocked = walls.find(w => !w.cleared && !w.clearing && wallFrac(w.taskIndex) <= walker.progressToFrac(done, n) + 1e-3);
+    const blocked = walls.find(w => !w.cleared && !w.clearing && !w.open && wallFrac(w.taskIndex) <= walker.progressToFrac(done, n) + 1e-3);
     if (blocked) text += ` A shark blocks the way: ${tasks[blocked.taskIndex].blocker}.`;
     if (n && done === n) text += P.won ? ' The treasure is found!' : ' Opening the treasure chest.';
     shell.root.setAttribute('aria-label', text);
@@ -1073,7 +1118,9 @@ export function createOcean3D(container) {
       if (n && tasks.every(t => t.done)) settleWon();
       if (firstBuild) snapCamera();
     } else {
-      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; });
+      const changes = resolveChanges(tasks, next);
+      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; tasks[i].foeList = t.foeList; });
+      if (changes.length) applyResolves(changes);
       refreshFlags();
       walker.plan();
     }
@@ -1148,7 +1195,7 @@ export function createOcean3D(container) {
       get state() {
         return {
           ready: !!diver, frac: P.frac, mode: P.mode, won: P.won, stops: P.stops.length, finT: P.finT,
-          flagFracs: tasks.map((t, i) => checkpointFrac(i, tasks.length)), walls: walls.map(w => ({ task: w.taskIndex, cleared: w.cleared })),
+          flagFracs: tasks.map((t, i) => checkpointFrac(i, tasks.length)), walls: walls.map(w => ({ task: w.taskIndex, cleared: w.cleared, foes: w.foes.length, gone: w.foes.filter(f => f.ticked).length, open: !!w.open })),
           lid: +lidOpen.toFixed(2), coins: coins.visible, ghost: ghost ? ghost.holder.visible : false, label: shell.root.getAttribute('aria-label'),
           clams: flags.map(f => +f.open.toFixed(2)),
           onPath: diver && P.mode !== 'finale' && P.mode !== 'victory' ? (() => { let d = 1e9; for (let i = 0; i <= 400; i++) d = Math.min(d, curve.getPointAt(i / 400).distanceTo(tmpV.copy(diver.holder.position).add(V(0, CENTER, 0)))); return d; })() : 0,

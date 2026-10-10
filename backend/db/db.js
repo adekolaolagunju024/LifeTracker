@@ -1131,10 +1131,10 @@ function cleanObstacleName(name) {
 function attachObstaclesToTasks(tasks) {
   if (!tasks.length) return tasks;
   const placeholders = tasks.map(() => '?').join(',');
-  const rows = db.prepare(`SELECT id, taskId, name, count FROM task_obstacles WHERE taskId IN (${placeholders}) ORDER BY createdAt ASC`)
+  const rows = db.prepare(`SELECT id, taskId, name, count, resolvedAt FROM task_obstacles WHERE taskId IN (${placeholders}) ORDER BY createdAt ASC`)
     .all(...tasks.map(t => t.id));
   const byTask = {};
-  rows.forEach(r => { (byTask[r.taskId] = byTask[r.taskId] || []).push({ id: r.id, name: r.name, count: r.count }); });
+  rows.forEach(r => { (byTask[r.taskId] = byTask[r.taskId] || []).push({ id: r.id, name: r.name, count: r.count, resolved: !!r.resolvedAt }); });
   tasks.forEach(t => { t.obstacles = byTask[t.id] || []; });
   return tasks;
 }
@@ -1149,7 +1149,7 @@ function addObstacle(userId, taskId, { name, count } = {}) {
   const obstacle = { id: uuid(), taskId, userId, name: cleanObstacleName(name), count: cleanObstacleCount(count), createdAt: new Date().toISOString() };
   db.prepare('INSERT INTO task_obstacles (id, taskId, userId, name, count, createdAt) VALUES (?,?,?,?,?,?)')
     .run(obstacle.id, obstacle.taskId, obstacle.userId, obstacle.name, obstacle.count, obstacle.createdAt);
-  return { id: obstacle.id, name: obstacle.name, count: obstacle.count };
+  return { id: obstacle.id, name: obstacle.name, count: obstacle.count, resolved: false };
 }
 // Returns the updated obstacle, or null when it doesn't exist or isn't visible.
 function updateObstacle(userId, obstacleId, changes = {}) {
@@ -1160,8 +1160,10 @@ function updateObstacle(userId, obstacleId, changes = {}) {
   assertCanComment(userId, task.projectId);
   const name = changes.name !== undefined ? cleanObstacleName(changes.name) : row.name;
   const count = changes.count !== undefined ? cleanObstacleCount(changes.count) : row.count;
-  db.prepare('UPDATE task_obstacles SET name = ?, count = ? WHERE id = ?').run(name, count, obstacleId);
-  return { id: obstacleId, name, count };
+  let resolvedAt = row.resolvedAt || null;
+  if (changes.resolved !== undefined) resolvedAt = changes.resolved ? (resolvedAt || new Date().toISOString()) : null;
+  db.prepare('UPDATE task_obstacles SET name = ?, count = ?, resolvedAt = ? WHERE id = ?').run(name, count, resolvedAt, obstacleId);
+  return { id: obstacleId, name, count, resolved: !!resolvedAt };
 }
 function deleteObstacle(userId, obstacleId) {
   const row = db.prepare('SELECT taskId FROM task_obstacles WHERE id = ?').get(obstacleId);

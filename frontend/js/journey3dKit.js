@@ -45,6 +45,8 @@ function injectKitStyles() {
       72% { opacity: 1; transform: translateY(-4px) scale(1); }
       100% { opacity: 0; transform: translateY(-26px) scale(.96); }
     }
+    .jk-task-label-foe .jk-task-label-inner { background: #15803d; color: #fff; text-align: center; animation-duration: 2.8s; }
+    .jk-task-label-inner small { display: block; font: 900 10px system-ui, sans-serif; letter-spacing: .14em; color: #fde68a; }
     @media (prefers-reduced-motion: reduce) { .jk-win div, .jk-task-label-inner { animation: none; } }
   `;
   document.head.appendChild(style);
@@ -114,13 +116,15 @@ export function createShell(container, { label, background, loadingText, winTitl
   // Completed task titles float above their checkpoint, re-projected to
   // the screen every frame so they stay put as the camera moves.
   const activeLabels = [];
-  function spawnTaskLabel(worldPos, text) {
+  // kind 'foe': a ticked-off obstacle's name, in green, over "ELIMINATED!".
+  function spawnTaskLabel(worldPos, text, kind) {
     if (!text) return;
     const outer = document.createElement('div');
-    outer.className = 'jk-task-label';
+    outer.className = 'jk-task-label' + (kind === 'foe' ? ' jk-task-label-foe' : '');
     const li = document.createElement('div');
     li.className = 'jk-task-label-inner';
-    li.textContent = text.length > 28 ? text.slice(0, 27) + '…' : text;
+    li.textContent = (kind === 'foe' ? '✓ ' : '') + (text.length > 28 ? text.slice(0, 27) + '…' : text);
+    if (kind === 'foe') { const sub = document.createElement('small'); sub.textContent = 'ELIMINATED!'; li.appendChild(sub); }
     outer.appendChild(li);
     labelLayer.appendChild(outer);
     const rec = { el: outer, pos: worldPos.clone() };
@@ -129,7 +133,7 @@ export function createShell(container, { label, background, loadingText, winTitl
       outer.remove();
       const idx = activeLabels.indexOf(rec);
       if (idx >= 0) activeLabels.splice(idx, 1);
-    }, 2200));
+    }, kind === 'foe' ? 2800 : 2200));
   }
   const tmp = new THREE.Vector3();
   function updateTaskLabels(camera) {
@@ -393,7 +397,7 @@ export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, redu
   function targetFrac() {
     const tasks = getTasks(), n = tasks.length, done = tasks.filter(t => t.done).length;
     let to = progressToFrac(done, n);
-    walls.forEach(w => { if (!w.cleared) to = Math.min(to, hooks.stopFrac(w.taskIndex)); });
+    walls.forEach(w => { if (!w.cleared && !w.open) to = Math.min(to, hooks.stopFrac(w.taskIndex)); });
     return to;
   }
   function plan() {
@@ -408,6 +412,8 @@ export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, redu
       const wall = walls.find(w => w.taskIndex === i);
       if (t.done && !celebrated.has(t.id)) {
         celebrated.add(t.id);
+        // every obstacle already ticked off: nothing left standing to beat
+        if (wall && wall.open && !wall.cleared) { wall.cleared = true; wall.t = 99; }
         if (wall && !wall.cleared && !wall.clearing) {
           wall.clearing = true;
           events.push({ frac: hooks.stopFrac(i), fn: () => hooks.clearWall(wall), pause: hooks.wallPause ? hooks.wallPause(wall) : 1.35, kind: 'wall', wall });
@@ -424,7 +430,7 @@ export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, redu
         : e.kind === 'flag' ? !!(tasks.find(t => t.id === e.taskId) || {}).done : false);
     const all = carried.concat(events);
     let to = progressToFrac(done, n);
-    walls.forEach(w => { if (!w.cleared && !w.clearing) to = Math.min(to, hooks.stopFrac(w.taskIndex)); });
+    walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to = Math.min(to, hooks.stopFrac(w.taskIndex)); });
     if (n && allDone() && !P.won && Math.abs(to - progressToFrac(n, n)) < 1e-6) all.push({ frac: to, fn: hooks.startFinale, pause: 0, kind: 'finale' });
 
     const from = P.frac, dir = to >= from ? 1 : -1;
@@ -504,23 +510,83 @@ export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, redu
 // A task's obstacles as { count, label }: its named obstacles (counts added
 // up, the first name on the tag), or one for an older "this is a blocker"
 // status update; null when nothing is in the way. Same rule as the 2D stages.
+// Obstacles can be ticked off (resolved) one at a time: only the pending
+// ones still stand in the way.
 export function foesFor(t) {
   const obs = t.obstacles || [];
-  const count = obs.reduce((a, o) => a + (o.count || 1), 0);
-  if (count) return { count, label: obs[0].name + (obs.length > 1 ? ` (+${obs.length - 1} more)` : '') };
+  if (obs.length) {
+    const pending = obs.filter(o => !o.resolved);
+    const count = pending.reduce((a, o) => a + (o.count || 1), 0);
+    return count ? { count, label: pending[0].name + (pending.length > 1 ? ` (+${pending.length - 1} more)` : '') } : null;
+  }
   if (t.latestUpdateIsBlocker) return { count: 1, label: t.latestUpdateText || 'Blocked' };
   return null;
 }
-// The task fields every 3D stage reads from app.js's task objects.
+// Every enemy a task's obstacles call for, resolved or not — one entry per
+// enemy, saying which obstacle it stands for.
+function foeListFor(t) {
+  const obs = t.obstacles || [];
+  if (obs.length) return obs.flatMap(o => Array.from({ length: o.count || 1 }, () => ({ id: o.id, name: o.name, resolved: !!o.resolved })));
+  if (t.latestUpdateIsBlocker) return [{ id: null, name: t.latestUpdateText || 'Blocked', resolved: false }];
+  return [];
+}
+// The task fields every 3D stage reads from app.js's task objects. `foes`
+// counts only pending enemies (what blocks the path); `foeList` is every
+// enemy, so ticking one obstacle off can knock out just its own.
 export function stageTasks(state) {
   return (state.tasks || []).map(t => {
     const f = foesFor(t);
-    return { id: t.id, title: t.title, done: t.status === 'Completed', foes: f ? f.count : 0, blocker: f ? f.label : null };
+    const foeList = foeListFor(t);
+    const key = (t.obstacles || []).map(o => `${o.id}/${o.count}/${o.name}`).join(',') || (t.latestUpdateIsBlocker ? `!${t.latestUpdateText || ''}` : '');
+    return { id: t.id, title: t.title, done: t.status === 'Completed', foes: f ? f.count : 0, blocker: f ? f.label : null, foeList, foeKey: key };
   });
 }
-// Which tasks exist, in what order, and what stands in front of each —
-// when this changes the stage rebuilds instead of animating.
-export const layoutSignature = tasks => tasks.map(t => `${t.id}:${t.foes}:${t.blocker || ''}`).join('|');
+// Which tasks exist, in what order, and which obstacles stand in front of
+// each — when this changes the stage rebuilds instead of animating.
+// Ticking an obstacle off isn't a layout change: see resolveChanges.
+export const layoutSignature = tasks => tasks.map(t => `${t.id}:${t.foeKey}`).join('|');
+// Which of a wall's enemies to show when there's room for only n of them:
+// round-robin across the obstacles, so every obstacle gets at least one
+// (as far as n allows) instead of the first obstacle taking every slot.
+export function pickFoes(foeList, n) {
+  const groups = [];
+  foeList.forEach(f => { let g = groups.find(x => x.id === f.id); if (!g) groups.push(g = { id: f.id, foes: [] }); g.foes.push(f); });
+  const out = [];
+  for (let r = 0; out.length < n && groups.some(g => g.foes.length > r); r++) {
+    groups.forEach(g => { if (out.length < n && g.foes[r]) out.push(g.foes[r]); });
+  }
+  return out;
+}
+// Obstacles ticked off (or unticked) between two syncs of the same layout:
+// [{ index, id, name, resolved }].
+export function resolveChanges(prev, next) {
+  const out = [];
+  next.forEach((t, index) => {
+    const before = new Map((prev[index] ? prev[index].foeList : []).map(f => [f.id, f.resolved]));
+    const seen = new Set();
+    t.foeList.forEach(f => {
+      if (f.id == null || seen.has(f.id)) return;
+      seen.add(f.id);
+      if (before.has(f.id) && before.get(f.id) !== f.resolved) out.push({ index, id: f.id, name: f.name, resolved: f.resolved });
+    });
+  });
+  return out;
+}
+// A short glance from the follow cam at a wall whose obstacle was just
+// ticked off, so its enemies are seen going down: set peek.at and peek.t,
+// then call this in the follow branch of the camera update.
+export function peekCamera(peek, from, camDesired, lookDesired, dt, dist = 9, height = 4.5, lookUp = 2.2) {
+  if (!(peek.t > 0)) return false;
+  peek.t -= dt;
+  const away = from.clone().sub(peek.at).setY(0);
+  if (away.lengthSq() < 1e-4) away.set(0, 0, 1);
+  away.normalize();
+  camDesired.copy(peek.at).addScaledVector(away, dist).setY(peek.at.y + height);
+  lookDesired.copy(peek.at).setY(peek.at.y + lookUp);
+  return true;
+}
+// The red tag over a wall reads the pending obstacles only.
+export const tagText = t => `${t.blocker}${t.foes > 1 ? ` ×${t.foes}` : ''}`;
 // A floating red name tag for an obstacle, as a sprite sized to its text.
 export function nameTagSprite(text, height = 0.42) {
   const label = text.length > 30 ? text.slice(0, 29) + '…' : text;

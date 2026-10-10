@@ -18,7 +18,7 @@ import {
   createShell, createLoop, makeCanvasTexture, seededRandom, softDotTexture, Particles, particleScaleFor,
   loadGLTF, makeCharacter, play, recolorCharacter, findBone, attachToBone,
   checkpointFracOf, progressToPathFracSmooth, angleLerp, createWalker,
-  stageTasks, layoutSignature, nameTagSprite,
+  stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera,
 } from './journey3dKit.js';
 
 const ASTRONAUT_URL = '/assets/models/Knight.glb';
@@ -475,29 +475,35 @@ export function createSpace3D(container) {
     walls.forEach(w => { w.foes.forEach(f => scene.remove(f.g)); scene.remove(w.lock, w.hoop, w.tag); });
     walls.length = 0;
     tasks.forEach((t, i) => {
-      if (!t.foes) return;
+      if (!t.foeList.length) return;
       const u = wallFrac(i), p = curve.getPointAt(u), tan = curve.getTangentAt(u);
       const side = new THREE.Vector3().crossVectors(tan, UP).normalize(), up2 = new THREE.Vector3().crossVectors(side, tan).normalize();
-      const n = Math.min(t.foes, 5);
+      const n = Math.min(t.foeList.length, 5);
+      const owners = pickFoes(t.foeList, n);
       const foes = Array.from({ length: n }, (_, k) => {
         const f = k % 2 === 0 ? buildRockFoe() : buildUfo();
         const a = (k / n) * Math.PI * 2 + 0.4, r = n === 1 ? 0 : 1.6 + (k % 2) * 0.7;
         const home = p.clone().addScaledVector(side, Math.cos(a) * r * 1.3).addScaledVector(up2, Math.sin(a) * r).addScaledVector(tan, (k % 3) * 1.4);
         f.g.position.copy(home);
-        return Object.assign(f, { home, spin: rand3(1), ph: rnd() * 6, delay: 0.15 + k * 0.35, blasted: false });
+        // owner: the obstacle this enemy stands for; ticked once it's resolved
+        const ticked = owners[k].resolved;
+        if (ticked) f.g.visible = false;
+        return Object.assign(f, { home, spin: rand3(1), ph: rnd() * 6, delay: 0.15 + k * 0.35, blasted: ticked, owner: owners[k].id, ticked });
       });
       const lock = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, transparent: true }));
       lock.position.copy(p).addScaledVector(up2, 3.6); lock.scale.setScalar(0.9); scene.add(lock);
-      const tag = nameTagSprite(`${t.blocker}${t.foes > 1 ? ` ×${t.foes}` : ''}`, 0.6);
+      const tag = nameTagSprite(t.foes ? tagText(t) : 'Clear', 0.6);
       tag.position.copy(p).addScaledVector(up2, 4.5); scene.add(tag);
       const hoop = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.07, 8, 48), new THREE.MeshBasicMaterial({ color: '#ff6b5e', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
       hoop.position.copy(p); hoop.quaternion.setFromUnitVectors(V(0, 0, 1), tan); scene.add(hoop);
-      const w = { taskIndex: i, foes, lock, tag, hoop, center: p.clone(), cleared: !!t.done, clearing: false, t: t.done ? 99 : 0 };
-      if (w.cleared) { foes.forEach(f => { f.g.visible = false; f.blasted = true; }); lock.visible = tag.visible = hoop.visible = false; }
+      const w = { taskIndex: i, foes, lock, tag, hoop, center: p.clone(), up: up2.clone(), cleared: !!t.done, clearing: false, t: t.done ? 99 : 0, open: !t.foes, fade: t.done || !t.foes ? 1 : 0 };
+      if (w.cleared) foes.forEach(f => { f.g.visible = false; f.blasted = true; });
+      if (w.fade) lock.visible = tag.visible = hoop.visible = false;
       walls.push(w);
     });
   }
-  const wallPause = w => 0.8 + 0.35 * Math.max(1, w.foes.length);
+  const standing = w => w.foes.filter(f => !f.ticked);
+  const wallPause = w => 0.8 + 0.35 * Math.max(1, standing(w).length);
   // laser bolts and rock fragments
   const laserMat = new THREE.MeshBasicMaterial({ color: '#ff4d6d', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
   const lasers = [];
@@ -539,12 +545,54 @@ export function createSpace3D(container) {
   function clearWall(w) {
     if (w.cleared) return;
     w.cleared = true; w.t = 0;
+    standing(w).forEach((f, j) => { f.delay = 0.15 + j * 0.35; });
     if (reduceMotion) { w.t = 99; w.foes.forEach(f => { f.g.visible = false; f.blasted = true; }); w.lock.visible = w.tag.visible = w.hoop.visible = false; }
     notify();
   }
   function restoreWall(w) {
     w.cleared = false; w.clearing = false; w.t = 0;
-    w.foes.forEach(f => { f.g.visible = true; f.g.position.copy(f.home); f.blasted = false; });
+    w.foes.forEach(f => { if (!f.ticked) reviveFoe(f); });
+  }
+  function reviveFoe(f) { f.ticked = false; f.g.visible = true; f.g.position.copy(f.home); f.blasted = false; }
+  // The rocket's laser blows one enemy apart.
+  function blast(f) {
+    f.blasted = true;
+    if (!f.g.visible) return;
+    const nose = V(0, 2.4 * ROCKET_SCALE, 0).applyQuaternion(rocket.root.quaternion).add(rocket.root.position);
+    fireLaser(nose, f.g.position);
+    shatter(f.g.position.clone(), f.kind === 'rock' ? 1.2 : 0.8);
+    if (f.kind === 'ufo') sparkle(f.g.position.clone(), 40, ['#a3e635', '#fde047', '#ffffff'], 6);
+    f.g.visible = false;
+    cam.shake = Math.max(cam.shake, 0.18);
+  }
+  // Swaps a wall's red tag for one naming only what's still pending.
+  function retagWall(w) {
+    const t = tasks[w.taskIndex];
+    const tag = nameTagSprite(t.foes ? tagText(t) : 'Clear', 0.6);
+    tag.position.copy(w.tag.position); tag.material.opacity = w.tag.material.opacity; tag.visible = w.tag.visible;
+    scene.remove(w.tag); w.tag.material.map.dispose(); w.tag.material.dispose();
+    scene.add(tag); w.tag = tag;
+  }
+  // An obstacle ticked off (or unticked) on its own: the rocket blasts just
+  // its enemies (or they drift back), and its name pops up over the route.
+  function applyResolves(changes) {
+    changes.forEach((c, j) => {
+      const w = walls.find(x => x.taskIndex === c.index);
+      const at = w ? w.center.clone().addScaledVector(w.up, 5.2) : curve.getPointAt(wallFrac(c.index));
+      if (c.resolved) { timers.push(setTimeout(() => shell.spawnTaskLabel(at, c.name, 'foe'), j * 450)); if (w) { peek.at.copy(w.center); peek.t = 3.4; } }
+      if (!w) return;
+      w.foes.forEach((f, k) => {
+        if (f.owner !== c.id) return;
+        if (c.resolved && !f.ticked) {
+          f.ticked = true;
+          if (!f.blasted) timers.push(setTimeout(() => { if (f.ticked && !f.blasted) blast(f); }, j * 450 + k * 160));
+        } else if (!c.resolved && f.ticked) {
+          if (w.cleared) f.ticked = false; else reviveFoe(f);
+        }
+      });
+    });
+    walls.forEach(w => { w.open = !tasks[w.taskIndex].foes; });
+    new Set(changes.map(c => c.index)).forEach(i => { const w = walls.find(x => x.taskIndex === i); if (w) retagWall(w); });
   }
   function updateWalls(dt, time) {
     walls.forEach(w => {
@@ -554,27 +602,16 @@ export function createSpace3D(container) {
         else { f.body.rotation.y += dt * 1.6; f.lights.forEach((l, q) => { l.visible = ((Math.floor(time * 6) + q) % 3) !== 0; }); }
         if (!w.cleared) f.g.position.copy(f.home).add(V(Math.sin(time * 0.5 + f.ph) * 0.2, Math.cos(time * 0.7 + f.ph) * 0.25, 0));
       });
-      if (!w.cleared) {
-        w.lock.visible = w.tag.visible = w.hoop.visible = true;
-        w.hoop.material.opacity = 0.4 + 0.25 * Math.sin(time * 4);
-        return;
-      }
-      if (w.t > 60) return;
+      // the lock, tag and hoop fade out once nothing is left blocking
+      const shut = !w.cleared && !w.open;
+      w.fade = THREE.MathUtils.clamp(w.fade + (shut ? -dt : dt) / 0.8, 0, 1);
+      w.lock.material.opacity = w.tag.material.opacity = 1 - w.fade;
+      w.hoop.material.opacity = (shut ? 0.4 + 0.25 * Math.sin(time * 4) : 0.6) * (1 - w.fade);
+      w.lock.visible = w.tag.visible = w.hoop.visible = w.fade < 1;
+      if (!w.cleared || w.t > 60) return;
       w.t += dt;
       // lasers fire from the nose at each enemy in turn, and it blows apart
-      w.foes.forEach(f => {
-        if (f.blasted || w.t < f.delay) return;
-        f.blasted = true;
-        const nose = V(0, 2.4 * ROCKET_SCALE, 0).applyQuaternion(rocket.root.quaternion).add(rocket.root.position);
-        fireLaser(nose, f.g.position);
-        shatter(f.g.position.clone(), f.kind === 'rock' ? 1.2 : 0.8);
-        if (f.kind === 'ufo') sparkle(f.g.position.clone(), 40, ['#a3e635', '#fde047', '#ffffff'], 6);
-        f.g.visible = false;
-        cam.shake = Math.max(cam.shake, 0.18);
-      });
-      const e = Math.min(1, w.t / 0.8);
-      w.lock.material.opacity = w.tag.material.opacity = 1 - e; w.hoop.material.opacity = 0.6 * (1 - e);
-      if (w.t > 0.8) w.lock.visible = w.tag.visible = w.hoop.visible = false;
+      w.foes.forEach(f => { if (!f.blasted && w.t >= f.delay) blast(f); });
     });
   }
 
@@ -811,6 +848,7 @@ export function createSpace3D(container) {
   // ── Camera ─────────────────────────────────────────────────────────────
   const cam = { look: V(0, 0, 30), shake: 0 };
   const camDesired = new THREE.Vector3(), lookDesired = new THREE.Vector3();
+  const peek = { at: new THREE.Vector3(), t: 0 };
   function updateCamera(dt, time) {
     const rp = rocket.root.position.clone().add(V(0, ROCKET_MID, 0).applyQuaternion(rocket.root.quaternion));
     let rate = 3;
@@ -830,6 +868,7 @@ export function createSpace3D(container) {
       const side = new THREE.Vector3().crossVectors(dir, UP).normalize();
       camDesired.copy(rp).addScaledVector(dir, -12.5).addScaledVector(side, 2.6).add(V(0, 4.2, 0));
       lookDesired.copy(rp).addScaledVector(dir, 6);
+      peekCamera(peek, rp, camDesired, lookDesired, dt, 15, 5, 2.5);
     }
     const k = 1 - Math.exp(-dt * rate);
     camera.position.lerp(camDesired, k);
@@ -855,7 +894,7 @@ export function createSpace3D(container) {
   function notify() {
     const n = tasks.length, done = tasks.filter(t => t.done).length;
     let text = n ? `Space Journey: ${done} of ${n} tasks done.` : 'Space Journey: no tasks yet.';
-    const blocked = walls.find(w => !w.cleared && !w.clearing && wallFrac(w.taskIndex) <= walker.progressToFrac(done, n) + 1e-3);
+    const blocked = walls.find(w => !w.cleared && !w.clearing && !w.open && wallFrac(w.taskIndex) <= walker.progressToFrac(done, n) + 1e-3);
     if (blocked) text += ` An asteroid field blocks the route: ${tasks[blocked.taskIndex].blocker}.`;
     if (n && done === n) text += P.won ? ' Landed on a new world!' : ' Coming in to land.';
     shell.root.setAttribute('aria-label', text);
@@ -889,7 +928,9 @@ export function createSpace3D(container) {
       if (n && tasks.every(t => t.done)) settleWon();
       if (firstBuild) snapCamera();
     } else {
-      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; });
+      const changes = resolveChanges(tasks, next);
+      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; tasks[i].foeList = t.foeList; });
+      if (changes.length) applyResolves(changes);
       refreshFlags();
       walker.plan();
     }
@@ -958,7 +999,7 @@ export function createSpace3D(container) {
         const rp = rocket.root.position.clone().add(V(0, ROCKET_MID, 0).applyQuaternion(rocket.root.quaternion));
         return {
           ready: !!astro, frac: P.frac, mode: P.mode, won: P.won, stops: P.stops.length, finT: P.finT,
-          flagFracs: tasks.map((t, i) => checkpointFrac(i, tasks.length)), walls: walls.map(w => ({ task: w.taskIndex, cleared: w.cleared })),
+          flagFracs: tasks.map((t, i) => checkpointFrac(i, tasks.length)), walls: walls.map(w => ({ task: w.taskIndex, cleared: w.cleared, foes: w.foes.length, gone: w.foes.filter(f => f.ticked).length, open: !!w.open })),
           landed: legsOut > 0.99, flag: flag.visible, astro: astro ? astro.holder.visible : false, ghost: ghost ? ghost.root.visible : false,
           label: shell.root.getAttribute('aria-label'), panels: flags.map(f => +f.unfold.toFixed(2)),
           onPath: P.mode !== 'finale' && P.mode !== 'victory' ? (() => { let d = 1e9; for (let i = 0; i <= 400; i++) d = Math.min(d, curve.getPointAt(i / 400).distanceTo(rp)); return d; })() : 0,
