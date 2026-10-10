@@ -1563,6 +1563,61 @@ const JourneyGame = (() => {
     entry.lastState = state;
   }
 
+  // ── 3D stages ────────────────────────────────────────────────────────
+  // Themes rendered in real 3D (WebGL) by a separate module, loaded only
+  // when one is picked. Each names the 2D theme to fall back to if the
+  // device has no WebGL or the module/model fails to load, so the Journey
+  // always shows something.
+  const THREE_D_THEMES = { football3d: { module: '/js/journey3d.js', fallback: 'football', failed: false } };
+  const instances3d = new Set();
+  let module3d = null;
+  let webglOk = null;
+  function supportsWebGL() {
+    if (webglOk === null) {
+      try {
+        const c = document.createElement('canvas');
+        webglOk = !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
+      } catch (e) { webglOk = false; }
+    }
+    return webglOk;
+  }
+  function teardown3d(container) {
+    instances3d.delete(container._j3d);
+    container._j3d.destroy();
+    container._j3d = null;
+    container.innerHTML = '';
+  }
+  function sync3d(container, state, cfg) {
+    container._j3dState = state;
+    if (container._j3d) { container._j3d.sync(state); return Promise.resolve(); }
+    // Leaving the 2D scene: stop its walk and drop it (its ResizeObserver
+    // finds no entry while the 3D stage is up, so it stays idle).
+    const entry = containers.get(container);
+    if (entry) { stopWalk(entry); containers.delete(container); container.innerHTML = ''; }
+    if (!container._j3dLoading) {
+      module3d = module3d || import(cfg.module);
+      container._j3dLoading = module3d.then(mod => {
+        container._j3dLoading = null;
+        const latest = container._j3dState;
+        if (!latest || !THREE_D_THEMES[latest.theme] || container._j3d) return;
+        container._j3d = mod.createFootball3D(container);
+        instances3d.add(container._j3d);
+        container._j3d.sync(latest);
+      }).catch(err => {
+        console.error('3D Journey unavailable, showing the 2D stage instead:', err);
+        cfg.failed = true; module3d = null; container._j3dLoading = null;
+        if (container._j3d) { instances3d.delete(container._j3d); container._j3d = null; }
+        container.innerHTML = '';
+        const latest = container._j3dState;
+        if (latest && THREE_D_THEMES[latest.theme]) {
+          ensureResizeObserver(container);
+          apply(container, Object.assign({}, latest, { theme: cfg.fallback }));
+        }
+      });
+    }
+    return container._j3dLoading;
+  }
+
   function ensureResizeObserver(container) {
     if (container._journeyRO) return;
     const ro = new ResizeObserver(() => {
@@ -1582,14 +1637,19 @@ const JourneyGame = (() => {
       return label;
     },
     sync(container, state) {
+      const three = THREE_D_THEMES[state.theme];
+      if (three && !three.failed && supportsWebGL()) return sync3d(container, state, three);
+      if (container._j3d) teardown3d(container);
       ensureResizeObserver(container);
-      apply(container, state);
+      apply(container, three ? Object.assign({}, state, { theme: three.fallback }) : state);
       return Promise.resolve();
     },
-    pause() { /* CSS-driven, nothing to pause */ },
-    resume() { /* CSS-driven, nothing to resume */ },
+    pause() { instances3d.forEach(inst => inst.pause()); },
+    resume() { instances3d.forEach(inst => inst.resume()); },
     destroy(container) {
       if (container) {
+        if (container._j3d) teardown3d(container);
+        container._j3dState = null;
         const entry = containers.get(container);
         if (entry) stopWalk(entry);
         if (container._journeyRO) { container._journeyRO.disconnect(); delete container._journeyRO; }

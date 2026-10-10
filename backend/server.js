@@ -57,6 +57,11 @@ app.use(session({
 
 // ── SERVE FRONTEND (public — the login screen itself lives here) ──
 app.use(express.static(path.join(__dirname, '../frontend'), { index: false }));
+// Three.js for the 3D Journey stage, served from the npm package so it's
+// self-hosted and version-locked by package.json (only the two folders the
+// browser imports from).
+app.use('/vendor/three/build', express.static(path.join(__dirname, '../node_modules/three/build')));
+app.use('/vendor/three/examples/jsm', express.static(path.join(__dirname, '../node_modules/three/examples/jsm')));
 
 // The marketing page is the front door for signed-out visitors; signed-in
 // users (and the app's own login screen at /app) get the app itself.

@@ -19,6 +19,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Waypoint">
 
+  <!-- Resolves "three" for the 3D Journey stage (frontend/js/journey3d.js,
+       loaded on demand) to the self-hosted copy server.js serves from
+       node_modules. Must come before any module import. -->
+  <script type="importmap">
+    { "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }
+  </script>
+
   <!-- Apply saved theme before first paint to avoid a flash of the wrong theme -->
   <script>
     (function() {
@@ -1268,6 +1275,7 @@
               <option value="ocean">🌊 Ocean</option>
               <option value="race">🏎️ Race</option>
               <option value="football">⚽ Football</option>
+              <option value="football3d">🏟️ Football 3D</option>
             </select>
             <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started">↺ Reset</button>
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
