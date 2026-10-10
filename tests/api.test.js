@@ -161,6 +161,14 @@ test('obstacles can be added to a task, edited, listed with it, and removed', as
 
   const rows = await (await fetch(`${server.base}/api/tasks?projectId=${project.id}`, { headers: { Cookie: cookie } })).json();
   assert.deepEqual(rows[0].obstacles.map(o => [o.name, o.count]), [['Quote signed off', 1], ['Too many', 5]], 'tasks carry their obstacles, oldest first');
+  assert.equal(rows[0].obstacles[0].resolved, false, 'a new obstacle is pending');
+
+  const ticked = await (await put(`${server.base}/api/tasks/obstacles/${obstacle.id}`, { resolved: true })).json();
+  assert.deepEqual({ name: ticked.name, resolved: ticked.resolved }, { name: 'Quote signed off', resolved: true }, 'one obstacle can be ticked off on its own');
+  const afterTick = await (await fetch(`${server.base}/api/tasks/${task.id}/obstacles`, { headers: { Cookie: cookie } })).json();
+  assert.deepEqual(afterTick.map(o => o.resolved), [true, false], 'the other obstacle stays pending');
+  const unticked = await (await put(`${server.base}/api/tasks/obstacles/${obstacle.id}`, { resolved: false })).json();
+  assert.equal(unticked.resolved, false, 'unticking brings it back');
 
   const del = await fetch(`${server.base}/api/tasks/obstacles/${obstacle.id}`, { method: 'DELETE', headers: { Cookie: cookie } });
   assert.equal(del.status, 200);

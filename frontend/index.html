@@ -470,6 +470,11 @@
     .journey-task-popup-text { font-size: 13px; font-weight: 800; fill: #1f2937; font-family: Arial, sans-serif; dominant-baseline: middle; }
     .journey-task-popup-bg { fill: #ffffff; fill-opacity: .94; stroke: rgba(0,0,0,.08); stroke-width: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
     .journey-task-popup-inner { animation: journey-task-popup 2.2s ease-out 1 forwards; transform-box: fill-box; transform-origin: center; }
+    /* A ticked-off obstacle: its name in green over "ELIMINATED!". */
+    .journey-foe-popup .journey-task-popup-bg { fill: #15803d; fill-opacity: .96; }
+    .journey-foe-popup .journey-task-popup-text { fill: #ffffff; }
+    .journey-foe-popup-sub { font-size: 9px; font-weight: 900; letter-spacing: 1.5px; fill: #fde68a; font-family: Arial, sans-serif; dominant-baseline: middle; }
+    .journey-foe-popup .journey-task-popup-inner { animation-duration: 2.8s; }
     @keyframes journey-task-popup {
       0% { opacity: 0; transform: translateY(6px) scale(.85); }
       12% { opacity: 1; transform: translateY(0) scale(1); }

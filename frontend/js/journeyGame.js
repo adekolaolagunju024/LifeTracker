@@ -1515,19 +1515,23 @@ const JourneyGame = (() => {
   // ════════════════════════════════════════════════════════════════
   const FOE_SPOTS = [[-26, 0], [-42, -7], [-34, 10], [-54, 3], [-18, 13], [-60, -6]];
   const FOE_SIZE = 1.25;
-  function drawFoes(blocked, s, foe) {
+  // bare: just the enemies (no glow, lock or tag), from spot `start` on —
+  // used for a ticked-off obstacle's enemies as they're knocked out.
+  function drawFoes(blocked, s, foe, { bare = false, start = 0 } = {}) {
     const info = blocked === true ? { count: 1, label: '' } : blocked;
     const shown = Math.min(info.count, FOE_SPOTS.length);
+    const spots = Array.from({ length: shown }, (_, k) => FOE_SPOTS[(start + k) % FOE_SPOTS.length]);
     const g = el('g', { class: 'journey-foes' });
-    const cx = FOE_SPOTS.slice(0, shown).reduce((a, p) => a + p[0], 0) / shown;
-    g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: cx * s, cy: -8 * s, r: (18 + shown * 4) * s, fill: '#ef4444', opacity: 0.4 }));
-    FOE_SPOTS.slice(0, shown).sort((a, b) => a[1] - b[1]).forEach(([x, y], k) => {
+    const cx = spots.reduce((a, p) => a + p[0], 0) / shown;
+    if (!bare) g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: cx * s, cy: -8 * s, r: (18 + shown * 4) * s, fill: '#ef4444', opacity: 0.4 }));
+    spots.sort((a, b) => a[1] - b[1]).forEach(([x, y], k) => {
       const pos = el('g', { transform: `translate(${x * s},${y * s}) scale(${s * FOE_SIZE})` });
       const inner = el('g', { class: 'journey-foe', style: `animation-delay:${(-k * 0.37).toFixed(2)}s` });
-      foe(inner, k);
+      foe(inner, k + start);
       pos.appendChild(inner);
       g.appendChild(pos);
     });
+    if (bare) return g;
     const top = Math.min(...FOE_SPOTS.slice(0, shown).map(p => p[1])) - 36;
     g.appendChild(lockIcon(cx * s, top * s, s));
     const extra = info.count > shown ? ` +${info.count - shown}` : '';
@@ -1633,14 +1637,14 @@ const JourneyGame = (() => {
       sky: [[0, '#4e8fd6'], [30, '#7fb8e8'], [58, '#bfe2f5'], [82, '#ffe4ae'], [100, '#ffcf8a']],
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#d8a862', fill: '#fff6e4', dash: '#f4a53b', progress: '#ffe28a' },
-      decorate: roadDecorate, scatter: roadScatter, buildAvatar: roadBuildAvatar, buildGoal: roadBuildGoal, buildCheckpoint: roadBuildCheckpoint,
+      decorate: roadDecorate, scatter: roadScatter, buildAvatar: roadBuildAvatar, buildGoal: roadBuildGoal, buildCheckpoint: roadBuildCheckpoint, foes: ROAD_FOES,
     },
     space: {
       label: 'Space', avatarFill: '#ef4444',
       sky: [[0, '#0f0a2e'], [50, '#2a1760'], [100, '#4b2e83']],
       goalGrad: [[0, '#ffe7b0'], [45, '#ffb24a'], [100, '#e8762b']],
       path: { outline: '#3347a8', fill: '#dfe6ff', dash: '#7dd3fc', progress: '#67e8f9' },
-      decorate: spaceDecorate, scatter: spaceScatter, buildAvatar: spaceBuildAvatar, buildGoal: spaceBuildGoal, buildCheckpoint: spaceBuildCheckpoint,
+      decorate: spaceDecorate, scatter: spaceScatter, buildAvatar: spaceBuildAvatar, buildGoal: spaceBuildGoal, buildCheckpoint: spaceBuildCheckpoint, foes: SPACE_FOES,
       celebrateFinish: spaceCelebrateFinish,
     },
     ocean: {
@@ -1648,7 +1652,7 @@ const JourneyGame = (() => {
       sky: [[0, '#bdeeff'], [45, '#5ec8e0'], [100, '#1b6fa8']],
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#c9a46a', fill: '#f0e2c0', dash: '#2f9e6e', progress: '#34d399' },
-      decorate: oceanDecorate, scatter: oceanScatter, buildAvatar: oceanBuildAvatar, buildGoal: oceanBuildGoal, buildCheckpoint: oceanBuildCheckpoint,
+      decorate: oceanDecorate, scatter: oceanScatter, buildAvatar: oceanBuildAvatar, buildGoal: oceanBuildGoal, buildCheckpoint: oceanBuildCheckpoint, foes: OCEAN_FOES,
       celebrateFinish: oceanCelebrateFinish,
     },
     race: {
@@ -1656,14 +1660,14 @@ const JourneyGame = (() => {
       sky: [[0, '#334155'], [8, '#62a95a'], [100, '#6fb865']],
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#1f2937', fill: '#6b7280', dash: '#ffffff', progress: '#fde047' },
-      decorate: raceDecorate, scatter: raceScatter, buildAvatar: raceBuildAvatar, buildGoal: raceBuildGoal, buildCheckpoint: raceBuildCheckpoint,
+      decorate: raceDecorate, scatter: raceScatter, buildAvatar: raceBuildAvatar, buildGoal: raceBuildGoal, buildCheckpoint: raceBuildCheckpoint, foes: RACE_FOES,
     },
     football: {
       label: 'Football', avatarFill: '#e53935',
       sky: [[0, '#1e293b'], [6, '#4caf50'], [100, '#43a047']],
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#2e7d32', fill: '#8bc98e', dash: '#ffffff' },
-      decorate: footballDecorate, scatter: footballScatter, buildAvatar: footballBuildAvatar, buildGoal: footballBuildGoal, buildCheckpoint: footballBuildCheckpoint,
+      decorate: footballDecorate, scatter: footballScatter, buildAvatar: footballBuildAvatar, buildGoal: footballBuildGoal, buildCheckpoint: footballBuildCheckpoint, foes: FOOTBALL_FOES,
       // The player stops at the last flag and shoots, instead of walking
       // into the net.
       finishAtLastFlag: true, celebrateFinish: footballCelebrateFinish,
@@ -1673,7 +1677,7 @@ const JourneyGame = (() => {
       sky: [[0, '#4a78c0'], [12, '#9cc3e6'], [22, '#f6d9a8'], [24, '#86b552'], [100, '#5f9a3d']],
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#6b5f4b', fill: '#cbbd9e', dash: '#8a7a5c', progress: '#ffd27a' },
-      decorate: castleDecorate, scatter: castleScatter, buildAvatar: castleBuildAvatar, buildGoal: castleBuildGoal, buildCheckpoint: castleBuildCheckpoint,
+      decorate: castleDecorate, scatter: castleScatter, buildAvatar: castleBuildAvatar, buildGoal: castleBuildGoal, buildCheckpoint: castleBuildCheckpoint, foes: CASTLE_FOES,
       // The knight stops at the last banner to fight the dragon, instead
       // of walking into the gate.
       finishAtLastFlag: true, celebrateFinish: castleCelebrateFinish,
@@ -1972,21 +1976,27 @@ const JourneyGame = (() => {
 
   // The completed task's own title, floating up beside its flag and fading
   // away — a quick "what did I just finish?" readout, not a modal.
-  function spawnTaskPopup(entry, x, y, text) {
+  // kind 'foe': a ticked-off obstacle's name, in green, over "ELIMINATED!".
+  function spawnTaskPopup(entry, x, y, text, kind) {
     if (!entry || !entry.svg.isConnected || !text) return;
-    const label = text.length > 28 ? text.slice(0, 27) + '…' : text;
-    const outer = el('g', { class: 'journey-task-popup', transform: `translate(${x},${y - 34})` });
+    const label = (kind === 'foe' ? '✓ ' : '') + (text.length > 28 ? text.slice(0, 27) + '…' : text);
+    const outer = el('g', { class: 'journey-task-popup' + (kind === 'foe' ? ' journey-foe-popup' : ''), transform: `translate(${x},${y - 34})` });
     const inner = el('g', { class: 'journey-task-popup-inner' });
     const txt = el('text', { class: 'journey-task-popup-text', x: 0, y: 0, 'text-anchor': 'middle' });
     txt.textContent = label;
     inner.appendChild(txt);
+    if (kind === 'foe') {
+      const sub = el('text', { class: 'journey-foe-popup-sub', x: 0, y: 13, 'text-anchor': 'middle' });
+      sub.textContent = 'ELIMINATED!';
+      inner.appendChild(sub);
+    }
     outer.appendChild(inner);
     entry.popupLayer.appendChild(outer);
     // The background pill is sized from the text's rendered bbox, so it has
     // to wait a frame until the <text> actually has layout to measure.
     requestAnimationFrame(() => {
       if (!outer.isConnected) return;
-      const bbox = txt.getBBox();
+      const bbox = inner.getBBox();
       const pad = 8;
       const rect = el('rect', {
         class: 'journey-task-popup-bg', x: bbox.x - pad, y: bbox.y - 4,
@@ -1996,7 +2006,7 @@ const JourneyGame = (() => {
     });
     // Removed on a timer regardless of the CSS animation, so reduced-motion
     // viewers still see it appear and disappear, just without the float.
-    setTimeout(() => { if (outer.isConnected) outer.remove(); }, 2200);
+    setTimeout(() => { if (outer.isConnected) outer.remove(); }, kind === 'foe' ? 2800 : 2200);
   }
 
   // A flag the avatar has just reached: it pops, confetti bursts from it,
@@ -2004,10 +2014,14 @@ const JourneyGame = (() => {
   // A task's obstacles as { count, label }: its named obstacles (counts
   // added up, the first name on the tag), or one for an older "this is a
   // blocker" status update; null when nothing is in the way.
+  // Obstacles ticked off (resolved) one at a time no longer stand in the way.
   function foesFor(t) {
     const obs = t.obstacles || [];
-    const count = obs.reduce((a, o) => a + (o.count || 1), 0);
-    if (count) return { count, label: obs[0].name + (obs.length > 1 ? ` (+${obs.length - 1} more)` : '') };
+    if (obs.length) {
+      const pending = obs.filter(o => !o.resolved);
+      const count = pending.reduce((a, o) => a + (o.count || 1), 0);
+      return count ? { count, label: pending[0].name + (pending.length > 1 ? ` (+${pending.length - 1} more)` : '') } : null;
+    }
     if (t.latestUpdateIsBlocker) return { count: 1, label: t.latestUpdateText || 'Blocked' };
     return null;
   }
@@ -2048,9 +2062,11 @@ const JourneyGame = (() => {
       // confetti for all of them at once.
       const prevDoneIds = entry ? entry.lastDoneIds : new Set();
       const prevSummit = entry ? entry.lastSummit : false;
+      const prevObstacles = entry ? entry.lastObstacles : null;
       entry = build(container, desiredTheme);
       entry.lastDoneIds = prevDoneIds;
       entry.lastSummit = prevSummit;
+      entry.lastObstacles = prevObstacles;
     }
     const theme = getTheme(desiredTheme);
     const { svg, title, roadBase, flagsLayer, ghostLayer, avatarLayer, shadowId } = entry;
@@ -2084,6 +2100,19 @@ const JourneyGame = (() => {
       const foes = foesFor(t);
       const justDone = isDone && celebrate && entry.curFrac !== null && !entry.lastDoneIds.has(t.id);
       const g = theme.buildCheckpoint(i, isDone, isNext, foes && (!isDone || justDone) ? foes : null, scale, shadowId);
+      // Obstacles ticked off since the last sync: their own enemies are
+      // knocked out where they stand, and the obstacle's name pops up.
+      if (!isDone && entry.lastObstacles) {
+        let start = foes ? Math.min(foes.count, FOE_SPOTS.length) : 0;
+        (t.obstacles || []).filter(o => o.resolved && entry.lastObstacles.get(o.id) === false).forEach((o, j) => {
+          const ko = drawFoes({ count: o.count || 1, label: o.name }, scale, theme.foes, { bare: true, start });
+          start += Math.min(o.count || 1, FOE_SPOTS.length);
+          g.appendChild(ko);
+          requestAnimationFrame(() => ko.classList.add('journey-foes-defeated'));
+          setTimeout(() => ko.remove(), 750);
+          if (celebrate) setTimeout(() => spawnTaskPopup(current(), pt.x - 34 * scale, pt.y - 62 * scale - j * 30, o.name, 'foe'), j * 450);
+        });
+      }
       const pos = el('g', { transform: `translate(${pt.x},${pt.y})` });
       pos.appendChild(g);
       flagsLayer.appendChild(pos);
@@ -2108,6 +2137,7 @@ const JourneyGame = (() => {
       });
     }
     entry.lastDoneIds = nowDoneIds;
+    entry.lastObstacles = new Map(state.tasks.flatMap(t => (t.obstacles || []).map(o => [o.id, !!o.resolved])));
 
     const newSummit = state.summitLit && !entry.lastSummit;
     entry.lastSummit = state.summitLit;

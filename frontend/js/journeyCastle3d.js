@@ -19,7 +19,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { stageTasks, layoutSignature, nameTagSprite } from './journey3dKit.js';
+import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera } from './journey3dKit.js';
 
 const KNIGHT_URL = '/assets/models/Knight.glb';
 const PRINCESS_URL = '/assets/models/Princess.glb';
@@ -57,6 +57,8 @@ function injectStyles() {
       72% { opacity: 1; transform: translateY(-4px) scale(1); }
       100% { opacity: 0; transform: translateY(-26px) scale(.96); }
     }
+    .jc3d-task-label-foe .jc3d-task-label-inner { background: #15803d; color: #fff; text-align: center; animation-duration: 2.8s; }
+    .jc3d-task-label-inner small { display: block; font: 900 10px system-ui, sans-serif; letter-spacing: .14em; color: #fde68a; }
     @media (prefers-reduced-motion: reduce) { .jc3d-win div, .jc3d-task-label-inner { animation: none; } }
   `;
   document.head.appendChild(style);
@@ -1003,11 +1005,12 @@ export function createCastle3D(container) {
     walls.forEach(w => { w.foes.forEach(f => scene.remove(f.root)); scene.remove(w.lock, w.ring, w.tag); });
     walls.length = 0;
     tasks.forEach((t, i) => {
-      if (!t.foes) return;
+      if (!t.foeList.length) return;
       const u = wallFrac(i), p = curve.getPointAt(u), tan = curve.getTangentAt(u);
       const side = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
       const face = Math.atan2(-tan.x, -tan.z);
-      const n = Math.min(t.foes, 5);
+      const n = Math.min(t.foeList.length, 5);
+      const owners = pickFoes(t.foeList, n);
       const foes = Array.from({ length: n }, (_, k) => {
         const f = k % 2 === 0 ? buildFrog() : buildBlackKnight();
         const row = Math.floor(k / 2), inRow = Math.min(2, n - row * 2), col = k % 2;
@@ -1016,34 +1019,71 @@ export function createCastle3D(container) {
         f.root.position.copy(home); f.root.rotation.y = face;
         if (!f.phase) f.phase = rnd() * 10;
         scene.add(f.root);
-        return Object.assign(f, { home, delay: k * 0.9, hit: false, poofed: false, swung: false });
+        // owner: the obstacle this foe stands for; gone once it's ticked off
+        const gone = owners[k].resolved;
+        if (gone) f.root.visible = false;
+        return Object.assign(f, { home, delay: k * 0.9, hit: gone, poofed: gone, swung: gone, owner: owners[k].id, gone, goneT: 0 });
       });
       const lock = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, transparent: true }));
       lock.position.copy(p).setY(roadY(p) + 2.8); lock.scale.setScalar(0.6); scene.add(lock);
-      const tag = nameTagSprite(`${t.blocker}${t.foes > 1 ? ` ×${t.foes}` : ''}`);
+      const tag = nameTagSprite(t.foes ? tagText(t) : 'Clear');
       tag.position.copy(p).setY(roadY(p) + 3.45); scene.add(tag);
       const ring = new THREE.Mesh(new THREE.RingGeometry(2.2, 2.5, 48), new THREE.MeshBasicMaterial({ color: '#ff6b5e', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
       ring.rotation.x = -Math.PI / 2; ring.position.copy(p).setY(roadY(p) + 0.08); scene.add(ring);
-      const w = { taskIndex: i, foes, lock, tag, ring, home: p.clone().setY(roadY(p)), cleared: !!t.done, clearing: false, t: t.done ? 99 : 0 };
-      if (w.cleared) { foes.forEach(f => { f.root.visible = false; f.poofed = true; }); lock.visible = tag.visible = ring.visible = false; }
+      const w = { taskIndex: i, foes, lock, tag, ring, home: p.clone().setY(roadY(p)), cleared: !!t.done, clearing: false, t: t.done ? 99 : 0, open: !t.foes, fade: t.done || !t.foes ? 1 : 0 };
+      if (w.cleared) foes.forEach(f => { f.root.visible = false; f.poofed = true; });
+      if (w.fade) lock.visible = tag.visible = ring.visible = false;
       walls.push(w);
     });
   }
-  const wallPause = w => 0.5 + 0.9 * Math.max(1, w.foes.length);
+  const standing = w => w.foes.filter(f => !f.gone);
+  const wallPause = w => 0.5 + 0.9 * Math.max(1, standing(w).length);
   function clearWall(w) {
     if (w.cleared) return;
     w.cleared = true; w.t = 0;
+    // the knight takes on whoever is still standing, one after another
+    standing(w).forEach((f, j) => { f.delay = j * 0.9; });
     if (reduceMotion) { w.t = 99; w.foes.forEach(f => { f.root.visible = false; f.poofed = true; }); }
     notify();
   }
   function restoreWall(w) {
     w.cleared = false; w.clearing = false; w.t = 0;
-    w.foes.forEach(f => {
-      Object.assign(f, { hit: false, poofed: false, swung: false });
-      f.root.visible = true; f.root.position.copy(f.home); f.body.rotation.set(0, 0, 0); f.body.position.set(0, 0, 0);
-      f.mats.forEach(m => m.emissive.setRGB(0, 0, 0));
-      if (f.ch) play(f.ch, 'Blocking', { fade: 0.2 });
+    w.foes.forEach(f => { if (!f.gone) reviveFoe(f); });
+  }
+  function reviveFoe(f) {
+    Object.assign(f, { hit: false, poofed: false, swung: false, gone: false });
+    f.root.visible = true; f.root.position.copy(f.home); f.body.rotation.set(0, 0, 0); f.body.position.set(0, 0, 0);
+    f.mats.forEach(m => m.emissive.setRGB(0, 0, 0));
+    if (f.ch) play(f.ch, 'Blocking', { fade: 0.2 });
+  }
+  // Swaps a wall's red tag for one naming only what's still pending.
+  function retagWall(w) {
+    const t = tasks[w.taskIndex];
+    const tag = nameTagSprite(t.foes ? tagText(t) : 'Clear');
+    tag.position.copy(w.tag.position); tag.material.opacity = w.tag.material.opacity; tag.visible = w.tag.visible;
+    scene.remove(w.tag); w.tag.material.map.dispose(); w.tag.material.dispose();
+    scene.add(tag); w.tag = tag;
+  }
+  // An obstacle ticked off (or unticked) on its own: its foes are struck
+  // down where they stand (or come back), and its name pops up.
+  function applyResolves(changes) {
+    changes.forEach((c, j) => {
+      const w = walls.find(x => x.taskIndex === c.index);
+      const at = w ? w.home.clone() : curve.getPointAt(wallFrac(c.index));
+      if (c.resolved) { timers.push(setTimeout(() => spawnTaskLabel(at.clone().setY(at.y + 4.1), c.name, 'foe'), j * 450)); peek.at.copy(at); peek.t = 3.4; }
+      if (!w) return;
+      w.foes.forEach(f => {
+        if (f.owner !== c.id) return;
+        if (c.resolved && !f.gone) {
+          f.gone = true;
+          if (!f.poofed) { f.goneT = 0; f.hit = false; f.swung = true; if (reduceMotion) { f.poofed = true; f.root.visible = false; } }
+        } else if (!c.resolved && f.gone) {
+          if (w.cleared) f.gone = false; else reviveFoe(f);
+        }
+      });
     });
+    walls.forEach(w => { w.open = !tasks[w.taskIndex].foes; });
+    new Set(changes.map(c => c.index)).forEach(i => { const w = walls.find(x => x.taskIndex === i); if (w) retagWall(w); });
   }
   function idleFoe(f, time) {
     const t = time + f.phase;
@@ -1059,22 +1099,23 @@ export function createCastle3D(container) {
   function updateWalls(dt, time) {
     walls.forEach(w => {
       w.foes.forEach(f => { if (f.ch && f.root.visible) f.ch.mixer.update(dt); });
-      if (!w.cleared) {
-        w.foes.forEach(f => idleFoe(f, time));
-        w.lock.visible = w.tag.visible = w.ring.visible = true;
-        w.lock.material.opacity = w.tag.material.opacity = 1;
-        w.ring.material.opacity = 0.35 + 0.25 * Math.sin(time * 4);
-        w.lock.position.y = w.home.y + 2.8 + Math.sin(time * 2.2) * 0.08;
-        return;
-      }
-      if (w.t > 60) return;
-      w.t += dt;
-      const e = Math.min(1, w.t / 0.6);
-      w.lock.material.opacity = w.tag.material.opacity = 1 - e; w.ring.material.opacity = 0.55 * (1 - e);
-      if (w.t > 0.6) w.lock.visible = w.tag.visible = w.ring.visible = false;
+      // the lock, tag and ring fade out once nothing is left blocking
+      const shut = !w.cleared && !w.open;
+      w.fade = THREE.MathUtils.clamp(w.fade + (shut ? -dt : dt) / 0.6, 0, 1);
+      w.lock.material.opacity = w.tag.material.opacity = 1 - w.fade;
+      w.ring.material.opacity = (shut ? 0.35 + 0.25 * Math.sin(time * 4) : 0.55) * (1 - w.fade);
+      w.lock.visible = w.tag.visible = w.ring.visible = w.fade < 1;
+      if (shut) w.lock.position.y = w.home.y + 2.8 + Math.sin(time * 2.2) * 0.08;
+      if (w.cleared && w.t <= 60) w.t += dt;
       w.foes.forEach((f, k) => {
         if (f.poofed) return;
-        const lt = w.t - f.delay;
+        // a foe whose own obstacle was ticked off is struck on its own clock
+        // (no swing: the blow lands straight away); the rest fall in turn
+        // to the knight's sword once the whole task is done
+        let lt;
+        if (f.gone) { f.goneT += dt; lt = 0.35 + f.goneT; }
+        else if (w.cleared) lt = w.t - f.delay;
+        else { idleFoe(f, time); return; }
         if (lt < 0) { idleFoe(f, time); return; }
         // the knight turns to this foe and swings; the blow lands ~0.35s in
         if (!f.swung && knight) {
@@ -1085,7 +1126,7 @@ export function createCastle3D(container) {
           if (f.ch) play(f.ch, 'Blocking', { fade: 0.1 });
         }
         if (lt > 0.35 && !f.hit) {
-          f.hit = true; cam.shake = 0.25;
+          f.hit = true; if (!f.gone) cam.shake = 0.25;
           sparkle(f.home.clone().setY(f.home.y + 1.2), 30, ['#ffffff', '#ffe28a'], 5);
           if (f.ch) play(f.ch, 'Hit_A', { fade: 0.05, once: true });
         }
@@ -1267,7 +1308,7 @@ export function createCastle3D(container) {
   const celebrated = new Set(tasks.filter(t => t.done).map(t => t.id));
   function standingWallLimit() {
     let limit = 1;
-    walls.forEach(w => { if (!w.cleared) limit = Math.min(limit, frogStopFrac(w.taskIndex)); });
+    walls.forEach(w => { if (!w.cleared && !w.open) limit = Math.min(limit, frogStopFrac(w.taskIndex)); });
     return limit;
   }
   function targetFrac() {
@@ -1287,6 +1328,8 @@ export function createCastle3D(container) {
       const wall = walls.find(w => w.taskIndex === i);
       if (t.done && !celebrated.has(t.id)) {
         celebrated.add(t.id);
+        // every obstacle already ticked off: nothing left standing to beat
+        if (wall && wall.open && !wall.cleared) { wall.cleared = true; wall.t = 99; }
         if (wall && !wall.cleared && !wall.clearing) {
           wall.clearing = true;
           events.push({ frac: frogStopFrac(i), fn: () => clearWall(wall), pause: wallPause(wall), kind: 'wall', wall });
@@ -1303,7 +1346,7 @@ export function createCastle3D(container) {
         : e.kind === 'flag' ? !!(tasks.find(t => t.id === e.taskId) || {}).done : false);
     const all = carried.concat(events);
     let to = progressToFrac(done, n);
-    walls.forEach(w => { if (!w.cleared && !w.clearing) to = Math.min(to, frogStopFrac(w.taskIndex)); });
+    walls.forEach(w => { if (!w.cleared && !w.clearing && !w.open) to = Math.min(to, frogStopFrac(w.taskIndex)); });
     if (allDone() && !P.won && Math.abs(to - progressToFrac(n, n)) < 1e-6) all.push({ frac: to, fn: startFinale, pause: 0, kind: 'finale' });
 
     const from = P.frac, dir = to >= from ? 1 : -1;
@@ -1331,14 +1374,16 @@ export function createCastle3D(container) {
   // they track their banner as the follow-cam moves, instead of a
   // position computed once at spawn that drifts off as the camera pans.
   const activeLabels = [];
-  function spawnTaskLabel(worldPos, text) {
+  // kind 'foe': a ticked-off obstacle's name, in green, over "ELIMINATED!".
+  function spawnTaskLabel(worldPos, text, kind) {
     if (!text) return;
     const label = text.length > 28 ? text.slice(0, 27) + '…' : text;
     const outer = document.createElement('div');
-    outer.className = 'jc3d-task-label';
+    outer.className = 'jc3d-task-label' + (kind === 'foe' ? ' jc3d-task-label-foe' : '');
     const inner = document.createElement('div');
     inner.className = 'jc3d-task-label-inner';
-    inner.textContent = label;
+    inner.textContent = (kind === 'foe' ? '✓ ' : '') + label;
+    if (kind === 'foe') { const sub = document.createElement('small'); sub.textContent = 'ELIMINATED!'; inner.appendChild(sub); }
     outer.appendChild(inner);
     labelLayer.appendChild(outer);
     const rec = { el: outer, pos: worldPos.clone() };
@@ -1347,7 +1392,7 @@ export function createCastle3D(container) {
       outer.remove();
       const idx = activeLabels.indexOf(rec);
       if (idx >= 0) activeLabels.splice(idx, 1);
-    }, 2200));
+    }, kind === 'foe' ? 2800 : 2200));
   }
   function updateTaskLabels() {
     if (!activeLabels.length) return;
@@ -1590,6 +1635,7 @@ export function createCastle3D(container) {
 
   // ── Camera: follow, overview, and the finale's cinematic angles ───────
   const cam = { mode: 'follow', look: new THREE.Vector3(0, 1, 20), shake: 0 };
+  const peek = { at: new THREE.Vector3(), t: 0 };
   const camDesired = new THREE.Vector3(), lookDesired = new THREE.Vector3();
   function updateCamera(dt, time) {
     if (!knight) return;
@@ -1618,6 +1664,7 @@ export function createCastle3D(container) {
       const side = new THREE.Vector3(fwd.z, 0, -fwd.x);
       camDesired.copy(kp).addScaledVector(fwd, -6.4).addScaledVector(side, 1.8 + orbit).setY(kp.y + 3.4);
       lookDesired.copy(kp).addScaledVector(fwd, 3.5).setY(kp.y + 1.0);
+      peekCamera(peek, kp, camDesired, lookDesired, dt, 10, 5, 2.5);
     }
     const k = 1 - Math.exp(-dt * rate);
     camera.position.lerp(camDesired, k);
@@ -1717,7 +1764,7 @@ export function createCastle3D(container) {
   function updateLabel() {
     const n = tasks.length, done = tasks.filter(t => t.done).length;
     let text = n ? `Castle Journey: ${done} of ${n} tasks done.` : 'Castle Journey: no tasks yet.';
-    const blockedAhead = walls.find(w => !w.cleared && !w.clearing && wallFrac(w.taskIndex) <= progressToFrac(done, n) + 1e-3);
+    const blockedAhead = walls.find(w => !w.cleared && !w.clearing && !w.open && wallFrac(w.taskIndex) <= progressToFrac(done, n) + 1e-3);
     if (blockedAhead) text += ` A giant frog blocks the road: ${tasks[blockedAhead.taskIndex].blocker}.`;
     if (n && done === n) text += P.won ? ' The dragon is beaten and the princess is free!' : ' Facing the dragon.';
     root.setAttribute('aria-label', text);
@@ -1763,7 +1810,9 @@ export function createCastle3D(container) {
       env.target = env.cur = frac;
       if (firstBuild) snapCamera();
     } else {
-      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; });
+      const changes = resolveChanges(tasks, next);
+      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; tasks[i].foeList = t.foeList; });
+      if (changes.length) applyResolves(changes);
       refreshFlags();
       plan();
       env.target = frac;
@@ -1860,7 +1909,7 @@ export function createCastle3D(container) {
       get state() {
         return {
           ready: !!knight, frac: P.frac, mode: P.mode, won: P.won, stops: P.stops.length, finT: P.finT,
-          flagFracs: tasks.map((t, i) => checkpointFrac(i, tasks.length)), walls: walls.map(w => ({ task: w.taskIndex, cleared: w.cleared })),
+          flagFracs: tasks.map((t, i) => checkpointFrac(i, tasks.length)), walls: walls.map(w => ({ task: w.taskIndex, cleared: w.cleared, foes: w.foes.length, gone: w.foes.filter(f => f.gone).length, open: !!w.open })),
           dragon: dragon ? { alive: dragon.alive, fade: +dragon.pose.fade.toFixed(2) } : null, gate: +gateLift.toFixed(2),
           ghost: ghost ? ghost.holder.visible : false, label: root.getAttribute('aria-label'), lit: flags.map(f => f.lit),
           onPath: knight && P.mode !== 'finale' && P.mode !== 'victory' ? distToPath(knight.holder.position.x, knight.holder.position.z) : 0,

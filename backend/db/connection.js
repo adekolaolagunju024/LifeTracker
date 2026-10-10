@@ -388,6 +388,9 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_task_obstacles_task ON task_obstacles(taskId);
 `);
+// An obstacle can be ticked off (resolved) on its own, before the task
+// itself is done — the Journey then knocks out just that obstacle's enemies.
+addColumnIfMissing('task_obstacles', "resolvedAt TEXT");
 
 // Journey gaming: XP accrues per account (not per project) as real tasks
 // are completed anywhere — the same worker/house "levels up" across every

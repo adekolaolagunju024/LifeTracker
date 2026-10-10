@@ -162,11 +162,20 @@ function statusUpdateBadge(t) {
 // on the table row, Gantt row and Kanban card, with the names in its
 // tooltip; clicking it opens the task straight at its obstacle editor.
 // Once the task is done its obstacles are beaten, so the badge goes away.
+// Ticked-off (resolved) obstacles don't count; when every one is ticked off
+// the badge turns green until the task itself is done.
+function pendingFoes(t) {
+  return (t.obstacles || []).reduce((a, o) => a + (o.resolved ? 0 : (o.count || 1)), 0);
+}
+function obstacleNames(t) {
+  return (t.obstacles || []).map(o => `${o.resolved ? '✓ ' : ''}${o.name} ×${o.count}`).join(', ');
+}
 function obstacleBadge(t) {
   const obs = t.obstacles || [];
   if (!obs.length || t.status === 'Completed') return '';
-  const n = obs.reduce((a, o) => a + (o.count || 1), 0);
-  const names = obs.map(o => `${o.name} ×${o.count}`).join(', ');
+  const n = pendingFoes(t);
+  const names = obstacleNames(t);
+  if (!n) return `<button type="button" onclick="event.stopPropagation(); openObstacles('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-green-700 bg-green-50 hover:bg-green-100 border border-green-100 rounded px-1 leading-4" title="⚔️ All obstacles cleared: ${esc(names)}" aria-label="All obstacles cleared: ${esc(names)}">⚔️ ✓</button>`;
   return `<button type="button" onclick="event.stopPropagation(); openObstacles('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded px-1 leading-4" title="⚔️ Obstacles: ${esc(names)}" aria-label="${n} obstacle enemies: ${esc(names)}">⚔️ ${n}</button>`;
 }
 // On hover, a quick way to add an obstacle to a task that has none yet.
@@ -1582,7 +1591,7 @@ async function renderGantt() {
               title="${esc(t.title)} [${t.priority} priority]: ${t.startDate} → ${t.endDate}${canEditGroup ? ' (drag to move, edges to resize, click to edit)' : ''}"
               ${canEditGroup ? `onmousedown="ganttBarMouseDown(event,'${t.id}','move')"` : ''}>
               ${canEditGroup ? `<span class="gantt-resize-handle" style="left:0" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-left')"></span>` : ''}
-              <span class="gantt-bar-label">${(t.obstacles || []).length && t.status !== 'Completed' ? `⚔️${t.obstacles.reduce((n, o) => n + (o.count || 1), 0)} ` : ''}${esc(t.title)}</span>
+              <span class="gantt-bar-label">${pendingFoes(t) && t.status !== 'Completed' ? `⚔️${pendingFoes(t)} ` : ''}${esc(t.title)}</span>
               ${canEditGroup ? `<span class="gantt-resize-handle" style="right:0" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-right')"></span>` : ''}
             </div>`;
         } else if (te) {
@@ -3564,14 +3573,16 @@ function renderObstacles(taskId, obstacles) {
   const canEdit = !!APP.taskObstaclesCanEdit;
   wrap.innerHTML = obstacles.length
     ? obstacles.map(o => `
-        <div class="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5">
-          <span class="flex-1 min-w-0 text-sm text-gray-800 truncate" title="${esc(o.name)}">⚔️ ${esc(o.name)}</span>
-          ${canEdit ? `
+        <div class="flex items-center gap-2 ${o.resolved ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'} border rounded-lg px-2.5 py-1.5">
+          <input type="checkbox" ${o.resolved ? 'checked' : ''} ${canEdit ? '' : 'disabled'} onchange="toggleObstacleResolved('${o.id}', this.checked)" class="w-4 h-4 accent-green-600 flex-shrink-0" title="${o.resolved ? 'Resolved. Untick if it is back in the way' : 'Tick when this obstacle is cleared'}" aria-label="${esc(o.name)} resolved">
+          <span class="flex-1 min-w-0 text-sm truncate ${o.resolved ? 'line-through text-gray-400' : 'text-gray-800'}" title="${esc(o.name)}">${o.resolved ? '✅' : '⚔️'} ${esc(o.name)}</span>
+          ${canEdit && !o.resolved ? `
             <button onclick="changeObstacleCount('${o.id}', ${o.count - 1})" ${o.count <= 1 ? 'disabled' : ''} class="w-6 h-6 rounded-md text-gray-600 hover:bg-white disabled:opacity-30" aria-label="One fewer enemy">−</button>
             <span class="text-xs font-bold text-red-700 w-6 text-center" aria-label="${o.count} enemies">×${o.count}</span>
             <button onclick="changeObstacleCount('${o.id}', ${o.count + 1})" ${o.count >= 5 ? 'disabled' : ''} class="w-6 h-6 rounded-md text-gray-600 hover:bg-white disabled:opacity-30" aria-label="One more enemy">+</button>
             <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove obstacle">🗑️</button>`
-          : `<span class="text-xs font-bold text-red-700">×${o.count}</span>`}
+          : `<span class="text-xs font-bold ${o.resolved ? 'text-green-700' : 'text-red-700'}">×${o.count}</span>${canEdit ? `
+            <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove obstacle">🗑️</button>` : ''}`}
         </div>`).join('')
     : `<p class="text-xs text-gray-400">No obstacles. Add one if something is in the way.</p>`;
   syncObstaclesToJourney(taskId, obstacles);
@@ -3599,6 +3610,15 @@ async function submitObstacle() {
     nameEl.value = ''; countEl.value = '1';
     refreshObstacles(APP_currentDetailTaskId);
   } catch (e) { showToast('❌ ' + (e.message || 'Could not add the obstacle'), 'error'); }
+}
+async function toggleObstacleResolved(obstacleId, resolved) {
+  try {
+    await API.updateObstacle(obstacleId, { resolved });
+    await refreshObstacles(APP_currentDetailTaskId);
+    // The Gantt, Kanban and table badges count only pending obstacles.
+    if (APP.currentPage === 'gantt') renderGantt();
+    else if (APP.currentPage === 'project-detail') renderProjectDetail(APP.currentProjectId);
+  } catch (e) { showToast('❌ ' + (e.message || 'Could not update the obstacle'), 'error'); }
 }
 async function changeObstacleCount(obstacleId, count) {
   if (count < 1 || count > 5) return;
@@ -4853,8 +4873,8 @@ function renderMountainScene() {
 // How many enemies stand before a task's flag: its named obstacles' counts,
 // or one for an older "this is a blocker" status update.
 function foeCount(t) {
-  const sum = (t.obstacles || []).reduce((a, o) => a + (o.count || 1), 0);
-  return sum || (t.latestUpdateIsBlocker ? 1 : 0);
+  if ((t.obstacles || []).length) return pendingFoes(t);
+  return t.latestUpdateIsBlocker ? 1 : 0;
 }
 function renderMountainTaskList() {
   const { tasks, canEdit } = mountainState;
@@ -4873,7 +4893,7 @@ function renderMountainTaskList() {
       <input type="checkbox" class="journey-quest-checkbox" data-task-id="${t.id}" onchange="toggleMountainTask(this)" ${isDone ? 'checked' : ''} ${canEdit ? '' : 'disabled'}>
       <span class="journey-quest-badge ${badgeClass}">${isDone ? '✓' : i + 1}</span>
       <span class="journey-quest-title">${esc(t.title)}</span>
-      ${!isDone && foeCount(t) ? `<span class="journey-quest-foes" title="${esc((t.obstacles || []).map(o => `${o.name} ×${o.count}`).join(', ') || 'Blocked')}">⚔️${foeCount(t)}</span>` : ''}
+      ${!isDone && foeCount(t) ? `<span class="journey-quest-foes" title="${esc(obstacleNames(t) || 'Blocked')}">⚔️${foeCount(t)}</span>` : ''}
       ${t.endDate ? `<span class="journey-quest-date">${esc(t.endDate.slice(0, 10))}</span>` : ''}
       <button type="button" class="journey-quest-foe-btn" onclick="event.preventDefault(); event.stopPropagation(); openTaskDetail('${t.id}')" title="Obstacles and details" aria-label="Obstacles and details for ${esc(t.title)}">⚔️</button>
     </label>`;

@@ -216,7 +216,7 @@ router.post('/:id/obstacles', (req, res) => {
   }
 });
 
-// PUT /api/tasks/obstacles/:obstacleId — { name?, count? }
+// PUT /api/tasks/obstacles/:obstacleId — { name?, count?, resolved? }
 router.put('/obstacles/:obstacleId', (req, res) => {
   try {
     const obstacle = db.updateObstacle(req.session.userId, req.params.obstacleId, req.body || {});
