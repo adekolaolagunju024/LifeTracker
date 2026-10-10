@@ -373,6 +373,22 @@ db.exec(`
 // are shown (task row badge, the panel itself).
 addColumnIfMissing('task_status_updates', "isBlocker INTEGER NOT NULL DEFAULT 0");
 
+// Task obstacles: named things standing between a task and done ("Waiting
+// on the supplier quote"), each with a count. The Journey draws each one as
+// that many themed enemies on the path before the task's flag; finishing
+// the task clears them.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS task_obstacles (
+    id TEXT PRIMARY KEY,
+    taskId TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 1,
+    createdAt TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_task_obstacles_task ON task_obstacles(taskId);
+`);
+
 // Journey gaming: XP accrues per account (not per project) as real tasks
 // are completed anywhere — the same worker/house "levels up" across every
 // project's Journey view. Deliberately not project-scoped: the point is to

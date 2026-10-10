@@ -197,6 +197,47 @@ router.post('/:id/status-updates', (req, res) => {
   }
 });
 
+// GET /api/tasks/:id/obstacles — the named obstacles on a task (each with
+// a count), drawn as enemies on the Journey path until the task is done.
+router.get('/:id/obstacles', (req, res) => {
+  const list = db.listObstacles(req.session.userId, req.params.id);
+  if (list === null) return res.status(404).json({ error: 'Task not found' });
+  res.json(list);
+});
+
+// POST /api/tasks/:id/obstacles — { name, count }
+router.post('/:id/obstacles', (req, res) => {
+  try {
+    const obstacle = db.addObstacle(req.session.userId, req.params.id, req.body || {});
+    if (!obstacle) return res.status(404).json({ error: 'Task not found' });
+    res.status(201).json(obstacle);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// PUT /api/tasks/obstacles/:obstacleId — { name?, count? }
+router.put('/obstacles/:obstacleId', (req, res) => {
+  try {
+    const obstacle = db.updateObstacle(req.session.userId, req.params.obstacleId, req.body || {});
+    if (!obstacle) return res.status(404).json({ error: 'Obstacle not found' });
+    res.json(obstacle);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// DELETE /api/tasks/obstacles/:obstacleId
+router.delete('/obstacles/:obstacleId', (req, res) => {
+  try {
+    const ok = db.deleteObstacle(req.session.userId, req.params.obstacleId);
+    if (!ok) return res.status(404).json({ error: 'Obstacle not found' });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // DELETE /api/tasks/status-updates/:updateId
 router.delete('/status-updates/:updateId', (req, res) => {
   const ok = db.deleteStatusUpdate(req.session.userId, req.params.updateId);

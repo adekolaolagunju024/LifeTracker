@@ -139,6 +139,39 @@ test('a status update can be flagged as a blocker', async () => {
   assert.equal(ordinary.isBlocker, false, 'isBlocker defaults to false when not passed');
 });
 
+test('obstacles can be added to a task, edited, listed with it, and removed', async () => {
+  const reg = await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true }));
+  const cookie = sessionCookie(reg);
+  const project = await (await fetch(`${server.base}/api/projects`, json({ title: 'Obstacle check' }, cookie))).json();
+  const task = await (await fetch(`${server.base}/api/tasks`, json({ projectId: project.id, title: 'Task', status: 'Not Started', priority: 'Medium' }, cookie))).json();
+  const put = (url, body) => fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(body) });
+
+  const added = await fetch(`${server.base}/api/tasks/${task.id}/obstacles`, json({ name: '  Supplier quote  ', count: 3 }, cookie));
+  assert.equal(added.status, 201);
+  const obstacle = await added.json();
+  assert.deepEqual({ name: obstacle.name, count: obstacle.count }, { name: 'Supplier quote', count: 3 });
+
+  const clamped = await (await fetch(`${server.base}/api/tasks/${task.id}/obstacles`, json({ name: 'Too many', count: 40 }, cookie))).json();
+  assert.equal(clamped.count, 5, 'the count is capped at 5');
+  const unnamed = await fetch(`${server.base}/api/tasks/${task.id}/obstacles`, json({ name: '   ', count: 2 }, cookie));
+  assert.equal(unnamed.status, 400, 'an obstacle needs a name');
+
+  const edited = await (await put(`${server.base}/api/tasks/obstacles/${obstacle.id}`, { count: 1, name: 'Quote signed off' })).json();
+  assert.deepEqual({ name: edited.name, count: edited.count }, { name: 'Quote signed off', count: 1 });
+
+  const rows = await (await fetch(`${server.base}/api/tasks?projectId=${project.id}`, { headers: { Cookie: cookie } })).json();
+  assert.deepEqual(rows[0].obstacles.map(o => [o.name, o.count]), [['Quote signed off', 1], ['Too many', 5]], 'tasks carry their obstacles, oldest first');
+
+  const del = await fetch(`${server.base}/api/tasks/obstacles/${obstacle.id}`, { method: 'DELETE', headers: { Cookie: cookie } });
+  assert.equal(del.status, 200);
+  const list = await (await fetch(`${server.base}/api/tasks/${task.id}/obstacles`, { headers: { Cookie: cookie } })).json();
+  assert.deepEqual(list.map(o => o.name), ['Too many']);
+
+  const stranger = sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true })));
+  const peek = await fetch(`${server.base}/api/tasks/${task.id}/obstacles`, { headers: { Cookie: stranger } });
+  assert.equal(peek.status, 404, "another account can't see this task's obstacles");
+});
+
 test('completing a task awards Journey XP and reports it on the response', async () => {
   const reg = await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true }));
   const cookie = sessionCookie(reg);

@@ -410,7 +410,7 @@ export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, redu
         celebrated.add(t.id);
         if (wall && !wall.cleared && !wall.clearing) {
           wall.clearing = true;
-          events.push({ frac: hooks.stopFrac(i), fn: () => hooks.clearWall(wall), pause: 1.35, kind: 'wall', wall });
+          events.push({ frac: hooks.stopFrac(i), fn: () => hooks.clearWall(wall), pause: hooks.wallPause ? hooks.wallPause(wall) : 1.35, kind: 'wall', wall });
         }
         events.push({ frac: checkpointFracOf(i, n), fn: () => hooks.onFlag(i, t), pause: 0.9, kind: 'flag', taskId: t.id });
       }
@@ -498,4 +498,46 @@ export function createWalker({ curve, speed = 4, accel = 9, brakeDecel = 7, redu
     P.frac = targetFrac(); snapHeading(); hooks.place(P.frac, false);
   }
   return { P, plan, update, reset, targetFrac, snapHeading, curveLen, progressToFrac, allDone };
+}
+
+// ── Obstacles ─────────────────────────────────────────────────────────────
+// A task's obstacles as { count, label }: its named obstacles (counts added
+// up, the first name on the tag), or one for an older "this is a blocker"
+// status update; null when nothing is in the way. Same rule as the 2D stages.
+export function foesFor(t) {
+  const obs = t.obstacles || [];
+  const count = obs.reduce((a, o) => a + (o.count || 1), 0);
+  if (count) return { count, label: obs[0].name + (obs.length > 1 ? ` (+${obs.length - 1} more)` : '') };
+  if (t.latestUpdateIsBlocker) return { count: 1, label: t.latestUpdateText || 'Blocked' };
+  return null;
+}
+// The task fields every 3D stage reads from app.js's task objects.
+export function stageTasks(state) {
+  return (state.tasks || []).map(t => {
+    const f = foesFor(t);
+    return { id: t.id, title: t.title, done: t.status === 'Completed', foes: f ? f.count : 0, blocker: f ? f.label : null };
+  });
+}
+// Which tasks exist, in what order, and what stands in front of each —
+// when this changes the stage rebuilds instead of animating.
+export const layoutSignature = tasks => tasks.map(t => `${t.id}:${t.foes}:${t.blocker || ''}`).join('|');
+// A floating red name tag for an obstacle, as a sprite sized to its text.
+export function nameTagSprite(text, height = 0.42) {
+  const label = text.length > 30 ? text.slice(0, 29) + '…' : text;
+  const c = document.createElement('canvas');
+  const g = c.getContext('2d');
+  const font = '800 44px system-ui, Arial, sans-serif';
+  g.font = font;
+  const w = Math.ceil(g.measureText(label).width) + 48, h = 68;
+  c.width = w; c.height = h;
+  g.font = font;
+  g.fillStyle = 'rgba(127,29,29,0.92)';
+  g.beginPath(); g.roundRect(0, 0, w, h, h / 2); g.fill();
+  g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(label, w / 2, h / 2 + 2);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false }));
+  sprite.scale.set(height * (w / h), height, 1);
+  sprite.renderOrder = 8;
+  return sprite;
 }

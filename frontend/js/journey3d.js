@@ -15,6 +15,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { stageTasks, layoutSignature, nameTagSprite } from './journey3dKit.js';
 
 const MODEL_URL = '/assets/models/RobotExpressive.glb';
 const UI_FONT = '"Arial Black", Impact, "Arial Narrow", sans-serif';
@@ -610,7 +611,7 @@ export function createFootball3D(container) {
         celebrated.add(t.id);
         if (wall && !wall.cleared && !wall.clearing) {
           wall.clearing = true;
-          events.push({ frac: wallFrac(i) - 0.012, fn: () => clearWall(wall), pause: 0.9, kind: 'wall', wall });
+          events.push({ frac: wallFrac(i) - 0.012, fn: () => clearWall(wall), pause: 0.7 + 0.22 * Math.max(1, wall.defenders.length), kind: 'wall', wall });
         }
         events.push({ frac: checkpointFrac(i, n), fn: () => popFlag(i, t.title), pause: 0.8, kind: 'flag', taskId: t.id });
       }
@@ -704,58 +705,72 @@ export function createFootball3D(container) {
     g.strokeStyle = '#fff'; g.lineWidth = 10; g.beginPath(); g.arc(64, 56, 16, Math.PI, 0); g.stroke();
   });
   function buildWalls() {
-    walls.forEach(w => { w.defenders.forEach(d => scene.remove(d.holder)); scene.remove(w.lock, w.ring); });
+    walls.forEach(w => { w.defenders.forEach(d => scene.remove(d.holder)); scene.remove(w.lock, w.ring, w.tag); });
     walls.length = 0;
-    let withDefenders = 3; // each defender is a skinned model; keep the cost bounded
+    let budget = 12; // each defender is a skinned model; keep the cost bounded
     tasks.forEach((t, i) => {
-      if (!t.blocker) return;
+      if (!t.foes) return;
       const u = wallFrac(i), p = curve.getPointAt(u), tan = curve.getTangentAt(u);
       const side = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
       const face = Math.atan2(-tan.x, -tan.z);
-      // Already-done blockers start cleared; only open ones get defenders.
-    const giveDefenders = !t.done && withDefenders-- > 0;
-    const defenders = !giveDefenders ? [] : [-1.05, 0, 1.05].map((o, k) => {
+      // One rival per obstacle point, in rows of up to three across the
+      // path, each row a step further toward the flag.
+      const n = Math.max(0, Math.min(t.foes, 5, budget));
+      budget -= n;
+      const defenders = Array.from({ length: n }, (_, k) => {
+        const row = Math.floor(k / 3), inRow = Math.min(3, n - row * 3), col = k % 3;
+        const o = (col - (inRow - 1) / 2) * 1.05;
         const d = makeCharacter(null, '#1f6fe5', '#eef2f7');
-        const home = p.clone().addScaledVector(side, o);
-        const aside = p.clone().addScaledVector(side, (o === 0 ? 1 : Math.sign(o)) * (3.2 + Math.abs(o)));
+        const home = p.clone().addScaledVector(side, o + (row % 2 ? 0.5 : 0)).addScaledVector(tan, row * 1.3);
+        const out = o === 0 ? (k % 2 ? -1 : 1) : Math.sign(o);
+        const aside = home.clone().addScaledVector(side, out * (3.2 + Math.abs(o)));
         d.holder.position.copy(home); d.holder.rotation.y = face;
         play(d, 'Idle', 0); d.mixer.update(Math.random() * 2);
-        return Object.assign(d, { home, aside, face, k });
+        return Object.assign(d, { home, aside, face, k, delay: k * 0.22, jumped: false });
       });
       const lock = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, transparent: true }));
       lock.position.copy(p).setY(2.6); lock.scale.setScalar(0.6); scene.add(lock);
+      const tag = nameTagSprite(`${t.blocker}${t.foes > 1 ? ` ×${t.foes}` : ''}`);
+      tag.position.copy(p).setY(3.2); scene.add(tag);
       const ring = new THREE.Mesh(new THREE.RingGeometry(1.9, 2.2, 48), new THREE.MeshBasicMaterial({ color: '#ff6157', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
       ring.rotation.x = -Math.PI / 2; ring.position.copy(p).setY(0.04); scene.add(ring);
-      walls.push({ taskIndex: i, defenders, lock, ring, cleared: !!t.done, t: t.done ? 1 : 0 });
+      const w = { taskIndex: i, defenders, lock, tag, ring, cleared: !!t.done, t: t.done ? 99 : 0 };
+      // Already-done obstacles start cleared: their rivals aren't on the pitch.
+      if (w.cleared) { defenders.forEach(d => { d.holder.position.copy(d.aside); d.holder.visible = false; d.jumped = true; }); lock.visible = tag.visible = ring.visible = false; }
+      walls.push(w);
     });
-    walls.forEach(w => { if (w.cleared) w.defenders.forEach(d => d.holder.position.copy(d.aside)); });
   }
+  // Dribbling past: the rivals leap aside one after another.
   function clearWall(w) {
     if (w.cleared) return;
     w.cleared = true; w.t = 0;
-    w.defenders.forEach(d => play(d, 'Jump', 0.1));
     burst(w.lock.position.clone(), 40, 4);
     notify();
   }
   function restoreWall(w) {
     w.cleared = false; w.clearing = false; w.t = 0;
-    w.defenders.forEach(d => { d.holder.position.copy(d.home); d.holder.rotation.y = d.face; play(d, 'Idle', 0.2); });
+    w.defenders.forEach(d => { d.holder.visible = true; d.jumped = false; d.holder.position.copy(d.home); d.holder.rotation.y = d.face; play(d, 'Idle', 0.2); });
   }
   function updateWalls(dt, time) {
     walls.forEach(w => {
-      w.defenders.forEach(d => d.mixer.update(dt));
+      w.defenders.forEach(d => { if (d.holder.visible) d.mixer.update(dt); });
       if (w.cleared) {
-        w.t = Math.min(1, w.t + dt / 0.75);
-        const e = 1 - Math.pow(1 - w.t, 3);
+        if (w.t > 60) return;
+        w.t += dt;
+        let last = 0;
         w.defenders.forEach(d => {
-          d.holder.position.lerpVectors(d.home, d.aside, e);
-          if (w.t >= 1 && d.current === d.actions.Jump && !d.actions.Jump.isRunning()) play(d, 'Idle', 0.3);
+          if (!d.jumped && w.t >= d.delay) { d.jumped = true; play(d, 'Jump', 0.1); }
+          const k = Math.min(1, Math.max(0, (w.t - d.delay) / 0.75));
+          d.holder.position.lerpVectors(d.home, d.aside, 1 - Math.pow(1 - k, 3));
+          if (k >= 1 && d.current === d.actions.Jump && !d.actions.Jump.isRunning()) play(d, 'Idle', 0.3);
+          last = Math.max(last, d.delay + 0.75);
         });
-        w.lock.material.opacity = 1 - e; w.ring.material.opacity = 0.55 * (1 - e);
-        w.lock.visible = w.ring.visible = w.t < 1;
+        const e = Math.min(1, w.t / Math.max(0.75, last));
+        w.lock.material.opacity = 1 - e; w.tag.material.opacity = 1 - e; w.ring.material.opacity = 0.55 * (1 - e);
+        w.lock.visible = w.tag.visible = w.ring.visible = e < 1;
       } else {
-        w.lock.visible = w.ring.visible = true;
-        w.lock.material.opacity = 1;
+        w.lock.visible = w.tag.visible = w.ring.visible = true;
+        w.lock.material.opacity = 1; w.tag.material.opacity = 1;
         w.ring.material.opacity = 0.35 + 0.25 * Math.sin(time * 4);
         w.lock.position.y = 2.6 + Math.sin(time * 2.2) * 0.08;
       }
@@ -1006,18 +1021,13 @@ export function createFootball3D(container) {
 
   // ── State from the app ───────────────────────────────────────────────
   let latestState = null, layoutSig = null;
-  function toTasks(state) {
-    return (state.tasks || []).map(t => ({
-      id: t.id, title: t.title, done: t.status === 'Completed',
-      blocker: t.latestUpdateIsBlocker ? (t.latestUpdateText || 'Blocked') : null,
-    }));
-  }
+  const toTasks = stageTasks;
   function applyState(state) {
     const next = toTasks(state);
     // Which tasks exist, in what order, and which are blocked decides where
     // flags and walls stand. When that changes, rebuild and place the player
     // directly; otherwise only statuses changed, and the player runs.
-    const sig = next.map(t => `${t.id}:${t.blocker ? 1 : 0}`).join('|');
+    const sig = layoutSignature(next);
     const structural = sig !== layoutSig;
     if (structural) {
       const firstBuild = layoutSig === null;
@@ -1041,7 +1051,7 @@ export function createFootball3D(container) {
       }
       if (firstBuild) snapCamera();
     } else {
-      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; });
+      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; });
       refreshFlags();
       plan();
     }
