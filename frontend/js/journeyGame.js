@@ -1897,6 +1897,305 @@ const JourneyGame = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════
+  // THEME: PRODUCT LAUNCH — "Idea to Happy Customers". A founder walks
+  // from the Idea Lab past the Workshop, the Factory and the Marketplace
+  // to a launch stage. The product on the stage grows up with progress
+  // (an idea, a sketch, a prototype, a boxed product, see launchUpdateGoal)
+  // and a five-star review meter fills as tasks get done. Blockers are
+  // budget cuts, bugs, falling sales, unhappy customers and a competitor's
+  // billboard, and they get FIXED. The finish launches the product.
+  // ════════════════════════════════════════════════════════════════
+  function launchDecorate(svg, layout, glowId, glowLgId) {
+    const { w, h } = layout;
+    svg.appendChild(el('circle', { cx: w * 0.84, cy: h * 0.1, r: w * 0.1, fill: '#ffe7b0', opacity: 0.5, filter: glowLgId ? `url(#${glowLgId})` : undefined }));
+    svg.appendChild(el('circle', { cx: w * 0.84, cy: h * 0.1, r: w * 0.03, fill: '#fff4d6' }));
+    cloudGroup(svg, layout, [[0.18, 0.08, 0.7], [0.5, 0.13, 0.55]]);
+    // a pastel skyline: the town the product will sell to
+    let x = -6;
+    for (let k = 0; x < w + 6; k++) {
+      const bw = w * (0.035 + hash01(k + 140) * 0.045), bh = h * (0.05 + hash01(k + 160) * 0.11);
+      const c = ['#c7d2fe', '#ddd6fe', '#fbcfe8', '#bae6fd'][k % 4];
+      svg.appendChild(el('rect', { x, y: h * 0.29 - bh, width: bw, height: bh + 2, rx: 1.5, fill: c, opacity: 0.85 }));
+      for (let wy = h * 0.29 - bh + 4; wy < h * 0.29 - 4; wy += 7) svg.appendChild(el('rect', { x: x + bw * 0.3, y: wy, width: bw * 0.4, height: 2.4, fill: '#ffffff', opacity: 0.55 }));
+      x += bw + 3;
+    }
+    // the plaza: soft green lawns with paved tiles
+    svg.appendChild(el('path', { d: `M 0 ${h * 0.3} Q ${w * 0.35} ${h * 0.26} ${w * 0.7} ${h * 0.31} T ${w} ${h * 0.29} L ${w} ${h} L 0 ${h} Z`, fill: '#bfeccf' }));
+    svg.appendChild(el('path', { d: `M 0 ${h * 0.55} Q ${w * 0.3} ${h * 0.48} ${w * 0.62} ${h * 0.55} T ${w} ${h * 0.5} L ${w} ${h} L 0 ${h} Z`, fill: '#a7e3bd' }));
+    for (let k = 0; k < 40; k++) {
+      svg.appendChild(el('rect', { x: hash01(k + 900) * w, y: h * 0.34 + hash01(k + 950) * h * 0.64, width: 7, height: 4, rx: 1, fill: '#d9f5e3', opacity: 0.6 }));
+    }
+  }
+
+  // The districts of a launch, each beside its own stretch of the road:
+  // the Idea Lab, the Workshop, the Factory and the Marketplace.
+  function launchLandmark(kind) {
+    const g = el('g');
+    const label = (text, color) => {
+      const t = el('text', { x: 0, y: 10, 'text-anchor': 'middle', 'font-size': 6.4, 'font-weight': 800, fill: color, 'font-family': 'Arial, sans-serif' });
+      t.textContent = text;
+      g.appendChild(t);
+    };
+    g.appendChild(el('ellipse', { cx: 2, cy: 1, rx: 26, ry: 5, fill: '#0b1220', opacity: 0.14 }));
+    if (kind === 'lab') {
+      g.appendChild(el('rect', { x: -16, y: -20, width: 32, height: 20, rx: 2, fill: '#ede9fe', stroke: '#5b21b6', 'stroke-width': 0.8 }));
+      [-10, 0, 10].forEach(wx => g.appendChild(el('rect', { x: wx - 3, y: -16, width: 6, height: 6, rx: 1, fill: '#c4b5fd' })));
+      g.appendChild(el('rect', { x: -3, y: -8, width: 6, height: 8, fill: '#5b21b6' }));
+      // the big lightbulb on the roof
+      g.appendChild(el('circle', { cx: 0, cy: -31, r: 12, fill: '#fde047', opacity: 0.35, class: 'journey-idea-glow' }));
+      g.appendChild(el('path', { d: 'M -6 -30 A 7 7 0 1 1 6 -30 Q 4 -27 3.4 -24 L -3.4 -24 Q -4 -27 -6 -30 Z', fill: '#fde047', stroke: '#a16207', 'stroke-width': 0.8 }));
+      g.appendChild(el('rect', { x: -3.4, y: -24, width: 6.8, height: 4, rx: 1, fill: '#9ca3af', stroke: '#4b5563', 'stroke-width': 0.5 }));
+      label('Idea Lab', '#5b21b6');
+    } else if (kind === 'workshop') {
+      g.appendChild(el('rect', { x: -18, y: -18, width: 36, height: 18, fill: '#fed7aa', stroke: '#9a3412', 'stroke-width': 0.8 }));
+      g.appendChild(el('path', { d: 'M -20 -18 L 0 -26 L 20 -18 Z', fill: '#ea580c', stroke: '#9a3412', 'stroke-width': 0.8 }));
+      g.appendChild(el('rect', { x: -11, y: -13, width: 22, height: 13, fill: '#78350f' }));
+      for (let ly = -12; ly < 0; ly += 3) g.appendChild(el('rect', { x: -11, y: ly, width: 22, height: 0.8, fill: '#a16207' }));
+      // a gear on the gable
+      const gear = el('g', { transform: 'translate(0,-20)' });
+      gear.appendChild(el('path', { d: starPath(4.4, 3, 8), fill: '#6b7280' }));
+      gear.appendChild(el('circle', { cx: 0, cy: 0, r: 1.4, fill: '#fed7aa' }));
+      g.appendChild(gear);
+      label('Workshop', '#9a3412');
+    } else if (kind === 'factory') {
+      g.appendChild(el('rect', { x: -20, y: -16, width: 40, height: 16, fill: '#cbd5e1', stroke: '#334155', 'stroke-width': 0.8 }));
+      g.appendChild(el('path', { d: 'M -20 -16 L -20 -24 L -10 -16 L -10 -24 L 0 -16 L 0 -24 L 10 -16 Z', fill: '#94a3b8', stroke: '#334155', 'stroke-width': 0.7 }));
+      [12, 17].forEach(cx => {
+        g.appendChild(el('rect', { x: cx - 2, y: -32, width: 4, height: 16, fill: '#64748b', stroke: '#334155', 'stroke-width': 0.5 }));
+        g.appendChild(el('circle', { cx: cx + 1, cy: -36, r: 3, fill: '#e2e8f0', opacity: 0.85, class: 'journey-smoke' }));
+      });
+      // boxes coming off the line
+      g.appendChild(el('rect', { x: -18, y: -6, width: 30, height: 2, fill: '#475569' }));
+      [-14, -6, 2].forEach(bx => g.appendChild(el('rect', { x: bx, y: -10.4, width: 5, height: 4.4, fill: '#d97706', stroke: '#92400e', 'stroke-width': 0.4 })));
+      label('Factory', '#334155');
+    } else {
+      g.appendChild(el('rect', { x: -18, y: -18, width: 36, height: 18, fill: '#fff7ed', stroke: '#be185d', 'stroke-width': 0.8 }));
+      for (let k = 0; k < 6; k++) g.appendChild(el('path', { d: `M ${-20 + k * 6.66} -18 L ${-13.33 + k * 6.66} -18 L ${-13.33 + k * 6.66} -14 Q ${-16.66 + k * 6.66} -11 ${-20 + k * 6.66} -14 Z`, fill: k % 2 ? '#ffffff' : '#ec4899', stroke: '#be185d', 'stroke-width': 0.4 }));
+      g.appendChild(el('rect', { x: -14, y: -10, width: 14, height: 7, fill: '#bae6fd', stroke: '#be185d', 'stroke-width': 0.4 }));
+      g.appendChild(el('rect', { x: 4, y: -11, width: 7, height: 11, fill: '#be185d' }));
+      g.appendChild(el('rect', { x: -12, y: -26, width: 24, height: 7, rx: 1.4, fill: '#be185d' }));
+      const t = el('text', { x: 0, y: -21, 'text-anchor': 'middle', 'font-size': 4.6, 'font-weight': 900, fill: '#ffffff', 'font-family': 'Arial, sans-serif' });
+      t.textContent = 'SHOP';
+      g.appendChild(t);
+      label('Marketplace', '#be185d');
+    }
+    return g;
+  }
+  function launchScatter(layer, layout, isClear, rand) {
+    const pts = layout.points;
+    const spots = [['lab', 0.02], ['workshop', 0.28], ['factory', 0.52], ['market', 0.76]];
+    const placedMarks = [];
+    spots.forEach(([kind, at]) => {
+      const f = at * (pts.length - 1), i = Math.min(pts.length - 2, Math.floor(f)), k = f - i;
+      const base = { x: pts[i].x + (pts[i + 1].x - pts[i].x) * k, y: pts[i].y + (pts[i + 1].y - pts[i].y) * k };
+      for (let r = 60; r <= 150; r += 15) {
+        let done = false;
+        for (let a = 0; a < 12 && !done; a++) {
+          const ang = (a / 12) * Math.PI * 2 + 0.3, x = base.x + Math.cos(ang) * r, y = base.y + Math.sin(ang) * r * 0.7;
+          if (y < layout.h * 0.24 || !isClear(x, y, 34) || placedMarks.some(p => Math.hypot(p.x - x, p.y - y) < 80)) continue;
+          const g = el('g', { transform: `translate(${x.toFixed(1)},${y.toFixed(1)})` });
+          g.appendChild(launchLandmark(kind));
+          layer.appendChild(g);
+          placedMarks.push({ x, y });
+          done = true;
+        }
+        if (done) break;
+      }
+    });
+    const clearOfMarks = (x, y, m) => isClear(x, y, m) && placedMarks.every(p => Math.hypot(p.x - x, p.y - y) > 40 + m);
+    // round trees, benches and stacks of shipping boxes around the plaza
+    scatterProps(layer, layout, clearOfMarks, rand, {
+      count: 14, margin: 14, spacing: 36, minY: layout.h * 0.32,
+      draw(g, v) {
+        g.appendChild(el('ellipse', { cx: 4, cy: 1, rx: 11, ry: 3, fill: '#0b1220', opacity: 0.15 }));
+        if (v < 0.5) {
+          g.appendChild(el('rect', { x: -1.6, y: -12, width: 3.2, height: 12, rx: 1, fill: '#8b5e3c' }));
+          g.appendChild(el('circle', { cx: 0, cy: -18, r: 8.6, fill: v < 0.25 ? '#34d399' : '#4ade80' }));
+          g.appendChild(el('circle', { cx: -2.6, cy: -21, r: 3.6, fill: '#a7f3d0', opacity: 0.8 }));
+        } else if (v < 0.72) {
+          [[-7, -5], [0, -5], [-3.5, -10]].forEach(([bx, by]) => {
+            g.appendChild(el('rect', { x: bx, y: by, width: 7, height: 5, fill: '#d97706', stroke: '#92400e', 'stroke-width': 0.5 }));
+            g.appendChild(el('rect', { x: bx + 3, y: by, width: 1, height: 5, fill: '#fde68a' }));
+          });
+        } else {
+          g.appendChild(el('rect', { x: -9, y: -6, width: 18, height: 2, rx: 0.6, fill: '#a16207' }));
+          g.appendChild(el('rect', { x: -9, y: -10, width: 18, height: 2, rx: 0.6, fill: '#a16207' }));
+          [-7, 7].forEach(lx => g.appendChild(el('rect', { x: lx - 0.6, y: -6, width: 1.2, height: 6, fill: '#374151' })));
+        }
+      },
+    });
+  }
+
+  // The founder: a hoodie, jeans and trainers, a laptop under one arm.
+  function launchBuildAvatar(fill, shadowFilterId) {
+    const g = el('g', { class: 'journey-avatar' });
+    g.appendChild(el('ellipse', { cx: 0, cy: 24, rx: 15, ry: 3.6, fill: '#1f2937', opacity: 0.25 }));
+    const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    bob.appendChild(avatarLimb('journey-leg-back', '#1d4ed8', -3.4, 9, 4.2, 10, 3.6, 1.9, '#f8fafc'));
+    const armBack = avatarLimb('journey-arm-back', fill, -7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae');
+    armBack.firstChild.appendChild(el('rect', { x: -6, y: 5, width: 12, height: 8, rx: 1, fill: '#94a3b8', stroke: '#334155', 'stroke-width': 0.6 }));
+    bob.appendChild(armBack);
+    bob.appendChild(el('rect', { x: -8.6, y: -9, width: 17.2, height: 19, rx: 6.5, fill, stroke: '#1f2937', 'stroke-width': 1 }));
+    bob.appendChild(el('path', { d: 'M -5 4 L 5 4 L 4 8 L -4 8 Z', fill: '#000000', opacity: 0.15 }));
+    bob.appendChild(el('path', { d: 'M -2 -9 L -2.6 -2 M 2 -9 L 2.6 -2', stroke: '#ffffff', 'stroke-width': 0.8, 'stroke-linecap': 'round' }));
+    bob.appendChild(avatarLimb('journey-leg-front', '#2563eb', 3.4, 9, 4.2, 10, 3.6, 1.9, '#f8fafc'));
+    bob.appendChild(avatarLimb('journey-arm-front', fill, 7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+    const head = cartoonHead({ hair: '#2b1b12' });
+    // the hood behind the head
+    head.insertBefore(el('path', { d: 'M -10.6 4 Q -12 -8 0 -11 Q 12 -8 10.6 4 Z', fill, stroke: '#1f2937', 'stroke-width': 0.8 }), head.firstChild);
+    head.setAttribute('transform', 'translate(0,-18.5)');
+    bob.appendChild(head);
+    g.appendChild(bob);
+    return g;
+  }
+
+  // The launch stage: a platform with spotlights, a screen showing the
+  // five-star review meter, the product on its pedestal (one of five
+  // stages, launchUpdateGoal picks it) and a crowd waiting to cheer.
+  function launchBuildGoal(x, y, gradId, shadowFilterId, glowId) {
+    const g = el('g', { transform: `translate(${x},${y + 4}) scale(0.7)` });
+    g.appendChild(el('circle', { cx: 0, cy: -26, r: 50, fill: '#f0abfc', opacity: 0.22, filter: glowId ? `url(#${glowId})` : undefined }));
+    // spotlight beams
+    [[-30, 18], [30, -18]].forEach(([sx, tilt]) => g.appendChild(el('path', { class: 'journey-spot', d: `M ${sx} -66 L ${sx * 0.2 - 10 + tilt * 0.2} -6 L ${sx * 0.2 + 10 + tilt * 0.2} -6 Z`, fill: '#fef9c3', opacity: 0.22 })));
+    const body = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    // truss and screen
+    [-34, 34].forEach(tx => body.appendChild(el('rect', { x: tx - 1.6, y: -68, width: 3.2, height: 62, fill: '#475569' })));
+    body.appendChild(el('rect', { x: -36, y: -70, width: 72, height: 3, fill: '#475569' }));
+    [-30, 30].forEach(sx => body.appendChild(el('path', { d: `M ${sx - 3} -67 L ${sx + 3} -67 L ${sx + 2} -62 L ${sx - 2} -62 Z`, fill: '#1f2937' })));
+    body.appendChild(el('rect', { x: -26, y: -64, width: 52, height: 16, rx: 2, fill: '#1e1b4b', stroke: '#312e81', 'stroke-width': 1 }));
+    for (let k = 0; k < 5; k++) {
+      const st = el('path', { class: 'journey-review-star', 'data-star': k, d: starPath(4.2, 1.8, 5), transform: `translate(${-17 + k * 8.5},-56)`, fill: '#4c4a7a', stroke: '#fbbf24', 'stroke-width': 0.6 });
+      body.appendChild(st);
+    }
+    // the stage
+    body.appendChild(el('rect', { x: -40, y: -8, width: 80, height: 8, rx: 1.4, fill: '#7c3aed', stroke: '#4c1d95', 'stroke-width': 0.8 }));
+    body.appendChild(el('rect', { x: -40, y: -8, width: 80, height: 2, fill: '#a78bfa' }));
+    body.appendChild(el('rect', { x: -8, y: -16, width: 16, height: 8, rx: 1, fill: '#e5e7eb', stroke: '#6b7280', 'stroke-width': 0.6 }));
+    // confetti cannons at the corners
+    [-36, 36].forEach(cx => {
+      const c = el('g', { transform: `translate(${cx},-8) rotate(${cx < 0 ? 20 : -20})` });
+      c.appendChild(el('rect', { x: -2.4, y: -10, width: 4.8, height: 10, rx: 1, fill: '#f43f5e', stroke: '#881337', 'stroke-width': 0.5 }));
+      body.appendChild(c);
+    });
+    g.appendChild(body);
+    // the product, at five stages
+    const prod = el('g', { transform: 'translate(0,-16)' });
+    const stage = k => { const p = el('g', { class: 'journey-product', 'data-stage': k }); prod.appendChild(p); return p; };
+    const s0 = stage(0); // the idea: a glowing lightbulb
+    s0.appendChild(el('circle', { cx: 0, cy: -10, r: 9, fill: '#fde047', opacity: 0.35 }));
+    s0.appendChild(el('path', { d: 'M -5 -10 A 6 6 0 1 1 5 -10 Q 3.4 -7 3 -4 L -3 -4 Q -3.4 -7 -5 -10 Z', fill: '#fde047', stroke: '#a16207', 'stroke-width': 0.7 }));
+    s0.appendChild(el('rect', { x: -3, y: -4, width: 6, height: 3.4, rx: 0.8, fill: '#9ca3af' }));
+    const s1 = stage(1); // the sketch: a blueprint on an easel
+    s1.appendChild(el('path', { d: 'M -6 0 L -2 -18 M 6 0 L 2 -18', stroke: '#92400e', 'stroke-width': 1 }));
+    s1.appendChild(el('rect', { x: -9, y: -20, width: 18, height: 13, fill: '#dbeafe', stroke: '#1d4ed8', 'stroke-width': 0.7 }));
+    s1.appendChild(el('rect', { x: -4, y: -17, width: 8, height: 7, rx: 1.4, fill: 'none', stroke: '#1d4ed8', 'stroke-width': 0.7, 'stroke-dasharray': '1.4 1' }));
+    const s2 = stage(2); // the prototype: a rough device with a gear
+    s2.appendChild(el('rect', { x: -7, y: -14, width: 14, height: 14, rx: 2, fill: '#cbd5e1', stroke: '#475569', 'stroke-width': 0.7 }));
+    s2.appendChild(el('path', { d: starPath(3.6, 2.4, 8), transform: 'translate(0,-7)', fill: '#64748b' }));
+    s2.appendChild(el('path', { d: 'M 7 -10 L 10 -12 M 7 -4 L 10 -3', stroke: '#ef4444', 'stroke-width': 0.8 }));
+    const s3 = stage(3); // the boxed product
+    s3.appendChild(el('rect', { x: -8, y: -15, width: 16, height: 15, rx: 1, fill: '#f472b6', stroke: '#9d174d', 'stroke-width': 0.7 }));
+    s3.appendChild(el('rect', { x: -8, y: -15, width: 16, height: 3, fill: '#fbcfe8' }));
+    s3.appendChild(el('path', { d: starPath(3.6, 1.6, 5), transform: 'translate(0,-6)', fill: '#fde047' }));
+    const s4 = stage(4); // the finished product: a sleek rocket, ready to launch
+    const rocket = el('g', { class: 'journey-launch-rocket' });
+    rocket.appendChild(el('path', { class: 'journey-rocket-flame', d: 'M -3 0 Q 0 9 3 0 Z', fill: '#fb923c' }));
+    rocket.appendChild(el('path', { d: 'M -5 0 L -5 -16 Q 0 -27 5 -16 L 5 0 Z', fill: '#f8fafc', stroke: '#475569', 'stroke-width': 0.8 }));
+    rocket.appendChild(el('circle', { cx: 0, cy: -14, r: 2.4, fill: '#7dd3fc', stroke: '#475569', 'stroke-width': 0.5 }));
+    rocket.appendChild(el('path', { d: 'M -5 -6 L -9 0 L -5 0 Z M 5 -6 L 9 0 L 5 0 Z', fill: '#ec4899' }));
+    s4.appendChild(rocket);
+    g.appendChild(prod);
+    // the crowd, waiting to cheer
+    const crowd = el('g', { class: 'journey-crowd' });
+    [[-34, '#f59e0b'], [-24, '#22c55e'], [-14, '#3b82f6'], [14, '#ef4444'], [24, '#a855f7'], [34, '#14b8a6']].forEach(([cx, c], k) => {
+      const p = el('g', { transform: `translate(${cx},${12 + (k % 2) * 2})` });
+      const j = el('g', { class: 'journey-crowd-jump', style: `animation-delay:${(k * 0.13).toFixed(2)}s` });
+      j.appendChild(el('path', { d: 'M -4 0 L 4 0 L 3 -9 L -3 -9 Z', fill: c, stroke: '#1f2937', 'stroke-width': 0.5 }));
+      j.appendChild(el('circle', { cx: 0, cy: -12, r: 3.2, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 0.5 }));
+      j.appendChild(el('path', { d: 'M -3 -8 L -6 -14 M 3 -8 L 6 -14', stroke: '#ffd9ae', 'stroke-width': 1.4, 'stroke-linecap': 'round' }));
+      p.appendChild(j);
+      crowd.appendChild(p);
+    });
+    g.appendChild(crowd);
+    g.appendChild(sparkles([[-40, -50, 2.2], [40, -40, 1.8], [10, -76, 2]]));
+    return g;
+  }
+  // The product grows up with progress and the review stars fill in.
+  function launchUpdateGoal(entry, frac) {
+    const stage = frac >= 1 - 1e-6 ? 4 : Math.min(3, Math.floor(frac * 4 + 1e-6));
+    entry.svg.querySelectorAll('.journey-product').forEach(p => { p.style.display = Number(p.getAttribute('data-stage')) === stage ? '' : 'none'; });
+    const lit = Math.round(frac * 5);
+    entry.svg.querySelectorAll('.journey-review-star').forEach(s => s.classList.toggle('is-lit', Number(s.getAttribute('data-star')) < lit));
+  }
+
+  // A checkpoint: a milestone sign on a launch pad, with a little rocket
+  // fin on top, turning green with a tick once done.
+  function launchBuildCheckpoint(i, isDone, isNext, blocked, scale, shadowFilterId) {
+    const s = scale;
+    const g = el('g', { class: 'journey-flag' });
+    if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 0, cy: -22 * s, r: 15 * s, fill: NEXT_COLOR, opacity: 0.5 }));
+    g.appendChild(el('ellipse', { cx: 0, cy: 0.5 * s, rx: 8 * s, ry: 2 * s, fill: '#6d28d9', opacity: 0.35 }));
+    g.appendChild(el('rect', { x: -1 * s, y: -18 * s, width: 2 * s, height: 18 * s, fill: '#475569' }));
+    const board = el('g', { class: 'journey-flag-wave' });
+    board.appendChild(el('path', { d: `M ${-4 * s} ${-31 * s} Q 0 ${-38 * s} ${4 * s} ${-31 * s} Z`, fill: '#ec4899' }));
+    board.appendChild(el('rect', {
+      x: -9 * s, y: -31 * s, width: 18 * s, height: 13 * s, rx: 3 * s, fill: isDone ? '#10b981' : isNext ? '#fff7d6' : '#ffffff', stroke: '#6d28d9', 'stroke-width': 1 * s,
+      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
+    }));
+    if (isDone) {
+      board.appendChild(el('path', { d: `M ${-4 * s} ${-24.6 * s} L ${-1.2 * s} ${-22 * s} L ${4.4 * s} ${-27.6 * s}`, fill: 'none', stroke: '#ffffff', 'stroke-width': 1.8 * s, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    } else {
+      const label = el('text', { x: 0, y: -24.2 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 7 * s, 'font-weight': 900, fill: '#4c1d95', 'font-family': 'Arial, sans-serif' });
+      label.textContent = String(i + 1);
+      board.appendChild(label);
+    }
+    g.appendChild(board);
+    if (blocked) g.appendChild(drawFoes(blocked, s, LAUNCH_FOES));
+    return g;
+  }
+
+  // The launch: the product rockets up off the stage, the confetti
+  // cannons fire, the crowd jumps and cheers and the stars fill.
+  function launchCelebrateFinish(entry, from, scale, burst) {
+    entry.shotPending = false;
+    const { svg, goalPt } = entry;
+    svg.classList.add('journey-quest-done');
+    const rocket = svg.querySelector('.journey-launch-rocket');
+    if (rocket) { rocket.classList.remove('journey-rocket-go'); rocket.getBBox(); rocket.classList.add('journey-rocket-go'); }
+    const cg = el('g');
+    svg.insertBefore(cg, entry.vignette);
+    const colors = ['#f43f5e', '#fde047', '#22d3ee', '#a855f7', '#4ade80', '#fb923c'];
+    const bits = Array.from({ length: 36 }, (_, k) => {
+      const r = el('rect', { x: -1.6, y: -2.4, width: 3.2, height: 4.8, rx: 0.5, fill: colors[k % colors.length] });
+      cg.appendChild(r);
+      const side = k % 2 ? 1 : -1, ang = -Math.PI / 2 - side * (0.25 + hash01(k + 60) * 0.5);
+      return { r, x0: goalPt.x + side * 26 * 0.7, vx: Math.cos(ang) * (70 + hash01(k + 61) * 60), vy: Math.sin(ang) * (110 + hash01(k + 62) * 60), sp: hash01(k + 63) * 6 };
+    });
+    const t0 = performance.now();
+    const step = now => {
+      if (!svg.isConnected) return;
+      const t = (now - t0) / 1000;
+      bits.forEach(b => {
+        const x = b.x0 + b.vx * t, y = goalPt.y - 6 + b.vy * t + 120 * t * t;
+        b.r.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${((t * 400 + b.sp * 60) % 360).toFixed(0)})`);
+        b.r.setAttribute('opacity', Math.max(0, 1 - t / 2.4).toFixed(2));
+      });
+      if (t < 2.4) requestAnimationFrame(step); else cg.remove();
+    };
+    requestAnimationFrame(step);
+    finishFlourish(entry, 'LAUNCH SUCCESS!', '#fde047', '#6d28d9', ['#f472b6', '#fde047', '#22d3ee']);
+    const ty = goalPt.y > 90 ? goalPt.y - 40 : goalPt.y + 76;
+    const sub = el('text', {
+      class: 'journey-goal-pop', x: goalPt.x, y: ty, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': 11, 'font-weight': 800, 'font-family': 'Arial, sans-serif', fill: '#ffffff', stroke: '#6d28d9', 'stroke-width': 2, 'paint-order': 'stroke',
+    });
+    sub.textContent = '★★★★★ Customers love it';
+    svg.insertBefore(sub, entry.vignette);
+    setTimeout(() => sub.remove(), 2700);
+    burst();
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // OBSTACLES — each task's named obstacles become that many enemies on
   // the road before its flag, drawn in the theme's own style (rival
   // players, mini-bosses, sharks, asteroids...), with the obstacle's name
@@ -2070,6 +2369,48 @@ const JourneyGame = (() => {
       [-5, -1, 3, 7].forEach(rx => g.appendChild(el('path', { d: `M ${rx} -10 L ${rx - 1.4} -5`, stroke: '#60a5fa', 'stroke-width': 1, 'stroke-linecap': 'round' })));
     }
   };
+  // Product Launch: budget cuts (a money bag with wings), a bug, a falling
+  // sales chart, an unhappy-customer storm cloud and a rival's billboard.
+  const LAUNCH_FOES = (g, k) => {
+    const kind = k % 5;
+    if (kind === 0) {
+      [-1, 1].forEach(sd => g.appendChild(el('path', { class: 'journey-wing', d: `M ${sd * 5} -12 Q ${sd * 14} -20 ${sd * 15} -10 Q ${sd * 11} -12 ${sd * 6} -8 Z`, fill: '#ffffff', stroke: '#94a3b8', 'stroke-width': 0.6 })));
+      g.appendChild(el('path', { d: 'M -3 -16 L 3 -16 L 2 -13 Q 9 -10 8 -3 Q 7 1 0 1 Q -7 1 -8 -3 Q -9 -10 -2 -13 Z', fill: '#65a30d', stroke: '#365314', 'stroke-width': 0.7 }));
+      g.appendChild(el('path', { d: 'M -3.4 -14 L 3.4 -14', stroke: '#365314', 'stroke-width': 1 }));
+      const t = el('text', { x: 0, y: -3, 'text-anchor': 'middle', 'font-size': 8, 'font-weight': 900, fill: '#ecfccb', 'font-family': 'Arial, sans-serif' });
+      t.textContent = '$';
+      g.appendChild(t);
+    } else if (kind === 1) {
+      [-1, 1].forEach(sd => [-8, -5, -2].forEach(ly => g.appendChild(el('path', { d: `M ${sd * 4} ${ly} L ${sd * 9} ${ly - 1.6} L ${sd * 10} ${ly + 2}`, fill: 'none', stroke: '#1f2937', 'stroke-width': 0.9 }))));
+      g.appendChild(el('ellipse', { cx: 0, cy: -5, rx: 5.6, ry: 6.6, fill: '#dc2626', stroke: '#7f1d1d', 'stroke-width': 0.7 }));
+      g.appendChild(el('path', { d: 'M 0 -11.6 L 0 1.6', stroke: '#7f1d1d', 'stroke-width': 0.6 }));
+      [[-2.4, -7], [2.6, -4], [-2, -2]].forEach(([sx, sy]) => g.appendChild(el('circle', { cx: sx, cy: sy, r: 1, fill: '#1f2937' })));
+      g.appendChild(el('circle', { cx: 0, cy: -13.4, r: 3, fill: '#1f2937' }));
+      [-1, 1].forEach(sd => g.appendChild(el('path', { d: `M ${sd * 1.2} -15.6 Q ${sd * 3} -19 ${sd * 5} -19`, fill: 'none', stroke: '#1f2937', 'stroke-width': 0.6 })));
+      [-1, 1].forEach(sd => g.appendChild(el('circle', { cx: sd * 1.1, cy: -13.8, r: 0.6, fill: '#fef08a' })));
+    } else if (kind === 2) {
+      g.appendChild(el('rect', { x: -0.8, y: -8, width: 1.6, height: 8, fill: '#4b5563' }));
+      g.appendChild(el('rect', { x: -11, y: -22, width: 22, height: 15, rx: 1.4, fill: '#ffffff', stroke: '#334155', 'stroke-width': 0.7 }));
+      [-7, -2, 3, 8].forEach((bx, i) => g.appendChild(el('rect', { x: bx - 1.6, y: -9 - (10 - i * 3), width: 3.2, height: 10 - i * 3, fill: '#fca5a5' })));
+      g.appendChild(el('path', { d: 'M -9 -19 L -4 -15 L 0 -16.6 L 8 -9.4', fill: 'none', stroke: '#dc2626', 'stroke-width': 1.4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+      g.appendChild(el('path', { d: 'M 8.6 -8.6 L 4.6 -9 L 7.8 -12.4 Z', fill: '#dc2626' }));
+    } else if (kind === 3) {
+      [[-5, -18, 5.2], [1, -20.6, 6.2], [6.4, -17.6, 4.6], [0, -15.4, 5.8]].forEach(([cx, cy, r]) => g.appendChild(el('circle', { cx, cy, r, fill: '#64748b' })));
+      g.appendChild(el('path', { d: 'M -4 -20.4 L -1.4 -19 M 4 -20.4 L 1.4 -19', stroke: '#111827', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
+      [-2.4, 2.4].forEach(ex => g.appendChild(el('circle', { cx: ex, cy: -17.6, r: 0.9, fill: '#111827' })));
+      g.appendChild(el('path', { d: 'M -2.4 -13.6 Q 0 -15.6 2.4 -13.6', fill: 'none', stroke: '#111827', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
+      g.appendChild(el('path', { d: 'M 1 -10 L -1.4 -5 L 1.4 -5 L -1 0', fill: 'none', stroke: '#facc15', 'stroke-width': 1.4, 'stroke-linejoin': 'round' }));
+      [-6, 6].forEach(rx => g.appendChild(el('path', { d: `M ${rx} -10 L ${rx - 1.4} -5`, stroke: '#60a5fa', 'stroke-width': 1, 'stroke-linecap': 'round' })));
+    } else {
+      [-8, 8].forEach(lx => g.appendChild(el('rect', { x: lx - 0.8, y: -10, width: 1.6, height: 10, fill: '#4b5563' })));
+      g.appendChild(el('rect', { x: -13, y: -24, width: 26, height: 15, rx: 1, fill: '#1f2937', stroke: '#0f172a', 'stroke-width': 0.6 }));
+      const t1 = el('text', { x: 0, y: -18, 'text-anchor': 'middle', 'font-size': 4.6, 'font-weight': 900, fill: '#f87171', 'font-family': 'Arial, sans-serif' });
+      t1.textContent = 'RIVAL CO.';
+      const t2 = el('text', { x: 0, y: -12, 'text-anchor': 'middle', 'font-size': 4.4, 'font-weight': 900, fill: '#fde047', 'font-family': 'Arial, sans-serif' });
+      t2.textContent = '50% OFF';
+      g.appendChild(t1); g.appendChild(t2);
+    }
+  };
   const FOOTBALL_FOES = g => {
     g.appendChild(el('rect', { x: -2.4, y: -7, width: 2, height: 7, fill: '#f1f5f9' }));
     g.appendChild(el('rect', { x: 0.4, y: -7, width: 2, height: 7, fill: '#f1f5f9' }));
@@ -2169,6 +2510,14 @@ const JourneyGame = (() => {
       path: { outline: '#c08a4f', fill: '#fbe7c6', dash: '#f472b6', progress: '#fde047' },
       decorate: lifeDecorate, scatter: lifeScatter, buildAvatar: lifeBuildAvatar, buildGoal: lifeBuildGoal, buildCheckpoint: lifeBuildCheckpoint, foes: LIFE_FOES,
       updateGoal: lifeUpdateGoal, celebrateFinish: lifeCelebrateFinish,
+    },
+    launch: {
+      label: 'Product Launch', avatarFill: '#7c3aed', clearedWord: 'FIXED!',
+      sky: [[0, '#7dd3fc'], [16, '#c4b5fd'], [26, '#fbcfe8'], [29, '#bfeccf'], [100, '#a7e3bd']],
+      goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
+      path: { outline: '#7c3aed', fill: '#f5f3ff', dash: '#ec4899', progress: '#fde047' },
+      decorate: launchDecorate, scatter: launchScatter, buildAvatar: launchBuildAvatar, buildGoal: launchBuildGoal, buildCheckpoint: launchBuildCheckpoint, foes: LAUNCH_FOES,
+      updateGoal: launchUpdateGoal, celebrateFinish: launchCelebrateFinish,
     },
   };
   function resolveThemeKey(key) { return THEMES[key] ? key : 'football'; }
@@ -2711,6 +3060,7 @@ const JourneyGame = (() => {
     corporate3d: { module: '/js/journeyCorporate3d.js', factory: 'createCorporate3D', fallback: 'corporate', failed: false, loading: null },
     construction3d: { module: '/js/journeyConstruction3d.js', factory: 'createConstruction3D', fallback: 'construction', failed: false, loading: null },
     life3d: { module: '/js/journeyLife3d.js', factory: 'createLife3D', fallback: 'life', failed: false, loading: null },
+    launch3d: { module: '/js/journeyLaunch3d.js', factory: 'createLaunch3D', fallback: 'launch', failed: false, loading: null },
   };
   const instances3d = new Set();
   let webglOk = null;

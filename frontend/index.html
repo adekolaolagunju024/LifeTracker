@@ -272,6 +272,11 @@
       --quest-text: #fdf4ff; --quest-text-done: #9d8bb8; --quest-date: #e9c6f2; --quest-hover: rgba(244,114,182,.1);
       --quest-accent: #f9a8d4;
     }
+    .journey-quest-panel.theme-launch, .journey-quest-panel.theme-launch3d {
+      --quest-bg1: #2e1065; --quest-bg2: #1a0b3d; --quest-divider: rgba(236,72,153,.3);
+      --quest-text: #faf5ff; --quest-text-done: #9a86c4; --quest-date: #d8b4fe; --quest-hover: rgba(236,72,153,.12);
+      --quest-accent: #f472b6;
+    }
     .journey-quest-panel.theme-castle, .journey-quest-panel.theme-castle3d {
       --quest-bg1: #1c2547; --quest-bg2: #0d1326; --quest-divider: rgba(231,180,67,.28);
       --quest-text: #f6f0e1; --quest-text-done: #8a8470; --quest-date: #c9b98f; --quest-hover: rgba(231,180,67,.1);
@@ -553,6 +558,22 @@
     @keyframes journey-star-spin { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.25); } }
     .journey-theme-life .journey-foes-defeated .journey-foe { animation: journey-foe-solve .7s ease-out 1 forwards; }
     @keyframes journey-foe-solve { 0% { transform: translateY(0) scale(1); opacity: 1; filter: none; } 40% { transform: translateY(-4px) scale(1.15); opacity: 1; filter: brightness(1.8); } 100% { transform: translateY(-22px) scale(.3); opacity: 0; filter: brightness(2.2); } }
+    /* Product Launch: the review stars light up with progress, the crowd
+       cheers and the product rockets off the stage at the finish, and
+       blockers are "fixed" (they float up in a sparkle). */
+    .journey-review-star { transition: fill .6s; }
+    .journey-review-star.is-lit { fill: #fbbf24; }
+    .journey-crowd { opacity: 0; transition: opacity .8s; }
+    .journey-quest-done .journey-crowd { opacity: 1; }
+    .journey-quest-done .journey-crowd-jump { animation: journey-crowd-jump .5s ease-in-out infinite alternate; }
+    @keyframes journey-crowd-jump { from { transform: translateY(0); } to { transform: translateY(-4px); } }
+    .journey-rocket-flame { opacity: 0; }
+    .journey-rocket-go { animation: journey-rocket-go 2.6s ease-in 1 both; }
+    .journey-rocket-go .journey-rocket-flame { opacity: 1; }
+    @keyframes journey-rocket-go { 0% { transform: translateY(0); } 15% { transform: translateY(2px); } 70% { transform: translateY(-120px); opacity: 1; } 71% { opacity: 0; transform: translateY(-120px); } 72% { transform: translateY(0); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+    .journey-spot { transform-box: fill-box; transform-origin: center top; animation: journey-spot 4s ease-in-out infinite alternate; }
+    @keyframes journey-spot { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
+    .journey-theme-launch .journey-foes-defeated .journey-foe { animation: journey-foe-solve .7s ease-out 1 forwards; }
     .journey-deal-anim { animation: journey-deal-pop .8s cubic-bezier(.3,1.6,.5,1) 1 both; }
     @keyframes journey-deal-pop { from { opacity: 0; transform: scale(.2) rotate(-12deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
     @keyframes journey-firework { 0% { opacity: 1; transform: scale(.2); } 70% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
@@ -595,8 +616,8 @@
       .journey-task-popup-inner,
       .journey-flame, .journey-river-flow, .journey-frog-sac, .journey-dragon-breathe, .journey-dragon-wing,
       .journey-dragon-fire, .journey-dragon-hit, .journey-dragon-fall, .journey-slash .journey-arm-front,
-      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise, .journey-hq-beacon, .journey-deal-anim, .journey-topping, .journey-rainbow, .journey-life-star path,
-      .journey-foe, .journey-foes-defeated .journey-foe, .journey-theme-life .journey-foes-defeated .journey-foe { animation: none; }
+      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise, .journey-hq-beacon, .journey-deal-anim, .journey-topping, .journey-rainbow, .journey-life-star path, .journey-crowd-jump, .journey-rocket-go, .journey-spot,
+      .journey-foe, .journey-foes-defeated .journey-foe, .journey-theme-life .journey-foes-defeated .journey-foe, .journey-theme-launch .journey-foes-defeated .journey-foe { animation: none; }
       .journey-portcullis, .journey-princess-free { transition: none; }
     }
 
@@ -1640,6 +1661,8 @@
                 <option value="construction3d">🏗️ Construction 3D</option>
                 <option value="life">🌱 Life Path</option>
                 <option value="life3d">🌱 Life Path 3D</option>
+                <option value="launch">🚀 Product Launch</option>
+                <option value="launch3d">🚀 Product Launch 3D</option>
               </optgroup>
             </select>
             <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started and untick its cleared blockers" aria-label="Reset">↺<span class="hidden sm:inline"> Reset</span></button>

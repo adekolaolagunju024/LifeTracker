@@ -85,6 +85,14 @@ app.use('/api/auth', require('./routes/auth'));
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
+// Which build is running, so an open tab can tell it's out of date after a
+// deploy (see checkForNewVersion in app.js): the deployed commit on Railway,
+// else this process's start time.
+const BUILD_ID = process.env.RAILWAY_GIT_COMMIT_SHA || `boot-${Date.now()}`;
+app.get('/api/version', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ version: BUILD_ID });
+});
 
 // ── AUTH GATE — everything else under /api requires a logged-in session ──
 app.use('/api', requireAuth);
