@@ -1,20 +1,30 @@
 // ── JOURNEY 3D: CONSTRUCTION STAGE ("The Build Site", WebGL / three.js) ──
-// A builder in a hard hat and hi-vis walks a gravel haul road across a
-// building site, past machinery, site cabins and stacks of materials, to
-// the plot where the building is going up. Each task is a hazard-striped
-// signboard beside the road (it turns green with a tick when the task is
-// done), and the building at the end rises floor by floor as tasks get
-// done, beside a working tower crane. Blockers are barriers and cones,
-// permit-pending signs, storm clouds, broken-down trucks and rubble; a
-// crane hook lifts them away, the rubble is pushed aside and the storm
-// clears to sunshine. The last task is the topping-out: the crane lowers
-// the final beam onto the roof and the builder cuts the opening ribbon.
+// One building goes up, phase by phase, as the project's tasks get done —
+// the way a real job runs:
+//   1. Planning        a site office, blueprints on the drawing table and a
+//                      glowing wireframe of the finished building over the
+//                      empty, grassy plot
+//   2. Setting out     a surveyor at a theodolite, corner pegs, profile
+//                      boards, string lines and paint marking the footprint
+//   3. Foundation      the excavator digs out the pit, a rebar mat goes in,
+//                      the mixer truck pours and the slab sets
+//   4. Superstructure  the tower crane lifts as columns and floor slabs
+//                      climb storey by storey, wrapped in scaffolding
+//   5. Finishes        brick and glazing close each floor in, the roof goes
+//                      on, the scaffolding comes down and the lights come on
+//   6. External works  the crane and hoarding go, and lawns, trees, paving,
+//                      street lamps, flower beds and parked cars arrive
+// A phase tracker shows where the job is, with a banner as each phase
+// completes. The builder works around a site road that circles the
+// building, stopping at a signboard per task; blockers (barriers, permit
+// signs, storms, broken-down trucks, rubble) stand at the signboards until
+// they're cleared. The last task is the handover: the ribbon is cut at the
+// front door, under fireworks.
 //
 // Loaded on demand by journeyGame.js (the "Construction 3D" theme), which
 // falls back to the 2D Construction stage without WebGL. Same sync()
-// contract as the other 3D stages. The builder is the KayKit Knight (CC0)
-// dressed in code: a hi-vis vest, a blue shirt and work gloves, jeans and
-// a hard hat. Everything else is built here from primitives.
+// contract as the other 3D stages. The builder and the surveyor are the
+// KayKit Knight (CC0) dressed in code; everything else is built here.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
@@ -27,11 +37,19 @@ import {
 
 const BUILDER_URL = '/assets/models/Knight.glb';
 const CLEARED = 'CLEARED!';
+const PHASES = [
+  { key: 'planning', name: 'Planning', icon: '📐' },
+  { key: 'setting-out', name: 'Setting out', icon: '📏' },
+  { key: 'foundation', name: 'Foundation', icon: '🧱' },
+  { key: 'superstructure', name: 'Superstructure', icon: '🏗️' },
+  { key: 'finishes', name: 'Finishes', icon: '🪟' },
+  { key: 'external', name: 'External works', icon: '🌳' },
+];
 
 export function createConstruction3D(container) {
   const shell = createShell(container, {
-    label: 'Construction Journey in 3D', background: '#b5d3ec', loadingText: 'Clearing the site…',
-    winTitle: 'Project Complete!', winText: 'The building is open', winFill: '#fde047', winEdge: '#7c2d12',
+    label: 'Construction Journey in 3D', background: '#b5d3ec', loadingText: 'Opening the site…',
+    winTitle: 'Handed Over!', winText: 'From plans to keys in hand', winFill: '#fde047', winEdge: '#7c2d12',
   });
   const { renderer, reduceMotion, timers } = shell;
   renderer.toneMappingExposure = 1.0;
@@ -42,13 +60,18 @@ export function createConstruction3D(container) {
   const tmpV = new THREE.Vector3();
   const smooth = (a, b, x) => { const t = THREE.MathUtils.clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const rand3 = (s = 1) => V((rnd() - 0.5) * s, (rnd() - 0.5) * s, (rnd() - 0.5) * s);
+  // 0..1 progress through [a, b] — how far along a piece of the build is
+  const span = (a, b, x) => THREE.MathUtils.clamp((x - a) / (b - a), 0, 1);
 
   let tasks = [];
   let celebrationsOn = true;
   let onSummitCb = null;
 
-  // ── The haul road: from the site gate (south) to the plot (north) ─────
-  const PATH_XZ = [[12, 46], [2, 40], [-8, 33], [-10, 23], [-2, 15], [9, 8], [11, -2], [3, -10], [-8, -16], [-10, -26], [-3, -34], [0, -40]];
+  // ── The plot and the site road around it ──────────────────────────────
+  // The building stands in the middle; the site road starts at the gate
+  // (south-east), loops round the plot and finishes at the front door.
+  const PLOT = V(0, 0, -4);
+  const PATH_XZ = [[16, 30], [22, 14], [23, -4], [17, -20], [4, -27], [-11, -25], [-21, -13], [-22, 3], [-15, 16], [-6, 15], [0, 12]];
   const curve = new THREE.CatmullRomCurve3(PATH_XZ.map(([x, z]) => V(x, 0, z)), false, 'catmullrom', 0.5);
   const curveLen = curve.getLength();
   const PATH_SAMPLES = Array.from({ length: 301 }, (_, i) => curve.getPointAt(i / 300));
@@ -65,16 +88,16 @@ export function createConstruction3D(container) {
   // ── Scene, sky, light ─────────────────────────────────────────────────
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#b5d3ec');
-  scene.fog = new THREE.Fog('#d9e4ec', 70, 240);
+  scene.fog = new THREE.Fog('#d9e4ec', 80, 260);
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 600);
-  camera.position.set(18, 6, 56);
+  camera.position.set(-40, 30, 50);
   const hemi = new THREE.HemisphereLight('#eef6ff', '#8a6f4e', 1.3);
   scene.add(hemi);
   const sunDir = V(0.5, 0.8, 0.35).normalize();
   const sun = new THREE.DirectionalLight('#fff3dc', 2.7);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, near: 1, far: 150 });
+  Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 34, bottom: -34, near: 1, far: 160 });
   sun.shadow.bias = -0.0004;
   scene.add(sun, sun.target);
   const sky = new THREE.Mesh(new THREE.SphereGeometry(500, 32, 16), new THREE.ShaderMaterial({
@@ -94,7 +117,7 @@ export function createConstruction3D(container) {
   const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: '#fff2d6', blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false }));
   sunGlow.position.copy(sunDir).multiplyScalar(420); sunGlow.scale.setScalar(110); scene.add(sunGlow);
 
-  // ── The ground: packed earth with gravel, tyre tracks and puddles ─────
+  // ── The ground: packed site earth, the grassy plot and the site road ──
   const dirt = canvasTexture(256, 256, (g, w) => {
     g.fillStyle = '#c9a77b'; g.fillRect(0, 0, w, w);
     const r = seededRandom(5);
@@ -107,6 +130,10 @@ export function createConstruction3D(container) {
   dirt.repeat.set(70, 70);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ map: dirt, roughness: 1 }));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+  // the untouched plot: a meadow that's stripped away during setting out
+  const meadowMat = new THREE.MeshStandardMaterial({ color: '#7fb85e', roughness: 1, transparent: true });
+  const meadow = new THREE.Mesh(new THREE.CircleGeometry(15, 40), meadowMat);
+  meadow.rotation.x = -Math.PI / 2; meadow.position.set(PLOT.x, 0.03, PLOT.z); meadow.receiveShadow = true; scene.add(meadow);
   function ribbonGeometry(width, samples, lift, offset = 0) {
     const pos = [], uv = [], nrm = [], idx = [];
     for (let i = 0; i <= samples; i++) {
@@ -130,19 +157,13 @@ export function createConstruction3D(container) {
     g.fillStyle = '#ddd2bf'; g.fillRect(0, 0, w, h);
     const r = seededRandom(9);
     for (let k = 0; k < 500; k++) { const v = 150 + Math.floor(r() * 90); g.fillStyle = `rgb(${v},${v - 6},${v - 18})`; g.fillRect(r() * w, r() * h, 2, 2); }
-    // tyre tracks
     g.fillStyle = 'rgba(120,96,70,0.35)'; g.fillRect(0, 12, w, 8); g.fillRect(0, h - 20, w, 8);
   }, { repeat: true });
   const road = new THREE.Mesh(ribbonGeometry(3.8, 420, 0.04), new THREE.MeshStandardMaterial({ map: gravel, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2 }));
   road.receiveShadow = true; scene.add(road);
-  // An orange line down the middle that fills in as tasks get done.
   const progressLine = new THREE.Mesh(ribbonGeometry(0.24, 420, 0.06), new THREE.MeshBasicMaterial({ color: '#f97316', transparent: true, opacity: 0.85 }));
   progressLine.geometry.setDrawRange(0, 0); scene.add(progressLine);
   let progressShown = 0, progressTarget = 0;
-  [[-18, 30, 3.2], [16, 18, 2.4], [-16, -4, 2.8]].forEach(([x, z, r]) => {
-    const puddle = new THREE.Mesh(new THREE.CircleGeometry(r, 20), new THREE.MeshStandardMaterial({ color: '#8fb3c9', roughness: 0.08, metalness: 0.3 }));
-    puddle.rotation.x = -Math.PI / 2; puddle.scale.y = 0.6; puddle.position.set(x, 0.02, z); scene.add(puddle);
-  });
 
   // ── Particles: sparkles, dust and rain ────────────────────────────────
   const scaleU = { value: 400 };
@@ -170,97 +191,73 @@ export function createConstruction3D(container) {
     }
   }
 
-  // ── The site: hoarding, cabins, machinery and materials ───────────────
+  // ── The site: hoarding, cabins, materials, cones, lights ─────────────
   const yellow = flat('#facc15'), dark = flat('#1f2937'), steelMat = flat('#64748b', { metalness: 0.4 });
-  // Perimeter hoarding: a ring of painted panels with the city beyond.
+  // Perimeter hoarding: a ring of painted panels (they come down during
+  // external works), with the low city skyline beyond.
+  const hoarding = [];
   {
     const hoardTex = canvasTexture(256, 64, (g, w, h) => {
       g.fillStyle = '#eef0f2'; g.fillRect(0, 0, w, h);
       g.fillStyle = '#1e3a5f'; g.fillRect(0, h - 10, w, 10);
       g.fillStyle = '#f59e0b'; g.font = '900 17px "Arial Black", Arial, sans-serif'; g.textAlign = 'center'; g.fillText('BUILDING YOUR FUTURE', w / 2, 32);
     }, { repeat: true });
-    const R = 62;
-    for (let k = 0; k < 40; k++) {
-      const a = (k / 40) * Math.PI * 2, x = Math.cos(a) * R, z = Math.sin(a) * R * 0.95 + 2;
-      const panel = new THREE.Mesh(new THREE.BoxGeometry(9.6, 2.6, 0.15), [flat('#d1d5db'), flat('#d1d5db'), flat('#d1d5db'), flat('#d1d5db'), new THREE.MeshStandardMaterial({ map: hoardTex }), new THREE.MeshStandardMaterial({ map: hoardTex })]);
-      panel.position.set(x, 1.3, z); panel.lookAt(0, 1.3, 2); panel.receiveShadow = true; scene.add(panel);
+    const panelSide = flat('#d1d5db'), panelFace = new THREE.MeshStandardMaterial({ map: hoardTex });
+    const R = 42;
+    for (let k = 0; k < 44; k++) {
+      const a = (k / 44) * Math.PI * 2, x = Math.cos(a) * R, z = Math.sin(a) * R * 0.95 + PLOT.z;
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(6.2, 2.6, 0.15), [panelSide, panelSide, panelSide, panelSide, panelFace, panelFace]);
+      panel.position.set(x, 1.3, z); panel.lookAt(PLOT.x, 1.3, PLOT.z); panel.receiveShadow = true; scene.add(panel);
+      hoarding.push({ panel, k });
     }
-    // the low skyline outside the fence
     for (let k = 0; k < 46; k++) {
-      const a = (k / 46) * Math.PI * 2 + rnd() * 0.05, r = 90 + rnd() * 40;
+      const a = (k / 46) * Math.PI * 2 + rnd() * 0.05, r = 95 + rnd() * 40;
       const w = 8 + rnd() * 8, h = 10 + rnd() * 34;
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), flat(['#a9b8c8', '#c3cdd6', '#94a3b8', '#b8c4cf'][k % 4]));
       b.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r); scene.add(b);
     }
   }
-  function scatterSite(count, minDist, maxDist, minGap, accept = () => true) {
-    const out = [];
-    for (let tries = 0; out.length < count && tries < count * 80; tries++) {
-      const x = (rnd() - 0.5) * 110, z = (rnd() - 0.5) * 110 + 2;
-      if (Math.hypot(x, (z - 2) / 0.95) > 56) continue;
-      const dp = distToPath(x, z);
-      if (dp < minDist || dp > maxDist) continue;
-      if (Math.hypot(x, z + 52) < 17) continue; // the plot
-      if (out.some(o => Math.hypot(o.x - x, o.z - z) < minGap)) continue;
-      if (!accept(x, z)) continue;
-      out.push({ x, z });
-    }
-    return out;
-  }
   const placed = [];
-  const clear = (x, z, r) => placed.every(p => Math.hypot(p.x - x, p.z - z) > p.r + r);
+  const clearOf = (x, z, r) => placed.every(p => Math.hypot(p.x - x, p.z - z) > p.r + r);
   const reserve = (x, z, r) => placed.push({ x, z, r });
-  // Site cabins, stacked two high with an outside stair.
-  [[24, 34], [-26, 8], [22, -20]].forEach(([x, z], k) => {
-    const g = new THREE.Group();
-    const cabinMat = flat(k % 2 ? '#2563eb' : '#e5e7eb');
-    for (let lvl = 0; lvl < 2; lvl++) {
-      const box = new THREE.Mesh(new THREE.BoxGeometry(6, 2.6, 2.6), cabinMat); box.position.set(0, 1.3 + lvl * 2.65, 0); g.add(box);
-      for (let w = -2; w <= 2; w += 2) { const win = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.8, 0.05), flat('#a7c7e7')); win.position.set(w, 1.6 + lvl * 2.65, 1.31); g.add(win); }
+  // anything outside the road ring and inside the hoarding
+  function siteSpot(minFromPlot, maxFromPlot, r) {
+    for (let tries = 0; tries < 400; tries++) {
+      const a = rnd() * Math.PI * 2, d = minFromPlot + rnd() * (maxFromPlot - minFromPlot);
+      const x = PLOT.x + Math.cos(a) * d, z = PLOT.z + Math.sin(a) * d;
+      if (distToPath(x, z) < 4 + r || !clearOf(x, z, r)) continue;
+      reserve(x, z, r);
+      return { x, z };
     }
-    const sign = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 0.05), yellow); sign.position.set(0, 4.9, 1.32); g.add(sign);
-    g.position.set(x, 0, z); g.lookAt(0, 0, z * 0.6);
+    return null;
+  }
+  // The site office (planning happens here), with the drawings pinned up.
+  const officePos = V(30, 0, 24);
+  {
+    const g = new THREE.Group();
+    for (let lvl = 0; lvl < 2; lvl++) {
+      const box = new THREE.Mesh(new THREE.BoxGeometry(7, 2.6, 2.8), flat(lvl ? '#e5e7eb' : '#2563eb')); box.position.set(0, 1.3 + lvl * 2.65, 0); g.add(box);
+      for (let w = -2.4; w <= 2.4; w += 2.4) { const win = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.05), flat('#a7c7e7')); win.position.set(w, 1.6 + lvl * 2.65, 1.41); g.add(win); }
+    }
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.7), new THREE.MeshBasicMaterial({ map: canvasTexture(256, 52, (c, w, h) => {
+      c.fillStyle = '#facc15'; c.fillRect(0, 0, w, h); c.fillStyle = '#111827'; c.font = '900 30px "Arial Black", Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('SITE OFFICE', w / 2, h / 2 + 2);
+    }) }));
+    sign.position.set(0, 5.1, 1.42); g.add(sign);
+    g.position.copy(officePos); g.lookAt(PLOT.x, 0, PLOT.z);
     g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    scene.add(g); reserve(x, z, 5);
-  });
-  // An excavator with its arm raised, a bulldozer and a cement mixer truck.
-  function excavator() {
-    const g = new THREE.Group();
-    const tracks = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.8, 2.6), dark); tracks.position.y = 0.4; g.add(tracks);
-    const turret = new THREE.Group(); turret.position.y = 0.8; g.add(turret);
-    const cab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 2.2), yellow); cab.position.set(-0.3, 0.8, 0); turret.add(cab);
-    const glass = new THREE.Mesh(new THREE.BoxGeometry(1, 0.9, 1.6), flat('#a7c7e7')); glass.position.set(0.5, 1.2, 0.35); turret.add(glass);
-    const boom = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.4, 0.4), yellow); boom.position.set(1.9, 2.1, -0.5); boom.rotation.z = 0.7; turret.add(boom);
-    const stick = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.3, 0.3), yellow); stick.position.set(4, 2.4, -0.5); stick.rotation.z = -0.9; turret.add(stick);
-    const bucket = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.9), dark); bucket.position.set(4.7, 1.3, -0.5); turret.add(bucket);
-    return { g, turret };
+    scene.add(g); reserve(officePos.x, officePos.z, 6);
   }
-  function bulldozer() {
-    const g = new THREE.Group();
-    const tracks = new THREE.Mesh(new THREE.BoxGeometry(3, 0.7, 2.4), dark); tracks.position.y = 0.35; g.add(tracks);
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1, 1.9), yellow); body.position.set(-0.2, 1.2, 0); g.add(body);
-    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.1, 1.5), yellow); cab.position.set(-0.6, 2.2, 0); g.add(cab);
-    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.1, 2.8), steelMat); blade.position.set(1.9, 0.6, 0); g.add(blade);
-    return { g };
-  }
-  function mixerTruck() {
-    const g = new THREE.Group();
-    const chassis = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 2), dark); chassis.position.y = 0.8; g.add(chassis);
-    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.5, 2), flat('#ef4444')); cab.position.set(2, 1.75, 0); g.add(cab);
-    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.7, 3, 14), flat('#e5e7eb')); drum.rotation.z = Math.PI / 2 - 0.2; drum.position.set(-0.6, 2.05, 0); g.add(drum);
-    [[1.8, 1], [1.8, -1], [-1.4, 1], [-1.4, -1], [-0.4, 1], [-0.4, -1]].forEach(([x, z]) => { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.3, 12), dark); w.rotation.x = Math.PI / 2; w.position.set(x, 0.45, z); g.add(w); });
-    return { g, drum };
-  }
-  const machines = [];
-  [[excavator(), -22, 26], [bulldozer(), 20, 4], [mixerTruck(), -20, -30], [excavator(), 24, -34]].forEach(([m, x, z]) => {
-    m.g.position.set(x, 0, z); m.g.rotation.y = rnd() * Math.PI * 2;
-    m.g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    scene.add(m.g); reserve(x, z, 4); machines.push(m);
+  // A welfare cabin and a skip.
+  [[siteSpot(28, 37, 4), '#e5e7eb'], [siteSpot(28, 37, 4), '#16a34a']].forEach(([spot, color]) => {
+    if (!spot) return;
+    const box = new THREE.Mesh(new THREE.BoxGeometry(5, 2.6, 2.6), flat(color)); box.position.set(spot.x, 1.3, spot.z); box.lookAt(PLOT.x, 1.3, PLOT.z);
+    box.castShadow = box.receiveShadow = true; scene.add(box);
   });
   // Materials: brick pallets, pipe stacks, steel beams and sand piles.
   const brickMat = flat('#b45309'), palletMat = flat('#a16207'), sandMat = flat('#e6c88f'), pipeMat = flat('#94a3b8', { metalness: 0.3 });
-  scatterSite(26, 4.5, 30, 4).forEach(({ x, z }, k) => {
-    if (!clear(x, z, 2)) return;
+  for (let k = 0; k < 18; k++) {
+    const spot = siteSpot(27, 38, 2);
+    if (!spot) continue;
     const g = new THREE.Group(), kind = k % 4;
     if (kind === 0) {
       const pallet = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.18, 1.2), palletMat); pallet.position.y = 0.09; g.add(pallet);
@@ -274,109 +271,255 @@ export function createConstruction3D(container) {
     } else {
       const pile = new THREE.Mesh(new THREE.ConeGeometry(1.6, 1.3, 9), sandMat); pile.position.y = 0.6; pile.scale.z = 0.8; g.add(pile);
     }
-    g.position.set(x, 0, z); g.rotation.y = rnd() * Math.PI;
+    g.position.set(spot.x, 0, spot.z); g.rotation.y = rnd() * Math.PI;
     g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    scene.add(g); reserve(x, z, 2);
-  });
-  // Traffic cones along the haul road.
+    scene.add(g);
+  }
+  // Traffic cones along the site road.
   const coneMat = flat('#f97316'), stripeMat = flat('#ffffff');
-  for (let k = 0; k < 40; k++) {
-    const u = 0.02 + k * 0.024, p = curve.getPointAt(u), t = curve.getTangentAt(u);
-    const side = V(-t.z, 0, t.x).normalize().multiplyScalar(k % 2 ? 2.3 : -2.3);
+  for (let k = 0; k < 36; k++) {
+    const u = 0.02 + k * 0.027, p = curve.getPointAt(u), t = curve.getTangentAt(u);
+    const out = V(p.x - PLOT.x, 0, p.z - PLOT.z).normalize();
+    const side = V(-t.z, 0, t.x).normalize();
+    const s = side.dot(out) > 0 ? 2.4 : -2.4;
     const g = new THREE.Group();
     const cone = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.6, 10), coneMat); cone.position.y = 0.32; g.add(cone);
     const band = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.1, 10), stripeMat); band.position.y = 0.36; g.add(band);
-    const base = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.05, 0.46), coneMat); base.position.y = 0.03; g.add(base);
-    g.position.set(p.x + side.x, 0, p.z + side.z); g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    g.position.copy(p).addScaledVector(side, s); g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     scene.add(g);
   }
-  // Floodlight towers.
-  [[-14, 40], [16, 24], [-16, -10], [14, -28]].forEach(([x, z]) => {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, 7, 6), steelMat); pole.position.set(x, 3.5, z); pole.castShadow = true; scene.add(pole);
+  // Floodlight towers at the corners of the plot.
+  [[-30, 20], [30, 6], [-30, -26], [26, -30]].forEach(([x, z]) => {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.16, 8, 6), steelMat); pole.position.set(x, 4, z); pole.castShadow = true; scene.add(pole);
     const lamps = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 0.3), new THREE.MeshStandardMaterial({ color: '#fef9c3', emissive: '#fde68a', emissiveIntensity: 0.5 }));
-    lamps.position.set(x, 7.1, z); lamps.lookAt(0, 0, z * 0.5); scene.add(lamps);
+    lamps.position.set(x, 8.1, z); lamps.lookAt(PLOT.x, 0, PLOT.z); scene.add(lamps);
   });
-  // Clouds.
   const clouds = [];
   const cloudMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, transparent: true, opacity: 0.92 });
   for (let k = 0; k < 8; k++) {
     const g = new THREE.Group();
     for (let m = 0; m < 5; m++) { const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(3 + rnd() * 2.5, 1), cloudMat); puff.position.set((m - 2) * 3.2, rnd() * 1.4, rnd() * 2); puff.scale.y = 0.6; g.add(puff); }
-    g.position.set(-150 + k * 40, 50 + rnd() * 20, -120 + rnd() * 140); scene.add(g);
+    g.position.set(-150 + k * 40, 55 + rnd() * 20, -120 + rnd() * 140); scene.add(g);
     clouds.push(g);
   }
 
-  // ── The building: rises floor by floor with progress ──────────────────
-  const PLOT = V(0, 0, -53);
-  const FLOORS = 7, FLOOR_H = 3.2, BW = 14, BD = 10;
+  // ── The build: six phases driven by one number ─────────────────────────
+  // `build` runs from 0 to 6 (progress × 6) and eases toward its target, so
+  // each completed task visibly advances the work. Each piece of the job
+  // fades or grows in over its own slice of that range.
+  const BW = 14, BD = 10, FLOORS = 6, FLOOR_H = 3.2, BASE_Y = 0.5;
   const building = new THREE.Group(); building.position.copy(PLOT); scene.add(building);
-  const slabMat = flat('#cbd5e1'), columnMat = flat('#9ca3af'), wallMat = flat('#c2410c'), glassMat = new THREE.MeshStandardMaterial({ color: '#9cc3e6', roughness: 0.1, metalness: 0.4, emissive: '#fde68a', emissiveIntensity: 0 });
-  const foundation = new THREE.Mesh(new THREE.BoxGeometry(BW + 3, 0.5, BD + 3), flat('#9ca3af')); foundation.position.y = 0.25; foundation.receiveShadow = true; building.add(foundation);
-  const floors = [];
+  let build = 0;
+  const pieces = []; // { obj, show(b) -> 0..1 (0 hidden), mode: 'scaleY' | 'scale' | 'fade' | 'toggle' }
+  function piece(obj, show, mode = 'toggle') { pieces.push({ obj, show, mode, mats: mode === 'fade' ? collectMats(obj) : null }); return obj; }
+  function collectMats(obj) {
+    const mats = [];
+    obj.traverse(o => { if (o.isMesh || o.isLine || o.isLineSegments) { o.material = o.material.clone(); o.material.transparent = true; mats.push(o.material); } });
+    return mats;
+  }
+  function applyPieces() {
+    pieces.forEach(p => {
+      const k = p.show(build);
+      p.obj.visible = k > 0.001;
+      if (!p.obj.visible) return;
+      if (p.mode === 'scaleY') p.obj.scale.y = Math.max(0.001, k);
+      else if (p.mode === 'scale') p.obj.scale.setScalar(Math.max(0.001, 1 - Math.pow(1 - k, 3)));
+      else if (p.mode === 'fade') p.mats.forEach(m => { m.opacity = k * (m.userData.baseOpacity ?? 1); });
+    });
+  }
+
+  // 1 · PLANNING — the drawing table and a wireframe of the finished building
+  const blueprintTex = canvasTexture(256, 192, (g, w, h) => {
+    g.fillStyle = '#1e4f9c'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = 1;
+    for (let x = 0; x < w; x += 16) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
+    for (let y = 0; y < h; y += 16) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+    g.strokeStyle = '#e0f2fe'; g.lineWidth = 3;
+    g.strokeRect(48, 40, 160, 112); g.beginPath(); g.moveTo(48, 96); g.lineTo(208, 96); g.moveTo(128, 40); g.lineTo(128, 152); g.stroke();
+    g.strokeRect(112, 140, 32, 12);
+    g.fillStyle = '#e0f2fe'; g.font = '700 14px Arial'; g.fillText('GROUND FLOOR PLAN', 52, 30);
+  });
+  const desk = new THREE.Group(); desk.position.copy(PLOT).add(V(-11, 0, 7)); scene.add(desk);
+  {
+    const top = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.1, 1.6), flat('#a16207')); top.position.y = 1; top.rotation.x = -0.25; desk.add(top);
+    const sheet = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 1.4), new THREE.MeshStandardMaterial({ map: blueprintTex, roughness: 0.6 }));
+    sheet.rotation.x = -Math.PI / 2 - 0.25; sheet.position.y = 1.07; desk.add(sheet);
+    [[-1.1, -0.6], [1.1, -0.6], [-1.1, 0.6], [1.1, 0.6]].forEach(([x, z]) => { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1, 0.08), dark); leg.position.set(x, 0.5, z); desk.add(leg); });
+    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.2, 8), flat('#bfdbfe')); roll.rotation.z = Math.PI / 2; roll.position.set(0.3, 1.25, -0.4); desk.add(roll);
+    const hat = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), yellow); hat.position.set(-0.8, 1.12, 0.2); desk.add(hat);
+    desk.lookAt(PLOT.x, 0, PLOT.z);
+    desk.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  }
+  piece(desk, b => (b < 5 ? 1 : 0));
+  const HEIGHT = BASE_Y + FLOORS * FLOOR_H;
+  const holoMat = new THREE.LineBasicMaterial({ color: '#38bdf8', transparent: true, opacity: 0.75 });
+  holoMat.userData.baseOpacity = 0.75;
+  const hologram = new THREE.Group(); building.add(hologram);
+  {
+    const shell3 = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(BW, HEIGHT, BD)), holoMat); shell3.position.y = HEIGHT / 2; hologram.add(shell3);
+    for (let f = 1; f < FLOORS; f++) {
+      const ring = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(BW, 0.01, BD)), holoMat); ring.position.y = BASE_Y + f * FLOOR_H; hologram.add(ring);
+    }
+    const roofLines = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(BW + 0.6, 0.8, BD + 0.6)), holoMat); roofLines.position.y = HEIGHT + 0.4; hologram.add(roofLines);
+  }
+  piece(hologram, b => 1 - span(2.6, 3.8, b), 'fade');
+
+  // 2 · SETTING OUT — pegs, profile boards, string lines, paint, a surveyor
+  const setOut = new THREE.Group(); building.add(setOut);
+  const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sz]) => V(sx * BW / 2, 0, sz * BD / 2));
+  const pegs = new THREE.Group(); setOut.add(pegs);
+  corners.forEach(c => {
+    const peg = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), flat('#a16207')); peg.position.copy(c).setY(0.3); pegs.add(peg);
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), flat('#f97316')); tip.position.copy(c).setY(0.62); pegs.add(tip);
+  });
+  piece(pegs, b => (b >= 1.05 && b < 2.9 ? 1 : 0));
+  const profiles = new THREE.Group(); setOut.add(profiles);
+  corners.forEach(c => {
+    const out = c.clone().normalize().multiplyScalar(1.6), at = c.clone().add(out);
+    const g = new THREE.Group(); g.position.copy(at);
+    [-0.6, 0.6].forEach(x => { const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1, 0.1), flat('#a16207')); post.position.set(x, 0.5, 0); g.add(post); });
+    const board = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.18, 0.05), flat('#e5c48f')); board.position.y = 0.85; g.add(board);
+    g.lookAt(0, 0.85, 0);
+    profiles.add(g);
+  });
+  piece(profiles, b => (b >= 1.2 && b < 2.9 ? 1 : 0));
+  const strings = new THREE.Group(); setOut.add(strings);
+  const stringMat = new THREE.MeshBasicMaterial({ color: '#f472b6' });
+  for (let k = 0; k < 4; k++) {
+    const a = corners[k], b2 = corners[(k + 1) % 4], len = a.distanceTo(b2);
+    const s = new THREE.Mesh(new THREE.BoxGeometry(len, 0.03, 0.03), stringMat);
+    s.position.copy(a).add(b2).multiplyScalar(0.5).setY(0.55); s.rotation.y = -Math.atan2(b2.z - a.z, b2.x - a.x);
+    strings.add(s);
+  }
+  piece(strings, b => span(1.3, 1.7, b) * (b < 2.6 ? 1 : 0), 'scaleY');
+  const paint = new THREE.Group(); setOut.add(paint);
+  const paintMat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9 });
+  paintMat.userData.baseOpacity = 0.9;
+  for (let k = 0; k < 4; k++) {
+    const a = corners[k], b2 = corners[(k + 1) % 4], len = a.distanceTo(b2);
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.18), paintMat);
+    line.rotation.x = -Math.PI / 2; line.rotation.z = Math.atan2(b2.z - a.z, b2.x - a.x) * -1;
+    line.position.copy(a).add(b2).multiplyScalar(0.5).setY(0.05);
+    paint.add(line);
+  }
+  piece(paint, b => span(1.5, 1.9, b) * (b < 2.4 ? 1 : 1 - span(2.4, 2.6, b)), 'fade');
+  // the theodolite on its tripod (the surveyor stands at it; see the crew)
+  const surveyPos = PLOT.clone().add(V(10, 0, 6));
+  const theodolite = new THREE.Group(); theodolite.position.copy(surveyPos); scene.add(theodolite);
+  {
+    [0, 2.1, 4.2].forEach(a => { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 1.5, 5), flat('#d4a24c')); leg.position.set(Math.cos(a) * 0.3, 0.7, Math.sin(a) * 0.3); leg.rotation.set(Math.sin(a) * 0.25, 0, -Math.cos(a) * 0.25); theodolite.add(leg); });
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.32, 0.22), yellow); head.position.y = 1.55; theodolite.add(head);
+    const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.4, 8), dark); scope.rotation.x = Math.PI / 2; scope.position.y = 1.62; theodolite.add(scope);
+    theodolite.lookAt(PLOT.x, 1.5, PLOT.z);
+  }
+  piece(theodolite, b => (b > 0.8 && b < 2.7 ? 1 : 0));
+  // the meadow is stripped as setting out begins
+  const meadowFade = () => { meadowMat.opacity = 1 - span(1, 1.6, build); meadow.visible = meadowMat.opacity > 0.01; };
+
+  // 3 · FOUNDATION — dig, rebar, pour
+  const pit = new THREE.Group(); building.add(pit);
+  {
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(BW + 2, BD + 2), flat('#6b4f32')); floor.rotation.x = -Math.PI / 2; floor.position.y = 0.035; pit.add(floor);
+    [[0, BD / 2 + 1, BW + 2.6, 0.6], [0, -BD / 2 - 1, BW + 2.6, 0.6], [BW / 2 + 1, 0, 0.6, BD + 2.6], [-BW / 2 - 1, 0, 0.6, BD + 2.6]].forEach(([x, z, w, d]) => {
+      const lip = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), flat('#8b6b45')); lip.position.set(x, 0.15, z); pit.add(lip);
+    });
+  }
+  piece(pit, b => (b > 2 && b < 5.2 ? span(2, 2.2, b) : 0), 'scale');
+  const spoil = new THREE.Mesh(new THREE.ConeGeometry(3, 2, 10), flat('#8b6b45')); spoil.position.copy(PLOT).add(V(-12, 1, -9)); spoil.castShadow = true; scene.add(spoil);
+  piece(spoil, b => (b < 5.3 ? span(2, 2.4, b) : 0), 'scaleY');
+  const rebar = new THREE.Group(); building.add(rebar);
+  {
+    const bar = flat('#9a3412', { metalness: 0.4 });
+    for (let x = -BW / 2; x <= BW / 2; x += 1) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, BD), bar); r.position.set(x, 0.25, 0); rebar.add(r); }
+    for (let z = -BD / 2; z <= BD / 2; z += 1) { const r = new THREE.Mesh(new THREE.BoxGeometry(BW, 0.06, 0.06), bar); r.position.set(0, 0.28, z); rebar.add(r); }
+  }
+  piece(rebar, b => (b > 2.3 && b < 2.85 ? 1 : 0));
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(BW + 2, BASE_Y, BD + 2), flat('#9ca3af')); slab.position.y = BASE_Y / 2; slab.castShadow = slab.receiveShadow = true;
+  const slabHolder = new THREE.Group(); slabHolder.add(slab); building.add(slabHolder);
+  piece(slabHolder, b => span(2.55, 3, b), 'scaleY');
+  // the excavator digging out the pit
+  function excavator() {
+    const g = new THREE.Group();
+    const tracks = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.8, 2.6), dark); tracks.position.y = 0.4; g.add(tracks);
+    const turret = new THREE.Group(); turret.position.y = 0.8; g.add(turret);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 2.2), yellow); cab.position.set(-0.3, 0.8, 0); turret.add(cab);
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(1, 0.9, 1.6), flat('#a7c7e7')); glass.position.set(0.5, 1.2, 0.35); turret.add(glass);
+    const boom = new THREE.Group(); boom.position.set(0.6, 1.4, -0.5); turret.add(boom);
+    const boomArm = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.4, 0.4), yellow); boomArm.position.x = 1.6; boom.add(boomArm);
+    const stick = new THREE.Group(); stick.position.x = 3.2; boom.add(stick);
+    const stickArm = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.4, 0.3), yellow); stickArm.position.y = -1.1; stick.add(stickArm);
+    const bucket = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.9), dark); bucket.position.y = -2.4; stick.add(bucket);
+    return { g, turret, boom, stick };
+  }
+  const digger = excavator();
+  digger.g.position.copy(PLOT).add(V(-12, 0, -2)); digger.g.lookAt(PLOT.x, 0, PLOT.z); digger.g.rotateY(-Math.PI / 2);
+  digger.g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  scene.add(digger.g);
+  piece(digger.g, b => (b < 5.4 ? 1 : 0));
+  // the mixer truck that pours the slab
+  const mixer = new THREE.Group();
+  const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.7, 3, 14), flat('#e5e7eb'));
+  {
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(5, 0.5, 2), dark); chassis.position.y = 0.8; mixer.add(chassis);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.5, 2), flat('#ef4444')); cab.position.set(2, 1.75, 0); mixer.add(cab);
+    drum.rotation.z = Math.PI / 2 - 0.2; drum.position.set(-0.6, 2.05, 0); mixer.add(drum);
+    const chute = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 0.4), flat('#9ca3af')); chute.position.set(-3.1, 1.3, 0); chute.rotation.z = -0.35; mixer.add(chute);
+    [[1.8, 1], [1.8, -1], [-1.4, 1], [-1.4, -1], [-0.4, 1], [-0.4, -1]].forEach(([x, z]) => { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.3, 12), dark); w.rotation.x = Math.PI / 2; w.position.set(x, 0.45, z); mixer.add(w); });
+    mixer.position.copy(PLOT).add(V(12, 0, 3)); mixer.rotation.y = Math.PI * 0.85;
+    mixer.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    scene.add(mixer);
+  }
+  piece(mixer, b => (b > 2.2 && b < 3.3 ? 1 : 0));
+
+  // 4 · SUPERSTRUCTURE and 5 · FINISHES — frame up, then skin, roof, lights
+  const slabMat = flat('#cbd5e1'), columnMat = flat('#9ca3af'), wallMat = flat('#c2410c');
+  const glassMat = new THREE.MeshStandardMaterial({ color: '#9cc3e6', roughness: 0.1, metalness: 0.4, emissive: '#fde68a', emissiveIntensity: 0 });
   for (let f = 0; f < FLOORS; f++) {
-    // frame: columns and the slab above
-    const frame = new THREE.Group(); frame.position.y = 0.5 + f * FLOOR_H; building.add(frame);
+    const frame = new THREE.Group(); frame.position.y = BASE_Y + f * FLOOR_H; building.add(frame);
     [-BW / 2 + 0.3, -BW / 6, BW / 6, BW / 2 - 0.3].forEach(x => [-BD / 2 + 0.3, BD / 2 - 0.3].forEach(z => {
       const col = new THREE.Mesh(new THREE.BoxGeometry(0.4, FLOOR_H, 0.4), columnMat); col.position.set(x, FLOOR_H / 2, z); frame.add(col);
     }));
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(BW + 0.4, 0.3, BD + 0.4), slabMat); slab.position.y = FLOOR_H; frame.add(slab);
-    // skin: brick piers and glass between them
-    const skin = new THREE.Group(); skin.position.y = 0.5 + f * FLOOR_H; building.add(skin);
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(BW + 0.4, 0.3, BD + 0.4), slabMat); deck.position.y = FLOOR_H; frame.add(deck);
+    frame.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    piece(frame, b => span(3 + f / FLOORS, 3 + (f + 1) / FLOORS, b), 'scaleY');
+    const skin = new THREE.Group(); skin.position.y = BASE_Y + f * FLOOR_H; building.add(skin);
     [[BW, BD / 2, 0], [BW, -BD / 2, Math.PI], [BD, BW / 2, Math.PI / 2], [BD, -BW / 2, -Math.PI / 2]].forEach(([len, off, rot]) => {
       const side = new THREE.Group(); side.rotation.y = rot; side.position.set(Math.sin(rot) * off, 0, Math.cos(rot) * off); skin.add(side);
       const n = Math.round(len / 2.4);
       for (let k = 0; k < n; k++) {
         const x = -len / 2 + (k + 0.5) * (len / n);
-        const glass = new THREE.Mesh(new THREE.BoxGeometry(len / n - 0.5, FLOOR_H - 1, 0.1), glassMat); glass.position.set(x, FLOOR_H / 2 + 0.1, 0); side.add(glass);
+        const pane = new THREE.Mesh(new THREE.BoxGeometry(len / n - 0.5, FLOOR_H - 1, 0.1), glassMat); pane.position.set(x, FLOOR_H / 2 + 0.1, 0); side.add(pane);
         const pier = new THREE.Mesh(new THREE.BoxGeometry(0.5, FLOOR_H, 0.3), wallMat); pier.position.set(-len / 2 + k * (len / n), FLOOR_H / 2, 0); side.add(pier);
       }
       const sill = new THREE.Mesh(new THREE.BoxGeometry(len, 0.5, 0.32), wallMat); sill.position.set(0, 0.25, 0); side.add(sill);
     });
-    frame.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     skin.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-    frame.scale.y = 0.001; frame.visible = false; skin.visible = false; skin.scale.y = 0.001;
-    floors.push({ frame, skin, f: 0, s: 0 });
+    piece(skin, b => span(4 + f / FLOORS, 4 + (f + 1) / FLOORS, b), 'scaleY');
   }
-  // the roof and a parapet, added at the topping-out
-  const roof = new THREE.Group(); roof.position.y = 0.5 + FLOORS * FLOOR_H + 0.15; building.add(roof);
+  const roof = new THREE.Group(); roof.position.y = HEIGHT + 0.15; building.add(roof);
   {
     const parapet = new THREE.Mesh(new THREE.BoxGeometry(BW + 0.6, 0.8, BD + 0.6), flat('#475569')); parapet.position.y = 0.4; roof.add(parapet);
     const plant = new THREE.Mesh(new THREE.BoxGeometry(3, 1.4, 2.4), flat('#94a3b8')); plant.position.set(-3, 1.2, 0); roof.add(plant);
     roof.traverse(o => { if (o.isMesh) o.castShadow = true; });
   }
-  roof.visible = false;
-  // scaffolding on the side facing the road, shown while the building is unfinished
+  piece(roof, b => span(4.85, 5, b), 'scale');
   const scaffold = new THREE.Group(); building.add(scaffold);
   {
     const tube = flat('#d4d4d8', { metalness: 0.5 }), board = flat('#a16207');
     for (let f = 0; f <= FLOORS; f++) {
-      const y = 0.5 + f * FLOOR_H;
+      const y = BASE_Y + f * FLOOR_H;
       const rail = new THREE.Mesh(new THREE.BoxGeometry(BW + 1.6, 0.08, 0.08), tube); rail.position.set(0, y + 1, BD / 2 + 1.1); scaffold.add(rail);
       const walk = new THREE.Mesh(new THREE.BoxGeometry(BW + 1.6, 0.08, 0.8), board); walk.position.set(0, y, BD / 2 + 0.75); scaffold.add(walk);
     }
     for (let x = -BW / 2 - 0.8; x <= BW / 2 + 0.8; x += (BW + 1.6) / 6) {
-      const pole = new THREE.Mesh(new THREE.BoxGeometry(0.08, FLOORS * FLOOR_H + 1.5, 0.08), tube); pole.position.set(x, (FLOORS * FLOOR_H + 1.5) / 2, BD / 2 + 1.1); scaffold.add(pole);
+      const pole = new THREE.Mesh(new THREE.BoxGeometry(0.08, HEIGHT + 1.5, 0.08), tube); pole.position.set(x, (HEIGHT + 1.5) / 2, BD / 2 + 1.1); scaffold.add(pole);
     }
   }
-  let builtShown = 0; // floors' worth of building currently shown (animates toward progress)
-  function updateBuilding(dt, target, instant) {
-    const want = target * FLOORS;
-    builtShown = instant ? want : builtShown + (want - builtShown) * Math.min(1, dt * 1.2);
-    floors.forEach((fl, f) => {
-      // the frame goes up first; walls and glass follow a floor behind
-      const fTarget = THREE.MathUtils.clamp(builtShown - f, 0, 1);
-      const sTarget = THREE.MathUtils.clamp(builtShown - f - 0.6, 0, 1) / 0.4;
-      fl.f = instant ? fTarget : fl.f + (fTarget - fl.f) * Math.min(1, dt * 4);
-      fl.s = instant ? Math.min(1, sTarget) : fl.s + (Math.min(1, sTarget) - fl.s) * Math.min(1, dt * 4);
-      fl.frame.visible = fl.f > 0.01; fl.frame.scale.y = Math.max(0.001, fl.f);
-      fl.skin.visible = fl.s > 0.01; fl.skin.scale.y = Math.max(0.001, fl.s);
-    });
-    scaffold.visible = target < 1 || !P.won;
-  }
-  // The tower crane: a lattice mast, a slewing jib and a hook carrying the
-  // final beam (with a flag) for the topping-out.
+  // scaffolding goes up with the frame and comes down when the finishes are done
+  piece(scaffold, b => (b < 4.9 ? span(3, 3.4, b) : 0), 'scaleY');
+  // the tower crane: up for the superstructure, gone before external works
   const crane = new THREE.Group(); crane.position.copy(PLOT).add(V(BW / 2 + 5, 0, -2)); scene.add(crane);
-  const MAST_H = FLOORS * FLOOR_H + 10;
+  const MAST_H = HEIGHT + 10;
   {
     const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 3), flat('#6b7280')); base.position.y = 0.5; crane.add(base);
     for (let y = 1; y < MAST_H; y += 2) {
@@ -392,10 +535,6 @@ export function createConstruction3D(container) {
     const cab = new THREE.Mesh(new THREE.BoxGeometry(2, 1.6, 1.8), flat('#f8fafc')); cab.position.set(1.2, -0.9, 1.2); slew.add(cab);
     const counter = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 1.6), flat('#4b5563')); counter.position.set(6, -0.6, 0); slew.add(counter);
     const peak = new THREE.Mesh(new THREE.ConeGeometry(0.8, 4, 4), yellow); peak.position.y = 2.4; slew.add(peak);
-    [[-JIB, 0], [6, 0]].forEach(([x]) => {
-      const tie = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, Math.hypot(Math.abs(x), 4), 4), dark);
-      tie.position.set(x / 2, 2.2, 0); tie.rotation.z = Math.atan2(Math.abs(x), 4) * (x < 0 ? 1 : -1); slew.add(tie);
-    });
     slew.traverse(o => { if (o.isMesh) o.castShadow = true; });
   }
   const trolley = new THREE.Group(); slew.add(trolley);
@@ -403,24 +542,76 @@ export function createConstruction3D(container) {
   const hookLoad = new THREE.Group(); trolley.add(hookLoad);
   {
     const hook = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.08, 6, 12, Math.PI * 1.5), dark); hookLoad.add(hook);
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(6, 0.4, 0.4), flat('#b91c1c')); beam.position.y = -1.2; hookLoad.add(beam);
-    [-2.6, 2.6].forEach(x => { const sling = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 4), dark); sling.position.set(x / 2, -0.6, 0); sling.rotation.z = x > 0 ? -1.1 : 1.1; hookLoad.add(sling); });
-    const flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.6, 5), flat('#e5e7eb')); flagPole.position.set(0, -0.2, 0); hookLoad.add(flagPole);
-    const flagM = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.55), new THREE.MeshStandardMaterial({ color: '#22c55e', side: THREE.DoubleSide })); flagM.position.set(0.47, 0.35, 0); hookLoad.add(flagM);
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(5, 0.4, 0.4), flat('#7f1d1d')); beam.position.y = -1.2; hookLoad.add(beam);
+    [-2.2, 2.2].forEach(x => { const sling = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 4), dark); sling.position.set(x / 2, -0.6, 0); sling.rotation.z = x > 0 ? -1.1 : 1.1; hookLoad.add(sling); });
     hookLoad.traverse(o => { if (o.isMesh) o.castShadow = true; });
   }
-  const roofTop = 0.5 + FLOORS * FLOOR_H + 1;
-  // crane pose: slew angle, trolley distance along the jib, hook height
-  const cranePose = { slew: 0.4, reach: 12, hookY: 8 };
+  piece(crane, b => (b > 2.6 && b < 5.5 ? 1 : 0));
+  const cranePose = { slew: 0.4, reach: 12, hookY: 9 };
   function applyCrane(time) {
+    if (!crane.visible) return;
+    // while the frame climbs the crane swings beams over the plot
+    const busy = build > 3 && build < 4.95;
+    const s = reduceMotion ? 0 : time;
+    cranePose.slew = 0.55 + Math.sin(s * (busy ? 0.35 : 0.12)) * (busy ? 0.7 : 0.4);
+    cranePose.reach = 10 + Math.sin(s * 0.27) * 4;
+    const top = BASE_Y + Math.min(FLOORS, Math.max(0, build - 3) * FLOORS) * FLOOR_H;
+    cranePose.hookY = top + 3 + Math.abs(Math.sin(s * (busy ? 0.6 : 0.25))) * 6;
     slew.rotation.y = cranePose.slew;
     trolley.position.set(-cranePose.reach, 0, 0);
     const drop = MAST_H - cranePose.hookY;
     cable.scale.y = Math.max(0.1, drop - 0.5); cable.position.y = -(drop - 0.5) / 2;
     hookLoad.position.y = -drop;
-    hookLoad.rotation.z = reduceMotion ? 0 : Math.sin(time * 0.9) * 0.02;
   }
-  // the opening ribbon across the entrance, cut at the finish
+
+  // 6 · EXTERNAL WORKS — paving, lawns, trees, lamps, flowers, cars
+  const front = PLOT.clone().add(V(0, 0, BD / 2));
+  const forecourt = new THREE.Mesh(new THREE.PlaneGeometry(14, 6), flat('#d6d3d1')); forecourt.rotation.x = -Math.PI / 2; forecourt.position.copy(front).add(V(0, 0.07, 3.6)); forecourt.receiveShadow = true; scene.add(forecourt);
+  piece(forecourt, b => span(5, 5.25, b), 'scale');
+  const lawns = new THREE.Group(); scene.add(lawns);
+  [[-12, 0, 9, 18], [12, 0, 9, 18], [0, -14, 26, 6]].forEach(([x, z, w, d]) => {
+    const l = new THREE.Mesh(new THREE.PlaneGeometry(w, d), flat('#6fb34f')); l.rotation.x = -Math.PI / 2; l.position.copy(PLOT).add(V(x, 0.06, z)); l.receiveShadow = true; lawns.add(l);
+  });
+  piece(lawns, b => (b >= 5.2 ? 1 : 0));
+  const leaf = flat('#4f9a52'), leafLight = flat('#79bf6a'), trunk = flat('#6b4a2e');
+  [[-10, 6], [10, 6], [-12, -6], [12, -10], [-6, -14], [6, -14], [-14, 1], [14, 0]].forEach(([x, z], k) => {
+    const g = new THREE.Group(); g.position.copy(PLOT).add(V(x, 0, z));
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.22, 1.8, 6), trunk); stem.position.y = 0.9; g.add(stem);
+    const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.3, 0), k % 2 ? leaf : leafLight); crown.position.y = 2.5; g.add(crown);
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    scene.add(g);
+    piece(g, b => span(5.3 + k * 0.03, 5.6 + k * 0.03, b), 'scale');
+  });
+  const lampsOn = [];
+  [[-6.5, 7.5], [6.5, 7.5], [-6.5, 1.5], [6.5, 1.5]].forEach(([x, z]) => {
+    const g = new THREE.Group(); g.position.copy(front).add(V(x, 0, z));
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 3.2, 6), dark); pole.position.y = 1.6; g.add(pole);
+    const bulbMat = new THREE.MeshStandardMaterial({ color: '#fff7d6', emissive: '#ffe08a', emissiveIntensity: 0 });
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), bulbMat); bulb.position.y = 3.3; g.add(bulb);
+    scene.add(g); lampsOn.push(bulbMat);
+    piece(g, b => span(5.45, 5.7, b), 'scaleY');
+  });
+  const beds = new THREE.Group(); scene.add(beds);
+  {
+    const cols = ['#f472b6', '#fde047', '#f87171', '#c084fc', '#ffffff'];
+    [-1, 1].forEach(s => {
+      const bed = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.3, 1), flat('#7c4a1e')); bed.position.copy(front).add(V(s * 3.6, 0.15, 1.2)); beds.add(bed);
+      for (let k = 0; k < 9; k++) { const fl = new THREE.Mesh(new THREE.SphereGeometry(0.13, 6, 5), flat(cols[k % 5])); fl.position.copy(front).add(V(s * 3.6 - 1.3 + k * 0.32, 0.42, 1.2 + (k % 2 ? 0.2 : -0.2))); beds.add(fl); }
+    });
+  }
+  piece(beds, b => (b >= 5.55 ? 1 : 0));
+  const carColors = ['#ef4444', '#3b82f6', '#f8fafc', '#111827'];
+  [[-10, 10], [-13, 10], [10, 10], [13, 10]].forEach(([x, z], k) => {
+    const g = new THREE.Group(); g.position.copy(PLOT).add(V(x, 0, z)); g.rotation.y = Math.PI / 2;
+    const body = flat(carColors[k], { roughness: 0.4 });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.55, 1.05), body); base.position.y = 0.45; g.add(base);
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.45, 0.95), body); cab.position.set(-0.1, 0.92, 0); g.add(cab);
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.3, 0.97), flat('#a7c7e7')); glass.position.set(-0.1, 0.95, 0); g.add(glass);
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    scene.add(g);
+    piece(g, b => span(5.75 + k * 0.04, 5.9 + k * 0.04, b), 'scale');
+  });
+  // the opening ribbon across the front door (ready once the finishes are in)
   const entrance = PLOT.clone().add(V(0, 0, BD / 2 + 3.6));
   const ribbon = new THREE.Group(); ribbon.position.copy(entrance); scene.add(ribbon);
   const ribbonHalves = [-1, 1].map(s => {
@@ -433,6 +624,76 @@ export function createConstruction3D(container) {
   function setRibbonCut(k) {
     ribbonHalves.forEach(({ strip, s }) => { strip.rotation.z = s * k * 1.2; strip.position.y = 1.05 - k * 0.5; strip.position.x = -s * 1.1 * (1 - k * 0.5); });
     bow.visible = k < 0.5;
+  }
+  piece(ribbon, b => (b >= 4.95 ? 1 : 0));
+
+  // Moves the build toward its target and refreshes every piece.
+  let buildTarget = 0, handedOver = false;
+  function updateBuild(dt, instant) {
+    const before = build;
+    build = instant ? buildTarget : build + (buildTarget - build) * Math.min(1, dt * 0.9);
+    if (Math.abs(buildTarget - build) < 0.002) build = buildTarget;
+    applyPieces();
+    meadowFade();
+    // hoarding comes down at the very end
+    const down = span(5.6, 6, build);
+    hoarding.forEach(({ panel, k }) => { panel.position.y = 1.3 - smooth(k / 60, k / 60 + 0.4, down) * 3; panel.visible = panel.position.y > -1.2; });
+    glassMat.emissiveIntensity = span(4.9, 5.2, build) * 0.35 + (handedOver ? 0.25 : 0);
+    lampsOn.forEach(m => { m.emissiveIntensity = span(5.6, 5.9, build) * 1.2; });
+    if (!instant) phaseCrossed(before, build);
+    updatePhaseHud();
+  }
+
+  // ── Phase tracker and banners ─────────────────────────────────────────
+  injectPhaseStyles();
+  const hud = document.createElement('div');
+  hud.className = 'jc-phase';
+  hud.innerHTML = `<div class="jc-phase-label"></div><div class="jc-phase-steps">${PHASES.map(p => `<span title="${p.name}">${p.icon}</span>`).join('')}</div>`;
+  shell.root.appendChild(hud);
+  const banner = document.createElement('div');
+  banner.className = 'jc-phase-banner'; banner.hidden = true;
+  shell.root.appendChild(banner);
+  const phaseOf = b => Math.min(PHASES.length - 1, Math.floor(b + 1e-6));
+  let hudKey = '';
+  function updatePhaseHud() {
+    const done = build >= 6 - 1e-3, current = phaseOf(build);
+    const key = done ? 'done' : String(current);
+    if (key === hudKey) return;
+    hudKey = key;
+    hud.querySelector('.jc-phase-label').textContent = done ? 'Handed over' : `Phase ${current + 1} of 6 · ${PHASES[current].name}`;
+    [...hud.querySelectorAll('.jc-phase-steps span')].forEach((s, k) => {
+      s.className = done || k < current ? 'is-done' : k === current ? 'is-now' : '';
+    });
+  }
+  function phaseCrossed(from, to) {
+    if (Math.floor(to + 1e-6) <= Math.floor(from + 1e-6) || to < 1) return;
+    const finished = Math.min(5, Math.floor(to + 1e-6) - 1);
+    const next = PHASES[finished + 1];
+    banner.innerHTML = `<strong>✓ ${PHASES[finished].name} complete!</strong>${next ? `<span>Next: ${next.icon} ${next.name}</span>` : ''}`;
+    banner.hidden = false;
+    banner.style.animation = 'none'; void banner.offsetWidth; banner.style.animation = '';
+    timers.push(setTimeout(() => { banner.hidden = true; }, 2600));
+    sparkle(PLOT.clone().setY(3), 60, ['#fde047', '#ffffff', '#86efac'], 4);
+  }
+  function injectPhaseStyles() {
+    if (document.getElementById('jc-phase-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'jc-phase-styles';
+    style.textContent = `
+      .jc-phase { position: absolute; left: 10px; top: 10px; z-index: 3; background: rgba(17,24,39,.78); color: #fff; border-radius: 12px; padding: 7px 10px; font: 700 12px system-ui, sans-serif; box-shadow: 0 2px 8px rgba(0,0,0,.25); pointer-events: none; }
+      .jc-phase-label { letter-spacing: .02em; margin-bottom: 5px; }
+      .jc-phase-steps { display: flex; gap: 4px; }
+      .jc-phase-steps span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px; background: rgba(255,255,255,.12); font-size: 13px; filter: grayscale(1); opacity: .55; }
+      .jc-phase-steps span.is-done { background: #16a34a; filter: none; opacity: 1; }
+      .jc-phase-steps span.is-now { background: #f59e0b; filter: none; opacity: 1; animation: jc-now 1.4s ease-in-out infinite; }
+      @keyframes jc-now { 0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,.6); } 50% { box-shadow: 0 0 0 5px rgba(245,158,11,0); } }
+      .jc-phase-banner { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); z-index: 4; text-align: center; pointer-events: none; animation: jc-banner 2.6s ease-out both; }
+      .jc-phase-banner strong { display: block; font: 900 clamp(18px, 3.4vw, 34px) "Arial Black", Impact, sans-serif; color: #fde047; -webkit-text-stroke: 1px #7c2d12; text-shadow: 0 3px 0 #7c2d12, 0 8px 24px rgba(0,0,0,.45); text-transform: uppercase; }
+      .jc-phase-banner span { display: inline-block; margin-top: 6px; background: rgba(17,24,39,.8); color: #fff; font: 800 13px system-ui, sans-serif; padding: 4px 12px; border-radius: 999px; }
+      @keyframes jc-banner { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.8); } 12% { opacity: 1; transform: translate(-50%, 0) scale(1.05); } 22% { transform: translate(-50%, 0) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -12px); } }
+      @media (prefers-reduced-motion: reduce) { .jc-phase-banner, .jc-phase-steps span.is-now { animation: none; } }
+    `;
+    document.head.appendChild(style);
   }
 
   // ── Checkpoints: one site signboard per task ──────────────────────────
@@ -835,13 +1096,9 @@ export function createConstruction3D(container) {
   });
   const P = walker.P;
 
-  // ── Finale: topping out and cutting the ribbon ────────────────────────
+  // ── Finale: the handover ──────────────────────────────────────────────
   function once(key, fn) { if (!P.fin.steps.has(key)) { P.fin.steps.add(key); fn(); } }
   const cutSpot = entrance.clone().add(V(0, 0.04, 1.1));
-  // where the crane holds the beam over the roof (in the crane's own frame)
-  const roofLocal = PLOT.clone().sub(crane.position);
-  const roofSlew = Math.atan2(roofLocal.z, -roofLocal.x), roofReach = Math.hypot(roofLocal.x, roofLocal.z);
-  const IDLE_POSE = { slew: 0.4, reach: 12, hookY: 9 };
   function startFinale() {
     if (P.won) return;
     P.mode = 'finale'; P.finT = 0;
@@ -850,16 +1107,9 @@ export function createConstruction3D(container) {
   }
   function updateFinale(dt) {
     const t = (P.finT += dt), F = P.fin;
-    // the crane swings over the roof and lowers the beam
-    const sw = smooth(0, 1.6, t);
-    cranePose.slew = IDLE_POSE.slew + (roofSlew - IDLE_POSE.slew) * sw;
-    cranePose.reach = IDLE_POSE.reach + (roofReach - IDLE_POSE.reach) * sw;
-    cranePose.hookY = IDLE_POSE.hookY + (roofTop + 1.4 - IDLE_POSE.hookY) * smooth(1.6, 3.0, t);
-    if (t > 3.0) once('roof', () => { roof.visible = true; sparkle(PLOT.clone().setY(roofTop + 1), 80, ['#fde047', '#ffffff', '#86efac'], 5); cam.shake = 0.15; });
-    // meanwhile the builder walks to the ribbon and cuts it
-    if (t < 2.4) {
+    if (t < 2.2) {
       once('walk', () => play(builder, 'Walking_A', { fade: 0.3, timeScale: 1.2 }));
-      builder.holder.position.lerpVectors(F.from, cutSpot, smooth(0, 2.4, t));
+      builder.holder.position.lerpVectors(F.from, cutSpot, smooth(0, 2.2, t));
       const toward = Math.atan2(cutSpot.x - F.from.x, cutSpot.z - F.from.z);
       P.heading = angleLerp(P.heading, toward, Math.min(1, dt * 6));
     } else {
@@ -867,59 +1117,76 @@ export function createConstruction3D(container) {
       once('cut', () => play(builder, 'Interact', { fade: 0.2, once: true }));
     }
     builder.holder.rotation.y = P.heading;
-    if (t > 3.3) setRibbonCut(smooth(3.3, 3.9, t));
-    if (t > 3.4) once('confetti', () => { confetti(entrance.clone().setY(1.2)); sparkle(entrance.clone().setY(1.2), 60, ['#fde047', '#ffffff'], 4); });
-    if (t > 3.6) glassMat.emissiveIntensity = Math.min(0.5, glassMat.emissiveIntensity + dt * 0.4);
-    if (t > 4.6) once('win', victory);
+    if (t > 2.7) setRibbonCut(smooth(2.7, 3.3, t));
+    if (t > 2.8) once('confetti', () => {
+      handedOver = true;
+      confetti(entrance.clone().setY(1.2));
+      sparkle(entrance.clone().setY(1.2), 60, ['#fde047', '#ffffff'], 4);
+      cam.shake = 0.12;
+    });
+    if (t > 4) once('win', victory);
   }
   function victory() {
     P.won = true;
+    handedOver = true;
     if (celebrationsOn) shell.showWin();
     play(builder, 'Cheer', { fade: 0.3 });
+    if (surveyor) play(surveyor, 'Cheer', { fade: 0.3 });
     P.mode = 'victory'; P.vicT = 0;
     notify();
     if (onSummitCb) { const cb = onSummitCb; onSummitCb = null; timers.push(setTimeout(cb, celebrationsOn ? 1800 : 0)); }
   }
   function updateVictory(dt) {
     P.vicT = (P.vicT || 0) + dt;
-    glassMat.emissiveIntensity = Math.min(0.5, glassMat.emissiveIntensity + dt * 0.4);
     const toCam = Math.atan2(camera.position.x - builder.holder.position.x, camera.position.z - builder.holder.position.z);
     P.heading = angleLerp(P.heading, toCam, Math.min(1, dt * 2.5)); builder.holder.rotation.y = P.heading;
     if (P.vicT > 6 && builder.current === builder.actions.Cheer) play(builder, 'Idle', { fade: 0.5 });
-    if (!reduceMotion && celebrationsOn && rnd() < dt * 2.5) sparkle(PLOT.clone().add(V((rnd() - 0.5) * 14, roofTop + 5 + rnd() * 6, (rnd() - 0.5) * 6)), 34, ['#fde047', '#fb923c', '#86efac', '#93c5fd'], 5);
+    if (!reduceMotion && celebrationsOn && rnd() < dt * 2.5) sparkle(PLOT.clone().add(V((rnd() - 0.5) * 16, HEIGHT + 5 + rnd() * 8, (rnd() - 0.5) * 8)), 34, ['#fde047', '#fb923c', '#86efac', '#93c5fd'], 5);
   }
   function settleWon() {
     builder.holder.position.copy(cutSpot);
     P.heading = Math.PI; builder.holder.rotation.y = P.heading;
-    Object.assign(cranePose, { slew: roofSlew, reach: roofReach, hookY: roofTop + 1.4 });
-    roof.visible = true; setRibbonCut(1); glassMat.emissiveIntensity = 0.5;
-    P.fin = { steps: new Set(['walk', 'roof', 'cut', 'confetti', 'win']) };
+    setRibbonCut(1); handedOver = true;
+    P.fin = { steps: new Set(['walk', 'cut', 'confetti', 'win']) };
     P.won = true; P.mode = 'victory'; P.vicT = 99;
     play(builder, 'Idle', { fade: 0 });
   }
   function undoVictory() {
     P.won = false; P.mode = 'idle'; P.fin = {}; shell.winEl.hidden = true;
-    Object.assign(cranePose, IDLE_POSE);
-    roof.visible = false; setRibbonCut(0); glassMat.emissiveIntensity = 0;
+    setRibbonCut(0); handedOver = false;
     play(builder, 'Idle', { fade: 0.2 });
   }
 
   // ── Camera ─────────────────────────────────────────────────────────────
-  const cam = { look: V(0, 1, 20), shake: 0 };
+  // The default is the site view: a slow orbit round the building, looking
+  // at whatever height the work has reached. Follow cam rides with the
+  // builder round the site road.
+  shell.cam.mode = 'overview';
+  shell.root.querySelectorAll('.jk-cam button').forEach(b => {
+    if (b.textContent === 'Overview') b.textContent = 'Site view';
+    b.setAttribute('aria-pressed', String(b.textContent === 'Site view'));
+  });
+  const cam = { look: V(0, 1, 20), shake: 0, orbit: -0.9 };
   const camDesired = new THREE.Vector3(), lookDesired = new THREE.Vector3();
   const peek = { at: new THREE.Vector3(), t: 0 };
+  const workHeight = () => (build < 3 ? 1 : BASE_Y + Math.min(FLOORS, (build - 3) * FLOORS) * FLOOR_H * 0.6);
+  function siteView(target, look, radius = 46, height = 24) {
+    target.set(PLOT.x + Math.sin(cam.orbit) * radius, height + workHeight() * 0.5, PLOT.z + Math.cos(cam.orbit) * radius);
+    look.copy(PLOT).setY(workHeight());
+  }
   function updateCamera(dt) {
     if (!builder) return;
     const pp = builder.holder.position;
     const fwd = V(Math.sin(P.heading), 0, Math.cos(P.heading));
     let rate = 3;
+    if (!reduceMotion) cam.orbit += dt * 0.05;
     if (P.mode === 'finale' || P.mode === 'victory') {
-      camDesired.copy(entrance).add(V(-9, 10, 30));
-      lookDesired.copy(entrance).add(V(0, P.mode === 'victory' ? 9 + Math.min(1, (P.vicT || 0) / 3) * 3 : 8, -6));
+      camDesired.copy(entrance).add(V(-10, 12, 34));
+      lookDesired.copy(entrance).add(V(0, P.mode === 'victory' ? 8 + Math.min(1, (P.vicT || 0) / 3) * 3 : 6, -6));
       rate = 1.8;
     } else if (shell.cam.mode === 'overview') {
-      camDesired.set(-46, 50, 46);
-      lookDesired.set(0, 0, -6);
+      siteView(camDesired, lookDesired);
+      rate = 1.5;
     } else {
       const side = V(fwd.z, 0, -fwd.x);
       const orbit = P.mode === 'idle' ? Math.sin(performance.now() / 4000) * 1.4 : 0;
@@ -932,8 +1199,8 @@ export function createConstruction3D(container) {
     cam.look.lerp(lookDesired, k);
     camera.lookAt(cam.look);
     if (cam.shake > 0 && !reduceMotion) { camera.position.add(rand3(cam.shake * 0.25)); cam.shake = Math.max(0, cam.shake - dt); }
-    const focus = P.mode === 'finale' || P.mode === 'victory' ? PLOT : pp;
-    sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 60);
+    const focus = shell.cam.mode === 'overview' || P.mode === 'finale' || P.mode === 'victory' ? PLOT : pp;
+    sun.target.position.copy(focus); sun.position.copy(focus).addScaledVector(sunDir, 70);
   }
 
   // ── Ghost, label, state ──────────────────────────────────────────────
@@ -966,14 +1233,13 @@ export function createConstruction3D(container) {
     let text = n ? `Construction Journey: ${done} of ${n} tasks done.` : 'Construction Journey: no tasks yet.';
     const blocked = walls.find(w => !w.cleared && !w.clearing && !w.open && wallFrac(w.taskIndex) <= walker.progressToFrac(done, n) + 1e-3);
     if (blocked) text += ` Held up by: ${tasks[blocked.taskIndex].blocker}.`;
-    if (n && done === n) text += P.won ? ' The building is complete and open!' : ' Topping out the building.';
+    text += ` Phase: ${buildTarget >= 6 - 1e-3 ? 'handed over' : PHASES[phaseOf(buildTarget)].name}.`;
+    if (n && done === n) text += P.won ? ' The building is handed over!' : ' Cutting the ribbon.';
     shell.root.setAttribute('aria-label', text);
   }
   let latestState = null, layoutSig = null;
   function snapCamera() {
-    const fwd = V(Math.sin(P.heading), 0, Math.cos(P.heading)), pp = builder.holder.position;
-    camera.position.copy(pp).addScaledVector(fwd, -6.4).setY(3.6);
-    cam.look.copy(pp).addScaledVector(fwd, 3.5).setY(1.1);
+    siteView(camera.position, cam.look);
     camera.lookAt(cam.look);
   }
   function applyState(state) {
@@ -989,7 +1255,8 @@ export function createConstruction3D(container) {
       walker.reset();
       play(builder, 'Idle', { fade: 0.2 });
       progressShown = progressTarget;
-      updateBuilding(0, progressTarget, true);
+      buildTarget = progressTarget * 6;
+      updateBuild(0, true);
       if (n && tasks.every(t => t.done)) settleWon();
       if (firstBuild) snapCamera();
     } else {
@@ -997,6 +1264,7 @@ export function createConstruction3D(container) {
       next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; tasks[i].foeList = t.foeList; });
       if (changes.length) applyResolves(changes);
       refreshFlags();
+      buildTarget = progressTarget * 6;
       walker.plan();
     }
     updateGhost(state.ghost);
@@ -1009,19 +1277,27 @@ export function createConstruction3D(container) {
     simTime += dt;
     const time = simTime;
     if (builder) { builder.mixer.update(dt); walker.update(dt); }
-    updateWalls(dt, time);
-    updateBuilding(dt, progressTarget, false);
-    if (P.mode !== 'finale' && P.mode !== 'victory' && !reduceMotion) {
-      // the crane works away: slow swings to and fro over the plot
-      cranePose.slew = IDLE_POSE.slew + Math.sin(time * 0.12) * 0.5;
-      cranePose.hookY = IDLE_POSE.hookY + Math.sin(time * 0.3) * 2;
+    if (surveyor) {
+      surveyor.holder.visible = theodolite.visible;
+      if (surveyor.holder.visible) {
+        surveyor.mixer.update(dt);
+        if (!reduceMotion && surveyor.current === surveyor.actions.Idle && rnd() < dt * 0.3) play(surveyor, 'Interact', { fade: 0.2, once: true });
+        else if (finished(surveyor)) play(surveyor, 'Idle', { fade: 0.3 });
+      }
     }
+    updateWalls(dt, time);
+    if (build !== buildTarget) updateBuild(dt, false);
     applyCrane(time);
-    machines.forEach((m, k) => {
-      if (reduceMotion) return;
-      if (m.turret) m.turret.rotation.y = Math.sin(time * 0.3 + k) * 0.8;
-      if (m.drum) m.drum.rotation.y += dt * 1.5;
-    });
+    if (!reduceMotion) {
+      // the excavator digs while the pit is being dug; the drum turns while pouring
+      const digging = build > 1.9 && build < 2.7;
+      digger.turret.rotation.y = digging ? Math.sin(time * 0.8) * 0.5 : digger.turret.rotation.y * 0.98;
+      digger.boom.rotation.z = digging ? -0.2 + Math.sin(time * 1.6) * 0.25 : 0.3;
+      digger.stick.rotation.z = digging ? Math.sin(time * 1.6 + 1) * 0.4 : -0.3;
+      if (digging && rnd() < dt * 3) dustCloud(PLOT.clone().add(V(-6, 0.4, -2)), 4, 1);
+      if (mixer.visible) drum.rotation.y += dt * (build > 2.5 && build < 3 ? 4 : 1);
+      hologram.position.y = Math.sin(time * 1.2) * 0.15;
+    }
     clouds.forEach((c, k) => { if (!reduceMotion) c.position.x += dt * (0.6 + (k % 3) * 0.2); if (c.position.x > 170) c.position.x -= 340; });
     flags.forEach(f => {
       if (f.pop > 0) { f.pop = Math.max(0, f.pop - dt * 1.6); f.group.scale.setScalar(1 + Math.sin((1 - f.pop) * Math.PI) * 0.2); }
@@ -1039,6 +1315,7 @@ export function createConstruction3D(container) {
   }
   const loop = createLoop(shell, camera, scene, simulate, (w, h) => { scaleU.value = particleScaleFor(renderer, camera, h); });
 
+  let surveyor = null;
   loadGLTF(loader, BUILDER_URL).then(gltf => {
     if (loop.destroyed) return;
     clips = gltf.animations;
@@ -1046,6 +1323,11 @@ export function createConstruction3D(container) {
     builder = makeCharacter(scene, gltf.scene, clips, CHAR_H);
     rigBuilder(builder);
     play(builder, 'Idle', { fade: 0 });
+    // the surveyor at the theodolite, in the same site gear
+    surveyor = makeCharacter(scene, SkeletonUtils.clone(builder.obj), clips, CHAR_H);
+    surveyor.holder.position.copy(surveyPos).add(V(0.6, 0.04, 0.9));
+    surveyor.holder.rotation.y = Math.atan2(surveyPos.x - surveyor.holder.position.x, surveyPos.z - surveyor.holder.position.z);
+    play(surveyor, 'Idle', { fade: 0 });
     shell.loadingEl.hidden = true;
     loop.setReady();
     if (latestState) applyState(latestState);
@@ -1071,7 +1353,7 @@ export function createConstruction3D(container) {
           ready: !!builder, frac: P.frac, mode: P.mode, won: P.won, stops: P.stops.length, finT: P.finT,
           flagFracs: tasks.map((t, i) => checkpointFrac(i, tasks.length)),
           walls: walls.map(w => ({ task: w.taskIndex, cleared: w.cleared, foes: w.foes.length, gone: w.foes.filter(f => f.ticked).length, open: !!w.open })),
-          floors: +builtShown.toFixed(2), roof: roof.visible, ghost: ghost ? ghost.holder.visible : false, label: shell.root.getAttribute('aria-label'),
+          build: +build.toFixed(2), phase: build >= 6 - 1e-3 ? 'handed over' : PHASES[phaseOf(build)].name, ghost: ghost ? ghost.holder.visible : false, label: shell.root.getAttribute('aria-label'),
           onPath: builder && P.mode !== 'finale' && P.mode !== 'victory' ? (() => { let d = 1e9; for (let i = 0; i <= 400; i++) d = Math.min(d, curve.getPointAt(i / 400).distanceTo(tmpV.copy(builder.holder.position).setY(0))); return d; })() : 0,
         };
       },
