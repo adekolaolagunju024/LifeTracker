@@ -41,7 +41,18 @@ function injectStyles() {
       26% { transform: scale(1); } 82% { opacity: 1; } 100% { transform: translateY(-14px); opacity: 0; } }
     .j3d-loading { position: absolute; inset: 0; display: grid; place-items: center; color: #a9b5ca; font: 600 14px system-ui, sans-serif; z-index: 1; }
     .j3d-loading[hidden] { display: none; }
-    @media (prefers-reduced-motion: reduce) { .j3d-goal span { animation: none; } }
+    .j3d-labels { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+    .j3d-task-label { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); }
+    .j3d-task-label-inner { display: block; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+      background: rgba(255,255,255,.96); color: #1f2937; font: 800 13px system-ui, sans-serif; padding: 5px 10px; border-radius: 999px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.35); animation: j3d-label-pop 2.2s ease-out both; }
+    @keyframes j3d-label-pop {
+      0% { opacity: 0; transform: translateY(6px) scale(.85); }
+      12% { opacity: 1; transform: translateY(0) scale(1); }
+      72% { opacity: 1; transform: translateY(-4px) scale(1); }
+      100% { opacity: 0; transform: translateY(-26px) scale(.96); }
+    }
+    @media (prefers-reduced-motion: reduce) { .j3d-goal span, .j3d-task-label-inner { animation: none; } }
   `;
   document.head.appendChild(style);
 }
@@ -73,7 +84,12 @@ export function createFootball3D(container) {
   const goalOverlay = document.createElement('div');
   goalOverlay.className = 'j3d-goal'; goalOverlay.hidden = true;
   goalOverlay.innerHTML = '<span>GOAL!</span>';
-  root.append(loadingEl, camBar, goalOverlay);
+  // Completed tasks' own titles float up here — a DOM overlay rather than
+  // in-scene geometry, tracked onto each flag's screen position every
+  // frame since (unlike the 2D stage) the camera itself moves.
+  const labelLayer = document.createElement('div');
+  labelLayer.className = 'j3d-labels';
+  root.append(loadingEl, camBar, labelLayer, goalOverlay);
   container.appendChild(root);
   if (container.parentElement) container.parentElement.style.background = '#0a1220';
 
@@ -596,7 +612,7 @@ export function createFootball3D(container) {
           wall.clearing = true;
           events.push({ frac: wallFrac(i) - 0.012, fn: () => clearWall(wall), pause: 0.9, kind: 'wall', wall });
         }
-        events.push({ frac: checkpointFrac(i, n), fn: () => popFlag(i), pause: 0.8, kind: 'flag', taskId: t.id });
+        events.push({ frac: checkpointFrac(i, n), fn: () => popFlag(i, t.title), pause: 0.8, kind: 'flag', taskId: t.id });
       }
       if (!t.done) {
         celebrated.delete(t.id);
@@ -638,12 +654,47 @@ export function createFootball3D(container) {
     }
   }
 
-  function popFlag(i) {
+  // Completed task titles, floating above their flag — world positions
+  // re-projected to screen space every frame (see updateTaskLabels) so
+  // they track their flag as the follow-cam moves, instead of a position
+  // computed once at spawn that drifts off as soon as the camera pans.
+  const activeLabels = [];
+  function spawnTaskLabel(worldPos, text) {
+    if (!text) return;
+    const label = text.length > 28 ? text.slice(0, 27) + '…' : text;
+    const outer = document.createElement('div');
+    outer.className = 'j3d-task-label';
+    const inner = document.createElement('div');
+    inner.className = 'j3d-task-label-inner';
+    inner.textContent = label;
+    outer.appendChild(inner);
+    labelLayer.appendChild(outer);
+    const rec = { el: outer, pos: worldPos.clone() };
+    activeLabels.push(rec);
+    timers.push(setTimeout(() => {
+      outer.remove();
+      const idx = activeLabels.indexOf(rec);
+      if (idx >= 0) activeLabels.splice(idx, 1);
+    }, 2200));
+  }
+  function updateTaskLabels() {
+    if (!activeLabels.length) return;
+    const w = root.clientWidth, h = root.clientHeight;
+    activeLabels.forEach(rec => {
+      const v = rec.pos.clone().project(camera);
+      rec.el.style.left = ((v.x * 0.5 + 0.5) * w) + 'px';
+      rec.el.style.top = ((1 - (v.y * 0.5 + 0.5)) * h) + 'px';
+      rec.el.style.opacity = v.z > 1 ? '0' : '1';
+    });
+  }
+
+  function popFlag(i, title) {
     const f = flags[i];
     if (!f) return;
     f.pop = 1;
     burst(f.group.position.clone().setY(1.6), 70, 5);
     if (player && P.mode !== 'shoot') { play(player, 'ThumbsUp', 0.2); }
+    if (title) spawnTaskLabel(f.group.position.clone().setY(2.6), title);
   }
 
   // ── Defender walls (blocked tasks) ────────────────────────────────────
@@ -1036,6 +1087,7 @@ export function createFootball3D(container) {
     });
     if (ghost && ghost.holder.visible) ghost.mixer.update(dt);
     updateCamera(dt, time);
+    updateTaskLabels();
   }
   function frame() {
     const dt = Math.min(clock.getDelta(), 1 / 20);
