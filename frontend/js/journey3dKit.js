@@ -116,15 +116,16 @@ export function createShell(container, { label, background, loadingText, winTitl
   // Completed task titles float above their checkpoint, re-projected to
   // the screen every frame so they stay put as the camera moves.
   const activeLabels = [];
-  // kind 'foe': a ticked-off obstacle's name, in green, over "ELIMINATED!".
-  function spawnTaskLabel(worldPos, text, kind) {
+  // kind 'foe': a ticked-off obstacle's name, in green, over `sub`
+  // ("ELIMINATED!" by default; each stage can use its own word).
+  function spawnTaskLabel(worldPos, text, kind, sub = 'ELIMINATED!') {
     if (!text) return;
     const outer = document.createElement('div');
     outer.className = 'jk-task-label' + (kind === 'foe' ? ' jk-task-label-foe' : '');
     const li = document.createElement('div');
     li.className = 'jk-task-label-inner';
     li.textContent = (kind === 'foe' ? '✓ ' : '') + (text.length > 28 ? text.slice(0, 27) + '…' : text);
-    if (kind === 'foe') { const sub = document.createElement('small'); sub.textContent = 'ELIMINATED!'; li.appendChild(sub); }
+    if (kind === 'foe') { const subEl = document.createElement('small'); subEl.textContent = sub; li.appendChild(subEl); }
     outer.appendChild(li);
     labelLayer.appendChild(outer);
     const rec = { el: outer, pos: worldPos.clone() };

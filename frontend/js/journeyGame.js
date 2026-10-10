@@ -180,89 +180,12 @@ const JourneyGame = (() => {
     return g;
   }
 
-  // ════════════════════════════════════════════════════════════════
-  // THEME: ROAD — "Road to the Goal". A winding toy-like path through a
-  // bright daytime sky, to a shiny gold star.
-  // ════════════════════════════════════════════════════════════════
-  function roadDecorate(svg, layout, glowId) {
-    // Parallax hill silhouettes behind the path — two layers tinted
-    // toward the sky's own horizon color (atmospheric perspective: the
-    // farther layer is paler/cooler) so the scene reads as having real
-    // depth instead of one flat painted backdrop.
-    svg.appendChild(el('path', {
-      d: `M 0 ${layout.h * 0.56} Q ${layout.w * 0.22} ${layout.h * 0.46} ${layout.w * 0.48} ${layout.h * 0.52} T ${layout.w} ${layout.h * 0.48} L ${layout.w} ${layout.h} L 0 ${layout.h} Z`,
-      fill: '#bcd9ce', opacity: 0.5,
-    }));
-    svg.appendChild(el('path', {
-      d: `M 0 ${layout.h * 0.74} Q ${layout.w * 0.3} ${layout.h * 0.66} ${layout.w * 0.55} ${layout.h * 0.7} T ${layout.w} ${layout.h * 0.68} L ${layout.w} ${layout.h} L 0 ${layout.h} Z`,
-      fill: '#8fc9a8', opacity: 0.6,
-    }));
-
-    const sunCx = layout.w * 0.86, sunCy = layout.h * 0.12;
-    svg.appendChild(el('circle', { cx: sunCx, cy: sunCy, r: layout.w * 0.1, fill: '#ffe49a', opacity: 0.6, filter: glowId ? `url(#${glowId})` : undefined }));
-    svg.appendChild(el('circle', { cx: sunCx, cy: sunCy, r: layout.w * 0.05, fill: '#ffd24a' }));
-    svg.appendChild(el('circle', { cx: sunCx - layout.w * 0.015, cy: sunCy - layout.w * 0.015, r: layout.w * 0.022, fill: '#fff6cf', opacity: 0.8 }));
-    cloudGroup(svg, layout, [[0.12, 0.1, 1], [0.28, 0.07, 0.75]]);
-
-    // A few distant birds gliding across — tiny, dark, and slow, so they
-    // add life at the edge of attention without competing with the path.
-    [[0.4, 0.1, 1, 0], [0.45, 0.13, 0.8, 1.2], [0.36, 0.14, 0.7, 2.1]].forEach(([fx, fy, s, delay]) => {
-      const pos = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${s})` });
-      const b = el('g', { class: 'journey-bird', style: `animation-delay:${delay}s` });
-      b.appendChild(el('path', { d: 'M -6 0 Q -3 -3 0 0 Q 3 -3 6 0', fill: 'none', stroke: '#3a4a5c', 'stroke-width': 1.4, 'stroke-linecap': 'round' }));
-      pos.appendChild(b);
-      svg.appendChild(pos);
-    });
-  }
-
-  // Road scenery — trees lit from the upper left (a dark side, a
-  // highlight cap, a cast shadow), grass tufts, and small flower patches.
-  function roadScatter(layer, layout, isClear, rand) {
-    scatterProps(layer, layout, isClear, rand, {
-      count: 9, margin: 22, spacing: 46, minY: layout.h * 0.6, sway: true,
-      draw(g, v) {
-        g.appendChild(el('ellipse', { cx: 6, cy: 1, rx: 16, ry: 4.5, fill: '#0b1220', opacity: 0.2 }));
-        g.appendChild(el('rect', { x: -2.4, y: -16, width: 4.8, height: 17, rx: 1.2, fill: '#7a4b2a' }));
-        g.appendChild(el('rect', { x: 0.4, y: -16, width: 2, height: 17, fill: '#5c3820' }));
-        if (v < 0.4) {
-          // Pine: stacked tiers, each with its own shaded right half.
-          [[-34, 11], [-26, 14], [-18, 17]].forEach(([ty, hw]) => {
-            g.appendChild(el('path', { d: `M 0 ${ty - 12} L ${hw} ${ty + 4} L ${-hw} ${ty + 4} Z`, fill: '#2f7a46' }));
-            g.appendChild(el('path', { d: `M 0 ${ty - 12} L ${hw} ${ty + 4} L 0 ${ty + 4} Z`, fill: '#235e36' }));
-          });
-        } else {
-          // Broadleaf: overlapping canopy puffs, darker underneath.
-          g.appendChild(el('circle', { cx: -8, cy: -20, r: 10, fill: '#2f6e39' }));
-          g.appendChild(el('circle', { cx: 8, cy: -20, r: 10, fill: '#2a6234' }));
-          g.appendChild(el('circle', { cx: 0, cy: -28, r: 13, fill: '#3f8f4a' }));
-          g.appendChild(el('circle', { cx: -5, cy: -32, r: 7, fill: '#5fae5c', opacity: 0.85 }));
-          g.appendChild(el('circle', { cx: -7, cy: -34, r: 2.8, fill: '#9bd88f', opacity: 0.7 }));
-        }
-      },
-    });
-    scatterProps(layer, layout, isClear, rand, {
-      count: 22, margin: 4, spacing: 18, minY: layout.h * 0.58, sway: true,
-      draw(g) { grassTuft(g, '#4f9a4f'); },
-    });
-    const petal = ['#ff7a9a', '#ffd24a', '#ffffff', '#b78cff'];
-    scatterProps(layer, layout, isClear, rand, {
-      count: 12, margin: 4, spacing: 22, minY: layout.h * 0.62,
-      draw(g, v) {
-        const c = petal[Math.floor(v * petal.length)];
-        [[-2.4, 0], [2.4, 0], [0, -2.4], [0, 2.4]].forEach(([px, py]) => g.appendChild(el('circle', { cx: px, cy: py - 3, r: 1.8, fill: c })));
-        g.appendChild(el('circle', { cx: 0, cy: -3, r: 1.3, fill: '#f59e0b' }));
-      },
-    });
-  }
-
-  // A cheerful game mascot with an actual limb rig — each leg/arm is its
-  // own group (journey-leg-front/back, journey-arm-front/back in
-  // index.html) that swings from its own shoulder/hip pivot via CSS,
-  // plus a flaring cape, giving it a real running gait instead of one
-  // rigid silhouette bobbing up and down. The outer .journey-avatar-bob
-  // group still carries the vertical bob and the shared drop-shadow
-  // filter, same as before — the limbs animate inside it.
-  function roadLimb(cls, fill, x, y, w, len, footRx, footRy, footFill) {
+  // One limb of an avatar's rig — each leg/arm is its own group
+  // (journey-leg-front/back, journey-arm-front/back in index.html) that
+  // swings from its own shoulder/hip pivot via CSS, giving the avatar a
+  // real running gait. The outer .journey-avatar-bob group carries the
+  // vertical bob and the shared drop-shadow filter.
+  function avatarLimb(cls, fill, x, y, w, len, footRx, footRy, footFill) {
     const wrap = el('g', { transform: `translate(${x},${y})` });
     const swing = el('g', { class: cls });
     swing.appendChild(el('rect', { x: -w / 2, y: 0, width: w, height: len, rx: w / 2 - 0.1, fill, stroke: '#1f2937', 'stroke-width': 0.8 }));
@@ -270,100 +193,6 @@ const JourneyGame = (() => {
     swing.appendChild(el('ellipse', { cx: 0, cy: len + footRy - 0.6, rx: footRx, ry: footRy, fill: footFill, stroke: '#1f2937', 'stroke-width': 0.6 }));
     wrap.appendChild(swing);
     return wrap;
-  }
-  function roadBuildAvatar(fill, shadowFilterId) {
-    const g = el('g', { class: 'journey-avatar' });
-    g.appendChild(el('ellipse', { cx: 0, cy: 24, rx: 15, ry: 3.6, fill: '#1f2937', opacity: 0.25 }));
-    const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
-
-    bob.appendChild(el('path', {
-      class: 'journey-cape', d: 'M -4,-8 C -17,-5 -19,8 -10,15 C -15,8 -12,-3 -4,-7 Z',
-      fill: '#ff7a9a', stroke: '#8a2d4a', 'stroke-width': 0.8, opacity: 0.9,
-    }));
-
-    bob.appendChild(roadLimb('journey-leg-back', '#2f3947', -3.4, 9, 4.2, 10, 2.9, 1.7, '#2f3947'));
-    bob.appendChild(roadLimb('journey-arm-back', fill, -7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
-
-    bob.appendChild(el('rect', { x: -8.6, y: -9, width: 17.2, height: 19, rx: 7.6, fill, stroke: '#1f2937', 'stroke-width': 1 }));
-    bob.appendChild(el('ellipse', { cx: -3.6, cy: -4, rx: 4.6, ry: 6.4, fill: '#ffffff', opacity: 0.22 }));
-    bob.appendChild(el('path', { d: 'M -8.6 -2 Q 0 2 8.6 -2', fill: 'none', stroke: '#ffffff', 'stroke-width': 1, opacity: 0.3 }));
-
-    bob.appendChild(roadLimb('journey-leg-front', '#374151', 3.4, 9, 4.2, 10, 2.9, 1.7, '#374151'));
-    bob.appendChild(roadLimb('journey-arm-front', fill, 7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
-
-    const head = el('g', { transform: 'translate(0,-18.5)' });
-    head.appendChild(el('circle', { cx: 0, cy: 0, r: 9.2, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 1 }));
-    head.appendChild(el('ellipse', { cx: -3, cy: -3.4, rx: 4.4, ry: 3, fill: '#ffffff', opacity: 0.32 }));
-    head.appendChild(el('path', { d: 'M -9 -3 A 9 9 0 0 1 9 -3 L 8.6 -6.5 A 9.6 6.4 0 0 0 -8.6 -6.5 Z', fill: '#4a2f1e' }));
-    head.appendChild(el('path', { d: 'M -2 -8.6 Q 1 -11.6 4.2 -8.8', fill: 'none', stroke: '#4a2f1e', 'stroke-width': 1.7, 'stroke-linecap': 'round' }));
-    head.appendChild(el('path', { d: 'M -5 -4.6 Q -3.2 -5.7 -1.2 -4.8', fill: 'none', stroke: '#3a2516', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
-    head.appendChild(el('path', { d: 'M 1.2 -4.8 Q 3.2 -5.7 5 -4.6', fill: 'none', stroke: '#3a2516', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
-    head.appendChild(el('ellipse', { cx: -3.1, cy: -1, rx: 2.1, ry: 2.5, fill: '#ffffff' }));
-    head.appendChild(el('circle', { cx: -2.8, cy: -0.5, r: 1.3, fill: '#1f2937' }));
-    head.appendChild(el('circle', { cx: -3.3, cy: -1.2, r: 0.55, fill: '#ffffff' }));
-    head.appendChild(el('ellipse', { cx: 3.1, cy: -1, rx: 2.1, ry: 2.5, fill: '#ffffff' }));
-    head.appendChild(el('circle', { cx: 3.4, cy: -0.5, r: 1.3, fill: '#1f2937' }));
-    head.appendChild(el('circle', { cx: 2.9, cy: -1.2, r: 0.55, fill: '#ffffff' }));
-    head.appendChild(el('path', { d: 'M -2.6 3.3 Q 0 5.2 2.6 3.3', fill: 'none', stroke: '#1f2937', 'stroke-width': 1.1, 'stroke-linecap': 'round' }));
-    head.appendChild(el('ellipse', { cx: -5.8, cy: 1.7, rx: 1.75, ry: 1.15, fill: '#ff9d8a', opacity: 0.55 }));
-    head.appendChild(el('ellipse', { cx: 5.8, cy: 1.7, rx: 1.75, ry: 1.15, fill: '#ff9d8a', opacity: 0.55 }));
-    bob.appendChild(head);
-
-    g.appendChild(bob);
-    return g;
-  }
-
-  // The goal marker — a shiny gold star badge (reads as "reward" to a kid
-  // far more than a bullseye does), with a soft glow behind it and a
-  // couple of small sparkle accents for polish.
-  function roadBuildGoal(x, y, gradId, shadowFilterId, glowId) {
-    const g = el('g', { transform: `translate(${x},${y})` });
-    g.appendChild(el('circle', { cx: 0, cy: 0, r: 32, fill: '#ffd54a', opacity: 0.35, filter: glowId ? `url(#${glowId})` : undefined }));
-    g.appendChild(el('circle', { cx: 0, cy: 0, r: 27, fill: '#ffd54a', opacity: 0.28 }));
-    const ring = el('g', { class: 'journey-ring-spin-rev', opacity: 0.9 });
-    [0, 60, 120, 180, 240, 300].forEach(rot => {
-      ring.appendChild(el('path', { d: 'M 0,-30 L 2.4,-25 L -2.4,-25 Z', transform: `rotate(${rot})`, fill: '#ffffff' }));
-    });
-    g.appendChild(ring);
-    g.appendChild(el('circle', { cx: 0, cy: 0, r: 18.5, fill: '#ffffff', stroke: '#f3b429', 'stroke-width': 2.4 }));
-    const star = el('path', {
-      d: starPath(14, 6, 5), fill: `url(#${gradId})`, stroke: '#b8780f', 'stroke-width': 1.3, 'stroke-linejoin': 'round',
-      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
-    });
-    g.appendChild(star);
-    g.appendChild(el('ellipse', { cx: 3, cy: 7, rx: 6, ry: 4, fill: SHADE }));
-    g.appendChild(el('rect', { class: 'journey-shine', x: -2.5, y: -16, width: 5, height: 32, fill: '#ffffff', opacity: 0 }));
-    g.appendChild(sparkles([[-20, -16, 2.6], [21, -10, 1.8], [16, 16, 2.1]]));
-    return g;
-  }
-
-  // A checkpoint flag — a warm wooden post + a rounded pennant. Done
-  // checkpoints get a bold check; the current ("next") one gets a soft
-  // pulsing glow (see index.html's .journey-next-glow) so a kid can see
-  // at a glance where to go next.
-  function roadBuildCheckpoint(i, isDone, isNext, blocked, scale, shadowFilterId) {
-    const color = isDone ? DONE_COLOR : isNext ? NEXT_COLOR : PENDING_COLOR;
-    const s = scale;
-    const g = el('g', { class: 'journey-flag' });
-    if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 6 * s, cy: -20 * s, r: 15 * s, fill: NEXT_COLOR, opacity: 0.5 }));
-    g.appendChild(el('rect', { x: -1.1 * s, y: -27 * s, width: 2.2 * s, height: 27 * s, fill: '#8b5e3c', stroke: '#5c3c22', 'stroke-width': 0.6 * s, rx: 0.8 * s }));
-    const pennant = el('g', { class: 'journey-flag-wave' });
-    pennant.appendChild(el('path', {
-      d: `M ${1.1 * s} ${-27 * s} Q ${14 * s} ${-23.6 * s} ${13.5 * s} ${-20.4 * s} Q ${13 * s} ${-17.2 * s} ${1.1 * s} ${-15.4 * s} Z`,
-      fill: color, stroke: '#1f2937', 'stroke-width': 0.7 * s, 'stroke-linejoin': 'round',
-      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
-    }));
-    g.appendChild(el('path', { d: `M ${2.6 * s} ${-25.6 * s} L ${9 * s} ${-22.6 * s}`, fill: 'none', stroke: GLOSS, 'stroke-width': 1.6 * s, 'stroke-linecap': 'round', opacity: 0.7 }));
-    const label = el('text', {
-      x: 6.4 * s, y: -20.6 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
-      'font-size': 7.6 * s, 'font-weight': 800, fill: isDone || isNext ? '#1f2937' : '#4b5563', 'font-family': 'Arial, sans-serif',
-    });
-    label.textContent = isDone ? '✓' : String(i + 1);
-    pennant.appendChild(label);
-    g.appendChild(pennant);
-    g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.6 * s, fill: '#f4a53b', stroke: '#8b5e3c', 'stroke-width': 0.6 * s }));
-    if (blocked) g.appendChild(drawFoes(blocked, s, ROAD_FOES));
-    return g;
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -708,171 +537,6 @@ const JourneyGame = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════
-  // THEME: RACE — "Race to the Finish". An asphalt track under a bright
-  // sky, a race car, traffic-cone checkpoints, and a trophy.
-  // ════════════════════════════════════════════════════════════════
-  function raceDecorate(svg, layout) {
-    // A stadium infield seen from above — mown grass in alternating
-    // light/dark stripes, the way real circuit and stadium turf is cut.
-    const stripes = 9;
-    for (let i = 0; i < stripes; i++) {
-      svg.appendChild(el('rect', {
-        x: (i / stripes) * layout.w, y: 0, width: layout.w / stripes + 1, height: layout.h,
-        fill: i % 2 === 0 ? '#6fb865' : '#62a95a',
-      }));
-    }
-    svg.appendChild(el('rect', { x: 0, y: 0, width: layout.w, height: layout.h, fill: '#ffffff', opacity: 0.06 }));
-
-    // A cheering crowd in the grandstand along the top edge — rows of
-    // small bobbing dots in varied colors, each on its own bob delay so
-    // the stand reads as restless rather than uniformly ticking.
-    const stand = el('g', { opacity: 0.55 });
-    stand.appendChild(el('rect', { x: 0, y: 0, width: layout.w, height: layout.h * 0.07, fill: '#334155' }));
-    const crowdColors = ['#f87171', '#fbbf24', '#60a5fa', '#34d399', '#f472b6'];
-    for (let i = 0; i < 26; i++) {
-      const cx = (i + 0.5) * (layout.w / 26);
-      const cy = layout.h * 0.035 + (i % 2 === 0 ? 2 : -2);
-      stand.appendChild(el('circle', {
-        class: 'journey-crowd-bob', cx, cy, r: 3.4, fill: crowdColors[i % crowdColors.length],
-        style: `animation-delay:${((i % 7) * 0.15).toFixed(2)}s`,
-      }));
-    }
-    svg.appendChild(stand);
-  }
-
-  // Race scenery — stacked tire walls, red/white barrier blocks, grass.
-  function raceScatter(layer, layout, isClear, rand) {
-    scatterProps(layer, layout, isClear, rand, {
-      count: 6, margin: 16, spacing: 52,
-      draw(g, v) {
-        g.appendChild(el('ellipse', { cx: 3, cy: 1, rx: 13, ry: 3.5, fill: '#0b1220', opacity: 0.2 }));
-        if (v < 0.55) {
-          [0, -5, -10].forEach(ty => {
-            g.appendChild(el('ellipse', { cx: 0, cy: ty, rx: 8, ry: 3.4, fill: '#1f2937' }));
-            g.appendChild(el('ellipse', { cx: 0, cy: ty - 0.6, rx: 3.6, ry: 1.4, fill: '#4b5563' }));
-          });
-          g.appendChild(el('ellipse', { cx: -3, cy: -11.5, rx: 3, ry: 0.9, fill: '#6b7280', opacity: 0.8 }));
-        } else {
-          g.appendChild(el('rect', { x: -12, y: -8, width: 24, height: 8, rx: 1.4, fill: '#ffffff', stroke: '#1f2937', 'stroke-width': 0.6 }));
-          [-12, -4, 4].forEach(sx => g.appendChild(el('rect', { x: sx, y: -8, width: 4, height: 8, fill: '#ef4444' })));
-          g.appendChild(el('rect', { x: -12, y: -8, width: 24, height: 2, fill: '#ffffff', opacity: 0.5 }));
-        }
-      },
-    });
-    scatterProps(layer, layout, isClear, rand, {
-      count: 18, margin: 4, spacing: 20, sway: true,
-      draw(g) { grassTuft(g, '#3f8a3f'); },
-    });
-  }
-
-  // A race car — the passed-in "fill" is the body color directly
-  // (bright for the real avatar, grey for the pace ghost — grey reads
-  // naturally as a pace car here).
-  function raceBuildAvatar(fill, shadowFilterId) {
-    const g = el('g', { class: 'journey-avatar' });
-    g.appendChild(el('ellipse', { cx: 0, cy: 10, rx: 14, ry: 3.4, fill: '#1f2937', opacity: 0.22 }));
-    const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
-    // Each wheel (tire + hub + spokes) is its own group so the CSS
-    // spin animation (see index.html) rotates the whole wheel while
-    // moving, instead of just the body sliding over static circles.
-    const wheelL = el('g', { class: 'journey-wheel journey-wheel-l' });
-    wheelL.appendChild(el('circle', { cx: -8, cy: 8, r: 3.6, fill: '#1f2937' }));
-    wheelL.appendChild(el('circle', { cx: -8, cy: 8, r: 1.4, fill: '#9aa5b1' }));
-    [0, 90, 180, 270].forEach(a => wheelL.appendChild(el('line', { x1: -8, y1: 8, x2: -8, y2: 6.4, stroke: '#4b5563', 'stroke-width': 0.6, transform: `rotate(${a} -8 8)` })));
-    bob.appendChild(wheelL);
-    const wheelR = el('g', { class: 'journey-wheel journey-wheel-r' });
-    wheelR.appendChild(el('circle', { cx: 8, cy: 8, r: 3.6, fill: '#1f2937' }));
-    wheelR.appendChild(el('circle', { cx: 8, cy: 8, r: 1.4, fill: '#9aa5b1' }));
-    [0, 90, 180, 270].forEach(a => wheelR.appendChild(el('line', { x1: 8, y1: 8, x2: 8, y2: 6.4, stroke: '#4b5563', 'stroke-width': 0.6, transform: `rotate(${a} 8 8)` })));
-    bob.appendChild(wheelR);
-    bob.appendChild(el('rect', { x: -14, y: -2, width: 28, height: 11, rx: 4.4, fill, stroke: '#1f2937', 'stroke-width': 1.2 }));
-    bob.appendChild(el('ellipse', { cx: -9, cy: 1.5, rx: 5, ry: 3.4, fill: GLOSS }));
-    bob.appendChild(el('rect', { x: -13, y: 5, width: 26, height: 4, fill: SHADE }));
-    bob.appendChild(el('path', { d: 'M -10 -0.5 L -10.5 7', fill: 'none', stroke: '#1f2937', 'stroke-width': 0.7, opacity: 0.3, 'stroke-linecap': 'round' }));
-    bob.appendChild(el('path', { d: 'M 10 -0.5 L 10.5 7', fill: 'none', stroke: '#1f2937', 'stroke-width': 0.7, opacity: 0.3, 'stroke-linecap': 'round' }));
-    bob.appendChild(el('path', { d: 'M -8 -2 Q -6 -11 0 -11 Q 6 -11 8 -2 Z', fill: '#bae6fd', stroke: '#1f2937', 'stroke-width': 1.1 }));
-    bob.appendChild(el('rect', { x: -3, y: -2, width: 6, height: 11, fill: '#ffffff', opacity: 0.85 }));
-    bob.appendChild(el('rect', { x: -15.4, y: 1.4, width: 2.6, height: 4, rx: 1, fill: '#1f2937' }));
-    bob.appendChild(el('rect', { x: 12.8, y: 1.4, width: 2.6, height: 4, rx: 1, fill: '#1f2937' }));
-    g.appendChild(bob);
-
-    // Speed lines trailing behind the car — three short dashes that
-    // flash and retreat on a loop, selling motion even while the car
-    // itself is only gliding between fixed points.
-    const speed = el('g', { opacity: 0.8 });
-    [[-18, -4, 0], [-20, 2, 0.12], [-17, 7, 0.22]].forEach(([sx, sy, delay]) => {
-      speed.appendChild(el('rect', { class: 'journey-speedline', x: sx, y: sy, width: 8, height: 1.6, rx: 0.8, fill: '#e2e8f0', style: `animation-delay:${delay}s` }));
-    });
-    g.appendChild(speed);
-    return g;
-  }
-
-  // The goal marker — a gold trophy cup with handles and a base, plus a
-  // few sparkles, matching the "shiny reward" language the other themes
-  // use for their own goal markers.
-  function raceBuildGoal(x, y, gradId, shadowFilterId, glowId) {
-    const g = el('g', { transform: `translate(${x},${y})` });
-    g.appendChild(el('circle', { cx: 0, cy: 0, r: 31, fill: '#ffd54a', opacity: 0.3, filter: glowId ? `url(#${glowId})` : undefined }));
-    g.appendChild(el('circle', { cx: 0, cy: 0, r: 26, fill: '#ffd54a', opacity: 0.22 }));
-    const trophy = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
-    trophy.appendChild(el('path', { d: 'M -9 -16 Q -9 -4 0 -2 Q 9 -4 9 -16 Z', fill: `url(#${gradId})`, stroke: '#b8780f', 'stroke-width': 1.3, 'stroke-linejoin': 'round' }));
-    trophy.appendChild(el('ellipse', { cx: -3.5, cy: -11, rx: 3.6, ry: 5.2, fill: GLOSS }));
-    trophy.appendChild(el('ellipse', { cx: 3.5, cy: -5, rx: 4.2, ry: 4.5, fill: SHADE }));
-    trophy.appendChild(el('path', { d: 'M -9 -16 Q -15 -16 -15 -11 Q -15 -6 -9.5 -7', fill: 'none', stroke: '#b8780f', 'stroke-width': 1.6 }));
-    trophy.appendChild(el('path', { d: 'M 9 -16 Q 15 -16 15 -11 Q 15 -6 9.5 -7', fill: 'none', stroke: '#b8780f', 'stroke-width': 1.6 }));
-    trophy.appendChild(el('rect', { x: -1.6, y: -2, width: 3.2, height: 6, fill: '#f3b429' }));
-    trophy.appendChild(el('path', { d: 'M -7 4 L 7 4 L 5 8 L -5 8 Z', fill: '#f3b429', stroke: '#b8780f', 'stroke-width': 1 }));
-    g.appendChild(trophy);
-
-    // A waving checkered flag planted beside the trophy — the classic
-    // "race over" signal, flapping via a CSS skew on the flag only (the
-    // pole stays rigid).
-    const flagPole = el('g', { transform: 'translate(16,-6)' });
-    flagPole.appendChild(el('rect', { x: -0.9, y: -22, width: 1.8, height: 22, fill: '#9aa5b1', stroke: '#4b5563', 'stroke-width': 0.5 }));
-    const flagPos = el('g', { transform: 'translate(0.9,-22)' });
-    const flag = el('g', { class: 'journey-flag-wave' });
-    flagPos.appendChild(flag);
-    const checker = el('g');
-    for (let r = 0; r < 4; r++) {
-      for (let c = 0; c < 5; c++) {
-        if ((r + c) % 2 === 0) checker.appendChild(el('rect', { x: c * 2.6, y: r * 2.2, width: 2.6, height: 2.2, fill: '#1f2937' }));
-      }
-    }
-    flag.appendChild(el('rect', { x: 0, y: 0, width: 13, height: 8.8, fill: '#ffffff', stroke: '#1f2937', 'stroke-width': 0.5 }));
-    flag.appendChild(checker);
-    flagPole.appendChild(flagPos);
-    g.appendChild(flagPole);
-
-    g.appendChild(sparkles([[-18, -14, 2.4], [18, -10, 1.8], [14, 10, 2]]));
-    return g;
-  }
-
-  // A checkpoint — a traffic cone with a status-colored stripe band.
-  function raceBuildCheckpoint(i, isDone, isNext, blocked, scale, shadowFilterId) {
-    const color = isDone ? DONE_COLOR : isNext ? NEXT_COLOR : PENDING_COLOR;
-    const s = scale;
-    const g = el('g', { class: 'journey-flag' });
-    if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 0, cy: -11 * s, r: 14 * s, fill: NEXT_COLOR, opacity: 0.5 }));
-    g.appendChild(el('ellipse', { cx: 0, cy: 1 * s, rx: 8 * s, ry: 2.4 * s, fill: '#1f2937', opacity: 0.7 }));
-    const cone = el('path', {
-      d: `M ${-2.6 * s} 0 L ${-7 * s} ${2 * s} L ${7 * s} ${2 * s} L ${2.6 * s} 0 L ${1.6 * s} ${-19 * s} L ${-1.6 * s} ${-19 * s} Z`,
-      fill: '#f97316', stroke: '#1f2937', 'stroke-width': 0.6 * s, 'stroke-linejoin': 'round',
-      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
-    });
-    g.appendChild(cone);
-    g.appendChild(el('path', { d: `M ${-1 * s} ${-17 * s} L ${-1.6 * s} ${0} L ${0.5 * s} ${0}`, fill: 'none', stroke: GLOSS, 'stroke-width': 1.2 * s, 'stroke-linecap': 'round', opacity: 0.6 }));
-    g.appendChild(el('rect', { x: -2.2 * s, y: -13 * s, width: 4.4 * s, height: 3.6 * s, fill: color, stroke: '#1f2937', 'stroke-width': 0.4 * s }));
-    const label = el('text', {
-      x: 0, y: -6.6 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
-      'font-size': 6.4 * s, 'font-weight': 800, fill: '#ffffff', 'font-family': 'Arial, sans-serif',
-    });
-    label.textContent = isDone ? '✓' : String(i + 1);
-    g.appendChild(label);
-    if (blocked) g.appendChild(drawFoes(blocked, s, RACE_FOES));
-    return g;
-  }
-
-  // ════════════════════════════════════════════════════════════════
   // THEME: FOOTBALL — "Road to the Final". A floodlit, striped pitch with
   // real markings, a footballer dribbling up the pitch, corner-flag
   // checkpoints, a defensive wall for blockers, and the goal net.
@@ -977,8 +641,8 @@ const JourneyGame = (() => {
     g.appendChild(el('ellipse', { cx: 2, cy: 24, rx: 17, ry: 3.6, fill: '#0b1220', opacity: 0.28 }));
     const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
 
-    bob.appendChild(roadLimb('journey-leg-back', '#f1f5f9', -3.4, 9, 4.2, 10, 3.2, 1.8, '#111827'));
-    bob.appendChild(roadLimb('journey-arm-back', fill, -7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+    bob.appendChild(avatarLimb('journey-leg-back', '#f1f5f9', -3.4, 9, 4.2, 10, 3.2, 1.8, '#111827'));
+    bob.appendChild(avatarLimb('journey-arm-back', fill, -7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
 
     bob.appendChild(el('rect', { x: -8.6, y: -9, width: 17.2, height: 15, rx: 6.5, fill, stroke: '#1f2937', 'stroke-width': 1 }));
     bob.appendChild(el('rect', { x: -8.2, y: 3, width: 16.4, height: 7.5, rx: 2.5, fill: '#1f2937' }));
@@ -988,8 +652,8 @@ const JourneyGame = (() => {
     num.textContent = '10';
     bob.appendChild(num);
 
-    bob.appendChild(roadLimb('journey-leg-front', '#f8fafc', 3.4, 9, 4.2, 10, 3.2, 1.8, '#111827'));
-    bob.appendChild(roadLimb('journey-arm-front', fill, 7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+    bob.appendChild(avatarLimb('journey-leg-front', '#f8fafc', 3.4, 9, 4.2, 10, 3.2, 1.8, '#111827'));
+    bob.appendChild(avatarLimb('journey-arm-front', fill, 7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
 
     const head = el('g', { transform: 'translate(0,-17.5)' });
     head.appendChild(el('circle', { cx: 0, cy: 0, r: 8.6, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 1 }));
@@ -1285,8 +949,8 @@ const JourneyGame = (() => {
       class: 'journey-cape', d: 'M -5,-9 C -18,-5 -20,10 -11,17 C -15,9 -12,-3 -5,-7 Z',
       fill, stroke: '#4a0f14', 'stroke-width': 0.8, opacity: 0.95,
     }));
-    bob.appendChild(roadLimb('journey-leg-back', steelDark, -3.4, 9, 4.4, 10, 3.2, 1.9, '#4b5563'));
-    const armBack = roadLimb('journey-arm-back', steel, -7.6, -4, 4, 8.6, 2.2, 2.2, steelDark);
+    bob.appendChild(avatarLimb('journey-leg-back', steelDark, -3.4, 9, 4.4, 10, 3.2, 1.9, '#4b5563'));
+    const armBack = avatarLimb('journey-arm-back', steel, -7.6, -4, 4, 8.6, 2.2, 2.2, steelDark);
     // heater shield, red and gold
     armBack.firstChild.appendChild(el('path', { d: 'M -6 3 L 4 3 L 4 10 Q 4 16 -1 19 Q -6 16 -6 10 Z', fill: '#b3202c', stroke: '#5a1016', 'stroke-width': 0.9 }));
     armBack.firstChild.appendChild(el('path', { d: 'M -1 3.5 L -1 18.4 M -5.6 9 L 3.6 9', stroke: '#e7b443', 'stroke-width': 1.4 }));
@@ -1296,8 +960,8 @@ const JourneyGame = (() => {
     bob.appendChild(el('path', { d: 'M -2.4 -5 L 2.4 -5 M 0 -7.4 L 0 -2.6', stroke: '#e7b443', 'stroke-width': 1.4, 'stroke-linecap': 'round' }));
     bob.appendChild(el('rect', { x: -8.4, y: 3.2, width: 16.8, height: 2.4, fill: '#6b4a2e' }));
     bob.appendChild(el('ellipse', { cx: -3.6, cy: -4, rx: 3.6, ry: 5.6, fill: '#ffffff', opacity: 0.2 }));
-    bob.appendChild(roadLimb('journey-leg-front', steel, 3.4, 9, 4.4, 10, 3.2, 1.9, '#4b5563'));
-    const armFront = roadLimb('journey-arm-front', steel, 7.6, -4, 4, 8.6, 2.2, 2.2, steelDark);
+    bob.appendChild(avatarLimb('journey-leg-front', steel, 3.4, 9, 4.4, 10, 3.2, 1.9, '#4b5563'));
+    const armFront = avatarLimb('journey-arm-front', steel, 7.6, -4, 4, 8.6, 2.2, 2.2, steelDark);
     const sword = el('g', { transform: 'translate(0,9.4) rotate(-150)' });
     sword.appendChild(el('rect', { x: -0.9, y: -3.6, width: 1.8, height: 4.6, rx: 0.6, fill: '#6b4a2e' }));
     sword.appendChild(el('rect', { x: -3.6, y: 0.6, width: 7.2, height: 1.6, rx: 0.6, fill: '#e7b443', stroke: '#8a5a12', 'stroke-width': 0.4 }));
@@ -1508,6 +1172,248 @@ const JourneyGame = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════
+  // Shared by the people themes (Corporate, Construction, Life Path): a
+  // round cartoon head — face, cheeks, a smile — with a choice of hair.
+  // ════════════════════════════════════════════════════════════════
+  function cartoonHead({ skin = '#ffd9ae', hair = '#4a2f1e', style = 'short', r = 9.2 } = {}) {
+    const head = el('g');
+    if (style === 'long') head.appendChild(el('path', { d: `M ${-r - 0.6} -1 Q ${-r - 1.4} ${r + 3} ${-r + 2} ${r + 4} L ${r - 2} ${r + 4} Q ${r + 1.4} ${r + 3} ${r + 0.6} -1 Z`, fill: hair }));
+    head.appendChild(el('circle', { cx: 0, cy: 0, r, fill: skin, stroke: '#1f2937', 'stroke-width': 1 }));
+    head.appendChild(el('ellipse', { cx: -3, cy: -3.4, rx: 4.4, ry: 3, fill: '#ffffff', opacity: 0.3 }));
+    if (style === 'short' || style === 'long') {
+      head.appendChild(el('path', { d: `M ${-r} -2.6 A ${r} ${r} 0 0 1 ${r} -2.6 L ${r - 0.4} -6.2 A ${r + 0.4} ${r * 0.7} 0 0 0 ${-r + 0.4} -6.2 Z`, fill: hair }));
+      head.appendChild(el('path', { d: 'M -6 -6.6 Q -1 -12.4 6.4 -6.4 Q 1 -8.6 -6 -6.6 Z', fill: hair }));
+    } else if (style === 'bun') {
+      head.appendChild(el('path', { d: `M ${-r} -2.6 A ${r} ${r} 0 0 1 ${r} -2.6 L ${r - 0.4} -6.2 A ${r + 0.4} ${r * 0.7} 0 0 0 ${-r + 0.4} -6.2 Z`, fill: hair }));
+      head.appendChild(el('circle', { cx: 0, cy: -r - 1.6, r: 3.4, fill: hair }));
+    }
+    [[-3.1, 1], [3.1, -1]].forEach(([ex]) => {
+      head.appendChild(el('ellipse', { cx: ex, cy: -1, rx: 2, ry: 2.4, fill: '#ffffff' }));
+      head.appendChild(el('circle', { cx: ex + 0.3, cy: -0.5, r: 1.25, fill: '#1f2937' }));
+      head.appendChild(el('circle', { cx: ex - 0.2, cy: -1.2, r: 0.5, fill: '#ffffff' }));
+    });
+    head.appendChild(el('path', { d: 'M -2.6 3.3 Q 0 5.2 2.6 3.3', fill: 'none', stroke: '#1f2937', 'stroke-width': 1.1, 'stroke-linecap': 'round' }));
+    head.appendChild(el('ellipse', { cx: -5.8, cy: 1.7, rx: 1.75, ry: 1.15, fill: '#ff9d8a', opacity: 0.55 }));
+    head.appendChild(el('ellipse', { cx: 5.8, cy: 1.7, rx: 1.75, ry: 1.15, fill: '#ff9d8a', opacity: 0.55 }));
+    return head;
+  }
+  // A small "pseudo-random" value from an index — scenery that has to look
+  // irregular (a skyline) but be identical on every redraw.
+  const hash01 = i => { const x = Math.sin(i * 12.9898 + 4.1414) * 43758.5453; return x - Math.floor(x); };
+  // Paper confetti for the business finishes: sheets that flutter down.
+  function paperRain(entry, cx, cy, n = 18) {
+    const { svg } = entry;
+    const gp = el('g');
+    svg.insertBefore(gp, entry.vignette);
+    const sheets = Array.from({ length: n }, (_, k) => {
+      const r = el('rect', { x: -3, y: -4, width: 6, height: 8, rx: 0.6, fill: k % 3 ? '#ffffff' : '#fde68a', stroke: '#94a3b8', 'stroke-width': 0.5 });
+      gp.appendChild(r);
+      return { r, x: cx + (hash01(k) - 0.5) * 120, y: cy - 60 - hash01(k + 9) * 40, sp: 30 + hash01(k + 3) * 30, ph: hash01(k + 5) * 6 };
+    });
+    const t0 = performance.now();
+    const step = now => {
+      if (!svg.isConnected) return;
+      const t = (now - t0) / 1000;
+      sheets.forEach(s => {
+        const x = s.x + Math.sin(t * 3 + s.ph) * 10, y = s.y + s.sp * t;
+        s.r.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${(Math.sin(t * 4 + s.ph) * 40).toFixed(0)})`);
+        s.r.setAttribute('opacity', Math.max(0, 1 - t / 2.4).toFixed(2));
+      });
+      if (t < 2.4) requestAnimationFrame(step); else gp.remove();
+    };
+    requestAnimationFrame(step);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // THEME: CORPORATE — "Road to the Boardroom". A professional in a suit
+  // walks a city sidewalk past KPI signboards to the company HQ, whose
+  // windows light up when the deal is closed. Blockers are piles of red
+  // tape, angry emails, ringing meeting clocks and a rival executive.
+  // ════════════════════════════════════════════════════════════════
+  function corporateDecorate(svg, layout, glowId, glowLgId) {
+    const { w, h } = layout;
+    svg.appendChild(el('circle', { cx: w * 0.14, cy: h * 0.1, r: w * 0.11, fill: '#fff4cf', opacity: 0.4, filter: glowLgId ? `url(#${glowLgId})` : undefined }));
+    svg.appendChild(el('circle', { cx: w * 0.14, cy: h * 0.1, r: w * 0.035, fill: '#fff7dd' }));
+    cloudGroup(svg, layout, [[0.36, 0.07, 0.8], [0.7, 0.12, 0.65]]);
+    // Two layers of skyline: hazy far towers, then a crisper near row.
+    [[0.31, '#a9bcd2', 0.55, 0.16, 0], [0.35, '#7f93ad', 0.85, 0.12, 50]].forEach(([base, color, op, maxH, seed]) => {
+      let x = -10;
+      for (let k = 0; x < w + 10; k++) {
+        const bw = w * (0.035 + hash01(k + seed) * 0.05);
+        const bh = h * (0.05 + hash01(k + seed + 17) * maxH);
+        const top = h * base - bh;
+        svg.appendChild(el('rect', { x, y: top, width: bw, height: bh + 2, fill: color, opacity: op }));
+        if (hash01(k + seed + 31) > 0.7) svg.appendChild(el('rect', { x: x + bw / 2 - 0.6, y: top - 9, width: 1.2, height: 9, fill: color, opacity: op }));
+        // rows of lit windows
+        for (let wy = top + 4; wy < h * base - 4; wy += 6) {
+          for (let wx = x + 3; wx < x + bw - 3; wx += 5) {
+            if (hash01(wx * 0.37 + wy * 0.11 + seed) > 0.55) svg.appendChild(el('rect', { x: wx, y: wy, width: 2, height: 2.4, fill: '#eef5ff', opacity: op * 0.8 }));
+          }
+        }
+        x += bw + 1.5;
+      }
+    });
+    // The plaza: paving with a light grid, and lawn strips.
+    svg.appendChild(el('rect', { x: 0, y: h * 0.35, width: w, height: h * 0.65, fill: '#d5dbe3' }));
+    for (let y = h * 0.4; y < h; y += 26) svg.appendChild(el('path', { d: `M 0 ${y} L ${w} ${y}`, stroke: '#c3cad4', 'stroke-width': 1 }));
+    for (let x = 18; x < w; x += 34) svg.appendChild(el('path', { d: `M ${x} ${h * 0.35} L ${x - 12} ${h}`, stroke: '#c9d0d9', 'stroke-width': 0.8 }));
+    // A city street along the foot of the skyline, with a few cars.
+    svg.appendChild(el('rect', { x: 0, y: h * 0.35, width: w, height: h * 0.045, fill: '#4b5563' }));
+    svg.appendChild(el('path', { d: `M 0 ${h * 0.3725} L ${w} ${h * 0.3725}`, stroke: '#fcd34d', 'stroke-width': 1.2, 'stroke-dasharray': '10 8' }));
+    svg.appendChild(el('rect', { x: 0, y: h * 0.395, width: w, height: 2, fill: '#9ca3af' }));
+    [[0.08, '#ef4444', 1], [0.29, '#fbbf24', -1], [0.55, '#3b82f6', 1], [0.78, '#f8fafc', -1], [0.93, '#10b981', 1]].forEach(([fx, c, dir]) => {
+      const cy = dir > 0 ? h * 0.383 : h * 0.362;
+      const car = el('g', { transform: `translate(${w * fx},${cy})` });
+      car.appendChild(el('rect', { x: -7, y: -3, width: 14, height: 4.4, rx: 1.6, fill: c, stroke: '#1f2937', 'stroke-width': 0.5 }));
+      car.appendChild(el('rect', { x: -3.6, y: -5.6, width: 7.2, height: 3, rx: 1.2, fill: c, stroke: '#1f2937', 'stroke-width': 0.5 }));
+      car.appendChild(el('rect', { x: -2.8, y: -5, width: 5.6, height: 1.8, fill: '#bfdbfe' }));
+      [-4, 4].forEach(wx => car.appendChild(el('circle', { cx: wx, cy: 1.6, r: 1.5, fill: '#111827' })));
+      svg.appendChild(car);
+    });
+    // A plaza fountain.
+    const fx0 = w * 0.62, fy0 = h * 0.7;
+    svg.appendChild(el('ellipse', { cx: fx0, cy: fy0, rx: 30, ry: 10, fill: '#94a3b8' }));
+    svg.appendChild(el('ellipse', { cx: fx0, cy: fy0 - 1, rx: 26, ry: 8, fill: '#7dd3fc' }));
+    svg.appendChild(el('ellipse', { cx: fx0 - 6, cy: fy0 - 2, rx: 10, ry: 2.4, fill: '#e0f2fe', opacity: 0.7 }));
+    svg.appendChild(el('rect', { x: fx0 - 2, y: fy0 - 14, width: 4, height: 12, fill: '#cbd5e1' }));
+    svg.appendChild(el('path', { d: `M ${fx0} ${fy0 - 14} Q ${fx0 - 10} ${fy0 - 22} ${fx0 - 14} ${fy0 - 4} M ${fx0} ${fy0 - 14} Q ${fx0 + 10} ${fy0 - 22} ${fx0 + 14} ${fy0 - 4}`, fill: 'none', stroke: '#bae6fd', 'stroke-width': 1.6, opacity: 0.9 }));
+    [[0.12, 0.62, 0.16], [0.82, 0.5, 0.14], [0.36, 0.9, 0.16]].forEach(([fx, fy, fr]) => {
+      svg.appendChild(el('ellipse', { cx: w * fx, cy: h * fy, rx: w * fr, ry: w * fr * 0.32, fill: '#8cc56a' }));
+      svg.appendChild(el('ellipse', { cx: w * fx - 4, cy: h * fy - 2, rx: w * fr * 0.8, ry: w * fr * 0.22, fill: '#9fd17c', opacity: 0.7 }));
+    });
+  }
+
+  // Trees in round planters and street lamps along the plaza.
+  function corporateScatter(layer, layout, isClear, rand) {
+    scatterProps(layer, layout, isClear, rand, {
+      count: 11, margin: 18, spacing: 42, minY: layout.h * 0.38, sway: true,
+      draw(g, v) {
+        g.appendChild(el('ellipse', { cx: 5, cy: 1, rx: 13, ry: 3.4, fill: '#0b1220', opacity: 0.18 }));
+        if (v < 0.65) {
+          g.appendChild(el('rect', { x: -1.6, y: -16, width: 3.2, height: 12, fill: '#6b4a2e' }));
+          g.appendChild(el('circle', { cx: 0, cy: -21, r: 9, fill: '#4f9a52' }));
+          g.appendChild(el('circle', { cx: -3, cy: -24, r: 4.4, fill: '#79bf6a', opacity: 0.85 }));
+          g.appendChild(el('path', { d: 'M -8 -6 L 8 -6 L 6 1 L -6 1 Z', fill: '#e5e7eb', stroke: '#64748b', 'stroke-width': 0.8 }));
+        } else {
+          g.appendChild(el('rect', { x: -0.9, y: -30, width: 1.8, height: 30, fill: '#334155' }));
+          g.appendChild(el('path', { d: 'M -0.9 -30 Q 6 -33 7 -27', fill: 'none', stroke: '#334155', 'stroke-width': 1.6 }));
+          g.appendChild(el('ellipse', { cx: 7, cy: -26.4, rx: 3.2, ry: 1.6, fill: '#fde68a' }));
+        }
+      },
+    });
+  }
+
+  // A professional in a navy suit, white shirt and red tie, carrying a
+  // briefcase in the back hand.
+  function corporateBuildAvatar(fill, shadowFilterId) {
+    const g = el('g', { class: 'journey-avatar' });
+    g.appendChild(el('ellipse', { cx: 0, cy: 24, rx: 15, ry: 3.6, fill: '#1f2937', opacity: 0.25 }));
+    const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    bob.appendChild(avatarLimb('journey-leg-back', '#1f2937', -3.4, 9, 4.2, 10, 3.4, 1.6, '#0b0f19'));
+    const armBack = avatarLimb('journey-arm-back', fill, -7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae');
+    armBack.firstChild.appendChild(el('rect', { x: -6, y: 10, width: 11, height: 7.6, rx: 1.4, fill: '#7c4a1e', stroke: '#3f2410', 'stroke-width': 0.7 }));
+    armBack.firstChild.appendChild(el('path', { d: 'M -2.4 10 L -2.4 8.4 L 1.4 8.4 L 1.4 10', fill: 'none', stroke: '#3f2410', 'stroke-width': 0.9 }));
+    armBack.firstChild.appendChild(el('rect', { x: -6, y: 12.6, width: 11, height: 1, fill: '#d4a24c' }));
+    bob.appendChild(armBack);
+    bob.appendChild(el('rect', { x: -8.6, y: -9, width: 17.2, height: 19, rx: 6, fill, stroke: '#1f2937', 'stroke-width': 1 }));
+    bob.appendChild(el('path', { d: 'M -3.6 -9 L 0 -1 L 3.6 -9 Z', fill: '#ffffff' }));
+    bob.appendChild(el('path', { d: 'M -1 -8.6 L 1 -8.6 L 1.7 -1 L 0 1.4 L -1.7 -1 Z', fill: '#d62839', stroke: '#7f1d1d', 'stroke-width': 0.4 }));
+    bob.appendChild(el('path', { d: 'M -3.6 -9 L -1.6 -2 M 3.6 -9 L 1.6 -2', stroke: '#0b1735', 'stroke-width': 0.9 }));
+    [3, 6].forEach(by => bob.appendChild(el('circle', { cx: 0, cy: by, r: 0.7, fill: '#0b1735' })));
+    bob.appendChild(el('ellipse', { cx: -4.4, cy: -3, rx: 2.6, ry: 5, fill: '#ffffff', opacity: 0.12 }));
+    bob.appendChild(avatarLimb('journey-leg-front', '#273244', 3.4, 9, 4.2, 10, 3.4, 1.6, '#0b0f19'));
+    bob.appendChild(avatarLimb('journey-arm-front', fill, 7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+    const head = cartoonHead({ hair: '#2b1b12' });
+    head.setAttribute('transform', 'translate(0,-18.5)');
+    bob.appendChild(head);
+    g.appendChild(bob);
+    return g;
+  }
+
+  // The company HQ: a glass tower with a boardroom crown and a beacon;
+  // its windows light up gold when the deal is closed.
+  function corporateBuildGoal(x, y, gradId, shadowFilterId, glowId) {
+    const g = el('g', { transform: `translate(${x},${y + 4}) scale(0.68)` });
+    g.appendChild(el('circle', { cx: 0, cy: -26, r: 46, fill: '#ffe08a', opacity: 0.28, filter: glowId ? `url(#${glowId})` : undefined }));
+    g.appendChild(el('ellipse', { cx: 0, cy: 3, rx: 40, ry: 6, fill: '#9aa5b1' }));
+    const body = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    // side wings
+    [[-30, 14, 26], [16, 14, 30]].forEach(([wx, ww, wh]) => {
+      body.appendChild(el('rect', { x: wx, y: 2 - wh, width: ww, height: wh, fill: '#cbd5e1', stroke: '#475569', 'stroke-width': 0.8 }));
+      for (let r = 0; r < 3; r++) body.appendChild(el('rect', { x: wx + 2, y: 6 - wh + r * 8, width: ww - 4, height: 3.6, class: 'journey-hq-window', fill: '#93b4d4' }));
+    });
+    // the tower
+    body.appendChild(el('rect', { x: -15, y: -64, width: 30, height: 66, fill: '#3f6e9e', stroke: '#1e3a5f', 'stroke-width': 1 }));
+    body.appendChild(el('rect', { x: -15, y: -64, width: 9, height: 66, fill: '#ffffff', opacity: 0.14 }));
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 4; c++) body.appendChild(el('rect', { x: -12 + c * 6.4, y: -58 + r * 6.8, width: 4.4, height: 4.2, class: 'journey-hq-window', fill: '#9cc0e3' }));
+    }
+    // entrance
+    body.appendChild(el('rect', { x: -6, y: -8, width: 12, height: 10, fill: '#1e293b' }));
+    body.appendChild(el('path', { d: 'M 0 -8 L 0 2', stroke: '#94a3b8', 'stroke-width': 0.8 }));
+    body.appendChild(el('rect', { x: -9, y: -10.6, width: 18, height: 2.6, fill: '#e2e8f0', stroke: '#475569', 'stroke-width': 0.5 }));
+    // boardroom crown and antenna
+    body.appendChild(el('path', { d: 'M -17 -64 L 17 -64 L 13 -74 L -13 -74 Z', fill: '#24476b', stroke: '#1e3a5f', 'stroke-width': 0.9 }));
+    body.appendChild(el('rect', { x: -11, y: -71.6, width: 22, height: 4.4, class: 'journey-hq-boardroom', fill: '#7aa6d2' }));
+    body.appendChild(el('rect', { x: -0.8, y: -86, width: 1.6, height: 12, fill: '#334155' }));
+    body.appendChild(el('circle', { class: 'journey-hq-beacon', cx: 0, cy: -87, r: 1.8, fill: '#ef4444' }));
+    const sign = el('text', { x: 0, y: -77, 'text-anchor': 'middle', 'font-size': 4.4, 'font-weight': 900, fill: '#fde68a', 'font-family': 'Arial, sans-serif', 'letter-spacing': 0.6 });
+    sign.textContent = 'HQ';
+    body.appendChild(sign);
+    g.appendChild(body);
+    // the signed contract, popping up over the entrance at the finish
+    const deal = el('g', { transform: 'translate(0,-36)' });
+    const dealInner = el('g', { class: 'journey-deal-pop' });
+    dealInner.appendChild(el('rect', { x: -9, y: -12, width: 18, height: 23, rx: 1.4, fill: '#ffffff', stroke: '#475569', 'stroke-width': 0.8 }));
+    [-7, -3.4, 0.2].forEach(ly => dealInner.appendChild(el('path', { d: `M -6 ${ly} L 6 ${ly}`, stroke: '#cbd5e1', 'stroke-width': 1 })));
+    dealInner.appendChild(el('path', { d: 'M -6 6 C -3 2 -1 9 2 4 C 3 3 4 6 6 5', fill: 'none', stroke: '#1d4ed8', 'stroke-width': 1 }));
+    dealInner.appendChild(el('circle', { cx: 6, cy: 8, r: 3.4, fill: '#dc2626' }));
+    deal.appendChild(dealInner);
+    g.appendChild(deal);
+    g.appendChild(sparkles([[-24, -60, 2.2], [22, -48, 1.8]]));
+    return g;
+  }
+
+  // A checkpoint: a KPI signboard on a post — a little bar chart while
+  // pending, turned green with a tick and a rising arrow once done.
+  function corporateBuildCheckpoint(i, isDone, isNext, blocked, scale, shadowFilterId) {
+    const s = scale;
+    const g = el('g', { class: 'journey-flag' });
+    if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 0, cy: -24 * s, r: 15 * s, fill: NEXT_COLOR, opacity: 0.5 }));
+    g.appendChild(el('ellipse', { cx: 1.5 * s, cy: 0.5 * s, rx: 6 * s, ry: 1.6 * s, fill: '#0b1220', opacity: 0.22 }));
+    g.appendChild(el('rect', { x: -0.9 * s, y: -20 * s, width: 1.8 * s, height: 20 * s, fill: '#475569' }));
+    const board = el('g', { class: 'journey-flag-wave' });
+    board.appendChild(el('rect', {
+      x: -9 * s, y: -33 * s, width: 18 * s, height: 13 * s, rx: 1.6 * s,
+      fill: isDone ? '#10b981' : '#ffffff', stroke: isNext ? '#b45309' : '#334155', 'stroke-width': (isNext ? 1.2 : 0.7) * s,
+      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
+    }));
+    if (isDone) {
+      board.appendChild(el('path', { d: `M ${-5 * s} ${-26 * s} L ${-2 * s} ${-23 * s} L ${4.6 * s} ${-30 * s}`, fill: 'none', stroke: '#ffffff', 'stroke-width': 1.8 * s, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    } else {
+      [[0, 4], [1, 6.5], [2, 5], [3, 8.5]].forEach(([k, bh]) => board.appendChild(el('rect', { x: (-7 + k * 2.6) * s, y: (-22 - bh) * s, width: 1.8 * s, height: bh * s, fill: isNext ? '#f59e0b' : '#94a3b8' })));
+      const label = el('text', { x: 4.6 * s, y: -26 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 6.6 * s, 'font-weight': 800, fill: '#1f2937', 'font-family': 'Arial, sans-serif' });
+      label.textContent = String(i + 1);
+      board.appendChild(label);
+    }
+    g.appendChild(board);
+    if (blocked) g.appendChild(drawFoes(blocked, s, CORPORATE_FOES));
+    return g;
+  }
+
+  // The corporate finish: the HQ windows light up, the signed contract
+  // pops over the entrance, paper confetti flutters down, "DEAL CLOSED!".
+  function corporateCelebrateFinish(entry, from, scale, burst) {
+    entry.shotPending = false;
+    entry.svg.classList.add('journey-quest-done');
+    const deal = entry.svg.querySelector('.journey-deal-pop');
+    if (deal) { deal.classList.remove('journey-deal-anim'); deal.getBBox(); deal.classList.add('journey-deal-anim'); }
+    paperRain(entry, entry.goalPt.x, entry.goalPt.y);
+    finishFlourish(entry, 'DEAL CLOSED!', '#fde68a', '#1e3a5f', ['#fde68a', '#93c5fd', '#86efac']);
+    burst();
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // OBSTACLES — each task's named obstacles become that many enemies on
   // the road before its flag, drawn in the theme's own style (rival
   // players, mini-bosses, sharks, asteroids...), with the obstacle's name
@@ -1546,12 +1452,6 @@ const JourneyGame = (() => {
     return g;
   }
   // One enemy per theme, drawn at its feet (0,0), about 20 units tall.
-  const ROAD_FOES = g => {
-    g.appendChild(el('rect', { x: -9, y: -14, width: 2.6, height: 14, rx: 1, fill: '#6b4a2a' }));
-    g.appendChild(el('rect', { x: 6.4, y: -14, width: 2.6, height: 14, rx: 1, fill: '#6b4a2a' }));
-    g.appendChild(el('rect', { x: -11, y: -13, width: 22, height: 5, rx: 1.6, fill: '#f97316', stroke: '#7c2d12', 'stroke-width': 0.7 }));
-    [-9, -1, 7].forEach(x => g.appendChild(el('rect', { x, y: -13, width: 4, height: 5, fill: '#fff', opacity: 0.9 })));
-  };
   const SPACE_FOES = (g, k) => {
     if (k % 2 === 0) {
       g.appendChild(el('path', { d: 'M -10 -8 L -5 -17 L 5 -16 L 10 -7 L 7 2 L -4 3 L -11 -2 Z', fill: '#6b6f8a', stroke: '#2f3347', 'stroke-width': 0.8 }));
@@ -1579,17 +1479,40 @@ const JourneyGame = (() => {
       g.appendChild(el('circle', { cx: 8, cy: -8.4, r: 0.8, fill: '#0f172a' }));
     }
   };
-  const RACE_FOES = (g, k) => {
-    if (k % 2 === 0) {
-      [0, -5, -10].forEach(ty => {
-        g.appendChild(el('ellipse', { cx: 0, cy: ty, rx: 5, ry: 2.4, fill: '#1f2937', stroke: '#111827', 'stroke-width': 0.4 }));
-        g.appendChild(el('ellipse', { cx: 0, cy: ty - 0.4, rx: 2.2, ry: 1, fill: '#4b5563' }));
-      });
+  // Corporate: red-tape paperwork, an angry email, a ringing meeting
+  // clock and a smug rival executive, in turn.
+  const CORPORATE_FOES = (g, k) => {
+    const kind = k % 4;
+    if (kind === 0) {
+      [[-8, -4, -3], [-7.4, -8, 2], [-8.2, -12, -2], [-7.6, -16, 1]].forEach(([x, y, rot]) => g.appendChild(el('rect', { x, y, width: 16, height: 4, rx: 0.6, fill: '#fffaf0', stroke: '#9ca3af', 'stroke-width': 0.6, transform: `rotate(${rot})` })));
+      g.appendChild(el('path', { d: 'M -8 -17 L 8 -1 M 8 -17 L -8 -1', stroke: '#dc2626', 'stroke-width': 2, 'stroke-linecap': 'round' }));
+      g.appendChild(el('circle', { cx: 0, cy: -9, r: 2.2, fill: '#b91c1c' }));
+    } else if (kind === 1) {
+      g.appendChild(el('rect', { x: -10, y: -16, width: 20, height: 14, rx: 1.6, fill: '#ffffff', stroke: '#475569', 'stroke-width': 0.9 }));
+      g.appendChild(el('path', { d: 'M -10 -16 L 0 -8 L 10 -16', fill: 'none', stroke: '#475569', 'stroke-width': 0.9 }));
+      g.appendChild(el('path', { d: 'M -5 -11 L -2 -9.6 M 5 -11 L 2 -9.6', stroke: '#1f2937', 'stroke-width': 1.1, 'stroke-linecap': 'round' }));
+      g.appendChild(el('path', { d: 'M -3 -4.6 Q 0 -6.6 3 -4.6', fill: 'none', stroke: '#1f2937', 'stroke-width': 1, 'stroke-linecap': 'round' }));
+      g.appendChild(el('circle', { cx: 9.4, cy: -16.4, r: 3.6, fill: '#ef4444' }));
+      const n = el('text', { x: 9.4, y: -15.2, 'text-anchor': 'middle', 'font-size': 4.6, 'font-weight': 900, fill: '#ffffff', 'font-family': 'Arial, sans-serif' });
+      n.textContent = '!';
+      g.appendChild(n);
+    } else if (kind === 2) {
+      g.appendChild(el('path', { d: 'M -6 -1 L -4 -4 M 6 -1 L 4 -4', stroke: '#374151', 'stroke-width': 1.4, 'stroke-linecap': 'round' }));
+      [-6.4, 6.4].forEach(bx => g.appendChild(el('circle', { cx: bx, cy: -17.4, r: 3.2, fill: '#f59e0b', stroke: '#92400e', 'stroke-width': 0.6 })));
+      g.appendChild(el('circle', { cx: 0, cy: -10, r: 8, fill: '#ef4444', stroke: '#7f1d1d', 'stroke-width': 0.8 }));
+      g.appendChild(el('circle', { cx: 0, cy: -10, r: 6, fill: '#ffffff' }));
+      g.appendChild(el('path', { d: 'M 0 -10 L 0 -14.4 M 0 -10 L 3 -9', stroke: '#1f2937', 'stroke-width': 1, 'stroke-linecap': 'round' }));
+      g.appendChild(el('path', { d: 'M -12 -16 L -14.6 -18 M -12.6 -11 L -15.6 -11 M 12 -16 L 14.6 -18 M 12.6 -11 L 15.6 -11', stroke: '#f59e0b', 'stroke-width': 1.1, 'stroke-linecap': 'round' }));
     } else {
-      // a rival car
-      g.appendChild(el('rect', { x: -10, y: -9, width: 20, height: 7, rx: 3, fill: '#2563eb', stroke: '#1e3a8a', 'stroke-width': 0.7 }));
-      g.appendChild(el('path', { d: 'M -5 -9 L -3 -13 L 4 -13 L 6 -9 Z', fill: '#93c5fd', stroke: '#1e3a8a', 'stroke-width': 0.5 }));
-      [-6, 6].forEach(x => g.appendChild(el('circle', { cx: x, cy: -1.6, r: 2.6, fill: '#111827' })));
+      g.appendChild(el('rect', { x: -3.4, y: -7, width: 2.6, height: 7, fill: '#374151' }));
+      g.appendChild(el('rect', { x: 0.8, y: -7, width: 2.6, height: 7, fill: '#374151' }));
+      g.appendChild(el('rect', { x: -5.6, y: -16, width: 11.2, height: 10, rx: 3.6, fill: '#6b7280', stroke: '#1f2937', 'stroke-width': 0.7 }));
+      g.appendChild(el('path', { d: 'M -5 -11 L 5 -11', stroke: '#4b5563', 'stroke-width': 2.4, 'stroke-linecap': 'round' }));
+      g.appendChild(el('path', { d: 'M -1 -16 L 0 -12 L 1 -16 Z', fill: '#111827' }));
+      g.appendChild(el('circle', { cx: 0, cy: -20.4, r: 4.6, fill: '#f1c7a0', stroke: '#1f2937', 'stroke-width': 0.6 }));
+      g.appendChild(el('path', { d: 'M -4.6 -21 Q -4 -26 0 -25.4 Q 4.6 -26 4.6 -21 Q 2 -23.4 -4.6 -21 Z', fill: '#9ca3af' }));
+      g.appendChild(el('path', { d: 'M -3 -21 L -1 -20.4 M 3 -21 L 1 -20.4', stroke: '#1f2937', 'stroke-width': 0.8, 'stroke-linecap': 'round' }));
+      g.appendChild(el('path', { d: 'M -1.6 -17.8 Q 0.6 -17 2 -18.4', fill: 'none', stroke: '#1f2937', 'stroke-width': 0.7, 'stroke-linecap': 'round' }));
     }
   };
   const FOOTBALL_FOES = g => {
@@ -1632,13 +1555,6 @@ const JourneyGame = (() => {
   // and passed in as state.theme on every sync() call.
   // ════════════════════════════════════════════════════════════════
   const THEMES = {
-    road: {
-      label: 'Road', avatarFill: '#ff6b5b',
-      sky: [[0, '#4e8fd6'], [30, '#7fb8e8'], [58, '#bfe2f5'], [82, '#ffe4ae'], [100, '#ffcf8a']],
-      goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
-      path: { outline: '#d8a862', fill: '#fff6e4', dash: '#f4a53b', progress: '#ffe28a' },
-      decorate: roadDecorate, scatter: roadScatter, buildAvatar: roadBuildAvatar, buildGoal: roadBuildGoal, buildCheckpoint: roadBuildCheckpoint, foes: ROAD_FOES,
-    },
     space: {
       label: 'Space', avatarFill: '#ef4444',
       sky: [[0, '#0f0a2e'], [50, '#2a1760'], [100, '#4b2e83']],
@@ -1654,13 +1570,6 @@ const JourneyGame = (() => {
       path: { outline: '#c9a46a', fill: '#f0e2c0', dash: '#2f9e6e', progress: '#34d399' },
       decorate: oceanDecorate, scatter: oceanScatter, buildAvatar: oceanBuildAvatar, buildGoal: oceanBuildGoal, buildCheckpoint: oceanBuildCheckpoint, foes: OCEAN_FOES,
       celebrateFinish: oceanCelebrateFinish,
-    },
-    race: {
-      label: 'Race', avatarFill: '#ef4444',
-      sky: [[0, '#334155'], [8, '#62a95a'], [100, '#6fb865']],
-      goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
-      path: { outline: '#1f2937', fill: '#6b7280', dash: '#ffffff', progress: '#fde047' },
-      decorate: raceDecorate, scatter: raceScatter, buildAvatar: raceBuildAvatar, buildGoal: raceBuildGoal, buildCheckpoint: raceBuildCheckpoint, foes: RACE_FOES,
     },
     football: {
       label: 'Football', avatarFill: '#e53935',
@@ -1682,8 +1591,16 @@ const JourneyGame = (() => {
       // of walking into the gate.
       finishAtLastFlag: true, celebrateFinish: castleCelebrateFinish,
     },
+    corporate: {
+      label: 'Corporate', avatarFill: '#1e3a8a', clearedWord: 'APPROVED!',
+      sky: [[0, '#5b9bd5'], [22, '#a8cdef'], [33, '#e6eef6'], [35, '#cfd6df'], [100, '#bcc5d0']],
+      goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
+      path: { outline: '#475569', fill: '#f8fafc', dash: '#f59e0b', progress: '#fde68a' },
+      decorate: corporateDecorate, scatter: corporateScatter, buildAvatar: corporateBuildAvatar, buildGoal: corporateBuildGoal, buildCheckpoint: corporateBuildCheckpoint, foes: CORPORATE_FOES,
+      celebrateFinish: corporateCelebrateFinish,
+    },
   };
-  function resolveThemeKey(key) { return THEMES[key] ? key : 'road'; }
+  function resolveThemeKey(key) { return THEMES[key] ? key : 'football'; }
   function getTheme(key) { return THEMES[resolveThemeKey(key)]; }
 
   let containers = new WeakMap(); // container -> { svg, ro, state, paused }
@@ -1977,7 +1894,7 @@ const JourneyGame = (() => {
   // The completed task's own title, floating up beside its flag and fading
   // away — a quick "what did I just finish?" readout, not a modal.
   // kind 'foe': a ticked-off obstacle's name, in green, over "ELIMINATED!".
-  function spawnTaskPopup(entry, x, y, text, kind) {
+  function spawnTaskPopup(entry, x, y, text, kind, sub = 'ELIMINATED!') {
     if (!entry || !entry.svg.isConnected || !text) return;
     const label = (kind === 'foe' ? '✓ ' : '') + (text.length > 28 ? text.slice(0, 27) + '…' : text);
     const outer = el('g', { class: 'journey-task-popup' + (kind === 'foe' ? ' journey-foe-popup' : ''), transform: `translate(${x},${y - 34})` });
@@ -1986,9 +1903,9 @@ const JourneyGame = (() => {
     txt.textContent = label;
     inner.appendChild(txt);
     if (kind === 'foe') {
-      const sub = el('text', { class: 'journey-foe-popup-sub', x: 0, y: 13, 'text-anchor': 'middle' });
-      sub.textContent = 'ELIMINATED!';
-      inner.appendChild(sub);
+      const subEl = el('text', { class: 'journey-foe-popup-sub', x: 0, y: 13, 'text-anchor': 'middle' });
+      subEl.textContent = sub;
+      inner.appendChild(subEl);
     }
     outer.appendChild(inner);
     entry.popupLayer.appendChild(outer);
@@ -2110,7 +2027,7 @@ const JourneyGame = (() => {
           g.appendChild(ko);
           requestAnimationFrame(() => ko.classList.add('journey-foes-defeated'));
           setTimeout(() => ko.remove(), 750);
-          if (celebrate) setTimeout(() => spawnTaskPopup(current(), pt.x - 34 * scale, pt.y - 62 * scale - j * 30, o.name, 'foe'), j * 450);
+          if (celebrate) setTimeout(() => spawnTaskPopup(current(), pt.x - 34 * scale, pt.y - 62 * scale - j * 30, o.name, 'foe', theme.clearedWord), j * 450);
         });
       }
       const pos = el('g', { transform: `translate(${pt.x},${pt.y})` });
@@ -2214,6 +2131,7 @@ const JourneyGame = (() => {
     castle3d: { module: '/js/journeyCastle3d.js', factory: 'createCastle3D', fallback: 'castle', failed: false, loading: null },
     ocean3d: { module: '/js/journeyOcean3d.js', factory: 'createOcean3D', fallback: 'ocean', failed: false, loading: null },
     space3d: { module: '/js/journeySpace3d.js', factory: 'createSpace3D', fallback: 'space', failed: false, loading: null },
+    corporate3d: { module: '/js/journeyCorporate3d.js', factory: 'createCorporate3D', fallback: 'corporate', failed: false, loading: null },
   };
   const instances3d = new Set();
   let webglOk = null;
