@@ -46,6 +46,8 @@ function injectKitStyles() {
       100% { opacity: 0; transform: translateY(-26px) scale(.96); }
     }
     .jk-task-label-foe .jk-task-label-inner { background: #15803d; color: #fff; text-align: center; animation-duration: 2.8s; }
+    .jk-task-label-done .jk-task-label-inner { background: linear-gradient(180deg, #f59e0b, #ea580c); color: #fff; text-align: center; animation-duration: 2.8s; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+    .jk-task-label-done .jk-task-label-inner small { color: #fff7d6; }
     .jk-task-label-inner small { display: block; font: 900 10px system-ui, sans-serif; letter-spacing: .14em; color: #fde68a; }
     @media (prefers-reduced-motion: reduce) { .jk-win div, .jk-task-label-inner { animation: none; } }
   `;
@@ -116,16 +118,17 @@ export function createShell(container, { label, background, loadingText, winTitl
   // Completed task titles float above their checkpoint, re-projected to
   // the screen every frame so they stay put as the camera moves.
   const activeLabels = [];
-  // kind 'foe': a ticked-off obstacle's name, in green, over `sub`
-  // ("ELIMINATED!" by default; each stage can use its own word).
-  function spawnTaskLabel(worldPos, text, kind, sub = 'ELIMINATED!') {
+  // A completed task's title over "COMPLETED!" (in orange), or with kind
+  // 'foe' a ticked-off obstacle's name over `sub` (in green; "ELIMINATED!"
+  // by default, each stage can use its own word).
+  function spawnTaskLabel(worldPos, text, kind = 'done', sub) {
     if (!text) return;
     const outer = document.createElement('div');
-    outer.className = 'jk-task-label' + (kind === 'foe' ? ' jk-task-label-foe' : '');
+    outer.className = 'jk-task-label ' + (kind === 'foe' ? 'jk-task-label-foe' : 'jk-task-label-done');
     const li = document.createElement('div');
     li.className = 'jk-task-label-inner';
-    li.textContent = (kind === 'foe' ? '✓ ' : '') + (text.length > 28 ? text.slice(0, 27) + '…' : text);
-    if (kind === 'foe') { const subEl = document.createElement('small'); subEl.textContent = sub; li.appendChild(subEl); }
+    li.textContent = '✓ ' + (text.length > 28 ? text.slice(0, 27) + '…' : text);
+    const subEl = document.createElement('small'); subEl.textContent = sub || (kind === 'foe' ? 'ELIMINATED!' : 'COMPLETED!'); li.appendChild(subEl);
     outer.appendChild(li);
     labelLayer.appendChild(outer);
     const rec = { el: outer, pos: worldPos.clone() };
@@ -134,7 +137,7 @@ export function createShell(container, { label, background, loadingText, winTitl
       outer.remove();
       const idx = activeLabels.indexOf(rec);
       if (idx >= 0) activeLabels.splice(idx, 1);
-    }, kind === 'foe' ? 2800 : 2200));
+    }, 2800));
   }
   const tmp = new THREE.Vector3();
   function updateTaskLabels(camera) {

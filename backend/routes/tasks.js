@@ -69,7 +69,7 @@ router.put('/:id', (req, res) => {
       notifyAssigned(task.assigneeId, task, project?.title || '', assignedByName).catch(e => console.error('Assigned email failed:', e.message));
     }
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    res.status(e.code ? 409 : 400).json({ error: e.message, code: e.code, names: e.names });
   }
 });
 
@@ -211,6 +211,18 @@ router.post('/:id/obstacles', (req, res) => {
     const obstacle = db.addObstacle(req.session.userId, req.params.id, req.body || {});
     if (!obstacle) return res.status(404).json({ error: 'Task not found' });
     res.status(201).json(obstacle);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// PUT /api/tasks/:id/predecessors — { predecessorIds: [...] } replaces the
+// tasks this one waits on (finish-to-start).
+router.put('/:id/predecessors', (req, res) => {
+  try {
+    const task = db.setTaskPredecessors(req.session.userId, req.params.id, (req.body || {}).predecessorIds);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+    res.json(task);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

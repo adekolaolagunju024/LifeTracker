@@ -619,7 +619,7 @@ function listTasks(userId, filters = {}) {
   if (filters.search)      { sql += ' AND LOWER(t.title) LIKE ?'; params.push('%' + filters.search.toLowerCase() + '%'); }
   sql += ' ORDER BY t.sortOrder ASC, t.createdAt ASC';
   const tasks = db.prepare(sql).all(...params).map(t => ({ ...t, cost: t.cost || 0 }));
-  return attachObstaclesToTasks(attachTagsToTasks(tasks));
+  return attachDependenciesToTasks(attachObstaclesToTasks(attachTagsToTasks(tasks)));
 }
 
 function getTaskById(userId, id) {
@@ -627,6 +627,7 @@ function getTaskById(userId, id) {
   if (!task) return task;
   task.tags = getTaskTags(id);
   attachObstaclesToTasks([task]);
+  attachDependenciesToTasks([task]);
   return task;
 }
 
@@ -726,6 +727,7 @@ function updateTaskById(userId, id, patch) {
   // Tracks WHEN a task was finished (nothing did before) — the momentum
   // streak needs this to know whether the user completed anything today.
   // Cleared if a task is reopened, same as any other derived-from-status field.
+  if (next.status !== current.status) assertCanChangeStatus(current, next.status);
   const justCompleted = current.status !== 'Completed' && next.status === 'Completed';
   const completedAt = justCompleted ? new Date().toISOString() : (next.status !== 'Completed' ? null : current.completedAt);
   db.prepare(`
@@ -1151,6 +1153,86 @@ function addObstacle(userId, taskId, { name, count } = {}) {
     .run(obstacle.id, obstacle.taskId, obstacle.userId, obstacle.name, obstacle.count, obstacle.createdAt);
   return { id: obstacle.id, name: obstacle.name, count: obstacle.count, resolved: false };
 }
+// ── TASK GATES: blockers and predecessors ─────────────────────────────
+// A task can't be completed while any of its named blockers is still
+// pending, and can't start (or be completed) until all of its predecessor
+// tasks are done. Moving a task back to Not Started is always allowed.
+function pendingPredecessors(task) {
+  return (task.predecessors || []).filter(p => p.status !== 'Completed');
+}
+function gateError(message, code, names) {
+  const e = new Error(message);
+  e.code = code; e.names = names;
+  return e;
+}
+function assertCanChangeStatus(task, nextStatus) {
+  if (nextStatus === 'Not Started') return;
+  const waiting = pendingPredecessors(task);
+  if (waiting.length) {
+    const names = waiting.map(p => p.title);
+    throw gateError(`Can't ${nextStatus === 'Completed' ? 'complete' : 'start'} "${task.title}" yet: it's waiting on ${names.map(n => `"${n}"`).join(', ')}`, 'WAITING_ON_PREDECESSORS', names);
+  }
+  if (nextStatus === 'Completed') {
+    const blockers = (task.obstacles || []).filter(o => !o.resolved);
+    if (blockers.length) {
+      const names = blockers.map(o => o.name);
+      throw gateError(`Clear the blockers on "${task.title}" first: ${names.map(n => `"${n}"`).join(', ')}`, 'BLOCKERS_PENDING', names);
+    }
+  }
+}
+function attachDependenciesToTasks(tasks) {
+  if (!tasks.length) return tasks;
+  const placeholders = tasks.map(() => '?').join(',');
+  const rows = db.prepare(`SELECT d.taskId, p.id, p.title, p.status FROM task_dependencies d JOIN tasks p ON p.id = d.predecessorId
+    WHERE d.taskId IN (${placeholders}) AND p.deletedAt IS NULL ORDER BY d.createdAt ASC`).all(...tasks.map(t => t.id));
+  const byTask = {};
+  rows.forEach(r => { (byTask[r.taskId] = byTask[r.taskId] || []).push({ id: r.id, title: r.title, status: r.status }); });
+  tasks.forEach(t => { t.predecessors = byTask[t.id] || []; });
+  return tasks;
+}
+// Would making `predecessorId` a predecessor of `taskId` close a loop?
+// (It would if taskId is already, directly or not, a predecessor of it.)
+function createsCycle(taskId, predecessorId) {
+  const seen = new Set();
+  const stack = [predecessorId];
+  const preds = db.prepare('SELECT predecessorId FROM task_dependencies WHERE taskId = ?');
+  while (stack.length) {
+    const id = stack.pop();
+    if (id === taskId) return true;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    preds.all(id).forEach(r => stack.push(r.predecessorId));
+  }
+  return false;
+}
+// Replaces a task's predecessors with `predecessorIds`. Each must be another
+// live task in the same project (or its sub-folders), and no loops.
+function setTaskPredecessors(userId, taskId, predecessorIds = []) {
+  const task = getTaskById(userId, taskId);
+  if (!task) return null;
+  assertCanEditProject(userId, task.projectId);
+  const ids = [...new Set((Array.isArray(predecessorIds) ? predecessorIds : []).filter(Boolean))];
+  const home = topLevelProjectId(task.projectId);
+  ids.forEach(pid => {
+    if (pid === taskId) throw new Error("A task can't depend on itself");
+    const pred = getTaskById(userId, pid);
+    if (!pred || topLevelProjectId(pred.projectId) !== home) throw new Error('Predecessors must be tasks in the same project');
+  });
+  const now = new Date().toISOString();
+  db.transaction(() => {
+    db.prepare('DELETE FROM task_dependencies WHERE taskId = ?').run(taskId);
+    const insert = db.prepare('INSERT INTO task_dependencies (taskId, predecessorId, userId, createdAt) VALUES (?,?,?,?)');
+    ids.forEach((pid, k) => {
+      if (createsCycle(taskId, pid)) {
+        const pred = getTaskById(userId, pid);
+        throw new Error(`"${pred.title}" already depends on this task, so it can't also come before it`);
+      }
+      insert.run(taskId, pid, userId, new Date(Date.parse(now) + k).toISOString());
+    });
+  })();
+  return getTaskById(userId, taskId);
+}
+
 // Returns the updated obstacle, or null when it doesn't exist or isn't visible.
 function updateObstacle(userId, obstacleId, changes = {}) {
   const row = db.prepare('SELECT * FROM task_obstacles WHERE id = ?').get(obstacleId);
@@ -1608,7 +1690,7 @@ function getProjectSnapshot(userId, projectId) {
 }
 
 module.exports = {
-  listObstacles, addObstacle, updateObstacle, deleteObstacle,
+  listObstacles, addObstacle, updateObstacle, deleteObstacle, setTaskPredecessors,
   createUser, getUserByEmail, getUserById, setUserPasswordHash, deleteUser,
   setPasswordResetToken, getUserByResetToken, clearPasswordResetToken,
   getProfile, updateProfile, listUsersForDigest, setLastDigestSentDate,

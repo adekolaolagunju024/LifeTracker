@@ -82,6 +82,12 @@
     .hero-bar-fill { background: linear-gradient(90deg, #0A7E8C, #C49A00); }
     .goals-bar-fill { background: linear-gradient(90deg, #0A7E8C, #1A7A4A); }
     .gantt-bar-area { position: relative; overflow: hidden; display: flex; align-items: center; }
+    /* Dependency arrows (finish-to-start) drawn over the rows, behind the bars. */
+    #gantt-rows { position: relative; }
+    .gantt-dep-layer { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 2; overflow: visible; }
+    .gantt-dep-layer path { fill: none; stroke-width: 1.6; }
+    .gantt-dep-layer .gantt-dep-done { stroke: #64748b; }
+    .gantt-dep-layer .gantt-dep-waiting { stroke: #f59e0b; stroke-dasharray: 5 3; }
     .gantt-bar { position: absolute; height: 20px; border-radius: 3px; min-width: 4px; display: flex; align-items: center; overflow: visible; box-sizing: border-box; z-index: 3; cursor: grab; }
     .gantt-bar:active { cursor: grabbing; }
     .gantt-bar-label { pointer-events: none; }
@@ -263,6 +269,7 @@
     .journey-quest-foe-btn:hover { background: var(--quest-hover); }
     .journey-quest-foe-btn:focus-visible { outline: 2px solid var(--quest-accent); outline-offset: 1px; }
     /* A task's blockers, ticked off one by one right under its row. */
+    .journey-waiting { display: flex; align-items: center; gap: 6px; margin: -2px 0 4px 40px; padding: 2px 8px; font-size: 11.5px; font-weight: 700; color: #fcd34d; opacity: .95; }
     .journey-blocker-list { display: flex; flex-direction: column; gap: 2px; margin: -2px 0 4px 40px; }
     .journey-blocker-row { display: flex; align-items: center; gap: 7px; padding: 3px 8px; border-radius: 8px; font-size: 12px; font-weight: 600; color: #fca5a5; cursor: pointer; min-width: 0; }
     .journey-blocker-row:hover { background: var(--quest-hover); }
@@ -503,6 +510,11 @@
     .journey-foe-popup .journey-task-popup-text { fill: #ffffff; }
     .journey-foe-popup-sub { font-size: 9px; font-weight: 900; letter-spacing: 1.5px; fill: #fde68a; font-family: Arial, sans-serif; dominant-baseline: middle; }
     .journey-foe-popup .journey-task-popup-inner { animation-duration: 2.8s; }
+    /* A completed task: its title over "COMPLETED!", in celebration orange. */
+    .journey-done-popup .journey-task-popup-bg { fill: #f97316; fill-opacity: .97; }
+    .journey-done-popup .journey-task-popup-text { fill: #ffffff; }
+    .journey-done-popup .journey-foe-popup-sub { fill: #fff7d6; }
+    .journey-done-popup .journey-task-popup-inner { animation-duration: 2.8s; }
     @keyframes journey-task-popup {
       0% { opacity: 0; transform: translateY(6px) scale(.85); }
       12% { opacity: 1; transform: translateY(0) scale(1); }
@@ -2235,7 +2247,7 @@
 
     <div class="border-t border-gray-100 pt-4 mb-5">
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">⚔️ Obstacles</p>
-      <p class="text-xs text-gray-400 mb-2">What's standing in the way. Each one shows on the Journey as enemies on the road before this task's flag, and finishing the task clears them.</p>
+      <p class="text-xs text-gray-400 mb-2">What's standing in the way. Each one shows on the Journey as enemies on the road before this task's flag. Tick each one off as it's cleared: the task can't be completed until they all are.</p>
       <div id="td-obstacles" class="space-y-1.5 mb-2"></div>
       <div id="td-obstacle-box" class="flex gap-2 items-center">
         <input type="text" id="td-obstacle-name" maxlength="80" placeholder="e.g. Waiting on the supplier quote" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitObstacle();}"
@@ -2245,6 +2257,19 @@
           <option value="1">×1</option><option value="2">×2</option><option value="3">×3</option><option value="4">×4</option><option value="5">×5</option>
         </select>
         <button onclick="submitObstacle()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0">Add</button>
+      </div>
+    </div>
+
+    <div class="border-t border-gray-100 pt-4 mb-5">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">🔗 Predecessors</p>
+      <p class="text-xs text-gray-400 mb-2">Tasks that must be finished before this one can start.</p>
+      <div id="td-predecessors" class="flex flex-wrap gap-1.5 mb-2"></div>
+      <div id="td-predecessor-box" class="flex gap-2 items-center">
+        <label class="sr-only" for="td-predecessor-pick">Add a predecessor</label>
+        <select id="td-predecessor-pick" class="flex-1 min-w-0 border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white focus:outline-none focus:border-teal">
+          <option value="">Add a task this one waits on…</option>
+        </select>
+        <button onclick="addPredecessor()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0">Add</button>
       </div>
     </div>
 

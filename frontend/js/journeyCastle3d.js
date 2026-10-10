@@ -58,6 +58,8 @@ function injectStyles() {
       100% { opacity: 0; transform: translateY(-26px) scale(.96); }
     }
     .jc3d-task-label-foe .jc3d-task-label-inner { background: #15803d; color: #fff; text-align: center; animation-duration: 2.8s; }
+    .jc3d-task-label-done .jc3d-task-label-inner { background: linear-gradient(180deg, #f59e0b, #ea580c); color: #fff; text-align: center; animation-duration: 2.8s; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+    .jc3d-task-label-done .jc3d-task-label-inner small { color: #fff7d6; }
     .jc3d-task-label-inner small { display: block; font: 900 10px system-ui, sans-serif; letter-spacing: .14em; color: #fde68a; }
     @media (prefers-reduced-motion: reduce) { .jc3d-win div, .jc3d-task-label-inner { animation: none; } }
   `;
@@ -1374,16 +1376,17 @@ export function createCastle3D(container) {
   // they track their banner as the follow-cam moves, instead of a
   // position computed once at spawn that drifts off as the camera pans.
   const activeLabels = [];
-  // kind 'foe': a ticked-off obstacle's name, in green, over "ELIMINATED!".
-  function spawnTaskLabel(worldPos, text, kind) {
+  // A completed task's title over "COMPLETED!" (in orange), or with kind
+  // 'foe' a ticked-off obstacle's name over "ELIMINATED!" (in green).
+  function spawnTaskLabel(worldPos, text, kind = 'done') {
     if (!text) return;
     const label = text.length > 28 ? text.slice(0, 27) + '…' : text;
     const outer = document.createElement('div');
-    outer.className = 'jc3d-task-label' + (kind === 'foe' ? ' jc3d-task-label-foe' : '');
+    outer.className = 'jc3d-task-label ' + (kind === 'foe' ? 'jc3d-task-label-foe' : 'jc3d-task-label-done');
     const inner = document.createElement('div');
     inner.className = 'jc3d-task-label-inner';
-    inner.textContent = (kind === 'foe' ? '✓ ' : '') + label;
-    if (kind === 'foe') { const sub = document.createElement('small'); sub.textContent = 'ELIMINATED!'; inner.appendChild(sub); }
+    inner.textContent = '✓ ' + label;
+    const sub = document.createElement('small'); sub.textContent = kind === 'foe' ? 'ELIMINATED!' : 'COMPLETED!'; inner.appendChild(sub);
     outer.appendChild(inner);
     labelLayer.appendChild(outer);
     const rec = { el: outer, pos: worldPos.clone() };
@@ -1392,7 +1395,7 @@ export function createCastle3D(container) {
       outer.remove();
       const idx = activeLabels.indexOf(rec);
       if (idx >= 0) activeLabels.splice(idx, 1);
-    }, kind === 'foe' ? 2800 : 2200));
+    }, 2800));
   }
   function updateTaskLabels() {
     if (!activeLabels.length) return;

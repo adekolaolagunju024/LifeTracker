@@ -392,6 +392,20 @@ db.exec(`
 // itself is done — the Journey then knocks out just that obstacle's enemies.
 addColumnIfMissing('task_obstacles', "resolvedAt TEXT");
 
+// Task dependencies (finish-to-start, like a predecessor in MS Project): a
+// task can't start or be completed until every one of its predecessors is
+// done.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS task_dependencies (
+    taskId TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    predecessorId TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    createdAt TEXT NOT NULL,
+    PRIMARY KEY (taskId, predecessorId)
+  );
+  CREATE INDEX IF NOT EXISTS idx_task_dependencies_pred ON task_dependencies(predecessorId);
+`);
+
 // Journey gaming: XP accrues per account (not per project) as real tasks
 // are completed anywhere — the same worker/house "levels up" across every
 // project's Journey view. Deliberately not project-scoped: the point is to
