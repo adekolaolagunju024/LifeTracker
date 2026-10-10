@@ -4904,6 +4904,16 @@ const JOURNEY_META = { checkpointNoun: 'tasks', doneLabel: 'Reached the target',
 // page, points its (shared) project filter at this project, and switches
 // its view toggle to Journey, so the filter dropdown and the toggle itself
 // both land in the state that produced this exact scene.
+// The project page's 📊 Planner shortcut: the Planner already narrowed to
+// this project, on Gantt or Kanban, whichever was used last (Gantt if
+// neither), so there's no trip through the sidebar and the filter.
+function openPlannerFromProject(projectId) {
+  let view = 'timeline';
+  try { if (localStorage.getItem('ganttPageView') === 'kanban') view = 'kanban'; } catch { /* private mode etc */ }
+  showPage('gantt');
+  setGanttProjectFilter(projectId);
+  setGanttPageView(view);
+}
 function openJourneyFromProject(projectId) {
   showPage('gantt');
   setGanttProjectFilter(projectId);
