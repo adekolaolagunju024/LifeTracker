@@ -19,6 +19,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { stageTasks, layoutSignature, nameTagSprite } from './journey3dKit.js';
 
 const KNIGHT_URL = '/assets/models/Knight.glb';
 const PRINCESS_URL = '/assets/models/Princess.glb';
@@ -969,81 +970,139 @@ export function createCastle3D(container) {
     g.fillStyle = '#fff'; g.fillRect(38, 58, 52, 40);
     g.strokeStyle = '#fff'; g.lineWidth = 10; g.beginPath(); g.arc(64, 56, 16, Math.PI, 0); g.stroke();
   });
-  const walls = []; // one giant frog per blocked task
+  // Black knights: the knight's own model, re-tinted dark and a size up.
+  function buildBlackKnight() {
+    const obj = SkeletonUtils.clone(knight.obj);
+    const mats = [];
+    obj.traverse(o => {
+      if (!o.isMesh) return;
+      o.material = o.material.clone();
+      o.material.color.set('#3d4250');
+      o.material.emissive = new THREE.Color('#000000');
+      o.castShadow = true;
+      mats.push(o.material);
+    });
+    const root = new THREE.Group(), body = new THREE.Group();
+    body.add(obj); root.add(body);
+    root.scale.setScalar(1.15);
+    const eyes = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.05, 0.05), new THREE.MeshBasicMaterial({ color: '#ff3b3b' }));
+    const head = obj.getObjectByName('head');
+    if (head) { obj.updateMatrixWorld(true); const hp = new THREE.Vector3(); head.getWorldPosition(hp); const ws = new THREE.Vector3(); head.getWorldScale(ws); head.add(eyes); eyes.position.copy(head.worldToLocal(hp.clone().add(new THREE.Vector3(0, KNIGHT_H * 0.16, KNIGHT_H * 0.2)))); eyes.scale.setScalar(1 / ws.x); }
+    const mixer = new THREE.AnimationMixer(obj);
+    const actions = {};
+    clips.forEach(c => { actions[c.name] = mixer.clipAction(c); });
+    const ch = { holder: root, obj, mixer, actions, current: null };
+    play(ch, 'Blocking', { fade: 0 }); mixer.update(rnd() * 2);
+    return { kind: 'knight', root, body, mats, ch };
+  }
+  // Every task's obstacles: one mini-boss per obstacle point (frogs and
+  // black knights in turn), in rows across the road, a step further toward
+  // the banner each row. The knight beats them one by one.
+  const walls = [];
   function buildWalls() {
-    walls.forEach(w => { scene.remove(w.frog.root, w.lock, w.ring); });
+    walls.forEach(w => { w.foes.forEach(f => scene.remove(f.root)); scene.remove(w.lock, w.ring, w.tag); });
     walls.length = 0;
     tasks.forEach((t, i) => {
-      if (!t.blocker) return;
+      if (!t.foes) return;
       const u = wallFrac(i), p = curve.getPointAt(u), tan = curve.getTangentAt(u);
-      const frog = buildFrog();
-      frog.root.position.copy(p).setY(roadY(p) + 0.04);
-      frog.root.rotation.y = Math.atan2(-tan.x, -tan.z);
-      scene.add(frog.root);
+      const side = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+      const face = Math.atan2(-tan.x, -tan.z);
+      const n = Math.min(t.foes, 5);
+      const foes = Array.from({ length: n }, (_, k) => {
+        const f = k % 2 === 0 ? buildFrog() : buildBlackKnight();
+        const row = Math.floor(k / 2), inRow = Math.min(2, n - row * 2), col = k % 2;
+        const home = p.clone().addScaledVector(side, (col - (inRow - 1) / 2) * 1.9).addScaledVector(tan, row * 1.7);
+        home.y = roadY(home) + 0.04;
+        f.root.position.copy(home); f.root.rotation.y = face;
+        if (!f.phase) f.phase = rnd() * 10;
+        scene.add(f.root);
+        return Object.assign(f, { home, delay: k * 0.9, hit: false, poofed: false, swung: false });
+      });
       const lock = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, transparent: true }));
-      lock.position.copy(p).setY(roadY(p) + 2.5); lock.scale.setScalar(0.6); scene.add(lock);
-      const ring = new THREE.Mesh(new THREE.RingGeometry(1.7, 2.0, 48), new THREE.MeshBasicMaterial({ color: '#ff6b5e', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+      lock.position.copy(p).setY(roadY(p) + 2.8); lock.scale.setScalar(0.6); scene.add(lock);
+      const tag = nameTagSprite(`${t.blocker}${t.foes > 1 ? ` ×${t.foes}` : ''}`);
+      tag.position.copy(p).setY(roadY(p) + 3.45); scene.add(tag);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(2.2, 2.5, 48), new THREE.MeshBasicMaterial({ color: '#ff6b5e', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
       ring.rotation.x = -Math.PI / 2; ring.position.copy(p).setY(roadY(p) + 0.08); scene.add(ring);
-      const w = { taskIndex: i, frog, lock, ring, home: frog.root.position.clone(), cleared: !!t.done, clearing: false, t: t.done ? 9 : 0 };
-      frog.root.visible = !w.cleared;
+      const w = { taskIndex: i, foes, lock, tag, ring, home: p.clone().setY(roadY(p)), cleared: !!t.done, clearing: false, t: t.done ? 99 : 0 };
+      if (w.cleared) { foes.forEach(f => { f.root.visible = false; f.poofed = true; }); lock.visible = tag.visible = ring.visible = false; }
       walls.push(w);
     });
   }
+  const wallPause = w => 0.5 + 0.9 * Math.max(1, w.foes.length);
   function clearWall(w) {
     if (w.cleared) return;
     w.cleared = true; w.t = 0;
-    if (knight) {
-      const toFrog = Math.atan2(w.home.x - knight.holder.position.x, w.home.z - knight.holder.position.z);
-      P.heading = toFrog; knight.holder.rotation.y = toFrog;
-      play(knight, '1H_Melee_Attack_Slice_Diagonal', { fade: 0.12, once: true, timeScale: 1.15 });
-    }
-    if (reduceMotion) { w.t = 9; w.frog.root.visible = false; }
+    if (reduceMotion) { w.t = 99; w.foes.forEach(f => { f.root.visible = false; f.poofed = true; }); }
     notify();
   }
   function restoreWall(w) {
     w.cleared = false; w.clearing = false; w.t = 0;
-    w.frog.root.visible = true; w.frog.root.position.copy(w.home); w.frog.body.rotation.set(0, 0, 0); w.frog.root.scale.setScalar(1.15);
-    w.frog.mats.forEach(m => m.emissive.setRGB(0, 0, 0));
+    w.foes.forEach(f => {
+      Object.assign(f, { hit: false, poofed: false, swung: false });
+      f.root.visible = true; f.root.position.copy(f.home); f.body.rotation.set(0, 0, 0); f.body.position.set(0, 0, 0);
+      f.mats.forEach(m => m.emissive.setRGB(0, 0, 0));
+      if (f.ch) play(f.ch, 'Blocking', { fade: 0.2 });
+    });
+  }
+  function idleFoe(f, time) {
+    const t = time + f.phase;
+    if (f.kind === 'knight') { f.body.position.y = 0; return; }
+    // frogs breathe, croak, blink and hop impatiently
+    f.body.scale.set(1, 1 + Math.sin(t * 2.2) * 0.03, 1);
+    const croak = (t % 3.4) / 3.4, sac = croak > 0.78 ? Math.sin(((croak - 0.78) / 0.22) * Math.PI) : 0;
+    f.sac.scale.set(1 + sac * 0.9, 0.8 + sac * 0.8, 0.8 + sac * 0.9);
+    f.eyes.scale.y = (t % 4.3) > 4.15 ? 0.15 : 1;
+    const hop = (t % 7.1) / 7.1;
+    f.body.position.y = hop > 0.9 ? Math.sin(((hop - 0.9) / 0.1) * Math.PI) * 0.35 : 0;
   }
   function updateWalls(dt, time) {
     walls.forEach(w => {
-      const f = w.frog;
+      w.foes.forEach(f => { if (f.ch && f.root.visible) f.ch.mixer.update(dt); });
       if (!w.cleared) {
-        // idle: breathing, croaking, blinking and the odd impatient hop
-        const t = time + f.phase;
-        f.body.scale.set(1, 1 + Math.sin(t * 2.2) * 0.03, 1);
-        const croak = (t % 3.4) / 3.4, sac = croak > 0.78 ? Math.sin(((croak - 0.78) / 0.22) * Math.PI) : 0;
-        f.sac.scale.set(1 + sac * 0.9, 0.8 + sac * 0.8, 0.8 + sac * 0.9);
-        f.eyes.scale.y = (t % 4.3) > 4.15 ? 0.15 : 1;
-        const hop = (t % 7.1) / 7.1;
-        f.body.position.y = hop > 0.9 ? Math.sin(((hop - 0.9) / 0.1) * Math.PI) * 0.35 : 0;
-        w.lock.visible = w.ring.visible = true;
-        w.lock.material.opacity = 1;
+        w.foes.forEach(f => idleFoe(f, time));
+        w.lock.visible = w.tag.visible = w.ring.visible = true;
+        w.lock.material.opacity = w.tag.material.opacity = 1;
         w.ring.material.opacity = 0.35 + 0.25 * Math.sin(time * 4);
-        w.lock.position.y = w.home.y + 2.5 + Math.sin(time * 2.2) * 0.08;
+        w.lock.position.y = w.home.y + 2.8 + Math.sin(time * 2.2) * 0.08;
         return;
       }
-      if (w.t > 3) { f.root.visible = w.lock.visible = w.ring.visible = false; return; }
+      if (w.t > 60) return;
       w.t += dt;
       const e = Math.min(1, w.t / 0.6);
-      w.lock.material.opacity = 1 - e; w.ring.material.opacity = 0.55 * (1 - e);
-      // the sword lands ~0.35s in: flash, knocked into the air spinning, then a puff of smoke
-      if (w.t > 0.35 && !w.hit) { w.hit = true; sparkle(w.home.clone().setY(w.home.y + 1.2), 30, ['#ffffff', '#ffe28a'], 5); cam.shake = 0.25; }
-      const flash = w.t > 0.35 ? Math.max(0, 1 - (w.t - 0.35) * 4) : 0;
-      f.mats.forEach(m => m.emissive.setRGB(flash, flash, flash));
-      if (w.t > 0.4 && w.t < 0.95) {
-        const k = (w.t - 0.4) / 0.55;
-        f.body.position.y = Math.sin(k * Math.PI) * 1.6;
-        f.body.rotation.y = k * Math.PI * 3;
-        f.body.rotation.x = -k * 0.6;
-      }
-      if (w.t >= 0.95 && !w.poofed) {
-        w.poofed = true;
-        const at = w.home.clone().setY(w.home.y + 1.2);
-        poof(at, 30); sparkle(at, 50, ['#7fe36a', '#ffe28a', '#ffffff'], 5);
-        f.root.visible = false;
-      }
-      if (w.t > 0.6) w.lock.visible = w.ring.visible = false;
+      w.lock.material.opacity = w.tag.material.opacity = 1 - e; w.ring.material.opacity = 0.55 * (1 - e);
+      if (w.t > 0.6) w.lock.visible = w.tag.visible = w.ring.visible = false;
+      w.foes.forEach((f, k) => {
+        if (f.poofed) return;
+        const lt = w.t - f.delay;
+        if (lt < 0) { idleFoe(f, time); return; }
+        // the knight turns to this foe and swings; the blow lands ~0.35s in
+        if (!f.swung && knight) {
+          f.swung = true;
+          const toFoe = Math.atan2(f.home.x - knight.holder.position.x, f.home.z - knight.holder.position.z);
+          P.heading = toFoe; knight.holder.rotation.y = toFoe;
+          play(knight, k % 2 ? '1H_Melee_Attack_Chop' : '1H_Melee_Attack_Slice_Diagonal', { fade: 0.12, once: true, timeScale: 1.2 });
+          if (f.ch) play(f.ch, 'Blocking', { fade: 0.1 });
+        }
+        if (lt > 0.35 && !f.hit) {
+          f.hit = true; cam.shake = 0.25;
+          sparkle(f.home.clone().setY(f.home.y + 1.2), 30, ['#ffffff', '#ffe28a'], 5);
+          if (f.ch) play(f.ch, 'Hit_A', { fade: 0.05, once: true });
+        }
+        const flash = lt > 0.35 ? Math.max(0, 1 - (lt - 0.35) * 4) : 0;
+        f.mats.forEach(m => m.emissive.setRGB(flash, flash, flash));
+        if (lt > 0.4 && lt < 0.95) {
+          const q = (lt - 0.4) / 0.55;
+          if (f.kind === 'knight') { f.body.rotation.x = -q * 1.3; f.body.position.y = Math.sin(q * Math.PI) * 0.6; }
+          else { f.body.position.y = Math.sin(q * Math.PI) * 1.6; f.body.rotation.y = q * Math.PI * 3; f.body.rotation.x = -q * 0.6; }
+        }
+        if (lt >= 0.95) {
+          f.poofed = true;
+          const at = f.home.clone().setY(f.home.y + 1.2);
+          poof(at, 30); sparkle(at, 50, f.kind === 'knight' ? ['#ff6b5e', '#ffe28a', '#ffffff'] : ['#7fe36a', '#ffe28a', '#ffffff'], 5);
+          f.root.visible = false;
+        }
+      });
     });
   }
 
@@ -1230,7 +1289,7 @@ export function createCastle3D(container) {
         celebrated.add(t.id);
         if (wall && !wall.cleared && !wall.clearing) {
           wall.clearing = true;
-          events.push({ frac: frogStopFrac(i), fn: () => clearWall(wall), pause: 1.35, kind: 'wall', wall });
+          events.push({ frac: frogStopFrac(i), fn: () => clearWall(wall), pause: wallPause(wall), kind: 'wall', wall });
         }
         events.push({ frac: checkpointFrac(i, n), fn: () => popFlag(i, t.title), pause: 0.9, kind: 'flag', taskId: t.id });
       }
@@ -1666,12 +1725,7 @@ export function createCastle3D(container) {
 
   // ── State from the app ───────────────────────────────────────────────
   let latestState = null, layoutSig = null;
-  function toTasks(state) {
-    return (state.tasks || []).map(t => ({
-      id: t.id, title: t.title, done: t.status === 'Completed',
-      blocker: t.latestUpdateIsBlocker ? (t.latestUpdateText || 'Blocked') : null,
-    }));
-  }
+  const toTasks = stageTasks;
   // Already finished when the stage opens: show the ending without replaying it.
   function settleWon() {
     const kp = knight.holder.position.clone(), front = dragonFront();
@@ -1693,7 +1747,7 @@ export function createCastle3D(container) {
     // Which tasks exist, in what order, and which are blocked decides where
     // banners and frogs stand. When that changes, rebuild and place the
     // knight directly; otherwise only statuses changed, and he marches.
-    const sig = next.map(t => `${t.id}:${t.blocker ? 1 : 0}`).join('|');
+    const sig = layoutSignature(next);
     if (sig !== layoutSig) {
       const firstBuild = layoutSig === null;
       layoutSig = sig;
@@ -1709,7 +1763,7 @@ export function createCastle3D(container) {
       env.target = env.cur = frac;
       if (firstBuild) snapCamera();
     } else {
-      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; });
+      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; });
       refreshFlags();
       plan();
       env.target = frac;

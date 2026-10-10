@@ -258,6 +258,10 @@
     .journey-quest-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .journey-quest-row.is-done .journey-quest-title { text-decoration: line-through; color: var(--quest-text-done); font-weight: 500; }
     .journey-quest-date { flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--quest-date); }
+    .journey-quest-foes { flex-shrink: 0; font-size: 11px; font-weight: 800; color: #fca5a5; }
+    .journey-quest-foe-btn { flex-shrink: 0; font-size: 12px; line-height: 1; padding: 4px 6px; border-radius: 8px; background: transparent; border: 1px solid var(--quest-divider); color: var(--quest-text); cursor: pointer; }
+    .journey-quest-foe-btn:hover { background: var(--quest-hover); }
+    .journey-quest-foe-btn:focus-visible { outline: 2px solid var(--quest-accent); outline-offset: 1px; }
     .journey-quest-empty { text-align: center; font-size: 12px; font-weight: 600; color: var(--quest-text-done); padding: 10px 0; }
     .journey-quest-checkbox { position: absolute; opacity: 0; width: 1px; height: 1px; }
     @media (prefers-reduced-motion: reduce) { .journey-quest-badge.is-next { animation: none; } }
@@ -445,6 +449,13 @@
     .journey-princess-wave { animation: journey-princess-wave .8s ease-in-out infinite; transform-box: fill-box; transform-origin: 0% 100%; }
     @keyframes journey-princess-wave { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-35deg); } }
     .journey-firework { opacity: 0; animation: journey-firework 1.3s ease-out 1 forwards; transform-box: fill-box; transform-origin: center; }
+    /* Obstacle enemies on the road (journeyGame.js' drawFoes): a restless
+       idle bob, and a knock-out spin when their task gets done. */
+    .journey-foe { animation: journey-foe-idle 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+    @keyframes journey-foe-idle { 0%, 100% { transform: translateY(0) scale(1,1); } 50% { transform: translateY(-1.5px) scale(1.04,.97); } }
+    .journey-foes-defeated .journey-foe { animation: journey-foe-ko .6s ease-in 1 forwards; }
+    .journey-foes-defeated .journey-blocked-glow, .journey-foes-defeated > g:not(:has(.journey-foe)) { opacity: 0; transition: opacity .3s; }
+    @keyframes journey-foe-ko { 0% { transform: translate(0,0) rotate(0); opacity: 1; } 30% { transform: translate(-4px,-10px) rotate(-40deg) scale(1.1); opacity: 1; } 100% { transform: translate(-16px,-26px) rotate(-260deg) scale(.4); opacity: 0; } }
     /* Ocean and Space finishes: the chest's beam and coins, and the
        planted mission flag, stay once the quest is done. */
     .journey-treasure-done, .journey-planted-flag { display: none; }
@@ -481,7 +492,8 @@
       .journey-task-popup-inner,
       .journey-flame, .journey-river-flow, .journey-frog-sac, .journey-dragon-breathe, .journey-dragon-wing,
       .journey-dragon-fire, .journey-dragon-hit, .journey-dragon-fall, .journey-slash .journey-arm-front,
-      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise { animation: none; }
+      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise,
+      .journey-foe, .journey-foes-defeated .journey-foe { animation: none; }
       .journey-portcullis, .journey-princess-free { transition: none; }
     }
 
@@ -2184,6 +2196,21 @@
     <div class="border-t border-gray-100 pt-4 mb-5">
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Notes</p>
       <p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed" id="td-notes">No notes for this task yet.</p>
+    </div>
+
+    <div class="border-t border-gray-100 pt-4 mb-5">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">⚔️ Obstacles</p>
+      <p class="text-xs text-gray-400 mb-2">What's standing in the way. Each one shows on the Journey as enemies on the road before this task's flag, and finishing the task clears them.</p>
+      <div id="td-obstacles" class="space-y-1.5 mb-2"></div>
+      <div id="td-obstacle-box" class="flex gap-2 items-center">
+        <input type="text" id="td-obstacle-name" maxlength="80" placeholder="e.g. Waiting on the supplier quote" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitObstacle();}"
+          class="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal" aria-label="Obstacle name">
+        <label class="sr-only" for="td-obstacle-count">How many enemies</label>
+        <select id="td-obstacle-count" class="border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white focus:outline-none focus:border-teal" title="How many enemies it puts on the road">
+          <option value="1">×1</option><option value="2">×2</option><option value="3">×3</option><option value="4">×4</option><option value="5">×5</option>
+        </select>
+        <button onclick="submitObstacle()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0">Add</button>
+      </div>
     </div>
 
     <div class="border-t border-gray-100 pt-4 mb-5">

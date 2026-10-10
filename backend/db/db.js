@@ -619,13 +619,14 @@ function listTasks(userId, filters = {}) {
   if (filters.search)      { sql += ' AND LOWER(t.title) LIKE ?'; params.push('%' + filters.search.toLowerCase() + '%'); }
   sql += ' ORDER BY t.sortOrder ASC, t.createdAt ASC';
   const tasks = db.prepare(sql).all(...params).map(t => ({ ...t, cost: t.cost || 0 }));
-  return attachTagsToTasks(tasks);
+  return attachObstaclesToTasks(attachTagsToTasks(tasks));
 }
 
 function getTaskById(userId, id) {
   const task = db.prepare(`SELECT t.*, ${CHECKLIST_COUNT_COLUMNS} FROM tasks t WHERE t.id = ? AND t.deletedAt IS NULL AND t.projectId IN ${accessibleProjectIdsSQL()}`).get(id, ...threeUserIds(userId));
   if (!task) return task;
   task.tags = getTaskTags(id);
+  attachObstaclesToTasks([task]);
   return task;
 }
 
@@ -1113,6 +1114,65 @@ function addStatusUpdate(userId, taskId, text, isBlocker = false) {
   return { ...update, isBlocker: !!update.isBlocker, authorName: getProfile(userId).name };
 }
 
+// ── TASK OBSTACLES ─────────────────────────────────────────────────
+// Named obstacles on a task, each with a count of 1–5 (how many enemies the
+// Journey puts on the path for it). Anyone who can comment on the project
+// can add or change them, the same boundary as status updates.
+const MAX_OBSTACLE_COUNT = 5;
+function cleanObstacleCount(n) {
+  const v = Math.round(Number(n));
+  return Number.isFinite(v) ? Math.min(MAX_OBSTACLE_COUNT, Math.max(1, v)) : 1;
+}
+function cleanObstacleName(name) {
+  const clean = String(name || '').trim().slice(0, 80);
+  if (!clean) throw new Error('Give the obstacle a name');
+  return clean;
+}
+function attachObstaclesToTasks(tasks) {
+  if (!tasks.length) return tasks;
+  const placeholders = tasks.map(() => '?').join(',');
+  const rows = db.prepare(`SELECT id, taskId, name, count FROM task_obstacles WHERE taskId IN (${placeholders}) ORDER BY createdAt ASC`)
+    .all(...tasks.map(t => t.id));
+  const byTask = {};
+  rows.forEach(r => { (byTask[r.taskId] = byTask[r.taskId] || []).push({ id: r.id, name: r.name, count: r.count }); });
+  tasks.forEach(t => { t.obstacles = byTask[t.id] || []; });
+  return tasks;
+}
+function listObstacles(userId, taskId) {
+  const task = getTaskById(userId, taskId);
+  return task ? task.obstacles : null;
+}
+function addObstacle(userId, taskId, { name, count } = {}) {
+  const task = getTaskById(userId, taskId);
+  if (!task) return null;
+  assertCanComment(userId, task.projectId);
+  const obstacle = { id: uuid(), taskId, userId, name: cleanObstacleName(name), count: cleanObstacleCount(count), createdAt: new Date().toISOString() };
+  db.prepare('INSERT INTO task_obstacles (id, taskId, userId, name, count, createdAt) VALUES (?,?,?,?,?,?)')
+    .run(obstacle.id, obstacle.taskId, obstacle.userId, obstacle.name, obstacle.count, obstacle.createdAt);
+  return { id: obstacle.id, name: obstacle.name, count: obstacle.count };
+}
+// Returns the updated obstacle, or null when it doesn't exist or isn't visible.
+function updateObstacle(userId, obstacleId, changes = {}) {
+  const row = db.prepare('SELECT * FROM task_obstacles WHERE id = ?').get(obstacleId);
+  if (!row) return null;
+  const task = getTaskById(userId, row.taskId);
+  if (!task) return null;
+  assertCanComment(userId, task.projectId);
+  const name = changes.name !== undefined ? cleanObstacleName(changes.name) : row.name;
+  const count = changes.count !== undefined ? cleanObstacleCount(changes.count) : row.count;
+  db.prepare('UPDATE task_obstacles SET name = ?, count = ? WHERE id = ?').run(name, count, obstacleId);
+  return { id: obstacleId, name, count };
+}
+function deleteObstacle(userId, obstacleId) {
+  const row = db.prepare('SELECT taskId FROM task_obstacles WHERE id = ?').get(obstacleId);
+  if (!row) return false;
+  const task = getTaskById(userId, row.taskId);
+  if (!task) return false;
+  assertCanComment(userId, task.projectId);
+  db.prepare('DELETE FROM task_obstacles WHERE id = ?').run(obstacleId);
+  return true;
+}
+
 // The update's own author, or the project owner, can delete it — same
 // moderation boundary as task comments.
 function deleteStatusUpdate(userId, updateId) {
@@ -1546,6 +1606,7 @@ function getProjectSnapshot(userId, projectId) {
 }
 
 module.exports = {
+  listObstacles, addObstacle, updateObstacle, deleteObstacle,
   createUser, getUserByEmail, getUserById, setUserPasswordHash, deleteUser,
   setPasswordResetToken, getUserByResetToken, clearPasswordResetToken,
   getProfile, updateProfile, listUsersForDigest, setLastDigestSentDate,

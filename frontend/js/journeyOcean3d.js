@@ -19,6 +19,7 @@ import {
   createShell, createLoop, makeCanvasTexture, seededRandom, softDotTexture, Particles, particleScaleFor,
   loadGLTF, makeCharacter, play, finished, recolorCharacter, findBone, attachToBone,
   checkpointFracOf, progressToPathFracSmooth, angleLerp, createWalker,
+  stageTasks, layoutSignature, nameTagSprite,
 } from './journey3dKit.js';
 
 const DIVER_URL = '/assets/models/Knight.glb';
@@ -682,78 +683,124 @@ export function createOcean3D(container) {
     g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material = o.material.clone(); mats.push(o.material); } });
     g.scale.setScalar(1.25);
     scene.add(g);
-    return { g, body, tail, mats };
+    return { kind: 'shark', g, body, tail, mats };
   }
   const lockTex = canvasTexture(128, 128, (g, w) => {
     g.fillStyle = '#ff6b5e'; g.beginPath(); g.arc(w / 2, w / 2, w / 2 - 4, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#fff'; g.fillRect(38, 58, 52, 40);
     g.strokeStyle = '#fff'; g.lineWidth = 10; g.beginPath(); g.arc(64, 56, 16, Math.PI, 0); g.stroke();
   });
+  // Jellyfish swarms: a few translucent bells drifting together.
+  const foeBellMat = new THREE.MeshStandardMaterial({ color: '#ff9de2', emissive: '#d946ef', emissiveIntensity: 0.5, transparent: true, opacity: 0.6, roughness: 0.2, side: THREE.DoubleSide, depthWrite: false });
+  function buildJellySwarm() {
+    const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+    const bells = [];
+    for (let k = 0; k < 4; k++) {
+      const j = new THREE.Group();
+      const bell = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), foeBellMat.clone()); j.add(bell);
+      for (let m = 0; m < 5; m++) {
+        const a = (m / 5) * Math.PI * 2, pts = [];
+        for (let q = 0; q <= 7; q++) pts.push(V(Math.cos(a) * 0.18 + Math.sin(q + m) * 0.04, -q * 0.13, Math.sin(a) * 0.18));
+        j.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: '#f5b8ff', transparent: true, opacity: 0.6 })));
+      }
+      j.position.set((rnd() - 0.5) * 1.4, (rnd() - 0.5) * 0.8, (rnd() - 0.5) * 1.4);
+      body.add(j); bells.push({ j, bell, ph: rnd() * 6 });
+    }
+    scene.add(g);
+    return { kind: 'jelly', g, body, bells, mats: bells.map(b => b.bell.material) };
+  }
+  // Every task's obstacles: one predator per obstacle point (sharks and
+  // jellyfish swarms in turn), circling the trail in front of the clam.
   const walls = [];
   function buildWalls() {
-    walls.forEach(w => scene.remove(w.shark.g, w.lock, w.ring));
+    walls.forEach(w => { w.foes.forEach(f => scene.remove(f.g)); scene.remove(w.lock, w.ring, w.tag); });
     walls.length = 0;
     tasks.forEach((t, i) => {
-      if (!t.blocker) return;
+      if (!t.foes) return;
       const u = wallFrac(i), p = curve.getPointAt(u);
       const ground = groundHeight(p.x, p.z);
-      const shark = buildShark();
+      const n = Math.min(t.foes, 5);
+      const foes = Array.from({ length: n }, (_, k) => {
+        const f = k % 2 === 0 ? buildShark() : buildJellySwarm();
+        return Object.assign(f, { r: 2.4 + (k % 3) * 0.9, angle: (k / n) * Math.PI * 2, h: 0.2 + (k % 2) * 0.9, sp: 0.5 + (k % 3) * 0.12, ph: rnd() * 6, delay: k * 0.45, flee: null, gone: false });
+      });
       const lock = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, transparent: true }));
-      lock.position.set(p.x, ground + 3.6, p.z); lock.scale.setScalar(0.6); scene.add(lock);
+      lock.position.set(p.x, ground + 3.8, p.z); lock.scale.setScalar(0.6); scene.add(lock);
+      const tag = nameTagSprite(`${t.blocker}${t.foes > 1 ? ` ×${t.foes}` : ''}`);
+      tag.position.set(p.x, ground + 4.45, p.z); scene.add(tag);
       const ring = new THREE.Mesh(new THREE.RingGeometry(2.6, 2.9, 48), new THREE.MeshBasicMaterial({ color: '#ff6b5e', transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
       ring.rotation.x = -Math.PI / 2; ring.position.set(p.x, ground + 0.1, p.z); scene.add(ring);
-      const w = { taskIndex: i, shark, lock, ring, center: V(p.x, p.y + 0.4, p.z), cleared: !!t.done, clearing: false, t: t.done ? 9 : 0, ph: rnd() * 6, angle: rnd() * 6, flee: null };
-      shark.g.visible = !w.cleared;
-      lock.visible = ring.visible = !w.cleared;
+      const w = { taskIndex: i, foes, lock, tag, ring, center: V(p.x, p.y + 0.4, p.z), cleared: !!t.done, clearing: false, t: t.done ? 99 : 0 };
+      if (w.cleared) { foes.forEach(f => { f.g.visible = false; f.gone = true; }); lock.visible = tag.visible = ring.visible = false; }
       walls.push(w);
     });
   }
+  const wallPause = w => 0.9 + 0.45 * Math.max(1, w.foes.length);
   function clearWall(w) {
     if (w.cleared) return;
     w.cleared = true; w.t = 0;
-    const away = w.shark.g.position.clone().sub(w.center).setY(0).normalize();
-    w.flee = { dir: away.lengthSq() ? away : V(1, 0, 0), speed: 2 };
     if (diver) {
-      P.heading = Math.atan2(w.shark.g.position.x - diver.holder.position.x, w.shark.g.position.z - diver.holder.position.z);
+      P.heading = Math.atan2(w.center.x - diver.holder.position.x, w.center.z - diver.holder.position.z);
       play(diver, 'Interact', { fade: 0.15, once: true, timeScale: 1.2 });
       bubble(diverHeadPos(), 14, 0.3, 0.16);
     }
-    if (reduceMotion) { w.t = 9; w.shark.g.visible = false; }
+    if (reduceMotion) { w.t = 99; w.foes.forEach(f => { f.g.visible = false; f.gone = true; }); }
     notify();
   }
   function restoreWall(w) {
-    w.cleared = false; w.clearing = false; w.t = 0; w.flee = null;
-    w.shark.g.visible = true; w.shark.mats.forEach(m => { m.transparent = false; m.opacity = 1; });
+    w.cleared = false; w.clearing = false; w.t = 0;
+    w.foes.forEach(f => { f.flee = null; f.gone = false; f.g.visible = true; f.mats.forEach(m => { m.transparent = f.kind === 'jelly'; m.opacity = f.kind === 'jelly' ? 0.6 : 1; }); });
+  }
+  function circleFoe(w, f, dt, time) {
+    f.angle += dt * f.sp;
+    f.g.position.set(w.center.x + Math.cos(f.angle) * f.r, w.center.y + f.h + Math.sin(time * 0.9 + f.ph) * 0.3, w.center.z + Math.sin(f.angle) * f.r);
+    if (f.kind === 'shark') f.g.rotation.set(0, Math.atan2(-Math.sin(f.angle), Math.cos(f.angle)), -0.25);
   }
   function updateWalls(dt, time) {
     walls.forEach(w => {
-      const s = w.shark;
-      s.tail.rotation.y = Math.sin(time * (w.flee ? 14 : 5) + w.ph) * 0.45;
-      s.body.rotation.y = Math.sin(time * (w.flee ? 14 : 5) + w.ph + 1.2) * 0.08;
+      w.foes.forEach(f => {
+        if (f.kind === 'shark') {
+          f.tail.rotation.y = Math.sin(time * (f.flee ? 14 : 5) + f.ph) * 0.45;
+          f.body.rotation.y = Math.sin(time * (f.flee ? 14 : 5) + f.ph + 1.2) * 0.08;
+        } else {
+          f.bells.forEach(b => { const q = Math.sin(time * 2.6 + b.ph); b.bell.scale.set(1 + q * 0.12, 1 - q * 0.15, 1 + q * 0.12); b.j.position.y += Math.sin(time * 1.2 + b.ph) * 0.002; });
+        }
+      });
       if (!w.cleared) {
-        w.angle += dt * 0.55;
-        const r = 2.8;
-        s.g.position.set(w.center.x + Math.cos(w.angle) * r, w.center.y + Math.sin(time * 0.9 + w.ph) * 0.3, w.center.z + Math.sin(w.angle) * r);
-        s.g.rotation.set(0, Math.atan2(-Math.sin(w.angle), Math.cos(w.angle)), -0.25);
-        w.lock.visible = w.ring.visible = true;
+        w.foes.forEach(f => circleFoe(w, f, dt, time));
+        w.lock.visible = w.tag.visible = w.ring.visible = true;
         w.ring.material.opacity = 0.3 + 0.2 * Math.sin(time * 4);
         w.lock.position.y = w.center.y + 2.4 + Math.sin(time * 2.2) * 0.08;
         return;
       }
-      if (w.t > 4) { s.g.visible = w.lock.visible = w.ring.visible = false; return; }
+      if (w.t > 60) return;
       w.t += dt;
       const e = Math.min(1, w.t / 0.6);
-      w.lock.material.opacity = 1 - e; w.ring.material.opacity = 0.5 * (1 - e);
-      if (w.t > 0.6) w.lock.visible = w.ring.visible = false;
-      if (w.flee && w.t > 0.3) {
-        w.flee.speed = Math.min(14, w.flee.speed + dt * 18);
-        const want = Math.atan2(w.flee.dir.x, w.flee.dir.z);
-        s.g.rotation.y = angleLerp(s.g.rotation.y, want, Math.min(1, dt * 6));
-        s.g.rotation.z *= 0.9;
-        s.g.position.addScaledVector(V(Math.sin(s.g.rotation.y), 0.12, Math.cos(s.g.rotation.y)), w.flee.speed * dt);
-        const fade = Math.max(0, 1 - (w.t - 1.6) / 1.6);
-        s.mats.forEach(m => { m.transparent = fade < 1; m.opacity = fade; });
-      }
+      w.lock.material.opacity = w.tag.material.opacity = 1 - e; w.ring.material.opacity = 0.5 * (1 - e);
+      if (w.t > 0.6) w.lock.visible = w.tag.visible = w.ring.visible = false;
+      // one after another, each predator turns tail and flees into the blue
+      w.foes.forEach(f => {
+        if (f.gone) return;
+        const lt = w.t - f.delay - 0.3;
+        if (lt < 0) { circleFoe(w, f, dt, time); return; }
+        if (!f.flee) {
+          const away = f.g.position.clone().sub(w.center).setY(0).normalize();
+          f.flee = { dir: away.lengthSq() ? away : V(1, 0, 0), speed: 2 };
+          bubble(f.g.position.clone(), 10, 0.4, 0.14);
+        }
+        f.flee.speed = Math.min(14, f.flee.speed + dt * 18);
+        if (f.kind === 'shark') {
+          const want = Math.atan2(f.flee.dir.x, f.flee.dir.z);
+          f.g.rotation.y = angleLerp(f.g.rotation.y, want, Math.min(1, dt * 6));
+          f.g.rotation.z *= 0.9;
+          f.g.position.addScaledVector(V(Math.sin(f.g.rotation.y), 0.12, Math.cos(f.g.rotation.y)), f.flee.speed * dt);
+        } else {
+          f.g.position.addScaledVector(f.flee.dir.clone().setY(1.2).normalize(), f.flee.speed * 0.4 * dt);
+        }
+        const fade = Math.max(0, 1 - (lt - 1.2) / 1.4);
+        f.mats.forEach(m => { m.transparent = true; m.opacity = fade * (f.kind === 'jelly' ? 0.6 : 1); });
+        if (fade <= 0) { f.gone = true; f.g.visible = false; }
+      });
     });
   }
 
@@ -819,7 +866,7 @@ export function createOcean3D(container) {
   const walker = createWalker({
     curve, speed: 3.4, accel: 6, brakeDecel: 5, reduceMotion, getTasks: () => tasks, walls,
     hooks: {
-      stopFrac: sharkStopFrac,
+      stopFrac: sharkStopFrac, wallPause,
       place(frac, moving) {
         const p = curve.getPointAt(THREE.MathUtils.clamp(frac, 0, 1));
         swim.moving = moving;
@@ -1003,9 +1050,7 @@ export function createOcean3D(container) {
     shell.root.setAttribute('aria-label', text);
   }
   let latestState = null, layoutSig = null;
-  function toTasks(state) {
-    return (state.tasks || []).map(t => ({ id: t.id, title: t.title, done: t.status === 'Completed', blocker: t.latestUpdateIsBlocker ? (t.latestUpdateText || 'Blocked') : null }));
-  }
+  const toTasks = stageTasks;
   function snapCamera() {
     const fwd = V(Math.sin(P.heading), 0, Math.cos(P.heading)), dp = diver.holder.position;
     camera.position.copy(dp).addScaledVector(fwd, -5.6).setY(Math.min(dp.y + 2.6, SURFACE_Y - 0.8));
@@ -1015,7 +1060,7 @@ export function createOcean3D(container) {
   function applyState(state) {
     onSummitCb = state.onSummit || null;
     const next = toTasks(state), n = next.length;
-    const sig = next.map(t => `${t.id}:${t.blocker ? 1 : 0}`).join('|');
+    const sig = layoutSignature(next);
     if (sig !== layoutSig) {
       const firstBuild = layoutSig === null;
       layoutSig = sig;
@@ -1028,7 +1073,7 @@ export function createOcean3D(container) {
       if (n && tasks.every(t => t.done)) settleWon();
       if (firstBuild) snapCamera();
     } else {
-      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; });
+      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; });
       refreshFlags();
       walker.plan();
     }

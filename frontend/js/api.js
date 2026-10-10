@@ -134,6 +134,10 @@ const API = {
   getStatusUpdates:   (taskId)       => request('GET',    `/tasks/${taskId}/status-updates`),
   addStatusUpdate:    (taskId, text, isBlocker) => request('POST', `/tasks/${taskId}/status-updates`, { text, isBlocker }),
   deleteStatusUpdate: (updateId)     => request('DELETE', `/tasks/status-updates/${updateId}`),
+  getObstacles:       (taskId)       => request('GET',    `/tasks/${taskId}/obstacles`),
+  addObstacle:        (taskId, name, count) => request('POST', `/tasks/${taskId}/obstacles`, { name, count }),
+  updateObstacle:     (obstacleId, changes) => request('PUT', `/tasks/obstacles/${obstacleId}`, changes),
+  deleteObstacle:     (obstacleId)   => request('DELETE', `/tasks/obstacles/${obstacleId}`),
 
   // ── PROJECT CHAT (project-wide) ──
   getProjectMessages:   (projectId)       => request('GET',    `/projects/${projectId}/messages`),

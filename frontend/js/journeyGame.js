@@ -362,26 +362,7 @@ const JourneyGame = (() => {
     pennant.appendChild(label);
     g.appendChild(pennant);
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.6 * s, fill: '#f4a53b', stroke: '#8b5e3c', 'stroke-width': 0.6 * s }));
-    if (blocked) {
-      // A real obstacle gate across the road, not just a status icon —
-      // hazard-striped barrier arm between two posts, with a pulsing
-      // warning glow and a small padlock, reading as "something to
-      // clear" rather than a passive label.
-      const ox = -26 * s, oy = -6 * s;
-      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy, r: 20 * s, fill: '#ef4444', opacity: 0.45 }));
-      const gate = el('g', { transform: `translate(${ox},${oy})` });
-      gate.appendChild(el('rect', { x: -5 * s, y: -30 * s, width: 4 * s, height: 26 * s, rx: 1.4 * s, fill: '#6b4a2a', stroke: '#3f2a16', 'stroke-width': 0.8 * s }));
-      gate.appendChild(el('rect', { x: 17 * s, y: -30 * s, width: 4 * s, height: 26 * s, rx: 1.4 * s, fill: '#6b4a2a', stroke: '#3f2a16', 'stroke-width': 0.8 * s }));
-      const bar = el('g', { transform: 'rotate(-6)' });
-      bar.appendChild(el('rect', { x: -10 * s, y: -26 * s, width: 34 * s, height: 8 * s, rx: 2.4 * s, fill: '#f97316', stroke: '#7c2d12', 'stroke-width': s }));
-      [-10, 6, 22].forEach(sx => bar.appendChild(el('rect', { x: sx * s, y: -26 * s, width: 8 * s, height: 8 * s, fill: '#fff', opacity: 0.9 })));
-      gate.appendChild(bar);
-      const lock = el('g', { transform: `translate(${6 * s},${-40 * s})` });
-      lock.appendChild(el('rect', { x: -5 * s, y: -1 * s, width: 10 * s, height: 8 * s, rx: 1.8 * s, fill: '#f4b400', stroke: '#7c5700', 'stroke-width': 0.9 * s }));
-      lock.appendChild(el('path', { d: `M ${-2.6 * s} ${-1 * s} L ${-2.6 * s} ${-4.4 * s} A ${2.6 * s} ${2.6 * s} 0 0 1 ${2.6 * s} ${-4.4 * s} L ${2.6 * s} ${-1 * s}`, fill: 'none', stroke: '#7c5700', 'stroke-width': 1.3 * s }));
-      gate.appendChild(lock);
-      g.appendChild(gate);
-    }
+    if (blocked) g.appendChild(drawFoes(blocked, s, ROAD_FOES));
     return g;
   }
 
@@ -541,20 +522,7 @@ const JourneyGame = (() => {
     label.textContent = isDone ? '✓' : String(i + 1);
     g.appendChild(label);
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.6 * s, fill: '#9aa5b1', stroke: '#4b5563', 'stroke-width': 0.6 * s }));
-    if (blocked) {
-      // A big asteroid drifting into the flight path.
-      const ox = -22 * s, oy = -10 * s;
-      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy, r: 20 * s, fill: '#ef4444', opacity: 0.45 }));
-      const pos = el('g', { transform: `translate(${ox},${oy}) scale(${s})` });
-      const rock = el('g', { class: 'journey-asteroid', style: 'animation-duration:14s' });
-      rock.appendChild(el('path', { d: 'M -11 -3 L -5 -12 L 6 -11 L 12 -2 L 8 9 L -4 11 L -12 5 Z', fill: '#6b6f8a', stroke: '#2f3347', 'stroke-width': 0.9 }));
-      rock.appendChild(el('circle', { cx: -3, cy: -3, r: 3, fill: '#4b4f68' }));
-      rock.appendChild(el('circle', { cx: 5, cy: 4, r: 2, fill: '#4b4f68' }));
-      rock.appendChild(el('path', { d: 'M -9 -5 L -4 -10 L 4 -9.5', fill: 'none', stroke: '#a3a8c4', 'stroke-width': 1.2, 'stroke-linecap': 'round' }));
-      pos.appendChild(rock);
-      g.appendChild(pos);
-      g.appendChild(lockIcon(ox, oy - 20 * s, s));
-    }
+    if (blocked) g.appendChild(drawFoes(blocked, s, SPACE_FOES));
     return g;
   }
 
@@ -735,21 +703,7 @@ const JourneyGame = (() => {
     });
     label.textContent = isDone ? '✓' : String(i + 1);
     g.appendChild(label);
-    if (blocked) {
-      // A small swarm of jellyfish drifting across the trail.
-      const ox = -24 * s, oy = -12 * s;
-      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy, r: 20 * s, fill: '#ef4444', opacity: 0.4 }));
-      [[-7, 2, 0], [6, -3, 0.6], [0, 8, 1.2]].forEach(([dx, dy, delay]) => {
-        const pos = el('g', { transform: `translate(${ox + dx * s},${oy + dy * s}) scale(${s})` });
-        const jelly = el('g', { class: 'journey-jelly', style: `animation-delay:${delay}s` });
-        jelly.appendChild(el('path', { d: 'M -5 0 Q -5 -7 0 -7 Q 5 -7 5 0 Z', fill: '#f0abfc', opacity: 0.85, stroke: '#a21caf', 'stroke-width': 0.5 }));
-        jelly.appendChild(el('ellipse', { cx: -1.6, cy: -4.6, rx: 1.6, ry: 1, fill: '#ffffff', opacity: 0.7 }));
-        [-3, -1, 1, 3].forEach(tx => jelly.appendChild(el('path', { d: `M ${tx} 0 Q ${tx + 1.2} 3 ${tx} 6 Q ${tx - 1.2} 8 ${tx} 10`, fill: 'none', stroke: '#e879f9', 'stroke-width': 0.7, opacity: 0.8 })));
-        pos.appendChild(jelly);
-        g.appendChild(pos);
-      });
-      g.appendChild(lockIcon(ox, oy - 18 * s, s));
-    }
+    if (blocked) g.appendChild(drawFoes(blocked, s, OCEAN_FOES));
     return g;
   }
 
@@ -914,19 +868,7 @@ const JourneyGame = (() => {
     });
     label.textContent = isDone ? '✓' : String(i + 1);
     g.appendChild(label);
-    if (blocked) {
-      // A crash-barrier wall of stacked tires across the track.
-      const ox = -24 * s, oy = 0;
-      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy - 8 * s, r: 20 * s, fill: '#ef4444', opacity: 0.45 }));
-      [-9, 0, 9].forEach(dx => {
-        [0, -5, -10].forEach(ty => {
-          g.appendChild(el('ellipse', { cx: ox + dx * s, cy: oy + ty * s, rx: 4.6 * s, ry: 2.2 * s, fill: '#1f2937', stroke: '#111827', 'stroke-width': 0.4 * s }));
-          g.appendChild(el('ellipse', { cx: ox + dx * s, cy: oy + (ty - 0.4) * s, rx: 2 * s, ry: 0.9 * s, fill: '#4b5563' }));
-        });
-      });
-      g.appendChild(el('rect', { x: ox - 14 * s, y: oy - 12.5 * s, width: 28 * s, height: 1.8 * s, fill: '#ef4444', opacity: 0.9 }));
-      g.appendChild(lockIcon(ox, oy - 24 * s, s));
-    }
+    if (blocked) g.appendChild(drawFoes(blocked, s, RACE_FOES));
     return g;
   }
 
@@ -1125,19 +1067,7 @@ const JourneyGame = (() => {
     flag.appendChild(label);
     pos.appendChild(flag);
     g.appendChild(pos);
-    if (blocked) {
-      const ox = -24 * s, oy = 0;
-      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy - 10 * s, r: 20 * s, fill: '#ef4444', opacity: 0.45 }));
-      [-9, 0, 9].forEach(dx => {
-        const d = el('g', { transform: `translate(${ox + dx * s},${oy})` });
-        d.appendChild(el('rect', { x: -1.8 * s, y: -6 * s, width: 1.6 * s, height: 6 * s, fill: '#f1f5f9' }));
-        d.appendChild(el('rect', { x: 0.2 * s, y: -6 * s, width: 1.6 * s, height: 6 * s, fill: '#f1f5f9' }));
-        d.appendChild(el('rect', { x: -3.4 * s, y: -15 * s, width: 6.8 * s, height: 9.5 * s, rx: 2.2 * s, fill: '#1e88e5', stroke: '#0d47a1', 'stroke-width': 0.5 * s }));
-        d.appendChild(el('circle', { cx: 0, cy: -18 * s, r: 3 * s, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 0.4 * s }));
-        g.appendChild(d);
-      });
-      g.appendChild(lockIcon(ox, -28 * s, s));
-    }
+    if (blocked) g.appendChild(drawFoes(blocked, s, FOOTBALL_FOES));
     return g;
   }
 
@@ -1523,28 +1453,7 @@ const JourneyGame = (() => {
     flag.appendChild(label);
     pos.appendChild(flag);
     g.appendChild(pos);
-    if (blocked) {
-      const ox = -24 * s, oy = 0;
-      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy - 9 * s, r: 19 * s, fill: '#ef4444', opacity: 0.45 }));
-      const frog = el('g', { transform: `translate(${ox},${oy}) scale(${s})` });
-      frog.appendChild(el('ellipse', { cx: 1, cy: 0.6, rx: 13, ry: 2.6, fill: '#0b1220', opacity: 0.22 }));
-      [-9, 9].forEach(fx => frog.appendChild(el('ellipse', { cx: fx, cy: -3, rx: 5, ry: 4, fill: '#3f9440', stroke: '#1f5a24', 'stroke-width': 0.6 })));
-      frog.appendChild(el('ellipse', { cx: 0, cy: -8, rx: 11, ry: 8, fill: '#4fae4a', stroke: '#1f5a24', 'stroke-width': 0.8 }));
-      frog.appendChild(el('ellipse', { cx: 0, cy: -5, rx: 7, ry: 4.4, fill: '#e3efb0' }));
-      const sacPos = el('g', { transform: 'translate(0,-3.6)' });
-      sacPos.appendChild(el('ellipse', { class: 'journey-frog-sac', cx: 0, cy: 1.6, rx: 3.4, ry: 2.2, fill: '#f2f5c8', stroke: '#b9c27a', 'stroke-width': 0.4 }));
-      frog.appendChild(sacPos);
-      frog.appendChild(el('path', { d: 'M -5.4 -7.4 Q 0 -4.4 5.4 -7.4', fill: 'none', stroke: '#24391a', 'stroke-width': 0.9, 'stroke-linecap': 'round' }));
-      [-4.6, 4.6].forEach(ex => {
-        frog.appendChild(el('circle', { cx: ex, cy: -15, r: 3.6, fill: '#4fae4a', stroke: '#1f5a24', 'stroke-width': 0.6 }));
-        frog.appendChild(el('circle', { cx: ex, cy: -15.4, r: 2.4, fill: '#ffffff' }));
-        frog.appendChild(el('circle', { cx: ex + 0.3, cy: -15, r: 1.2, fill: '#111111' }));
-      });
-      frog.appendChild(el('path', { d: 'M -2.6 -16.6 L -2.6 -19.6 L -1.3 -18 L 0 -20.2 L 1.3 -18 L 2.6 -19.6 L 2.6 -16.6 Z', fill: '#f2c14e', stroke: '#9a6a12', 'stroke-width': 0.3 }));
-      [[-5, -10], [4, -11.4], [-1, -12.6]].forEach(([sx, sy]) => frog.appendChild(el('circle', { cx: sx, cy: sy, r: 1.1, fill: '#2f7d32' })));
-      g.appendChild(frog);
-      g.appendChild(lockIcon(ox, -30 * s, s));
-    }
+    if (blocked) g.appendChild(drawFoes(blocked, s, CASTLE_FOES));
     return g;
   }
 
@@ -1597,6 +1506,121 @@ const JourneyGame = (() => {
       burst();
     }, 1500);
   }
+
+  // ════════════════════════════════════════════════════════════════
+  // OBSTACLES — each task's named obstacles become that many enemies on
+  // the road before its flag, drawn in the theme's own style (rival
+  // players, mini-bosses, sharks, asteroids...), with the obstacle's name
+  // on a tag. Finishing the task knocks them out (see celebrateFlag).
+  // ════════════════════════════════════════════════════════════════
+  const FOE_SPOTS = [[-26, 0], [-42, -7], [-34, 10], [-54, 3], [-18, 13], [-60, -6]];
+  const FOE_SIZE = 1.25;
+  function drawFoes(blocked, s, foe) {
+    const info = blocked === true ? { count: 1, label: '' } : blocked;
+    const shown = Math.min(info.count, FOE_SPOTS.length);
+    const g = el('g', { class: 'journey-foes' });
+    const cx = FOE_SPOTS.slice(0, shown).reduce((a, p) => a + p[0], 0) / shown;
+    g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: cx * s, cy: -8 * s, r: (18 + shown * 4) * s, fill: '#ef4444', opacity: 0.4 }));
+    FOE_SPOTS.slice(0, shown).sort((a, b) => a[1] - b[1]).forEach(([x, y], k) => {
+      const pos = el('g', { transform: `translate(${x * s},${y * s}) scale(${s * FOE_SIZE})` });
+      const inner = el('g', { class: 'journey-foe', style: `animation-delay:${(-k * 0.37).toFixed(2)}s` });
+      foe(inner, k);
+      pos.appendChild(inner);
+      g.appendChild(pos);
+    });
+    const top = Math.min(...FOE_SPOTS.slice(0, shown).map(p => p[1])) - 36;
+    g.appendChild(lockIcon(cx * s, top * s, s));
+    const extra = info.count > shown ? ` +${info.count - shown}` : '';
+    const text = (info.label || 'Blocked').slice(0, 26) + (info.label && info.label.length > 26 ? '…' : '') + extra;
+    const fs = Math.max(6, 8 * s), w = text.length * fs * 0.56 + 8 * Math.max(0.75, s);
+    const tag = el('g', { transform: `translate(${cx * s},${(top - 12) * s})` });
+    tag.appendChild(el('rect', { x: -w / 2, y: -fs * 0.85, width: w, height: fs * 1.6, rx: fs * 0.8, fill: '#7f1d1d', opacity: 0.92 }));
+    const t = el('text', { x: 0, y: 0, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': fs, 'font-weight': 800, fill: '#ffffff', 'font-family': 'Arial, sans-serif', class: 'journey-unflip' });
+    t.textContent = text;
+    tag.appendChild(t);
+    g.appendChild(tag);
+    return g;
+  }
+  // One enemy per theme, drawn at its feet (0,0), about 20 units tall.
+  const ROAD_FOES = g => {
+    g.appendChild(el('rect', { x: -9, y: -14, width: 2.6, height: 14, rx: 1, fill: '#6b4a2a' }));
+    g.appendChild(el('rect', { x: 6.4, y: -14, width: 2.6, height: 14, rx: 1, fill: '#6b4a2a' }));
+    g.appendChild(el('rect', { x: -11, y: -13, width: 22, height: 5, rx: 1.6, fill: '#f97316', stroke: '#7c2d12', 'stroke-width': 0.7 }));
+    [-9, -1, 7].forEach(x => g.appendChild(el('rect', { x, y: -13, width: 4, height: 5, fill: '#fff', opacity: 0.9 })));
+  };
+  const SPACE_FOES = (g, k) => {
+    if (k % 2 === 0) {
+      g.appendChild(el('path', { d: 'M -10 -8 L -5 -17 L 5 -16 L 10 -7 L 7 2 L -4 3 L -11 -2 Z', fill: '#6b6f8a', stroke: '#2f3347', 'stroke-width': 0.8 }));
+      g.appendChild(el('circle', { cx: -3, cy: -9, r: 2.6, fill: '#4b4f68' }));
+      g.appendChild(el('circle', { cx: 4, cy: -3, r: 1.8, fill: '#4b4f68' }));
+    } else {
+      // an alien saucer
+      g.appendChild(el('ellipse', { cx: 0, cy: 2, rx: 6, ry: 1.6, fill: '#a3e635', opacity: 0.35 }));
+      g.appendChild(el('path', { d: 'M -5 -10 Q 0 -18 5 -10 Z', fill: '#67e8f9', stroke: '#0e7490', 'stroke-width': 0.6, opacity: 0.9 }));
+      g.appendChild(el('circle', { cx: 0, cy: -12.5, r: 1.6, fill: '#84cc16' }));
+      g.appendChild(el('ellipse', { cx: 0, cy: -8, rx: 12, ry: 3.6, fill: '#94a3b8', stroke: '#334155', 'stroke-width': 0.7 }));
+      [-7, 0, 7].forEach(x => g.appendChild(el('circle', { cx: x, cy: -7.6, r: 1, fill: '#fde047' })));
+    }
+  };
+  const OCEAN_FOES = (g, k) => {
+    if (k % 2 === 0) {
+      g.appendChild(el('path', { d: 'M -6 -10 Q -6 -18 0 -18 Q 6 -18 6 -10 Z', fill: '#f0abfc', opacity: 0.85, stroke: '#a21caf', 'stroke-width': 0.6 }));
+      [-4, -1.5, 1.5, 4].forEach(x => g.appendChild(el('path', { d: `M ${x} -10 Q ${x + 1.4} -6 ${x} -3 Q ${x - 1.4} -1 ${x} 1`, fill: 'none', stroke: '#e879f9', 'stroke-width': 0.8 })));
+    } else {
+      // a shark, side on
+      g.appendChild(el('path', { d: 'M -13 -7 Q -4 -13 8 -9 L 13 -7 L 8 -5 Q -4 -2 -13 -7 Z', fill: '#64748b', stroke: '#1e293b', 'stroke-width': 0.7 }));
+      g.appendChild(el('path', { d: 'M -2 -11.4 L 1 -17 L 3 -10.6 Z', fill: '#475569' }));
+      g.appendChild(el('path', { d: 'M -13 -7 L -17 -11 L -16 -7 L -17 -3 Z', fill: '#475569' }));
+      g.appendChild(el('path', { d: 'M -8 -6.2 Q 0 -4.8 8 -6', fill: 'none', stroke: '#e2e8f0', 'stroke-width': 1 }));
+      g.appendChild(el('circle', { cx: 8, cy: -8.4, r: 0.8, fill: '#0f172a' }));
+    }
+  };
+  const RACE_FOES = (g, k) => {
+    if (k % 2 === 0) {
+      [0, -5, -10].forEach(ty => {
+        g.appendChild(el('ellipse', { cx: 0, cy: ty, rx: 5, ry: 2.4, fill: '#1f2937', stroke: '#111827', 'stroke-width': 0.4 }));
+        g.appendChild(el('ellipse', { cx: 0, cy: ty - 0.4, rx: 2.2, ry: 1, fill: '#4b5563' }));
+      });
+    } else {
+      // a rival car
+      g.appendChild(el('rect', { x: -10, y: -9, width: 20, height: 7, rx: 3, fill: '#2563eb', stroke: '#1e3a8a', 'stroke-width': 0.7 }));
+      g.appendChild(el('path', { d: 'M -5 -9 L -3 -13 L 4 -13 L 6 -9 Z', fill: '#93c5fd', stroke: '#1e3a8a', 'stroke-width': 0.5 }));
+      [-6, 6].forEach(x => g.appendChild(el('circle', { cx: x, cy: -1.6, r: 2.6, fill: '#111827' })));
+    }
+  };
+  const FOOTBALL_FOES = g => {
+    g.appendChild(el('rect', { x: -2.4, y: -7, width: 2, height: 7, fill: '#f1f5f9' }));
+    g.appendChild(el('rect', { x: 0.4, y: -7, width: 2, height: 7, fill: '#f1f5f9' }));
+    g.appendChild(el('rect', { x: -4.2, y: -17, width: 8.4, height: 11, rx: 2.6, fill: '#1e88e5', stroke: '#0d47a1', 'stroke-width': 0.6 }));
+    g.appendChild(el('path', { d: 'M -4 -15 L -8 -10 M 4 -15 L 8 -10', stroke: '#ffd9ae', 'stroke-width': 1.8, 'stroke-linecap': 'round' }));
+    g.appendChild(el('circle', { cx: 0, cy: -20.5, r: 3.6, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 0.5 }));
+    g.appendChild(el('path', { d: 'M -2 -21.5 L -0.6 -21 M 2 -21.5 L 0.6 -21', stroke: '#1f2937', 'stroke-width': 0.6 }));
+  };
+  const CASTLE_FOES = (g, k) => {
+    if (k % 2 === 0) {
+      [-9, 9].forEach(fx => g.appendChild(el('ellipse', { cx: fx, cy: -3, rx: 5, ry: 4, fill: '#3f9440', stroke: '#1f5a24', 'stroke-width': 0.6 })));
+      g.appendChild(el('ellipse', { cx: 0, cy: -8, rx: 11, ry: 8, fill: '#4fae4a', stroke: '#1f5a24', 'stroke-width': 0.8 }));
+      g.appendChild(el('ellipse', { cx: 0, cy: -5, rx: 7, ry: 4.4, fill: '#e3efb0' }));
+      g.appendChild(el('ellipse', { class: 'journey-frog-sac', cx: 0, cy: -2, rx: 3.4, ry: 2.2, fill: '#f2f5c8' }));
+      [-4.6, 4.6].forEach(ex => {
+        g.appendChild(el('circle', { cx: ex, cy: -15, r: 3.6, fill: '#4fae4a', stroke: '#1f5a24', 'stroke-width': 0.6 }));
+        g.appendChild(el('circle', { cx: ex, cy: -15.4, r: 2.4, fill: '#ffffff' }));
+        g.appendChild(el('circle', { cx: ex + 0.3, cy: -15, r: 1.2, fill: '#111111' }));
+      });
+      g.appendChild(el('path', { d: 'M -2.6 -16.6 L -2.6 -19.6 L -1.3 -18 L 0 -20.2 L 1.3 -18 L 2.6 -19.6 L 2.6 -16.6 Z', fill: '#f2c14e' }));
+    } else {
+      // a black knight mini-boss
+      g.appendChild(el('rect', { x: -3.4, y: -8, width: 2.6, height: 8, fill: '#334155' }));
+      g.appendChild(el('rect', { x: 0.8, y: -8, width: 2.6, height: 8, fill: '#334155' }));
+      g.appendChild(el('rect', { x: -5.4, y: -19, width: 10.8, height: 12, rx: 3, fill: '#1e293b', stroke: '#0f172a', 'stroke-width': 0.6 }));
+      g.appendChild(el('path', { d: 'M -5 -17 L -11 -9 L -9 -8 Z', fill: '#7f1d1d' }));
+      g.appendChild(el('circle', { cx: 0, cy: -23, r: 4.8, fill: '#334155', stroke: '#0f172a', 'stroke-width': 0.6 }));
+      g.appendChild(el('rect', { x: -3.4, y: -23.6, width: 6.8, height: 1.4, fill: '#ef4444' }));
+      g.appendChild(el('path', { d: 'M 0 -28 L 1.6 -32 L 3 -28 Z', fill: '#ef4444' }));
+      g.appendChild(el('path', { d: 'M 6 -6 L 8 -22 L 9.4 -22 L 8 -6 Z', fill: '#cbd5e1', stroke: '#475569', 'stroke-width': 0.4 }));
+      g.appendChild(el('rect', { x: 5, y: -7, width: 5.4, height: 1.4, fill: '#7f1d1d' }));
+    }
+  };
 
   // ════════════════════════════════════════════════════════════════
   // THEME REGISTRY — picked by app.js (Settings-free: a small selector
@@ -1977,9 +2001,23 @@ const JourneyGame = (() => {
 
   // A flag the avatar has just reached: it pops, confetti bursts from it,
   // and the task's own title floats up beside it.
+  // A task's obstacles as { count, label }: its named obstacles (counts
+  // added up, the first name on the tag), or one for an older "this is a
+  // blocker" status update; null when nothing is in the way.
+  function foesFor(t) {
+    const obs = t.obstacles || [];
+    const count = obs.reduce((a, o) => a + (o.count || 1), 0);
+    if (count) return { count, label: obs[0].name + (obs.length > 1 ? ` (+${obs.length - 1} more)` : '') };
+    if (t.latestUpdateIsBlocker) return { count: 1, label: t.latestUpdateText || 'Blocked' };
+    return null;
+  }
+
   function celebrateFlag(entry, i, frac, taskTitle) {
     if (!entry || !entry.svg.isConnected) return;
     const g = entry.flagEls[i];
+    // knock out whatever was standing in the way
+    const foes = g && g.querySelector('.journey-foes');
+    if (foes) { foes.classList.add('journey-foes-defeated'); setTimeout(() => foes.remove(), 700); }
     if (g) {
       g.classList.remove('journey-flag-pop');
       g.getBBox(); // restart the animation if it was already running
@@ -2035,20 +2073,23 @@ const JourneyGame = (() => {
     const n = totalN;
     const scale = checkpointScale(n);
     const fracs = state.tasks.map((t, i) => checkpointFrac(i, n));
+    const celebrate = state.celebrationsEnabled !== false;
     entry.flagEls = [];
     state.tasks.forEach((t, i) => {
       const pt = pointAtFrac(roadBase, fracs[i]);
       const isDone = t.status === 'Completed';
       const isNext = !isDone && i === doneN;
-      // Once the task is done, its blocker has been overcome — the obstacle clears.
-      const g = theme.buildCheckpoint(i, isDone, isNext, t.latestUpdateIsBlocker && !isDone, scale, shadowId);
+      // Its enemies stay until the task is done; a task that's just been
+      // finished keeps them until the avatar arrives to knock them out.
+      const foes = foesFor(t);
+      const justDone = isDone && celebrate && entry.curFrac !== null && !entry.lastDoneIds.has(t.id);
+      const g = theme.buildCheckpoint(i, isDone, isNext, foes && (!isDone || justDone) ? foes : null, scale, shadowId);
       const pos = el('g', { transform: `translate(${pt.x},${pt.y})` });
       pos.appendChild(g);
       flagsLayer.appendChild(pos);
       entry.flagEls.push(g);
     });
 
-    const celebrate = state.celebrationsEnabled !== false;
     // Respect prefers-reduced-motion: the avatar still ends up in the
     // right place, it just snaps there instead of walking.
     const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;

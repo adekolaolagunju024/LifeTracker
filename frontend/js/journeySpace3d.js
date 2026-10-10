@@ -18,6 +18,7 @@ import {
   createShell, createLoop, makeCanvasTexture, seededRandom, softDotTexture, Particles, particleScaleFor,
   loadGLTF, makeCharacter, play, recolorCharacter, findBone, attachToBone,
   checkpointFracOf, progressToPathFracSmooth, angleLerp, createWalker,
+  stageTasks, layoutSignature, nameTagSprite,
 } from './journey3dKit.js';
 
 const ASTRONAUT_URL = '/assets/models/Knight.glb';
@@ -438,34 +439,65 @@ export function createSpace3D(container) {
     g.fillStyle = '#fff'; g.fillRect(38, 58, 52, 40);
     g.strokeStyle = '#fff'; g.lineWidth = 10; g.beginPath(); g.arc(64, 56, 16, Math.PI, 0); g.stroke();
   });
+  // Alien saucers: a silver disc, a glass dome and a ring of blinking lights.
+  const ufoMetal = new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.85, roughness: 0.25 });
+  const ufoGlass = new THREE.MeshStandardMaterial({ color: '#67e8f9', emissive: '#22d3ee', emissiveIntensity: 0.6, transparent: true, opacity: 0.8, roughness: 0.1 });
+  function buildUfo() {
+    const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+    const disc = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 12), ufoMetal); disc.scale.set(1.3, 0.28, 1.3); body.add(disc);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.08, 8, 32), new THREE.MeshStandardMaterial({ color: '#475569', metalness: 0.7, roughness: 0.3 })); rim.rotation.x = Math.PI / 2; body.add(rim);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), ufoGlass); dome.position.y = 0.18; body.add(dome);
+    const alien = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), new THREE.MeshStandardMaterial({ color: '#84cc16', roughness: 0.5 })); alien.position.y = 0.35; body.add(alien);
+    const lights = [];
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2, l = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: k % 2 ? '#fde047' : '#f472b6' }));
+      l.position.set(Math.cos(a) * 1.05, -0.05, Math.sin(a) * 1.05); body.add(l); lights.push(l);
+    }
+    const beam = new THREE.Mesh(new THREE.ConeGeometry(0.9, 2.2, 20, 1, true), new THREE.MeshBasicMaterial({ color: '#a3e635', transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    beam.position.y = -1.2; body.add(beam);
+    body.traverse(o => { if (o.isMesh && o !== beam) o.castShadow = true; });
+    body.scale.setScalar(0.85);
+    scene.add(g);
+    return { kind: 'ufo', g, body, lights };
+  }
+  function buildRockFoe() {
+    const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+    [[0, 0, 0, 1.25], [1.1, 0.5, -0.3, 0.5], [-0.9, -0.6, 0.4, 0.45]].forEach(([x, y, z, sc]) => {
+      const m = new THREE.Mesh(rockGeo, rockMat); m.position.set(x, y, z); m.scale.setScalar(sc); m.castShadow = true; body.add(m);
+    });
+    scene.add(g);
+    return { kind: 'rock', g, body };
+  }
+  // Every task's obstacles: one enemy per obstacle point (asteroids and
+  // alien saucers in turn) hanging across the route in front of the satellite.
   const walls = [];
   function buildWalls() {
-    walls.forEach(w => { w.rocks.forEach(r => scene.remove(r.m)); scene.remove(w.lock, w.hoop); });
+    walls.forEach(w => { w.foes.forEach(f => scene.remove(f.g)); scene.remove(w.lock, w.hoop, w.tag); });
     walls.length = 0;
     tasks.forEach((t, i) => {
-      if (!t.blocker) return;
+      if (!t.foes) return;
       const u = wallFrac(i), p = curve.getPointAt(u), tan = curve.getTangentAt(u);
       const side = new THREE.Vector3().crossVectors(tan, UP).normalize(), up2 = new THREE.Vector3().crossVectors(side, tan).normalize();
-      const rocks = [];
-      for (let k = 0; k < 7; k++) {
-        const a = (k / 7) * Math.PI * 2 + rnd(), r = k === 0 ? 0 : 1.2 + rnd() * 1.4;
-        const m = new THREE.Mesh(rockGeo, rockMat.clone());
-        const s = k === 0 ? 1.3 : 0.5 + rnd() * 0.6;
-        m.scale.setScalar(s); m.castShadow = true;
-        const home = p.clone().addScaledVector(side, Math.cos(a) * r).addScaledVector(up2, Math.sin(a) * r).addScaledVector(tan, (rnd() - 0.5) * 1.5);
-        m.position.copy(home); scene.add(m);
-        rocks.push({ m, home, spin: rand3(1), at: rnd() * 0.5 });
-      }
+      const n = Math.min(t.foes, 5);
+      const foes = Array.from({ length: n }, (_, k) => {
+        const f = k % 2 === 0 ? buildRockFoe() : buildUfo();
+        const a = (k / n) * Math.PI * 2 + 0.4, r = n === 1 ? 0 : 1.6 + (k % 2) * 0.7;
+        const home = p.clone().addScaledVector(side, Math.cos(a) * r * 1.3).addScaledVector(up2, Math.sin(a) * r).addScaledVector(tan, (k % 3) * 1.4);
+        f.g.position.copy(home);
+        return Object.assign(f, { home, spin: rand3(1), ph: rnd() * 6, delay: 0.15 + k * 0.35, blasted: false });
+      });
       const lock = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, transparent: true }));
-      lock.position.copy(p).addScaledVector(up2, 3.2); lock.scale.setScalar(0.9); scene.add(lock);
-      const hoop = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.07, 8, 48), new THREE.MeshBasicMaterial({ color: '#ff6b5e', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+      lock.position.copy(p).addScaledVector(up2, 3.6); lock.scale.setScalar(0.9); scene.add(lock);
+      const tag = nameTagSprite(`${t.blocker}${t.foes > 1 ? ` ×${t.foes}` : ''}`, 0.6);
+      tag.position.copy(p).addScaledVector(up2, 4.5); scene.add(tag);
+      const hoop = new THREE.Mesh(new THREE.TorusGeometry(3.6, 0.07, 8, 48), new THREE.MeshBasicMaterial({ color: '#ff6b5e', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
       hoop.position.copy(p); hoop.quaternion.setFromUnitVectors(V(0, 0, 1), tan); scene.add(hoop);
-      const w = { taskIndex: i, rocks, lock, hoop, center: p.clone(), cleared: !!t.done, clearing: false, t: t.done ? 9 : 0, lasers: [] };
-      rocks.forEach(r => { r.m.visible = !w.cleared; });
-      lock.visible = hoop.visible = !w.cleared;
+      const w = { taskIndex: i, foes, lock, tag, hoop, center: p.clone(), cleared: !!t.done, clearing: false, t: t.done ? 99 : 0 };
+      if (w.cleared) { foes.forEach(f => { f.g.visible = false; f.blasted = true; }); lock.visible = tag.visible = hoop.visible = false; }
       walls.push(w);
     });
   }
+  const wallPause = w => 0.8 + 0.35 * Math.max(1, w.foes.length);
   // laser bolts and rock fragments
   const laserMat = new THREE.MeshBasicMaterial({ color: '#ff4d6d', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
   const lasers = [];
@@ -507,43 +539,42 @@ export function createSpace3D(container) {
   function clearWall(w) {
     if (w.cleared) return;
     w.cleared = true; w.t = 0;
-    if (reduceMotion) { w.t = 9; w.rocks.forEach(r => { r.m.visible = false; }); w.lock.visible = w.hoop.visible = false; }
+    if (reduceMotion) { w.t = 99; w.foes.forEach(f => { f.g.visible = false; f.blasted = true; }); w.lock.visible = w.tag.visible = w.hoop.visible = false; }
     notify();
   }
   function restoreWall(w) {
     w.cleared = false; w.clearing = false; w.t = 0;
-    w.rocks.forEach(r => { r.m.visible = true; r.m.position.copy(r.home); r.blasted = false; });
+    w.foes.forEach(f => { f.g.visible = true; f.g.position.copy(f.home); f.blasted = false; });
   }
   function updateWalls(dt, time) {
     walls.forEach(w => {
-      w.rocks.forEach((r, k) => {
-        if (!r.m.visible) return;
-        r.m.rotation.x += r.spin.x * dt * 0.4; r.m.rotation.y += r.spin.y * dt * 0.4;
-        if (!w.cleared) r.m.position.copy(r.home).add(V(Math.sin(time * 0.5 + k) * 0.15, Math.cos(time * 0.4 + k) * 0.15, 0));
+      w.foes.forEach(f => {
+        if (!f.g.visible) return;
+        if (f.kind === 'rock') { f.body.rotation.x += f.spin.x * dt * 0.4; f.body.rotation.y += f.spin.y * dt * 0.4; }
+        else { f.body.rotation.y += dt * 1.6; f.lights.forEach((l, q) => { l.visible = ((Math.floor(time * 6) + q) % 3) !== 0; }); }
+        if (!w.cleared) f.g.position.copy(f.home).add(V(Math.sin(time * 0.5 + f.ph) * 0.2, Math.cos(time * 0.7 + f.ph) * 0.25, 0));
       });
       if (!w.cleared) {
-        w.lock.visible = w.hoop.visible = true;
+        w.lock.visible = w.tag.visible = w.hoop.visible = true;
         w.hoop.material.opacity = 0.4 + 0.25 * Math.sin(time * 4);
-        w.lock.position.y += Math.sin(time * 2.2) * 0.002;
         return;
       }
-      if (w.t > 3) return;
+      if (w.t > 60) return;
       w.t += dt;
-      // lasers fire from the nose at each rock in turn, and it shatters
-      w.rocks.forEach((r, k) => {
-        const at = 0.15 + k * 0.12;
-        if (!r.blasted && w.t > at) {
-          r.blasted = true;
-          const nose = V(0, 2.4 * ROCKET_SCALE, 0).applyQuaternion(rocket.root.quaternion).add(rocket.root.position);
-          fireLaser(nose, r.m.position);
-          shatter(r.m.position.clone(), r.m.scale.x);
-          r.m.visible = false;
-          cam.shake = Math.max(cam.shake, 0.18);
-        }
+      // lasers fire from the nose at each enemy in turn, and it blows apart
+      w.foes.forEach(f => {
+        if (f.blasted || w.t < f.delay) return;
+        f.blasted = true;
+        const nose = V(0, 2.4 * ROCKET_SCALE, 0).applyQuaternion(rocket.root.quaternion).add(rocket.root.position);
+        fireLaser(nose, f.g.position);
+        shatter(f.g.position.clone(), f.kind === 'rock' ? 1.2 : 0.8);
+        if (f.kind === 'ufo') sparkle(f.g.position.clone(), 40, ['#a3e635', '#fde047', '#ffffff'], 6);
+        f.g.visible = false;
+        cam.shake = Math.max(cam.shake, 0.18);
       });
       const e = Math.min(1, w.t / 0.8);
-      w.lock.material.opacity = 1 - e; w.hoop.material.opacity = 0.6 * (1 - e);
-      if (w.t > 0.8) w.lock.visible = w.hoop.visible = false;
+      w.lock.material.opacity = w.tag.material.opacity = 1 - e; w.hoop.material.opacity = 0.6 * (1 - e);
+      if (w.t > 0.8) w.lock.visible = w.tag.visible = w.hoop.visible = false;
     });
   }
 
@@ -619,7 +650,7 @@ export function createSpace3D(container) {
   const walker = createWalker({
     curve, speed: 7, accel: 7, brakeDecel: 6, reduceMotion, getTasks: () => tasks, walls,
     hooks: {
-      stopFrac: rocksStopFrac,
+      stopFrac: rocksStopFrac, wallPause,
       place(frac, moving) {
         fly.moving = moving;
         const u = THREE.MathUtils.clamp(frac, 0, 1);
@@ -830,9 +861,7 @@ export function createSpace3D(container) {
     shell.root.setAttribute('aria-label', text);
   }
   let latestState = null, layoutSig = null;
-  function toTasks(state) {
-    return (state.tasks || []).map(t => ({ id: t.id, title: t.title, done: t.status === 'Completed', blocker: t.latestUpdateIsBlocker ? (t.latestUpdateText || 'Blocked') : null }));
-  }
+  const toTasks = stageTasks;
   function snapCamera() {
     const rp = rocket.root.position.clone().add(V(0, ROCKET_MID, 0).applyQuaternion(rocket.root.quaternion));
     const dir = (fly.dir || V(0, 0, -1)).clone().setY(0).normalize();
@@ -843,7 +872,7 @@ export function createSpace3D(container) {
   function applyState(state) {
     onSummitCb = state.onSummit || null;
     const next = toTasks(state), n = next.length;
-    const sig = next.map(t => `${t.id}:${t.blocker ? 1 : 0}`).join('|');
+    const sig = layoutSignature(next);
     if (sig !== layoutSig) {
       const firstBuild = layoutSig === null;
       layoutSig = sig;
@@ -860,7 +889,7 @@ export function createSpace3D(container) {
       if (n && tasks.every(t => t.done)) settleWon();
       if (firstBuild) snapCamera();
     } else {
-      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; });
+      next.forEach((t, i) => { tasks[i].done = t.done; tasks[i].title = t.title; tasks[i].blocker = t.blocker; tasks[i].foes = t.foes; });
       refreshFlags();
       walker.plan();
     }
