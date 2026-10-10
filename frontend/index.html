@@ -143,10 +143,24 @@
     .dark .gantt-switch-btn.active { color: #5EEAD4; }
     /* Thumb position is set inline via JS (applyGanttPageView) since it now
        slides between 3 stops (Gantt/Kanban/Journey) rather than a fixed 2. */
-    #gantt-journey-view:fullscreen { background: #fff; padding: 24px; overflow-y: auto; }
-    #gantt-journey-view:-webkit-full-screen { background: #fff; padding: 24px; overflow-y: auto; }
-    #gantt-journey-view:fullscreen #journey-hud,
-    #gantt-journey-view:-webkit-full-screen #journey-hud { height: calc(100vh - 220px) !important; }
+    /* Journey fullscreen: the view is stretched over the whole page (and the
+       browser goes fullscreen on the page itself, where it can), rather than
+       fullscreening the view element alone, so modals, toasts and the task
+       panel, which live outside it, still show on top of it. The header
+       keeps its natural height and the game frame takes every pixel left. */
+    body.journey-fs { overflow: hidden; }
+    body.journey-fs #gantt-journey-view {
+      position: fixed; inset: 0; z-index: 50; display: flex !important; flex-direction: column;
+      background: #f8fafc; padding: 12px 16px 16px; margin: 0;
+    }
+    .dark body.journey-fs #gantt-journey-view, body.dark.journey-fs #gantt-journey-view { background: #0b1220; }
+    body.journey-fs #gantt-journey-view > :first-child { margin-bottom: 10px; flex: 0 0 auto; }
+    body.journey-fs #task-detail-backdrop { z-index: 50; }
+    body.journey-fs #journey-hud { flex: 1 1 auto; min-height: 0; height: auto !important; }
+    body.journey-fs #journey-hud #mountain-scene-wrap { height: auto !important; min-height: 0 !important; }
+    @media (max-width: 639px) {
+      body.journey-fs #journey-hud #mountain-quest-panel { max-height: 34vh; }
+    }
 
     /* The game panel: the scene and the quest log are one frame. Below
        640px (same rough breakpoint journeyGame.js's own pickLayout()
