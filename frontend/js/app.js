@@ -4766,13 +4766,17 @@ function setJourneyCompetitor(value) {
   renderMountainScene();
 }
 
-// Which visual skin the Journey scene draws itself in — Road, Space,
-// Ocean, or Race — purely cosmetic, same underlying mechanics either
+// Which stage the Journey scene draws itself in — Football, Castle,
+// Ocean, Space, ... — purely cosmetic, same underlying mechanics either
 // way (see journeyGame.js's THEMES registry). One global preference
 // rather than per-project, since it's "how I like it to look," not
-// something tied to any one goal.
+// something tied to any one goal. The old Road and Race stages were
+// retired; anyone who had one picked lands on Football.
+const RETIRED_JOURNEY_THEMES = ['road', 'race'];
 function getJourneyTheme() {
-  try { return localStorage.getItem('journeyTheme') || 'road'; } catch { return 'road'; }
+  let theme = 'football';
+  try { theme = localStorage.getItem('journeyTheme') || 'football'; } catch { /* private mode etc */ }
+  return RETIRED_JOURNEY_THEMES.includes(theme) ? 'football' : theme;
 }
 function setJourneyTheme(value) {
   try { localStorage.setItem('journeyTheme', value); } catch { /* private mode etc */ }

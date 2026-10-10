@@ -196,11 +196,6 @@
     @media (min-width: 640px) {
       .journey-quest-panel { background: linear-gradient(90deg, var(--quest-bg1) 0%, var(--quest-bg2) 100%); border-top: none; border-left: 1px solid var(--quest-divider); }
     }
-    .journey-quest-panel.theme-road {
-      --quest-bg1: #fcf2d8; --quest-bg2: #f1dcaa; --quest-divider: rgba(139,94,60,.35);
-      --quest-text: #4a2f1e; --quest-text-done: #b08968; --quest-date: #8b6b4a; --quest-hover: rgba(139,94,60,.1);
-      --quest-accent: #b45309;
-    }
     .journey-quest-panel.theme-space, .journey-quest-panel.theme-space3d {
       --quest-bg1: #0d1130; --quest-bg2: #070813; --quest-divider: rgba(125,211,252,.25);
       --quest-text: #cdeeff; --quest-text-done: #4a5a7a; --quest-date: #6ea3c9; --quest-hover: rgba(125,211,252,.08);
@@ -211,15 +206,15 @@
       --quest-text: #e3f8ff; --quest-text-done: #5f93a8; --quest-date: #8fc7dd; --quest-hover: rgba(255,255,255,.08);
       --quest-accent: #67e8f9;
     }
-    .journey-quest-panel.theme-race {
-      --quest-bg1: #2c3038; --quest-bg2: #15171b; --quest-divider: rgba(249,115,22,.3);
-      --quest-text: #f1f5f9; --quest-text-done: #5c6470; --quest-date: #9aa5b1; --quest-hover: rgba(249,115,22,.12);
-      --quest-accent: #fb923c;
-    }
     .journey-quest-panel.theme-football, .journey-quest-panel.theme-football3d {
       --quest-bg1: #1a5c33; --quest-bg2: #0c3019; --quest-divider: rgba(255,255,255,.18);
       --quest-text: #eafff0; --quest-text-done: #5f9a76; --quest-date: #9fd9b4; --quest-hover: rgba(255,255,255,.1);
       --quest-accent: #fde047;
+    }
+    .journey-quest-panel.theme-corporate, .journey-quest-panel.theme-corporate3d {
+      --quest-bg1: #1e293b; --quest-bg2: #0f172a; --quest-divider: rgba(148,163,184,.28);
+      --quest-text: #f1f5f9; --quest-text-done: #64748b; --quest-date: #94a3b8; --quest-hover: rgba(148,163,184,.1);
+      --quest-accent: #fbbf24;
     }
     .journey-quest-panel.theme-castle, .journey-quest-panel.theme-castle3d {
       --quest-bg1: #1c2547; --quest-bg2: #0d1326; --quest-divider: rgba(231,180,67,.28);
@@ -469,6 +464,17 @@
     .journey-quest-done .journey-treasure-done, .journey-quest-done .journey-planted-flag { display: inline; }
     .journey-flag-rise { animation: journey-flag-rise .7s cubic-bezier(.3,1.5,.5,1) 1 both; transform-box: fill-box; transform-origin: bottom center; }
     @keyframes journey-flag-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+    /* Corporate: the HQ's windows light gold and the signed contract pops
+       over the entrance once the deal is closed; the beacon blinks. */
+    .journey-hq-window, .journey-hq-boardroom { transition: fill .8s; }
+    .journey-quest-done .journey-hq-window { fill: #ffe08a; }
+    .journey-quest-done .journey-hq-boardroom { fill: #fff3c4; }
+    .journey-hq-beacon { animation: journey-beacon 1.4s steps(2, jump-none) infinite; }
+    @keyframes journey-beacon { 0% { opacity: 1; } 100% { opacity: .15; } }
+    .journey-deal-pop { opacity: 0; transform-box: fill-box; transform-origin: center bottom; }
+    .journey-quest-done .journey-deal-pop { opacity: 1; }
+    .journey-deal-anim { animation: journey-deal-pop .8s cubic-bezier(.3,1.6,.5,1) 1 both; }
+    @keyframes journey-deal-pop { from { opacity: 0; transform: scale(.2) rotate(-12deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
     @keyframes journey-firework { 0% { opacity: 1; transform: scale(.2); } 70% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
 
     /* A completed task's own title, popping up beside its flag then
@@ -504,7 +510,7 @@
       .journey-task-popup-inner,
       .journey-flame, .journey-river-flow, .journey-frog-sac, .journey-dragon-breathe, .journey-dragon-wing,
       .journey-dragon-fire, .journey-dragon-hit, .journey-dragon-fall, .journey-slash .journey-arm-front,
-      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise,
+      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise, .journey-hq-beacon, .journey-deal-anim,
       .journey-foe, .journey-foes-defeated .journey-foe { animation: none; }
       .journey-portcullis, .journey-princess-free { transition: none; }
     }
@@ -1518,8 +1524,6 @@
               <option value="schedule">🖥️ The Schedule</option>
             </select>
             <select id="journey-theme-select" onchange="setJourneyTheme(this.value)" title="Change the Journey scene's look" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
-              <option value="road">🛣️ Road</option>
-              <option value="race">🏎️ Race</option>
               <option value="football">⚽ Football</option>
               <option value="football3d">🏟️ Football 3D</option>
               <option value="castle">🏰 Castle</option>
@@ -1528,6 +1532,8 @@
               <option value="ocean3d">🌊 Ocean 3D</option>
               <option value="space">🚀 Space</option>
               <option value="space3d">🚀 Space 3D</option>
+              <option value="corporate">🏢 Corporate</option>
+              <option value="corporate3d">🏢 Corporate 3D</option>
             </select>
             <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started and untick its cleared blockers">↺ Reset</button>
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
