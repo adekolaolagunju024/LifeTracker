@@ -221,6 +221,11 @@
       --quest-text: #eafff0; --quest-text-done: #5f9a76; --quest-date: #9fd9b4; --quest-hover: rgba(255,255,255,.1);
       --quest-accent: #fde047;
     }
+    .journey-quest-panel.theme-castle, .journey-quest-panel.theme-castle3d {
+      --quest-bg1: #1c2547; --quest-bg2: #0d1326; --quest-divider: rgba(231,180,67,.28);
+      --quest-text: #f6f0e1; --quest-text-done: #8a8470; --quest-date: #c9b98f; --quest-hover: rgba(231,180,67,.1);
+      --quest-accent: #e7b443;
+    }
     /* The stats strip — percent complete, streak, pace vs. schedule — a
        compact header above the task rows, in the same themed chrome as
        the rest of the panel (see .journey-quest-panel.theme-* above). */
@@ -405,6 +410,43 @@
     @keyframes journey-sway { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
     @keyframes journey-jelly { 0%, 100% { transform: translateY(0) scale(1,1); } 50% { transform: translateY(-3px) scale(.92,1.08); } }
 
+    /* Castle theme: fire baskets flicker, the river flows, frogs croak,
+       the dragon breathes and flaps; the finish is a sword slash, the
+       dragon falling, the portcullis lifting and the princess stepping
+       out (.journey-quest-done is set on the svg once the quest is won). */
+    .journey-flame { animation: journey-flame .35s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: bottom center; }
+    @keyframes journey-flame { from { transform: scale(1,1); } to { transform: scale(.82,1.2); } }
+    .journey-river-flow { animation: journey-river-flow 3s linear infinite; }
+    @keyframes journey-river-flow { to { stroke-dashoffset: -36; } }
+    .journey-frog-sac { animation: journey-frog-croak 2.8s ease-in-out infinite; transform-box: fill-box; transform-origin: top center; }
+    @keyframes journey-frog-croak { 0%, 70%, 100% { transform: scale(1); } 80% { transform: scale(1.7); } 90% { transform: scale(1.15); } }
+    .journey-dragon-breathe { animation: journey-dragon-breathe 3s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+    @keyframes journey-dragon-breathe { 0%, 100% { transform: scale(1,1); } 50% { transform: scale(1.03,1.05); } }
+    .journey-dragon-wing { animation: journey-dragon-wing 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: 0% 100%; }
+    .journey-dragon-wing.d1 { animation-delay: -.3s; }
+    @keyframes journey-dragon-wing { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-12deg); } }
+    .journey-dragon-fire { opacity: 0; animation: journey-dragon-fire 5s ease-in infinite; transform-box: fill-box; transform-origin: 100% 50%; }
+    @keyframes journey-dragon-fire { 0%, 70%, 100% { opacity: 0; transform: scale(.2); } 76% { opacity: 1; transform: scale(1); } 88% { opacity: .9; transform: scale(1.15); } 94% { opacity: 0; transform: scale(1.2); } }
+    .journey-dragon { transform-box: fill-box; transform-origin: bottom center; }
+    .journey-dragon-hit { animation: journey-dragon-hit .45s ease-in-out 1; }
+    @keyframes journey-dragon-hit { 0%, 100% { transform: translateX(0); filter: none; } 20% { transform: translateX(-3px); filter: brightness(3); } 50% { transform: translateX(3px); } 75% { transform: translateX(-2px); } }
+    .journey-dragon-fall { animation: journey-dragon-fall .8s ease-in 1 forwards; }
+    @keyframes journey-dragon-fall { 0% { transform: rotate(0) translateY(0); opacity: 1; } 100% { transform: rotate(-70deg) translateY(6px); opacity: 0; } }
+    .journey-quest-done .journey-dragon { display: none; }
+    .journey-slash .journey-arm-front { animation: journey-slash .35s ease-out 1 forwards; }
+    @keyframes journey-slash { 0% { transform: rotate(-80deg); } 100% { transform: rotate(70deg); } }
+    .journey-slash-arc { animation: journey-slash-arc .45s ease-out 1 forwards; }
+    @keyframes journey-slash-arc { 0% { opacity: 1; stroke-width: 4; } 100% { opacity: 0; stroke-width: .5; } }
+    .journey-portcullis { transition: transform 1.2s ease-out; }
+    .journey-quest-done .journey-portcullis { transform: translateY(-18px); }
+    .journey-quest-done .journey-princess-captive { display: none; }
+    .journey-princess-free { opacity: 0; transition: opacity .6s ease .8s; }
+    .journey-quest-done .journey-princess-free { opacity: 1; }
+    .journey-princess-wave { animation: journey-princess-wave .8s ease-in-out infinite; transform-box: fill-box; transform-origin: 0% 100%; }
+    @keyframes journey-princess-wave { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-35deg); } }
+    .journey-firework { opacity: 0; animation: journey-firework 1.3s ease-out 1 forwards; transform-box: fill-box; transform-origin: center; }
+    @keyframes journey-firework { 0% { opacity: 1; transform: scale(.2); } 70% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
+
     /* A completed task's own title, popping up beside its flag then
        floating away — removed by JS on a timer either way, so reduced
        motion still sees it appear and disappear, just without the drift. */
@@ -430,7 +472,11 @@
       .journey-crowd-bob, .journey-flag-wave, .journey-speedline,
       .journey-sparkle, .journey-checkpoint-pop,
       .journey-leg-l, .journey-leg-r, .journey-wheel-l, .journey-wheel-r,
-      .journey-task-popup-inner { animation: none; }
+      .journey-task-popup-inner,
+      .journey-flame, .journey-river-flow, .journey-frog-sac, .journey-dragon-breathe, .journey-dragon-wing,
+      .journey-dragon-fire, .journey-dragon-hit, .journey-dragon-fall, .journey-slash .journey-arm-front,
+      .journey-slash-arc, .journey-princess-wave, .journey-firework { animation: none; }
+      .journey-portcullis, .journey-princess-free { transition: none; }
     }
 
     /* Native-feeling iOS toggle switch, reused anywhere a setting is a
@@ -1441,6 +1487,8 @@
               <option value="race">🏎️ Race</option>
               <option value="football">⚽ Football</option>
               <option value="football3d">🏟️ Football 3D</option>
+              <option value="castle">🏰 Castle</option>
+              <option value="castle3d">🏰 Castle 3D</option>
             </select>
             <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started">↺ Reset</button>
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>
