@@ -29,6 +29,7 @@
     "node-cron": "^4.6.0",
     "puppeteer-core": "^25.10.0",
     "resend": "^6.32.0",
+    "three": "^0.186.1",
     "uuid": "^9.0.0",
     "web-push": "^3.6.7"
   },

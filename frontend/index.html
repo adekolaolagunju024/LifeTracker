@@ -19,6 +19,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Waypoint">
 
+  <!-- Resolves "three" for the 3D Journey stage (frontend/js/journey3d.js,
+       loaded on demand) to the self-hosted copy server.js serves from
+       node_modules. Must come before any module import. -->
+  <script type="importmap">
+    { "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }
+  </script>
+
   <!-- Apply saved theme before first paint to avoid a flash of the wrong theme -->
   <script>
     (function() {
@@ -161,11 +168,24 @@
     .journey-leg-front, .journey-leg-back, .journey-arm-front, .journey-arm-back, .journey-cape {
       transform-box: fill-box; transform-origin: 50% 0%;
     }
-    .journey-leg-front { animation: journey-leg-front 1.1s ease-in-out infinite; }
-    .journey-leg-back  { animation: journey-leg-back 1.1s ease-in-out infinite; }
-    .journey-arm-front { animation: journey-arm-front 1.1s ease-in-out infinite; }
-    .journey-arm-back  { animation: journey-arm-back 1.1s ease-in-out infinite; }
-    .journey-cape      { animation: journey-cape-wave 1.1s ease-in-out infinite; transform-origin: 20% 10%; }
+    /* Standing still: a subtle idle sway. Only while the avatar is
+       actually walking along the path (journeyGame.js toggles
+       .journey-walking on the avatar layer) do the limbs swing into a
+       full running stride, and the body bobs with each step. */
+    .journey-leg-front, .journey-leg-back { animation: journey-limb-idle 2.6s ease-in-out infinite; }
+    .journey-arm-front { animation: journey-limb-idle 2.6s ease-in-out infinite; }
+    .journey-arm-back  { animation: journey-limb-idle 2.6s ease-in-out infinite reverse; }
+    .journey-cape      { animation: journey-cape-wave 2.6s ease-in-out infinite; transform-origin: 20% 10%; }
+    .journey-walking .journey-leg-front { animation: journey-leg-front .5s linear infinite; }
+    .journey-walking .journey-leg-back  { animation: journey-leg-back .5s linear infinite; }
+    .journey-walking .journey-arm-front { animation: journey-arm-front .5s linear infinite; }
+    .journey-walking .journey-arm-back  { animation: journey-arm-back .5s linear infinite; }
+    .journey-walking .journey-cape      { animation: journey-cape-wave .5s ease-in-out infinite; }
+    .journey-walking .journey-avatar-bob { animation: journey-step .25s ease-in-out infinite alternate; }
+    @keyframes journey-limb-idle { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+    @keyframes journey-step { from { transform: translateY(0); } to { transform: translateY(-2.5px); } }
+    .journey-kick .journey-leg-front { animation: journey-kick .3s ease-out 1 forwards; }
+    @keyframes journey-kick { 0% { transform: rotate(25deg); } 100% { transform: rotate(-65deg); } }
     @keyframes journey-leg-front { 0%, 100% { transform: rotate(20deg); } 50% { transform: rotate(-20deg); } }
     @keyframes journey-leg-back  { 0%, 100% { transform: rotate(-20deg); } 50% { transform: rotate(20deg); } }
     @keyframes journey-arm-front { 0%, 100% { transform: rotate(-18deg); } 50% { transform: rotate(18deg); } }
@@ -214,7 +234,8 @@
        behind the car to sell motion. */
     .journey-crowd-bob { animation: journey-crowd-bob 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
     .journey-flag-wave { animation: journey-flag-wave 1s ease-in-out infinite; transform-box: fill-box; transform-origin: left center; }
-    .journey-speedline { animation: journey-speedline 0.5s ease-out infinite; }
+    .journey-speedline { opacity: 0; }
+    .journey-walking .journey-speedline { animation: journey-speedline 0.5s ease-out infinite; }
     @keyframes journey-crowd-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.5px); } }
     @keyframes journey-flag-wave { 0%, 100% { transform: skewY(-4deg); } 50% { transform: skewY(4deg); } }
     @keyframes journey-speedline { 0% { opacity: .7; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-14px); } }
@@ -250,7 +271,36 @@
     @keyframes journey-bird-glide { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(40px,-6px); } }
     @keyframes journey-ray-shimmer { 0%, 100% { opacity: .08; } 50% { opacity: .2; } }
 
+    /* Football ball spin/roll, goal-net ripple, sparkles; clouds drifting,
+       scenery swaying in the breeze/current, jellyfish pulsing. */
+    .journey-ball-dribble { transform-box: fill-box; transform-origin: center; }
+    .journey-walking .journey-ball-dribble { animation: journey-ball-dribble .5s linear infinite; }
+
+    /* Arriving at a milestone pops its flag; the football finish bulges
+       the net, pops a "GOAL!" banner, and sets the crowd jumping. */
+    .journey-flag-pop { animation: journey-flag-pop .6s ease-out 1; transform-box: fill-box; transform-origin: bottom center; }
+    @keyframes journey-flag-pop { 0% { transform: scale(1); } 35% { transform: scale(1.4); } 65% { transform: scale(.92); } 100% { transform: scale(1); } }
+    .journey-net-ripple.journey-net-bulge { animation: journey-net-bulge .8s ease-out 1; }
+    @keyframes journey-net-bulge { 0% { transform: scale(1,1); } 25% { transform: scale(1.12,1.22); } 60% { transform: scale(.97,.94); } 100% { transform: scale(1,1); } }
+    .journey-goal-pop { animation: journey-goal-pop 2.6s ease-out 1 forwards; transform-box: fill-box; transform-origin: center; }
+    @keyframes journey-goal-pop { 0% { transform: scale(.2); opacity: 0; } 15% { transform: scale(1.3); opacity: 1; } 30% { transform: scale(1); } 80% { transform: scale(1) translateY(0); opacity: 1; } 100% { transform: scale(1) translateY(-10px); opacity: 0; } }
+    .journey-cheer .journey-crowd-bob { animation: journey-crowd-jump .35s ease-in-out infinite alternate; }
+    @keyframes journey-crowd-jump { from { transform: translateY(0); } to { transform: translateY(-5px); } }
+    .journey-net-ripple { animation: journey-net-ripple 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+    .journey-sparkle { animation: journey-twinkle 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    .journey-sparkle.d1 { animation-delay: .7s; } .journey-sparkle.d2 { animation-delay: 1.4s; }
+    .journey-cloud-drift { animation: journey-cloud-drift 22s ease-in-out infinite; }
+    .journey-sway { animation: journey-sway 4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+    .journey-jelly { animation: journey-jelly 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    @keyframes journey-ball-dribble { 0% { transform: translateX(-1.5px) rotate(0deg); } 50% { transform: translateX(1.5px) rotate(180deg); } 100% { transform: translateX(-1.5px) rotate(360deg); } }
+    @keyframes journey-net-ripple { 0%, 100% { transform: scale(1,1); } 50% { transform: scale(1.03,.96); } }
+    @keyframes journey-cloud-drift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(36px); } }
+    @keyframes journey-sway { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
+    @keyframes journey-jelly { 0%, 100% { transform: translateY(0) scale(1,1); } 50% { transform: translateY(-3px) scale(.92,1.08); } }
+
     @media (prefers-reduced-motion: reduce) {
+      .journey-flag-pop, .journey-net-ripple.journey-net-bulge, .journey-goal-pop, .journey-cheer .journey-crowd-bob,
+      .journey-ball-dribble, .journey-net-ripple, .journey-sparkle, .journey-cloud-drift, .journey-sway, .journey-jelly,
       .journey-bird, .journey-ray-shimmer,
       .journey-avatar-bob, .journey-next-glow, .journey-blocked-glow,
       .journey-leg-front, .journey-leg-back, .journey-arm-front, .journey-arm-back, .journey-cape,
@@ -1259,6 +1309,8 @@
               <option value="space">🚀 Space</option>
               <option value="ocean">🌊 Ocean</option>
               <option value="race">🏎️ Race</option>
+              <option value="football">⚽ Football</option>
+              <option value="football3d">🏟️ Football 3D</option>
             </select>
             <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started">↺ Reset</button>
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap">⛶ Fullscreen</button>

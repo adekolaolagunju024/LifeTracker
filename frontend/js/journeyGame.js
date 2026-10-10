@@ -118,7 +118,7 @@ const JourneyGame = (() => {
   // minimum distance apart, then draws them back-to-front (sorted by y)
   // with a perspective scale — props higher up the scene are "farther"
   // and drawn smaller — so they layer and recede like real scenery.
-  function scatterProps(layer, layout, isClear, rand, { count, margin, spacing, minScale = 0.55, minY = 0, draw }) {
+  function scatterProps(layer, layout, isClear, rand, { count, margin, spacing, minScale = 0.55, minY = 0, sway = false, draw }) {
     const placed = [];
     for (let tries = 0; tries < count * 12 && placed.length < count; tries++) {
       const x = rand() * layout.w, y = rand() * layout.h;
@@ -129,7 +129,11 @@ const JourneyGame = (() => {
     placed.sort((a, b) => a.y - b.y).forEach(p => {
       const s = minScale + (1 - minScale) * (p.y / layout.h);
       const g = el('g', { transform: `translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) scale(${s.toFixed(3)})` });
-      draw(g, p.v);
+      // Swaying props animate an inner group, never the positioned one —
+      // a CSS transform would replace the translate/scale attribute.
+      const inner = sway ? el('g', { class: 'journey-sway', style: `animation-delay:${(-p.v * 4).toFixed(2)}s` }) : g;
+      if (sway) g.appendChild(inner);
+      draw(inner, p.v);
       layer.appendChild(g);
     });
   }
@@ -144,11 +148,13 @@ const JourneyGame = (() => {
   // both want a plain daytime sky.
   function cloudGroup(svg, layout, specs) {
     specs.forEach(([fx, fy, scale]) => {
-      const cg = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})`, opacity: 0.9 });
+      const pos = el('g', { transform: `translate(${layout.w * fx},${layout.h * fy}) scale(${scale})`, opacity: 0.9 });
+      const cg = el('g', { class: 'journey-cloud-drift', style: `animation-delay:${(-fx * 20).toFixed(1)}s` });
+      pos.appendChild(cg);
       cg.appendChild(el('ellipse', { cx: 1, cy: 8, rx: 26, ry: 6, fill: '#a9c4dc', opacity: 0.55 }));
       [[-14, 0, 11], [0, -4, 14], [15, 0, 10], [0, 5, 13]].forEach(([ex, ey, r]) => cg.appendChild(el('ellipse', { cx: ex, cy: ey, rx: r, ry: r * 0.7, fill: '#ffffff' })));
       cg.appendChild(el('ellipse', { cx: 0, cy: 7, rx: 22, ry: 3.4, fill: '#cfdeec', opacity: 0.8 }));
-      svg.appendChild(cg);
+      svg.appendChild(pos);
     });
   }
 
@@ -213,7 +219,7 @@ const JourneyGame = (() => {
   // highlight cap, a cast shadow), grass tufts, and small flower patches.
   function roadScatter(layer, layout, isClear, rand) {
     scatterProps(layer, layout, isClear, rand, {
-      count: 9, margin: 22, spacing: 46, minY: layout.h * 0.6,
+      count: 9, margin: 22, spacing: 46, minY: layout.h * 0.6, sway: true,
       draw(g, v) {
         g.appendChild(el('ellipse', { cx: 6, cy: 1, rx: 16, ry: 4.5, fill: '#0b1220', opacity: 0.2 }));
         g.appendChild(el('rect', { x: -2.4, y: -16, width: 4.8, height: 17, rx: 1.2, fill: '#7a4b2a' }));
@@ -235,7 +241,7 @@ const JourneyGame = (() => {
       },
     });
     scatterProps(layer, layout, isClear, rand, {
-      count: 22, margin: 4, spacing: 18, minY: layout.h * 0.58,
+      count: 22, margin: 4, spacing: 18, minY: layout.h * 0.58, sway: true,
       draw(g) { grassTuft(g, '#4f9a4f'); },
     });
     const petal = ['#ff7a9a', '#ffd24a', '#ffffff', '#b78cff'];
@@ -341,7 +347,8 @@ const JourneyGame = (() => {
     const g = el('g', { class: 'journey-flag' });
     if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 6 * s, cy: -20 * s, r: 15 * s, fill: NEXT_COLOR, opacity: 0.5 }));
     g.appendChild(el('rect', { x: -1.1 * s, y: -27 * s, width: 2.2 * s, height: 27 * s, fill: '#8b5e3c', stroke: '#5c3c22', 'stroke-width': 0.6 * s, rx: 0.8 * s }));
-    g.appendChild(el('path', {
+    const pennant = el('g', { class: 'journey-flag-wave' });
+    pennant.appendChild(el('path', {
       d: `M ${1.1 * s} ${-27 * s} Q ${14 * s} ${-23.6 * s} ${13.5 * s} ${-20.4 * s} Q ${13 * s} ${-17.2 * s} ${1.1 * s} ${-15.4 * s} Z`,
       fill: color, stroke: '#1f2937', 'stroke-width': 0.7 * s, 'stroke-linejoin': 'round',
       filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
@@ -352,7 +359,8 @@ const JourneyGame = (() => {
       'font-size': 7.6 * s, 'font-weight': 800, fill: isDone || isNext ? '#1f2937' : '#4b5563', 'font-family': 'Arial, sans-serif',
     });
     label.textContent = isDone ? '✓' : String(i + 1);
-    g.appendChild(label);
+    pennant.appendChild(label);
+    g.appendChild(pennant);
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.6 * s, fill: '#f4a53b', stroke: '#8b5e3c', 'stroke-width': 0.6 * s }));
     if (blocked) {
       // A real obstacle gate across the road, not just a status icon —
@@ -525,9 +533,18 @@ const JourneyGame = (() => {
     g.appendChild(label);
     g.appendChild(el('circle', { cx: 0, cy: 0, r: 2.6 * s, fill: '#9aa5b1', stroke: '#4b5563', 'stroke-width': 0.6 * s }));
     if (blocked) {
-      const badge = el('text', { x: 11 * s, y: -27 * s, 'font-size': 8 * s, 'text-anchor': 'middle' });
-      badge.textContent = '🚧';
-      g.appendChild(badge);
+      // A big asteroid drifting into the flight path.
+      const ox = -22 * s, oy = -10 * s;
+      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy, r: 20 * s, fill: '#ef4444', opacity: 0.45 }));
+      const pos = el('g', { transform: `translate(${ox},${oy}) scale(${s})` });
+      const rock = el('g', { class: 'journey-asteroid', style: 'animation-duration:14s' });
+      rock.appendChild(el('path', { d: 'M -11 -3 L -5 -12 L 6 -11 L 12 -2 L 8 9 L -4 11 L -12 5 Z', fill: '#6b6f8a', stroke: '#2f3347', 'stroke-width': 0.9 }));
+      rock.appendChild(el('circle', { cx: -3, cy: -3, r: 3, fill: '#4b4f68' }));
+      rock.appendChild(el('circle', { cx: 5, cy: 4, r: 2, fill: '#4b4f68' }));
+      rock.appendChild(el('path', { d: 'M -9 -5 L -4 -10 L 4 -9.5', fill: 'none', stroke: '#a3a8c4', 'stroke-width': 1.2, 'stroke-linecap': 'round' }));
+      pos.appendChild(rock);
+      g.appendChild(pos);
+      g.appendChild(lockIcon(ox, oy - 20 * s, s));
     }
     return g;
   }
@@ -608,7 +625,7 @@ const JourneyGame = (() => {
   function oceanScatter(layer, layout, isClear, rand) {
     const coral = ['#ff7f8a', '#ff9f5a', '#c084fc'];
     scatterProps(layer, layout, isClear, rand, {
-      count: 7, margin: 18, spacing: 50,
+      count: 7, margin: 18, spacing: 50, sway: true,
       draw(g, v) {
         const c = coral[Math.floor(v * coral.length)];
         g.appendChild(el('ellipse', { cx: 0, cy: 1, rx: 12, ry: 3, fill: '#0b1220', opacity: 0.18 }));
@@ -702,9 +719,19 @@ const JourneyGame = (() => {
     label.textContent = isDone ? '✓' : String(i + 1);
     g.appendChild(label);
     if (blocked) {
-      const badge = el('text', { x: 11 * s, y: -24 * s, 'font-size': 8 * s, 'text-anchor': 'middle' });
-      badge.textContent = '🚧';
-      g.appendChild(badge);
+      // A small swarm of jellyfish drifting across the trail.
+      const ox = -24 * s, oy = -12 * s;
+      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy, r: 20 * s, fill: '#ef4444', opacity: 0.4 }));
+      [[-7, 2, 0], [6, -3, 0.6], [0, 8, 1.2]].forEach(([dx, dy, delay]) => {
+        const pos = el('g', { transform: `translate(${ox + dx * s},${oy + dy * s}) scale(${s})` });
+        const jelly = el('g', { class: 'journey-jelly', style: `animation-delay:${delay}s` });
+        jelly.appendChild(el('path', { d: 'M -5 0 Q -5 -7 0 -7 Q 5 -7 5 0 Z', fill: '#f0abfc', opacity: 0.85, stroke: '#a21caf', 'stroke-width': 0.5 }));
+        jelly.appendChild(el('ellipse', { cx: -1.6, cy: -4.6, rx: 1.6, ry: 1, fill: '#ffffff', opacity: 0.7 }));
+        [-3, -1, 1, 3].forEach(tx => jelly.appendChild(el('path', { d: `M ${tx} 0 Q ${tx + 1.2} 3 ${tx} 6 Q ${tx - 1.2} 8 ${tx} 10`, fill: 'none', stroke: '#e879f9', 'stroke-width': 0.7, opacity: 0.8 })));
+        pos.appendChild(jelly);
+        g.appendChild(pos);
+      });
+      g.appendChild(lockIcon(ox, oy - 18 * s, s));
     }
     return g;
   }
@@ -762,7 +789,7 @@ const JourneyGame = (() => {
       },
     });
     scatterProps(layer, layout, isClear, rand, {
-      count: 18, margin: 4, spacing: 20,
+      count: 18, margin: 4, spacing: 20, sway: true,
       draw(g) { grassTuft(g, '#3f8a3f'); },
     });
   }
@@ -871,11 +898,291 @@ const JourneyGame = (() => {
     label.textContent = isDone ? '✓' : String(i + 1);
     g.appendChild(label);
     if (blocked) {
-      const badge = el('text', { x: 10 * s, y: -20 * s, 'font-size': 8 * s, 'text-anchor': 'middle' });
-      badge.textContent = '🚧';
-      g.appendChild(badge);
+      // A crash-barrier wall of stacked tires across the track.
+      const ox = -24 * s, oy = 0;
+      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy - 8 * s, r: 20 * s, fill: '#ef4444', opacity: 0.45 }));
+      [-9, 0, 9].forEach(dx => {
+        [0, -5, -10].forEach(ty => {
+          g.appendChild(el('ellipse', { cx: ox + dx * s, cy: oy + ty * s, rx: 4.6 * s, ry: 2.2 * s, fill: '#1f2937', stroke: '#111827', 'stroke-width': 0.4 * s }));
+          g.appendChild(el('ellipse', { cx: ox + dx * s, cy: oy + (ty - 0.4) * s, rx: 2 * s, ry: 0.9 * s, fill: '#4b5563' }));
+        });
+      });
+      g.appendChild(el('rect', { x: ox - 14 * s, y: oy - 12.5 * s, width: 28 * s, height: 1.8 * s, fill: '#ef4444', opacity: 0.9 }));
+      g.appendChild(lockIcon(ox, oy - 24 * s, s));
     }
     return g;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // THEME: FOOTBALL — "Road to the Final". A floodlit, striped pitch with
+  // real markings, a footballer dribbling up the pitch, corner-flag
+  // checkpoints, a defensive wall for blockers, and the goal net.
+  // ════════════════════════════════════════════════════════════════
+  function footballDecorate(svg, layout, glowId, glowLgId) {
+    const { w, h } = layout;
+    const bands = 10;
+    for (let i = 0; i < bands; i++) {
+      svg.appendChild(el('rect', { x: 0, y: (i / bands) * h, width: w, height: h / bands + 1, fill: i % 2 === 0 ? '#4caf50' : '#43a047' }));
+    }
+
+    // Pitch markings — touchline, halfway line, centre circle and spot,
+    // and a penalty area + six-yard box + penalty arc at each end, the top
+    // one centred on the goal and the bottom one on the kick-off point.
+    const line = { fill: 'none', stroke: '#ffffff', 'stroke-width': 2, opacity: 0.7 };
+    const inset = 14;
+    svg.appendChild(el('rect', { x: inset, y: inset + h * 0.06, width: w - inset * 2, height: h - inset * 2 - h * 0.06, ...line }));
+    svg.appendChild(el('line', { x1: inset, y1: h * 0.53, x2: w - inset, y2: h * 0.53, ...line }));
+    const cr = Math.min(w, h) * 0.11;
+    svg.appendChild(el('circle', { cx: w / 2, cy: h * 0.53, r: cr, ...line }));
+    svg.appendChild(el('circle', { cx: w / 2, cy: h * 0.53, r: 2.4, fill: '#ffffff', opacity: 0.75 }));
+    const goalPt = layout.points[layout.points.length - 1], startPt = layout.points[0];
+    const boxW = Math.min(w * 0.42, 220), boxH = h * 0.14, sixW = boxW * 0.45, sixH = boxH * 0.4;
+    const topY = inset + h * 0.06, botY = h - inset;
+    const clampX = x => Math.max(inset + boxW / 2, Math.min(w - inset - boxW / 2, x));
+    const gx = clampX(goalPt.x), sx = clampX(startPt.x);
+    svg.appendChild(el('rect', { x: gx - boxW / 2, y: topY, width: boxW, height: boxH, ...line }));
+    svg.appendChild(el('rect', { x: gx - sixW / 2, y: topY, width: sixW, height: sixH, ...line }));
+    svg.appendChild(el('path', { d: `M ${gx - boxW * 0.2} ${topY + boxH} A ${boxW * 0.22} ${boxW * 0.22} 0 0 0 ${gx + boxW * 0.2} ${topY + boxH}`, ...line }));
+    svg.appendChild(el('rect', { x: sx - boxW / 2, y: botY - boxH, width: boxW, height: boxH, ...line }));
+    svg.appendChild(el('rect', { x: sx - sixW / 2, y: botY - sixH, width: sixW, height: sixH, ...line }));
+
+    // Floodlights at the two top corners — a pylon, a lamp bank, and a
+    // big blurred spill of light onto the pitch.
+    [[0.06, 1], [0.94, -1]].forEach(([fx, dir]) => {
+      const x = w * fx, y = h * 0.1;
+      svg.appendChild(el('ellipse', { cx: x + dir * w * 0.12, cy: h * 0.28, rx: w * 0.16, ry: h * 0.2, fill: '#fffbe0', opacity: 0.16, filter: glowLgId ? `url(#${glowLgId})` : undefined }));
+      svg.appendChild(el('rect', { x: x - 1.5, y, width: 3, height: h * 0.1, fill: '#9aa5b1' }));
+      svg.appendChild(el('rect', { x: x - 10, y: y - 6, width: 20, height: 9, rx: 1.5, fill: '#334155', stroke: '#1f2937', 'stroke-width': 0.6 }));
+      for (let i = 0; i < 4; i++) svg.appendChild(el('circle', { cx: x - 7 + i * 4.6, cy: y - 1.6, r: 1.6, fill: '#fffbe0' }));
+      svg.appendChild(el('circle', { cx: x, cy: y - 2, r: 14, fill: '#fff7c2', opacity: 0.5, filter: glowId ? `url(#${glowId})` : undefined }));
+    });
+
+    // The crowd in the stand along the top — home and away colours,
+    // each fan bobbing on its own beat.
+    svg.appendChild(el('rect', { x: 0, y: 0, width: w, height: h * 0.06, fill: '#1e293b' }));
+    const kit = ['#e53935', '#ffffff', '#1e88e5', '#fdd835', '#e53935'];
+    const fans = Math.round(w / 22);
+    for (let i = 0; i < fans; i++) {
+      svg.appendChild(el('circle', {
+        class: 'journey-crowd-bob', cx: (i + 0.5) * (w / fans), cy: h * 0.03 + (i % 2 ? 2 : -2), r: 3.2,
+        fill: kit[i % kit.length], style: `animation-delay:${((i % 9) * 0.13).toFixed(2)}s`,
+      }));
+    }
+
+    // Corner flags at the four pitch corners.
+    [[inset, topY], [w - inset, topY], [inset, botY], [w - inset, botY]].forEach(([x, y]) => {
+      const pole = el('g', { transform: `translate(${x},${y})` });
+      pole.appendChild(el('rect', { x: -0.8, y: -14, width: 1.6, height: 14, fill: '#f8fafc' }));
+      const pos = el('g', { transform: 'translate(0.8,-14)' });
+      const flag = el('g', { class: 'journey-flag-wave' });
+      flag.appendChild(el('path', { d: 'M 0 0 L 9 2.5 L 0 5 Z', fill: '#fdd835', stroke: '#b45309', 'stroke-width': 0.4 }));
+      pos.appendChild(flag);
+      pole.appendChild(pos);
+      svg.appendChild(pole);
+    });
+  }
+
+  // Pitch scenery — a few spare training balls and cones on the grass.
+  function footballScatter(layer, layout, isClear, rand) {
+    scatterProps(layer, layout, isClear, rand, {
+      count: 6, margin: 10, spacing: 60, minY: layout.h * 0.12,
+      draw(g, v) {
+        g.appendChild(el('ellipse', { cx: 2, cy: 1, rx: 6, ry: 2, fill: '#0b1220', opacity: 0.25 }));
+        if (v < 0.5) {
+          footballBall(g, 0, -4, 4.5);
+        } else {
+          g.appendChild(el('path', { d: 'M -5 0 L -1.6 -9 L 1.6 -9 L 5 0 Z', fill: '#ff9800', stroke: '#9a3412', 'stroke-width': 0.5 }));
+          g.appendChild(el('rect', { x: -2.4, y: -6, width: 4.8, height: 1.6, fill: '#ffffff', opacity: 0.85 }));
+        }
+      },
+    });
+  }
+
+  // A football — white with dark panels and a highlight, so it reads
+  // as a ball rather than a white dot even at small sizes.
+  function footballBall(g, cx, cy, r) {
+    g.appendChild(el('circle', { cx, cy, r, fill: '#ffffff', stroke: '#1f2937', 'stroke-width': r * 0.12 }));
+    g.appendChild(el('path', { d: starPath(r * 0.42, r * 0.3, 5), transform: `translate(${cx},${cy})`, fill: '#1f2937' }));
+    [[-0.72, -0.5], [0.72, -0.5], [0.5, 0.75], [-0.5, 0.75]].forEach(([dx, dy]) => {
+      g.appendChild(el('circle', { cx: cx + dx * r, cy: cy + dy * r, r: r * 0.18, fill: '#1f2937' }));
+    });
+    g.appendChild(el('ellipse', { cx: cx - r * 0.35, cy: cy - r * 0.4, rx: r * 0.35, ry: r * 0.22, fill: '#ffffff', opacity: 0.8 }));
+  }
+
+  // A footballer in kit — same limb rig as the Road runner (arms/legs
+  // swing from their own pivots), with the passed-in "fill" as the shirt
+  // colour, white socks, boots, shorts, a shirt number, and a ball at
+  // their feet that spins as they dribble.
+  function footballBuildAvatar(fill, shadowFilterId) {
+    const g = el('g', { class: 'journey-avatar' });
+    g.appendChild(el('ellipse', { cx: 2, cy: 24, rx: 17, ry: 3.6, fill: '#0b1220', opacity: 0.28 }));
+    const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+
+    bob.appendChild(roadLimb('journey-leg-back', '#f1f5f9', -3.4, 9, 4.2, 10, 3.2, 1.8, '#111827'));
+    bob.appendChild(roadLimb('journey-arm-back', fill, -7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+
+    bob.appendChild(el('rect', { x: -8.6, y: -9, width: 17.2, height: 15, rx: 6.5, fill, stroke: '#1f2937', 'stroke-width': 1 }));
+    bob.appendChild(el('rect', { x: -8.2, y: 3, width: 16.4, height: 7.5, rx: 2.5, fill: '#1f2937' }));
+    bob.appendChild(el('ellipse', { cx: -3.6, cy: -4, rx: 4.2, ry: 5, fill: '#ffffff', opacity: 0.2 }));
+    bob.appendChild(el('path', { d: 'M -3 -9 L 0 -5.5 L 3 -9', fill: 'none', stroke: '#ffffff', 'stroke-width': 1.1, opacity: 0.85 }));
+    const num = el('text', { class: 'journey-unflip', x: 0, y: -0.5, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 6.5, 'font-weight': 800, fill: '#ffffff', 'font-family': 'Arial, sans-serif' });
+    num.textContent = '10';
+    bob.appendChild(num);
+
+    bob.appendChild(roadLimb('journey-leg-front', '#f8fafc', 3.4, 9, 4.2, 10, 3.2, 1.8, '#111827'));
+    bob.appendChild(roadLimb('journey-arm-front', fill, 7.4, -4, 3.8, 8.6, 2, 2, '#ffd9ae'));
+
+    const head = el('g', { transform: 'translate(0,-17.5)' });
+    head.appendChild(el('circle', { cx: 0, cy: 0, r: 8.6, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 1 }));
+    head.appendChild(el('path', { d: 'M -8.6 -2 Q -9 -10 0 -10 Q 9 -10 8.6 -2 Q 6 -6 0 -6.5 Q -6 -6 -8.6 -2 Z', fill: '#2b1a10' }));
+    head.appendChild(el('ellipse', { cx: -3, cy: -2.6, rx: 3.6, ry: 2.2, fill: '#ffffff', opacity: 0.25 }));
+    [[-3, 0.5], [3, 0.5]].forEach(([ex, ey]) => {
+      head.appendChild(el('ellipse', { cx: ex, cy: ey, rx: 1.7, ry: 2.1, fill: '#ffffff' }));
+      head.appendChild(el('circle', { cx: ex + 0.3, cy: ey + 0.4, r: 1.1, fill: '#1f2937' }));
+    });
+    head.appendChild(el('path', { d: 'M -2.4 4.2 Q 0 6 2.4 4.2', fill: 'none', stroke: '#1f2937', 'stroke-width': 1, 'stroke-linecap': 'round' }));
+    bob.appendChild(head);
+    g.appendChild(bob);
+
+    const ballPos = el('g', { class: 'journey-feet-ball', transform: 'translate(10,19.5)' });
+    const ball = el('g', { class: 'journey-ball-dribble' });
+    footballBall(ball, 0, 0, 4.2);
+    ballPos.appendChild(ball);
+    g.appendChild(ballPos);
+    return g;
+  }
+
+  // The goal — posts and crossbar, a meshed net drawn with depth (the
+  // back frame sits higher, i.e. farther away), a ball tucked in the net,
+  // and the net gently rippling.
+  function footballBuildGoal(x, y, gradId, shadowFilterId, glowId) {
+    const g = el('g', { transform: `translate(${x},${y})` });
+    g.appendChild(el('circle', { cx: 0, cy: -6, r: 34, fill: '#fff7c2', opacity: 0.3, filter: glowId ? `url(#${glowId})` : undefined }));
+    g.appendChild(el('ellipse', { cx: 0, cy: 5, rx: 28, ry: 4, fill: '#0b1220', opacity: 0.22 }));
+    const net = el('g', { class: 'journey-net-ripple' });
+    net.appendChild(el('path', { d: 'M -24 4 L -24 -20 L -18 -28 L 18 -28 L 24 -20 L 24 4 Z', fill: '#ffffff', opacity: 0.18 }));
+    for (let i = -20; i <= 20; i += 4) net.appendChild(el('line', { x1: i, y1: 4, x2: i * 0.75, y2: -28, stroke: '#ffffff', 'stroke-width': 0.5, opacity: 0.6 }));
+    for (let j = 0; j <= 7; j++) {
+      const yy = 4 - j * 4.6, k = 1 - (j / 7) * 0.25;
+      net.appendChild(el('line', { x1: -24 * k, y1: yy, x2: 24 * k, y2: yy, stroke: '#ffffff', 'stroke-width': 0.5, opacity: 0.55 }));
+    }
+    g.appendChild(net);
+    // Hidden until the goal is actually scored (see footballCelebrateFinish).
+    const netBall = el('g', { class: 'journey-goal-ball', style: 'display:none' });
+    footballBall(netBall, 6, -6, 4.4);
+    g.appendChild(netBall);
+    const frame = el('g', { filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    frame.appendChild(el('path', { d: 'M -24 4 L -24 -20 L 24 -20 L 24 4', fill: 'none', stroke: '#cbd5e1', 'stroke-width': 3.6, 'stroke-linejoin': 'round', transform: 'translate(0.8,0.8)' }));
+    frame.appendChild(el('path', { d: 'M -24 4 L -24 -20 L 24 -20 L 24 4', fill: 'none', stroke: '#ffffff', 'stroke-width': 3, 'stroke-linejoin': 'round' }));
+    frame.appendChild(el('path', { d: 'M -24 -20 L -18 -28 L 18 -28 L 24 -20', fill: 'none', stroke: '#e2e8f0', 'stroke-width': 1.4 }));
+    g.appendChild(frame);
+    [[-30, -26, 2.4], [30, -18, 1.8], [26, 10, 2]].forEach(([sx, sy, r], i) => {
+      g.appendChild(el('path', { class: `journey-sparkle d${i}`, d: starPath(r, r * 0.35, 4), transform: `translate(${sx},${sy})`, fill: '#ffffff', opacity: 0.9 }));
+    });
+    return g;
+  }
+
+  // A checkpoint — a red/white striped corner-flag post with a
+  // status-coloured flag; a blocked one gets a defensive wall in front
+  // of it to get past, with a warning glow.
+  function footballBuildCheckpoint(i, isDone, isNext, blocked, scale, shadowFilterId) {
+    const color = isDone ? DONE_COLOR : isNext ? NEXT_COLOR : PENDING_COLOR;
+    const s = scale;
+    const g = el('g', { class: 'journey-flag' });
+    if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 5 * s, cy: -20 * s, r: 15 * s, fill: NEXT_COLOR, opacity: 0.5 }));
+    g.appendChild(el('ellipse', { cx: 2 * s, cy: 0.5 * s, rx: 6 * s, ry: 1.8 * s, fill: '#0b1220', opacity: 0.25 }));
+    for (let k = 0; k < 5; k++) {
+      g.appendChild(el('rect', { x: -1.1 * s, y: (-27 + k * 5.4) * s, width: 2.2 * s, height: 5.4 * s, fill: k % 2 ? '#ffffff' : '#e53935' }));
+    }
+    const pos = el('g', { transform: `translate(${1.1 * s},${-27 * s})` });
+    const flag = el('g', { class: 'journey-flag-wave' });
+    flag.appendChild(el('path', {
+      d: `M 0 0 L ${14 * s} ${4.2 * s} L 0 ${8.4 * s} Z`, fill: color, stroke: '#1f2937', 'stroke-width': 0.6 * s, 'stroke-linejoin': 'round',
+      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
+    }));
+    const label = el('text', {
+      x: 4.6 * s, y: 4.4 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': 6.4 * s, 'font-weight': 800, fill: '#1f2937', 'font-family': 'Arial, sans-serif',
+    });
+    label.textContent = isDone ? '✓' : String(i + 1);
+    flag.appendChild(label);
+    pos.appendChild(flag);
+    g.appendChild(pos);
+    if (blocked) {
+      const ox = -24 * s, oy = 0;
+      g.appendChild(el('circle', { class: 'journey-blocked-glow', cx: ox, cy: oy - 10 * s, r: 20 * s, fill: '#ef4444', opacity: 0.45 }));
+      [-9, 0, 9].forEach(dx => {
+        const d = el('g', { transform: `translate(${ox + dx * s},${oy})` });
+        d.appendChild(el('rect', { x: -1.8 * s, y: -6 * s, width: 1.6 * s, height: 6 * s, fill: '#f1f5f9' }));
+        d.appendChild(el('rect', { x: 0.2 * s, y: -6 * s, width: 1.6 * s, height: 6 * s, fill: '#f1f5f9' }));
+        d.appendChild(el('rect', { x: -3.4 * s, y: -15 * s, width: 6.8 * s, height: 9.5 * s, rx: 2.2 * s, fill: '#1e88e5', stroke: '#0d47a1', 'stroke-width': 0.5 * s }));
+        d.appendChild(el('circle', { cx: 0, cy: -18 * s, r: 3 * s, fill: '#ffd9ae', stroke: '#1f2937', 'stroke-width': 0.4 * s }));
+        g.appendChild(d);
+      });
+      g.appendChild(lockIcon(ox, -28 * s, s));
+    }
+    return g;
+  }
+
+  // The football finish: the player, standing at the last flag, kicks the
+  // ball — it arcs (and spins) into the goal, the net bulges, a "GOAL!"
+  // banner pops, the crowd jumps up, and the usual confetti follows.
+  function footballCelebrateFinish(entry, from, scale, burst) {
+    const { svg, avatarLayer, goalPt } = entry;
+    const av = avatarLayer.firstChild;
+    if (av) av.classList.add('journey-kick');
+    setTimeout(() => {
+      if (!svg.isConnected) return;
+      if (av) av.classList.remove('journey-kick');
+      const feet = avatarLayer.querySelector('.journey-feet-ball');
+      if (feet) feet.style.display = 'none';
+      const dir = entry.facing || 1;
+      const sx = from.x + 10 * scale * dir, sy = from.y + 19.5 * scale;
+      const ex = goalPt.x + 6, ey = goalPt.y - 6;
+      const cx = (sx + ex) / 2, cy = Math.min(sy, ey) - 45;
+      const ball = el('g');
+      footballBall(ball, 0, 0, 4.4);
+      svg.insertBefore(ball, entry.vignette);
+      const t0 = performance.now(), dur = 650;
+      const step = now => {
+        if (!svg.isConnected) return;
+        const t = Math.min(1, (now - t0) / dur);
+        const x = (1 - t) * (1 - t) * sx + 2 * (1 - t) * t * cx + t * t * ex;
+        const y = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * cy + t * t * ey;
+        const k = scale + (1 - scale) * t;
+        ball.setAttribute('transform', `translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${Math.round(t * 720)}) scale(${k.toFixed(3)})`);
+        if (t < 1) { requestAnimationFrame(step); return; }
+        ball.remove();
+        entry.shotPending = false;
+        const netBall = svg.querySelector('.journey-goal-ball');
+        if (netBall) netBall.style.display = '';
+        const net = svg.querySelector('.journey-net-ripple');
+        if (net) { net.classList.add('journey-net-bulge'); setTimeout(() => net.classList.remove('journey-net-bulge'), 900); }
+        // Above the goal unless that would land in the stand, then below.
+        const ty = goalPt.y > 90 ? goalPt.y - 46 : goalPt.y + 44;
+        const txt = el('text', {
+          class: 'journey-goal-pop', x: goalPt.x, y: ty, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+          'font-size': 28, 'font-weight': 900, 'font-family': '"Arial Black", Arial, sans-serif',
+          fill: '#ffffff', stroke: '#c62828', 'stroke-width': 2.4, 'paint-order': 'stroke', 'letter-spacing': 1,
+        });
+        txt.textContent = 'GOAL!';
+        svg.insertBefore(txt, entry.vignette);
+        setTimeout(() => txt.remove(), 2700);
+        svg.classList.add('journey-cheer');
+        setTimeout(() => svg.classList.remove('journey-cheer'), 3200);
+        burst();
+      };
+      requestAnimationFrame(step);
+    }, 280);
+  }
+
+  // A small padlock — shared "this is blocked" marker on every theme's
+  // obstacle so the meaning stays consistent across stages.
+  function lockIcon(x, y, s) {
+    const lock = el('g', { transform: `translate(${x},${y})` });
+    lock.appendChild(el('rect', { x: -5 * s, y: -1 * s, width: 10 * s, height: 8 * s, rx: 1.8 * s, fill: '#f4b400', stroke: '#7c5700', 'stroke-width': 0.9 * s }));
+    lock.appendChild(el('path', { d: `M ${-2.6 * s} ${-1 * s} L ${-2.6 * s} ${-4.4 * s} A ${2.6 * s} ${2.6 * s} 0 0 1 ${2.6 * s} ${-4.4 * s} L ${2.6 * s} ${-1 * s}`, fill: 'none', stroke: '#7c5700', 'stroke-width': 1.3 * s }));
+    return lock;
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -911,6 +1218,16 @@ const JourneyGame = (() => {
       goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
       path: { outline: '#1f2937', fill: '#6b7280', dash: '#ffffff', progress: '#fde047' },
       decorate: raceDecorate, scatter: raceScatter, buildAvatar: raceBuildAvatar, buildGoal: raceBuildGoal, buildCheckpoint: raceBuildCheckpoint,
+    },
+    football: {
+      label: 'Football', avatarFill: '#e53935',
+      sky: [[0, '#1e293b'], [6, '#4caf50'], [100, '#43a047']],
+      goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
+      path: { outline: '#2e7d32', fill: '#8bc98e', dash: '#ffffff' },
+      decorate: footballDecorate, scatter: footballScatter, buildAvatar: footballBuildAvatar, buildGoal: footballBuildGoal, buildCheckpoint: footballBuildCheckpoint,
+      // The player stops at the last flag and shoots, instead of walking
+      // into the net.
+      finishAtLastFlag: true, celebrateFinish: footballCelebrateFinish,
     },
   };
   function resolveThemeKey(key) { return THEMES[key] ? key : 'road'; }
@@ -1074,14 +1391,15 @@ const JourneyGame = (() => {
     const goalPt = pathBase.getPointAtLength(goalLen);
     svg.appendChild(theme.buildGoal(goalPt.x, goalPt.y, goalGradId, shadowId, glowId));
     svg.appendChild(avatarLayer);
-    svg.appendChild(el('rect', { x: 0, y: 0, width: layout.w, height: layout.h, fill: `url(#${vignetteId})`, 'pointer-events': 'none' }));
+    const vignette = el('rect', { x: 0, y: 0, width: layout.w, height: layout.h, fill: `url(#${vignetteId})`, 'pointer-events': 'none' });
+    svg.appendChild(vignette);
 
     container.appendChild(svg);
 
     const entry = {
       svg, title, roadBase: pathBase, layoutKey: layout === LAYOUTS.tall ? 'tall' : 'wide', themeKey: resolveThemeKey(themeKey),
-      flagsLayer, ghostLayer, avatarLayer, progressPath, progressLen, shadowId,
-      lastState: null, lastDoneIds: new Set(), lastYouFrac: null, lastSummit: false, walkTimer: null,
+      flagsLayer, ghostLayer, avatarLayer, progressPath, progressLen, shadowId, lastState: null, lastDoneIds: new Set(), lastSummit: false,
+      goalPt: { x: goalPt.x, y: goalPt.y }, vignette, curFrac: null, walk: null, facing: 1, flagEls: [], shotPending: false,
     };
     containers.set(container, entry);
     return entry;
@@ -1099,10 +1417,133 @@ const JourneyGame = (() => {
   // path is actually left for it.
   function checkpointScale(n) { return Math.min(1, 10 / Math.max(1, n)); }
 
+  // Each checkpoint's position along the path. Inset slightly from both
+  // ends — a checkpoint at exactly frac 0 or 1 lands under the avatar's
+  // starting pose or the goal marker and mostly disappears behind it.
+  function checkpointFrac(i, n) { return n > 1 ? 0.06 + (i / (n - 1)) * 0.88 : 0.5; }
+
+  // Maps task progress (done ÷ total, or a fractional pace for the ghost)
+  // onto the path so whole numbers land exactly on the flags: nothing done
+  // is the start, k done is the k-th flag, all done is the finish.
+  function progressToPathFrac(p, n, finishFrac) {
+    if (!n) return 0;
+    const knots = [[0, 0]];
+    for (let k = 1; k < n; k++) knots.push([k / n, checkpointFrac(k - 1, n)]);
+    knots.push([1, finishFrac]);
+    const q = Math.max(0, Math.min(1, p));
+    for (let j = 1; j < knots.length; j++) {
+      const [p0, f0] = knots[j - 1], [p1, f1] = knots[j];
+      if (q <= p1) return f0 + (f1 - f0) * ((q - p0) / ((p1 - p0) || 1));
+    }
+    return finishFrac;
+  }
+
+  function placeAvatar(entry, frac, scale) {
+    const p = pointAtFrac(entry.roadBase, frac);
+    entry.avatarLayer.setAttribute('transform', `translate(${p.x.toFixed(2)},${p.y.toFixed(2)}) scale(${scale})`);
+    // The "ground covered" glow trail is revealed up to exactly where the
+    // avatar stands, so it fills in step by step as the avatar walks.
+    if (entry.progressPath) {
+      const f = Math.max(0, Math.min(1, frac));
+      entry.progressPath.setAttribute('stroke-dashoffset', String(entry.progressLen * (1 - f)));
+    }
+    return p;
+  }
+
+  // Turns the avatar to face the way it's walking. Text inside it (the
+  // footballer's shirt number) is counter-flipped so it never reads
+  // backwards.
+  function setFacing(entry, dir) {
+    if (entry.facing === dir) return;
+    entry.facing = dir;
+    const av = entry.avatarLayer.firstChild;
+    if (!av) return;
+    if (dir < 0) av.setAttribute('transform', 'scale(-1,1)'); else av.removeAttribute('transform');
+    av.querySelectorAll('.journey-unflip').forEach(t => {
+      if (dir < 0) t.setAttribute('transform', 'scale(-1,1)'); else t.removeAttribute('transform');
+    });
+  }
+
+  function stopWalk(entry) {
+    if (!entry.walk) return;
+    cancelAnimationFrame(entry.walk.raf);
+    clearTimeout(entry.walk.timer);
+    entry.avatarLayer.classList.remove('journey-walking');
+    entry.walk = null;
+  }
+
+  // Walks the avatar along the real curve of the path (not a straight-line
+  // glide) from one fraction to another, at a steady walking speed. It
+  // stops at each milestone it reaches on the way that has a celebration
+  // waiting (a newly completed flag, the finish), fires that celebration
+  // the moment it arrives, pauses briefly, then carries on.
+  function walkAvatar(entry, from, to, arrivals, scale) {
+    const dir = Math.sign(to - from), eps = 0.002;
+    const onRoute = a => (dir > 0 ? a.frac > from + eps && a.frac <= to + eps : a.frac < from - eps && a.frac >= to - eps);
+    arrivals.filter(a => !onRoute(a)).forEach(a => a.fire());
+    const route = arrivals.filter(onRoute).map(a => Object.assign(a, { stop: Math.abs(a.frac - to) <= eps ? to : a.frac }));
+    const stops = [...new Set(route.map(a => a.stop))].sort((a, b) => dir * (a - b));
+    if (stops[stops.length - 1] !== to) stops.push(to);
+
+    const total = entry.roadBase.getTotalLength();
+    const layer = entry.avatarLayer;
+    const walk = { raf: 0, timer: 0, pending: route };
+    entry.walk = walk;
+    let cur = from, idx = 0;
+    const nextLeg = () => {
+      if (idx >= stops.length) { layer.classList.remove('journey-walking'); entry.walk = null; return; }
+      const start = cur, end = stops[idx++];
+      const dur = Math.max(350, Math.min(2400, Math.abs(end - start) * total * 8));
+      const t0 = performance.now();
+      let lastX = null;
+      layer.classList.add('journey-walking');
+      const step = now => {
+        if (!entry.svg.isConnected) { entry.walk = null; return; }
+        const t = Math.min(1, (now - t0) / dur);
+        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        const f = start + (end - start) * e;
+        const pt = placeAvatar(entry, f, scale);
+        if (lastX !== null && Math.abs(pt.x - lastX) > 0.15) setFacing(entry, pt.x < lastX ? -1 : 1);
+        lastX = pt.x;
+        entry.curFrac = f;
+        if (t < 1) { walk.raf = requestAnimationFrame(step); return; }
+        cur = end;
+        layer.classList.remove('journey-walking');
+        const here = walk.pending.filter(a => a.stop === end);
+        walk.pending = walk.pending.filter(a => a.stop !== end);
+        here.forEach(a => a.fire());
+        walk.timer = setTimeout(nextLeg, here.length && idx < stops.length ? 500 : 0);
+      };
+      walk.raf = requestAnimationFrame(step);
+    };
+    nextLeg();
+  }
+
+  // A flag the avatar has just reached: it pops, and confetti bursts from it.
+  function celebrateFlag(entry, i, frac) {
+    if (!entry || !entry.svg.isConnected) return;
+    const g = entry.flagEls[i];
+    if (g) {
+      g.classList.remove('journey-flag-pop');
+      g.getBBox(); // restart the animation if it was already running
+      g.classList.add('journey-flag-pop');
+      setTimeout(() => g.classList.remove('journey-flag-pop'), 700);
+    }
+    if (window.fireScreenConfetti) {
+      const p = pointAtFrac(entry.roadBase, frac);
+      const sp = screenPoint(entry.svg, p.x, p.y);
+      window.fireScreenConfetti(sp.x, sp.y, 24);
+    }
+  }
+
   function apply(container, state) {
     const desiredLayout = pickLayout(container) === LAYOUTS.tall ? 'tall' : 'wide';
     const desiredTheme = resolveThemeKey(state.theme);
     let entry = containers.get(container);
+    // Celebrations still waiting on a walk that this sync interrupts are
+    // carried into the new walk rather than dropped or fired early.
+    let carried = [];
+    if (entry && entry.walk) { carried = entry.walk.pending; stopWalk(entry); }
     if (!entry || entry.layoutKey !== desiredLayout || entry.themeKey !== desiredTheme) {
       // Rebuilding (a resize across the layout breakpoint, or a theme
       // switch) throws away the old SVG — but carry over which tasks
@@ -1111,17 +1552,13 @@ const JourneyGame = (() => {
       // confetti for all of them at once.
       const prevDoneIds = entry ? entry.lastDoneIds : new Set();
       const prevSummit = entry ? entry.lastSummit : false;
-      if (entry && entry.walkTimer) clearTimeout(entry.walkTimer);
       entry = build(container, desiredTheme);
       entry.lastDoneIds = prevDoneIds;
       entry.lastSummit = prevSummit;
     }
     const theme = getTheme(desiredTheme);
-    const { svg, title, roadBase, flagsLayer, ghostLayer, avatarLayer, progressPath, progressLen, shadowId } = entry;
-    // Respect prefers-reduced-motion everywhere below: the avatar glide,
-    // the progress trail fill-in, and the checkpoint pop-in all check
-    // this once rather than re-querying matchMedia per element.
-    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const { svg, title, roadBase, flagsLayer, ghostLayer, avatarLayer, shadowId } = entry;
+    const current = () => containers.get(container);
 
     const totalN = state.tasks.length;
     const doneN = state.tasks.filter(t => t.status === 'Completed').length;
@@ -1133,104 +1570,155 @@ const JourneyGame = (() => {
       ? `Journey progress: ${pct} percent. ${doneN} of ${totalN} tasks completed. Current milestone: ${phaseLabel}.`
       : 'Journey not started — no tasks yet.';
 
-    // Whether checkpoint pop-ins / confetti / balloons play at all —
-    // Settings → Preferences → Celebration Effects.
-    const celebrate = state.celebrationsEnabled !== false;
-
-    // Checkpoints — one per task, placed at the real path length fraction
-    // so they're evenly spaced along the actual curve, not the
-    // straight-line waypoints.
+    // Checkpoints — one per task, evenly spaced along the actual curve.
+    // Each sits inside an outer positioned group so the flag itself can be
+    // CSS-animated (the arrival "pop") without losing its translate.
     while (flagsLayer.firstChild) flagsLayer.removeChild(flagsLayer.firstChild);
-    const n = state.tasks.length;
+    const n = totalN;
     const scale = checkpointScale(n);
-    const doneCount = state.tasks.filter(t => t.status === 'Completed').length;
-    const positions = [];
-    // Inset slightly from both ends — a checkpoint placed at exactly
-    // frac 0 or 1 lands right under the avatar's starting pose or the
-    // goal marker and mostly disappears behind it, which reads as a
-    // mistake rather than deliberate layering.
+    const fracs = state.tasks.map((t, i) => checkpointFrac(i, n));
+    entry.flagEls = [];
     state.tasks.forEach((t, i) => {
-      const frac = n > 1 ? 0.06 + (i / (n - 1)) * 0.88 : 0.5;
-      const pt = pointAtFrac(roadBase, frac);
-      positions.push(pt);
+      const pt = pointAtFrac(roadBase, fracs[i]);
       const isDone = t.status === 'Completed';
-      const isNext = !isDone && i === doneCount;
-      const inner = theme.buildCheckpoint(i, isDone, isNext, t.latestUpdateIsBlocker, scale, shadowId);
-      // A little "pop" the moment a checkpoint turns done — but only on
-      // an un-positioned wrapper around it (`inner`), never on the
-      // positioned element itself: CSS-animating `transform` on the same
-      // element that also carries a static `translate(...)` attribute
-      // would silently replace that attribute, teleporting the
-      // checkpoint to the origin for the animation's duration.
-      if (celebrate && isDone && !entry.lastDoneIds.has(t.id)) inner.classList.add('journey-checkpoint-pop');
-      const wrapper = el('g', { transform: `translate(${pt.x},${pt.y})` });
-      wrapper.appendChild(inner);
-      flagsLayer.appendChild(wrapper);
+      const isNext = !isDone && i === doneN;
+      // Once the task is done, its blocker has been overcome — the obstacle clears.
+      const g = theme.buildCheckpoint(i, isDone, isNext, t.latestUpdateIsBlocker && !isDone, scale, shadowId);
+      const pos = el('g', { transform: `translate(${pt.x},${pt.y})` });
+      pos.appendChild(g);
+      flagsLayer.appendChild(pos);
+      entry.flagEls.push(g);
     });
 
-    // Celebrate any checkpoint newly done since the last sync, unless
-    // Celebration Effects is off.
+    const celebrate = state.celebrationsEnabled !== false;
+    // Respect prefers-reduced-motion: the avatar still ends up in the
+    // right place, it just snaps there instead of walking.
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const finishFrac = theme.finishAtLastFlag && n ? checkpointFrac(n - 1, n) : 1;
+    const targetFrac = progressToPathFrac(n ? doneN / n : 0, n, finishFrac);
+
+    // Every checkpoint newly completed since the last sync gets its own
+    // celebration, fired when the avatar actually arrives at that flag.
     const nowDoneIds = new Set(state.tasks.filter(t => t.status === 'Completed').map(t => t.id));
-    if (celebrate && window.fireScreenConfetti) {
+    const arrivals = carried.filter(a => (a.summit ? state.summitLit : nowDoneIds.has(a.taskId)));
+    if (celebrate) {
       state.tasks.forEach((t, i) => {
-        if (t.status === 'Completed' && !entry.lastDoneIds.has(t.id) && positions[i]) {
-          const sp = screenPoint(svg, positions[i].x, positions[i].y);
-          window.fireScreenConfetti(sp.x, sp.y, 24);
+        if (t.status === 'Completed' && !entry.lastDoneIds.has(t.id)) {
+          arrivals.push({ taskId: t.id, frac: fracs[i], fire: () => celebrateFlag(current(), i, fracs[i]) });
         }
       });
     }
     entry.lastDoneIds = nowDoneIds;
 
-    // Ghost (pace/competitor marker) — a faded second avatar, same
-    // theme shape as the real one.
+    const newSummit = state.summitLit && !entry.lastSummit;
+    entry.lastSummit = state.summitLit;
+    if (!state.summitLit) entry.shotPending = false;
+    if (newSummit && celebrate && !reduceMotion && theme.celebrateFinish) entry.shotPending = true;
+    if (newSummit && celebrate) {
+      arrivals.push({
+        summit: true, frac: targetFrac,
+        fire: () => {
+          const e = current();
+          if (!e || !e.svg.isConnected) return;
+          const burst = () => {
+            const sp = screenPoint(e.svg, e.goalPt.x, e.goalPt.y - 10);
+            if (window.fireScreenConfetti) { window.fireScreenConfetti(sp.x, sp.y, 70); window.fireScreenConfetti(sp.x - 60, sp.y, 50); window.fireScreenConfetti(sp.x + 60, sp.y, 50); }
+            if (window.fireBalloons) window.fireBalloons(10);
+          };
+          const t = getTheme(e.themeKey);
+          if (e.shotPending && t.celebrateFinish) t.celebrateFinish(e, pointAtFrac(e.roadBase, e.curFrac), checkpointScale(n), burst);
+          else { e.shotPending = false; burst(); }
+        },
+      });
+    }
+
+    // Ghost (pace/competitor marker) — a faded second avatar, mapped onto
+    // the path the same way so its pace lines up with the flags too.
     while (ghostLayer.firstChild) ghostLayer.removeChild(ghostLayer.firstChild);
     if (state.ghost) {
-      const gp = pointAtFrac(roadBase, state.ghost.frac);
+      const gp = pointAtFrac(roadBase, progressToPathFrac(state.ghost.frac, n, finishFrac));
       const g = theme.buildAvatar('#94a3b8');
       g.setAttribute('transform', `translate(${gp.x},${gp.y}) scale(${scale})`);
       g.setAttribute('opacity', '0.55');
       ghostLayer.appendChild(g);
     }
 
-    // The "ground covered" glow trail — fills in from the start up to
-    // the avatar's current position, in sync with its own glide (same
-    // "first sync snaps, every sync after that eases" rule as the
-    // avatar, so it doesn't animate in from nothing on first paint).
-    const progressFrac = Math.max(0, Math.min(1, state.youFrac));
-    progressPath.style.transition = (entry.lastYouFrac === null || reduceMotion) ? 'none' : 'stroke-dashoffset 700ms ease-out';
-    progressPath.setAttribute('stroke-dashoffset', String(progressLen * (1 - progressFrac)));
-
-    // Avatar — walks to its new spot. A bouncy easing (slight overshoot,
-    // then settle) reads as a little hop rather than a flat slide — CSS
-    // handles the whole glide (see the .journey-avatar-layer rule in
-    // index.html), so no animation library is needed for this simple a move.
     if (!avatarLayer.firstChild) avatarLayer.appendChild(theme.buildAvatar(theme.avatarFill, shadowId));
-    const you = pointAtFrac(roadBase, state.youFrac);
-    // Respect prefers-reduced-motion: the avatar still ends up in the
-    // right place, it just snaps instead of gliding — progress stays
-    // fully conveyed, the motion (the part some people asked their OS
-    // to minimize) is what's removed.
-    avatarLayer.style.transition = (entry.lastYouFrac === null || reduceMotion) ? 'none' : 'transform 700ms cubic-bezier(0.34, 1.56, 0.64, 1)';
-    avatarLayer.setAttribute('transform', `translate(${you.x},${you.y}) scale(${scale})`);
-    // Legs (Road's rig animates continuously on its own; this covers
-    // Space's boots and Race's wheels) only swing/spin for the moment
-    // the avatar actually moves — not on first paint and not with
-    // reduced motion. See the .journey-walking rule in index.html.
-    if (!reduceMotion && entry.lastYouFrac !== null && entry.lastYouFrac !== state.youFrac) {
-      avatarLayer.classList.add('journey-walking');
-      clearTimeout(entry.walkTimer);
-      entry.walkTimer = setTimeout(() => avatarLayer.classList.remove('journey-walking'), 750);
-    }
-    entry.lastYouFrac = state.youFrac;
+    avatarLayer.style.transition = 'none';
 
-    if (state.summitLit && !entry.lastSummit && celebrate) {
-      const sp = screenPoint(svg, you.x, you.y - 10);
-      if (window.fireScreenConfetti) { window.fireScreenConfetti(sp.x, sp.y, 70); window.fireScreenConfetti(sp.x - 60, sp.y, 50); window.fireScreenConfetti(sp.x + 60, sp.y, 50); }
-      if (window.fireBalloons) window.fireBalloons(10);
+    // Football: the ball sits at the player's feet until the goal is
+    // scored, then in the net.
+    const scored = state.summitLit && !entry.shotPending;
+    const netBall = svg.querySelector('.journey-goal-ball');
+    if (netBall) netBall.style.display = scored ? '' : 'none';
+    const feetBall = avatarLayer.querySelector('.journey-feet-ball');
+    if (feetBall) feetBall.style.display = scored ? 'none' : '';
+
+    const from = entry.curFrac;
+    if (from === null || reduceMotion || Math.abs(targetFrac - from) < 0.0005) {
+      placeAvatar(entry, targetFrac, scale);
+      entry.curFrac = targetFrac;
+      arrivals.sort((a, b) => a.frac - b.frac).forEach(a => a.fire());
+    } else {
+      walkAvatar(entry, from, targetFrac, arrivals, scale);
     }
-    entry.lastSummit = state.summitLit;
 
     entry.lastState = state;
+  }
+
+  // ── 3D stages ────────────────────────────────────────────────────────
+  // Themes rendered in real 3D (WebGL) by a separate module, loaded only
+  // when one is picked. Each names the 2D theme to fall back to if the
+  // device has no WebGL or the module/model fails to load, so the Journey
+  // always shows something.
+  const THREE_D_THEMES = { football3d: { module: '/js/journey3d.js', fallback: 'football', failed: false } };
+  const instances3d = new Set();
+  let module3d = null;
+  let webglOk = null;
+  function supportsWebGL() {
+    if (webglOk === null) {
+      try {
+        const c = document.createElement('canvas');
+        webglOk = !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
+      } catch (e) { webglOk = false; }
+    }
+    return webglOk;
+  }
+  function teardown3d(container) {
+    instances3d.delete(container._j3d);
+    container._j3d.destroy();
+    container._j3d = null;
+    container.innerHTML = '';
+  }
+  function sync3d(container, state, cfg) {
+    container._j3dState = state;
+    if (container._j3d) { container._j3d.sync(state); return Promise.resolve(); }
+    // Leaving the 2D scene: stop its walk and drop it (its ResizeObserver
+    // finds no entry while the 3D stage is up, so it stays idle).
+    const entry = containers.get(container);
+    if (entry) { stopWalk(entry); containers.delete(container); container.innerHTML = ''; }
+    if (!container._j3dLoading) {
+      module3d = module3d || import(cfg.module);
+      container._j3dLoading = module3d.then(mod => {
+        container._j3dLoading = null;
+        const latest = container._j3dState;
+        if (!latest || !THREE_D_THEMES[latest.theme] || container._j3d) return;
+        container._j3d = mod.createFootball3D(container);
+        instances3d.add(container._j3d);
+        container._j3d.sync(latest);
+      }).catch(err => {
+        console.error('3D Journey unavailable, showing the 2D stage instead:', err);
+        cfg.failed = true; module3d = null; container._j3dLoading = null;
+        if (container._j3d) { instances3d.delete(container._j3d); container._j3d = null; }
+        container.innerHTML = '';
+        const latest = container._j3dState;
+        if (latest && THREE_D_THEMES[latest.theme]) {
+          ensureResizeObserver(container);
+          apply(container, Object.assign({}, latest, { theme: cfg.fallback }));
+        }
+      });
+    }
+    return container._j3dLoading;
   }
 
   function ensureResizeObserver(container) {
@@ -1252,17 +1740,22 @@ const JourneyGame = (() => {
       return label;
     },
     sync(container, state) {
+      const three = THREE_D_THEMES[state.theme];
+      if (three && !three.failed && supportsWebGL()) return sync3d(container, state, three);
+      if (container._j3d) teardown3d(container);
       ensureResizeObserver(container);
-      apply(container, state);
+      apply(container, three ? Object.assign({}, state, { theme: three.fallback }) : state);
       return Promise.resolve();
     },
-    pause() { /* CSS-driven, nothing to pause */ },
-    resume() { /* CSS-driven, nothing to resume */ },
+    pause() { instances3d.forEach(inst => inst.pause()); },
+    resume() { instances3d.forEach(inst => inst.resume()); },
     destroy(container) {
       if (container) {
-        if (container._journeyRO) { container._journeyRO.disconnect(); delete container._journeyRO; }
+        if (container._j3d) teardown3d(container);
+        container._j3dState = null;
         const entry = containers.get(container);
-        if (entry && entry.walkTimer) clearTimeout(entry.walkTimer);
+        if (entry) stopWalk(entry);
+        if (container._journeyRO) { container._journeyRO.disconnect(); delete container._journeyRO; }
         containers.delete(container);
         container.innerHTML = '';
       }
