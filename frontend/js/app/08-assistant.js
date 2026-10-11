@@ -792,7 +792,7 @@ async function sendAssistantMessage(viaVoice = false) {
     const res = await fetch('/api/ai/assistant', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: APP.assistantMessages, projectId: APP.assistantProjectId, taskId: APP.assistantTaskId }),
+      body: JSON.stringify({ messages: APP.assistantMessages, projectId: APP.assistantProjectId, taskId: APP.assistantTaskId, today: localDateKey(new Date()) }),
     });
     const body = await res.json();
     thinking.remove();
@@ -815,6 +815,12 @@ async function sendAssistantMessage(viaVoice = false) {
       renderAssistantEdits(body);
     } else if (body.type === 'music') {
       renderAssistantMusic(body);
+    } else if (body.type === 'actions') {
+      APP.assistantMessages.push({ role: 'assistant', content: body.text });
+      saveAssistantChat();
+      const bubble = assistantBubble('assistant', body.text);
+      speakAssistant(body.text).then(resumeAssistantListening);
+      Jarvis.handle(body, bubble);
     }
   } catch (e) {
     thinking.remove();
