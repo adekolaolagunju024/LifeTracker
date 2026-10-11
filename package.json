@@ -11,6 +11,7 @@
     "dev": "nodemon backend/server.js",
     "test": "node --test --test-concurrency=1 \"tests/**/*.test.js\"",
     "lint": "eslint .",
+    "showcase": "node backend/showcase.js",
     "build:css": "tailwindcss -c tailwind.config.js -i styles/tailwind.css -o frontend/css/app.css --minify && tailwindcss -c tailwind.site.config.js -i styles/tailwind.css -o frontend/css/site.css --minify"
   },
   "dependencies": {

@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Waypoint — Turn a goal into a plan</title>
-  <meta name="description" content="Talk or type to your Waypoint assistant. Turn a goal into a phased plan with dated tasks, change it as you go, and keep it moving with reminders, streaks, and weekly check-ins.">
+  <title>Waypoint — Turn a goal into a plan you’ll actually finish</title>
+  <meta name="description" content="Tell the Waypoint assistant your goal and get a phased plan with dated tasks. Then finish it as a game: your character walks your road, beating the blockers you name, across <!--@stagecount--> worlds in 2D and 3D.">
   <link rel="icon" href="/icons/icon-192.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,65 +21,65 @@
     }
     .js .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
     .reveal.in { opacity: 1; transform: none; }
+    .shot { box-shadow: 0 30px 80px -20px rgba(0,0,0,.55); }
+    .tab[aria-selected="true"] { background: #0A7E8C; color: #fff; }
+    .float-y { animation: floaty 6s ease-in-out infinite; }
+    @keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
       .js .reveal { opacity: 1; transform: none; transition: none; }
+      .float-y { animation: none; }
     }
   </style>
 </head>
 <body class="bg-white font-sans text-gray-700 antialiased">
 
-  <!-- Brand wordmark: same icon and two-tone name as the app's sidebar -->
-  <header class="hero-glow text-white">
+  <!-- Every picture on this page is a live screenshot of the current app,
+       retaken on each deploy (backend/showcase.js). The stages and "What's
+       new" come from frontend/data/product.json (backend/landing.js). -->
+  <header class="hero-glow overflow-hidden text-white">
     <nav class="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
       <a href="/landing.html" class="flex items-center gap-2.5" aria-label="Waypoint home">
         <img src="/icons/icon-192.png" alt="" class="h-8 w-8 rounded-lg">
         <span class="text-xl font-black tracking-tight"><span class="text-white">Way</span><span class="text-teal-light">point</span></span>
       </a>
-      <div class="flex items-center gap-5 text-sm font-medium">
-        <a href="#how" class="hidden text-white/70 hover:text-white sm:inline">How it works</a>
-        <a href="#features" class="hidden text-white/70 hover:text-white sm:inline">Features</a>
+      <div class="flex items-center gap-5 text-sm">
+        <a href="#stages" class="hidden text-white/70 hover:text-white md:inline">The game</a>
+        <a href="#tour" class="hidden text-white/70 hover:text-white md:inline">Tour</a>
+        <a href="#new" class="hidden text-white/70 hover:text-white md:inline">What's new</a>
         <a href="/app" class="text-white/80 hover:text-white">Log in</a>
         <a href="/app" class="rounded-lg bg-teal px-4 py-2 font-semibold text-white shadow-lg shadow-teal/30 hover:brightness-110">Get started</a>
       </div>
     </nav>
 
-    <!-- Hero -->
-    <div class="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-10 md:grid-cols-2 md:pt-16">
+    <div class="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-24 pt-8 lg:grid-cols-[1fr_1.15fr] lg:pt-14">
       <div>
         <p class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-teal-light">
-          <span class="h-1.5 w-1.5 rounded-full bg-teal-light"></span> Your AI assistant, by voice or text
+          <span class="h-1.5 w-1.5 rounded-full bg-teal-light"></span> AI planner · <!--@stagecount--> game worlds
         </p>
         <h1 class="mt-5 text-4xl font-black leading-[1.05] tracking-tight md:text-6xl">
-          Turns a vague goal into a plan,
-          <span class="text-teal-light">then won't let you forget it.</span>
+          Turn a goal into a plan,
+          <span class="text-teal-light">then play it to the finish.</span>
         </h1>
         <p class="mt-6 max-w-xl text-lg leading-relaxed text-white/70">
-          Talk or type to your Waypoint assistant. It builds a phased plan with dated tasks from what you describe, changes it when your plans change, and keeps it moving with reminders, a streak, and a weekly check-in.
+          Tell the assistant what you want, by voice or text, and get a phased plan with dated tasks. Then every task you finish moves your character down the road, and every blocker you name becomes something to beat.
         </p>
         <div class="mt-8 flex flex-wrap items-center gap-4">
-          <a href="/app" class="rounded-xl bg-teal px-6 py-3.5 text-base font-bold text-white shadow-xl shadow-teal/30 hover:brightness-110">Get started free</a>
-          <a href="#how" class="rounded-xl border border-white/20 px-6 py-3.5 text-base font-semibold text-white/90 hover:bg-white/5">See how it works</a>
+          <a href="/app" class="rounded-xl bg-teal px-6 py-3.5 text-base font-bold text-white shadow-xl shadow-teal/30 hover:brightness-110">Start free</a>
+          <a href="#stages" class="rounded-xl border border-white/20 px-6 py-3.5 text-base font-semibold text-white/90 hover:bg-white/5">See the game</a>
         </div>
         <p class="mt-5 text-sm text-white/50">Works in any browser, on Android, and on iPhone once added to your Home Screen.</p>
       </div>
 
-      <!-- Demo in a browser-style frame -->
-      <div class="reveal relative">
-        <div class="absolute -inset-4 rounded-3xl bg-teal/20 blur-2xl"></div>
-        <div class="relative overflow-hidden rounded-2xl border border-white/10 bg-navy-2 shadow-2xl">
+      <div class="relative">
+        <div class="absolute -inset-6 rounded-[2rem] bg-teal/25 blur-3xl"></div>
+        <div class="shot relative overflow-hidden rounded-2xl border border-white/10 bg-navy-2">
           <div class="flex items-center gap-1.5 border-b border-white/10 bg-navy/60 px-4 py-3">
-            <span class="h-2.5 w-2.5 rounded-full bg-white/20"></span>
-            <span class="h-2.5 w-2.5 rounded-full bg-white/20"></span>
-            <span class="h-2.5 w-2.5 rounded-full bg-white/20"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-white/20"></span><span class="h-2.5 w-2.5 rounded-full bg-white/20"></span><span class="h-2.5 w-2.5 rounded-full bg-white/20"></span>
           </div>
-          <div class="aspect-[16/10] w-full bg-navy">
-              <video src="/media/demo.webm" autoplay muted loop playsinline preload="auto" aria-label="Walkthrough: describe a goal, get a phased plan, track progress" class="h-full w-full object-cover">
-                <p class="flex h-full items-center justify-center text-sm text-white/50">Your browser can't play this video.</p>
-              </video>
-            </div>
-          </div>
+          <img src="/showcase/journey.webp" alt="The Journey: a character walking the road of a real plan, with its tasks and blockers listed below" width="1280" height="800" fetchpriority="high" class="w-full bg-navy">
         </div>
+        <img src="/showcase/phone.webp" alt="Waypoint on a phone" width="390" height="844" class="float-y shot absolute -bottom-10 -left-6 hidden w-36 rounded-[1.6rem] border-4 border-navy sm:block lg:-left-14 lg:w-44">
       </div>
     </div>
   </header>
@@ -87,9 +87,9 @@
   <!-- Proof strip: facts only, no invented numbers -->
   <section class="border-b border-gray-100 bg-white">
     <div class="mx-auto grid max-w-6xl gap-6 px-5 py-8 text-center text-sm font-semibold text-navy sm:grid-cols-3">
-      <p>Plans from a plain-English description</p>
-      <p>Reminders on your phone and desktop</p>
-      <p>Built for starting, not just tracking</p>
+      <p>🎙️ Plans from a sentence, typed or spoken</p>
+      <p>🎮 <!--@stagecount--> worlds to play your plan in, 2D or 3D</p>
+      <p>✅ You approve every change the AI suggests</p>
     </div>
   </section>
 
@@ -98,24 +98,58 @@
     <div class="mx-auto max-w-6xl px-5">
       <div class="reveal mx-auto max-w-2xl text-center">
         <p class="text-sm font-bold uppercase tracking-widest text-teal">How it works</p>
-        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">From wanting it to doing it, in three steps</h2>
+        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">From wanting it to finishing it</h2>
       </div>
       <div class="mt-14 grid gap-6 md:grid-cols-3">
         <div class="reveal rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
           <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-lg font-black text-white">1</div>
-          <h3 class="mt-5 text-lg font-bold text-navy">Tell the assistant</h3>
-          <p class="mt-2 leading-relaxed text-gray-600">Type it or say it out loud, in plain English. It asks a question or two if it needs more detail, and can attach a plan you already have.</p>
+          <h3 class="mt-5 text-lg font-bold text-navy">Say what you want</h3>
+          <p class="mt-2 leading-relaxed text-gray-600">Type it or say it in plain English. The assistant asks a question or two if it needs to, or reads a plan you already have.</p>
         </div>
         <div class="reveal rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
           <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-lg font-black text-white">2</div>
-          <h3 class="mt-5 text-lg font-bold text-navy">Get a phased plan</h3>
-          <p class="mt-2 leading-relaxed text-gray-600">Review a project broken into named phases with dated tasks. Edit anything, then create it in one click.</p>
+          <h3 class="mt-5 text-lg font-bold text-navy">Get a real plan</h3>
+          <p class="mt-2 leading-relaxed text-gray-600">Phases, dated tasks, which task waits on which, and targets to count towards. Change anything, or ask the assistant to.</p>
         </div>
         <div class="reveal rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
           <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-teal text-lg font-black text-white">3</div>
-          <h3 class="mt-5 text-lg font-bold text-navy">Stay on track</h3>
-          <p class="mt-2 leading-relaxed text-gray-600">Reminders, a streak, and a weekly check-in keep the plan in front of you until it's done.</p>
+          <h3 class="mt-5 text-lg font-bold text-navy">Play it through</h3>
+          <p class="mt-2 leading-relaxed text-gray-600">Finish tasks to move along your road, beat the blockers in your way, and keep your streak alive with reminders and a weekly check-in.</p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- The Journey stages: one card per stage, from product.json -->
+  <section id="stages" class="scroll-mt-6 bg-white py-20">
+    <div class="mx-auto max-w-6xl px-5">
+      <div class="reveal mx-auto max-w-2xl text-center">
+        <p class="text-sm font-bold uppercase tracking-widest text-teal">The Journey</p>
+        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">Your plan, as a game you want to finish</h2>
+        <p class="mt-4 text-lg leading-relaxed text-gray-600">Pick a world. Each task is a stop on the road, and each blocker you name ("waiting on the landlord") shows up as an enemy your character has to deal with. Switch between 2D and full 3D any time.</p>
+      </div>
+      <div class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"><!--@stages-->
+      </div>
+    </div>
+  </section>
+
+  <!-- Product tour: live screenshots of the main screens -->
+  <section id="tour" class="scroll-mt-6 bg-gray-50 py-20">
+    <div class="mx-auto max-w-6xl px-5">
+      <div class="reveal mx-auto max-w-2xl text-center">
+        <p class="text-sm font-bold uppercase tracking-widest text-teal">A real planner underneath</p>
+        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">Everything a serious plan needs</h2>
+      </div>
+      <div class="reveal mt-10 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Screens">
+        <button type="button" class="tab rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-navy" role="tab" aria-selected="true" data-shot="planner">📊 Planner</button>
+        <button type="button" class="tab rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-navy" role="tab" aria-selected="false" data-shot="project">📁 Project</button>
+        <button type="button" class="tab rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-navy" role="tab" aria-selected="false" data-shot="assistant">✨ Assistant</button>
+      </div>
+      <div class="reveal mx-auto mt-8 max-w-5xl">
+        <div class="shot overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          <img id="tour-shot" src="/showcase/planner.webp" alt="The Planner: a Gantt chart of the plan, with arrows from each task to the ones waiting on it" width="1280" height="800" loading="lazy" class="w-full">
+        </div>
+        <p id="tour-caption" class="mt-5 text-center text-gray-600">Gantt, Kanban and calendar views of the same plan, with dependency arrows and drag to reschedule.</p>
       </div>
     </div>
   </section>
@@ -124,41 +158,54 @@
   <section id="features" class="scroll-mt-6 bg-white py-20">
     <div class="mx-auto max-w-6xl px-5">
       <div class="reveal mx-auto max-w-2xl text-center">
-        <p class="text-sm font-bold uppercase tracking-widest text-teal">Built for stuck starters</p>
-        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">The features that get you moving</h2>
+        <p class="text-sm font-bold uppercase tracking-widest text-teal">Built to get you moving</p>
+        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">The features that keep a plan alive</h2>
       </div>
       <div class="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        <div class="reveal group rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="text-2xl">⚡</div>
-          <h3 class="mt-4 font-bold text-navy">"Just start" timer</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">On any task you haven't started, a built-in two-minute timer makes the first step feel small. An optional AI suggestion gives you one concrete action.</p>
+        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
+          <div class="text-2xl">🎙️</div>
+          <h3 class="mt-4 font-bold text-navy">An assistant you can talk to</h3>
+          <p class="mt-2 text-sm leading-relaxed text-gray-600">Create a goal or change a plan by voice: add, move or delete tasks, link them in order, set targets and blockers. You approve every change first, and your chats are saved.</p>
         </div>
-        <div class="reveal group rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
+        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
+          <div class="text-2xl">⚔️</div>
+          <h3 class="mt-4 font-bold text-navy">Blockers you can see</h3>
+          <p class="mt-2 text-sm leading-relaxed text-gray-600">Name what's in the way and tick each one off as it's sorted. A task can't be marked done while a blocker is still pending.</p>
+        </div>
+        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
+          <div class="text-2xl">🔗</div>
+          <h3 class="mt-4 font-bold text-navy">Tasks in the right order</h3>
+          <p class="mt-2 text-sm leading-relaxed text-gray-600">Make a task wait for another to finish, like MS Project. It unlocks the moment its predecessor is done.</p>
+        </div>
+        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
           <div class="text-2xl">🔥</div>
-          <h3 class="mt-4 font-bold text-navy">Momentum streak</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">Your streak counts consecutive days with at least one completed task. An evening alert fires if today's streak is at risk.</p>
+          <h3 class="mt-4 font-bold text-navy">Streaks and reminders</h3>
+          <p class="mt-2 text-sm leading-relaxed text-gray-600">A daily streak, alerts when something goes overdue, a morning list of what's due, and an evening nudge when your streak is at risk.</p>
         </div>
-        <div class="reveal group rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="text-2xl">🔔</div>
-          <h3 class="mt-4 font-bold text-navy">Real reminders</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">Alerts when a task goes overdue, a morning ping for what's due today, and a recurring nudge while something is still open.</p>
-        </div>
-        <div class="reveal group rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
+        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
           <div class="text-2xl">🎯</div>
           <h3 class="mt-4 font-bold text-navy">Weekly check-in</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">An optional short message for each goal: what's on track, what's stalled, and one next step. It reads your progress and never rewrites your plan.</p>
+          <p class="mt-2 text-sm leading-relaxed text-gray-600">A short note on each goal: what's on track, what's stalled, and one next step. It reads your progress and never rewrites your plan.</p>
         </div>
-        <div class="reveal group rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="text-2xl">🎙️</div>
-          <h3 class="mt-4 font-bold text-navy">Talk to your assistant</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">Create a goal, change a plan, add or move tasks, or set things up by voice. It reads its replies aloud, and it always shows you changes to approve first.</p>
-        </div>
-        <div class="reveal group rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
+        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
           <div class="text-2xl">👥</div>
-          <h3 class="mt-4 font-bold text-navy">Share with control</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">Invite collaborators as viewers, commenters, or editors, and keep your private goals private.</p>
+          <h3 class="mt-4 font-bold text-navy">Plan together</h3>
+          <p class="mt-2 text-sm leading-relaxed text-gray-600">Invite people as viewers, commenters or editors. Comments with @mentions, status updates, a chat per project, and private goals stay private.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- What's new: the latest entries from product.json -->
+  <section id="new" class="hero-glow scroll-mt-6 py-20 text-white">
+    <div class="mx-auto max-w-6xl px-5">
+      <div class="reveal mx-auto max-w-2xl text-center">
+        <p class="text-sm font-bold uppercase tracking-widest text-teal-light">What's new</p>
+        <h2 class="mt-3 text-3xl font-black tracking-tight md:text-4xl">Getting better every week</h2>
+        <p class="mt-3 text-white/60"><!--@updated--></p>
+      </div>
+      <ul class="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3"><!--@whatsnew-->
+      </ul>
     </div>
   </section>
 
@@ -167,16 +214,20 @@
     <div class="mx-auto max-w-6xl px-5">
       <div class="reveal mx-auto max-w-2xl text-center">
         <p class="text-sm font-bold uppercase tracking-widest text-teal">Who it's for</p>
-        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">For the gap between wanting it and starting it</h2>
+        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">For anyone with something big to get done</h2>
       </div>
-      <div class="mt-14 grid gap-6 md:grid-cols-2">
+      <div class="mt-14 grid gap-6 md:grid-cols-3">
         <div class="reveal rounded-2xl bg-white p-8 shadow-sm">
-          <p class="text-base font-bold text-navy">Freelancers and side-hustle builders</p>
-          <p class="mt-3 leading-relaxed text-gray-600">You're juggling client work with a course, a product, or a business. Waypoint turns the big idea into steps you can see, and keeps the plan visible when your day gets busy.</p>
+          <p class="text-base font-bold text-navy">Career changers and job seekers</p>
+          <p class="mt-3 leading-relaxed text-gray-600">Applications, courses, interviews and deadlines in one plan, with a reason to do a little every day.</p>
         </div>
         <div class="reveal rounded-2xl bg-white p-8 shadow-sm">
-          <p class="text-base font-bold text-navy">Anyone who finds starting the hardest part</p>
-          <p class="mt-3 leading-relaxed text-gray-600">If you already own a graveyard of to-do apps, the problem usually isn't the list. Waypoint makes the first step small and gives you a reason to keep going.</p>
+          <p class="text-base font-bold text-navy">Builders and side projects</p>
+          <p class="mt-3 leading-relaxed text-gray-600">Turn the big idea into phases you can see, with dependencies and blockers that make the next step obvious.</p>
+        </div>
+        <div class="reveal rounded-2xl bg-white p-8 shadow-sm">
+          <p class="text-base font-bold text-navy">Anyone who finds starting hard</p>
+          <p class="mt-3 leading-relaxed text-gray-600">If you own a graveyard of to-do apps, the list isn't the problem. A game you want to win is a better reason to keep going.</p>
         </div>
       </div>
     </div>
@@ -185,9 +236,9 @@
   <!-- Final call to action -->
   <section class="hero-glow py-20 text-white">
     <div class="reveal mx-auto max-w-3xl px-5 text-center">
-      <h2 class="text-3xl font-black tracking-tight md:text-5xl">Ready to turn your next goal into a plan?</h2>
-      <p class="mt-5 text-lg text-white/70">Start with one sentence describing what you want.</p>
-      <a href="/app" class="mt-9 inline-block rounded-xl bg-teal px-8 py-4 text-base font-bold text-white shadow-xl shadow-teal/30 hover:brightness-110">Get started free</a>
+      <h2 class="text-3xl font-black tracking-tight md:text-5xl">What's the goal you keep putting off?</h2>
+      <p class="mt-5 text-lg text-white/70">Say it in one sentence. Waypoint does the planning, and makes the finishing fun.</p>
+      <a href="/app" class="mt-9 inline-block rounded-xl bg-teal px-8 py-4 text-base font-bold text-white shadow-xl shadow-teal/30 hover:brightness-110">Start free</a>
     </div>
   </section>
 
@@ -202,7 +253,7 @@
         <a href="/terms.html" class="hover:text-white">Terms</a>
         <a href="/app" class="hover:text-white">Log in</a>
       </div>
-      <p class="text-xs">© 2026 Waypoint</p>
+      <p class="text-xs">© 2026 Waypoint · <!--@updated--></p>
     </div>
   </footer>
 
@@ -212,6 +263,21 @@
       entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
     }, { threshold: 0.12 });
     document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+    // Tour tabs: swap the screenshot and its caption.
+    const TOUR = {
+      planner: ['The Planner: a Gantt chart of the plan, with arrows from each task to the ones waiting on it', 'Gantt, Kanban and calendar views of the same plan, with dependency arrows and drag to reschedule.'],
+      project: ['A project page listing its tasks with status, priority, dates and blockers', 'Every task with its status, priority, dates, targets and blockers, editable in place.'],
+      assistant: ['The assistant with a saved chat about the open project', 'Ask for changes in plain words. The assistant proposes them and you tick what to apply.'],
+    };
+    document.querySelectorAll('[data-shot]').forEach(tab => tab.addEventListener('click', () => {
+      document.querySelectorAll('[data-shot]').forEach(t => t.setAttribute('aria-selected', String(t === tab)));
+      const [alt, caption] = TOUR[tab.dataset.shot];
+      const img = document.getElementById('tour-shot');
+      img.src = '/showcase/' + tab.dataset.shot + '.webp';
+      img.alt = alt;
+      document.getElementById('tour-caption').textContent = caption;
+    }));
   </script>
 </body>
 </html>
