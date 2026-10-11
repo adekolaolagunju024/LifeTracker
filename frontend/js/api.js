@@ -103,6 +103,10 @@ const API = {
   newRecoveryCodes: (code)    => request('POST', '/auth/2fa/recovery-codes', { code }),
   resetPassword:   (token, newPassword) => request('POST', '/auth/reset-password', { token, newPassword }),
   getGoogleLoginStatus: ()   => request('GET',  '/auth/google/status'),
+  getMicrosoftLoginStatus: () => request('GET', '/auth/microsoft/status'),
+  getOneDriveStatus:  ()       => request('GET',  '/onedrive/status'),
+  disconnectOneDrive: ()       => request('POST', '/onedrive/disconnect'),
+  backupToOneDrive:   (format) => request('POST', '/onedrive/backup', { format }),
 
   // ── DATA IMPORT ──
   importData: (data) => request('POST', '/data/import', data),

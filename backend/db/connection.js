@@ -461,6 +461,12 @@ db.exec(`
 // find this kind of thing more annoying than fun. One blanket on/off
 // switch, defaulting on, checked client-side before any of it fires.
 addColumnIfMissing('profile', "celebrationEffectsEnabled INTEGER NOT NULL DEFAULT 1");
+// OneDrive backup (backend/routes/onedrive.js). Microsoft rotates refresh
+// tokens, so the latest one is saved after every use.
+addColumnIfMissing('integrations', "oneDriveConnected INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('integrations', "oneDriveRefreshToken TEXT");
+addColumnIfMissing('integrations', "oneDriveAccount TEXT");
+addColumnIfMissing('integrations', "oneDriveLastBackupAt TEXT");
 // Invites to people who don't have an account yet: held here by email and
 // turned into ordinary pending invites the moment that email signs up.
 db.exec(`

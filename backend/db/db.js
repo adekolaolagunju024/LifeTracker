@@ -1754,6 +1754,18 @@ function setGoogleDrive(userId, patch) {
   return getGoogleDrive(userId);
 }
 
+// ── INTEGRATIONS (OneDrive) ─────────────────────────────────────
+function getOneDrive(userId) {
+  const row = db.prepare('SELECT * FROM integrations WHERE userId = ?').get(userId) || {};
+  return { connected: !!row.oneDriveConnected, refreshToken: row.oneDriveRefreshToken || null, account: row.oneDriveAccount || '', lastBackupAt: row.oneDriveLastBackupAt || null };
+}
+function setOneDrive(userId, patch) {
+  const next = { ...getOneDrive(userId), ...patch };
+  db.prepare('UPDATE integrations SET oneDriveConnected=?, oneDriveRefreshToken=?, oneDriveAccount=?, oneDriveLastBackupAt=? WHERE userId = ?')
+    .run(next.connected ? 1 : 0, next.refreshToken, next.account, next.lastBackupAt, userId);
+  return getOneDrive(userId);
+}
+
 // ── SEARCH (topbar global search) ───────────────────────────────
 function searchAll(userId, q) {
   const like = '%' + q.toLowerCase() + '%';
@@ -1964,6 +1976,7 @@ function markReminderRung(id, iso = new Date().toISOString()) {
 }
 
 module.exports = {
+  getOneDrive, setOneDrive,
   listReminders, getReminder, setTaskReminder, deleteTaskReminder, snoozeReminder, ackReminder, listRemindersToRing, markReminderRung,
   setTotpPendingSecret, enableTotp, disableTotp, claimTotpStep, setTotpRecoveryHashes, useTotpRecoveryCode,
   getCalendarFeedToken, getUserIdByCalendarFeedToken, bumpJourneyCounter, markObstacleRewarded, lastCompletionBefore, questActivityToday, claimQuestBonus, projectTreeTaskCount, localDateKeyFromDate, getReportLink, createReportLink, deleteReportLink, getReportLinkTarget,
