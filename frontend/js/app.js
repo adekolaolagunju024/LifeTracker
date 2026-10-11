@@ -546,7 +546,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
 
   const titles = {
     dashboard: 'Dashboard', projects: 'All Projects',
-    gantt: 'Gantt Chart',   actions: 'Actions',
+    gantt: 'Planner',       actions: 'Actions',
     settings: 'Settings',   calendar: 'Calendar',
     chats: 'Chats',
   };
@@ -577,6 +577,14 @@ function updateBackButton() {
   if (btn) btn.classList.toggle('hidden', !(APP.navHistory && APP.navHistory.length));
 }
 
+// The name to greet someone by: empty until they've actually given one
+// (new accounts start with the placeholder "Your Name", which read as
+// "Welcome back, Your" on the dashboard).
+function profileName(profile) {
+  const name = String((profile && profile.name) || '').trim();
+  return name && name !== 'Your Name' ? name : '';
+}
+
 // ── SIDEBAR ────────────────────────────────────────────────────
 async function updateSidebar() {
   try {
@@ -586,7 +594,7 @@ async function updateSidebar() {
     ]);
     APP.profile = profile; // kept fresh here since this runs on nearly every navigation — the cheapest reliable place for celebrationsEnabled() to read from
 
-    document.getElementById('sidebar-name').textContent    = profile.name;
+    document.getElementById('sidebar-name').textContent    = profileName(profile) || 'Welcome to Waypoint';
     document.getElementById('sidebar-tagline').textContent = profile.tagline;
 
     // Rebuild project nav
@@ -627,7 +635,7 @@ async function renderDashboard() {
     document.getElementById('kpi-total').textContent  = tasks.length;
     document.getElementById('kpi-done').textContent   = done;
     document.getElementById('kpi-inprog').textContent = inprog;
-    document.getElementById('hero-name').textContent  = profile.name.split(' ')[0];
+    document.getElementById('hero-name').textContent  = profileName(profile) ? `, ${profileName(profile).split(' ')[0]}` : '';
 
     const bonusLine = document.getElementById('bonus-credits-line');
     bonusLine.textContent = profile.bonusAiCredits ? `🎁 ${profile.bonusAiCredits} bonus AI credits from invites` : '';
@@ -979,7 +987,7 @@ async function renderTaskTable(projectId) {
     document.getElementById('task-table-body').innerHTML = tasks.length
       ? tasks.map(t => `
           <tr class="border-b border-gray-100 hover:bg-gray-50">
-            ${canEdit ? `<td class="tt-sel px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()"></td>` : ''}
+            ${canEdit ? `<td class="tt-sel px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()" aria-label="Select ${esc(t.title)}"></td>` : ''}
             <td class="tt-title px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">
               <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}${t.commentCount ? ` <span class="text-gray-400 font-normal text-xs" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">💬 ${t.commentCount}</span>` : ''}${statusUpdateBadge(t)} ${obstacleBadge(t)} ${waitingBadge(t)}</div>
               ${blockerChecklist(t, canEdit, 'board')}
@@ -987,14 +995,14 @@ async function renderTaskTable(projectId) {
               ${taskProgressBarHTML(t)}
             </td>
             <td class="tt-status px-4 py-3">
-              <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}" ${canEdit ? '' : 'disabled'}
+              <select aria-label="Status of ${esc(t.title)}" class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}" ${canEdit ? '' : 'disabled'}
                 onchange="updateTaskStatus('${t.id}', this.value, '${projectId}')">
                 ${['Not Started','In Progress','Completed'].map(s =>
                   `<option ${t.status === s ? 'selected' : ''}>${s}</option>`).join('')}
               </select>
             </td>
             <td class="tt-priority px-4 py-3">
-              <select class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(priorityBorderColor(t.priority))}" ${canEdit ? '' : 'disabled'}
+              <select aria-label="Priority of ${esc(t.title)}" class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(priorityBorderColor(t.priority))}" ${canEdit ? '' : 'disabled'}
                 onchange="updateTaskPriority('${t.id}', this.value, '${projectId}')">
                 ${['High','Medium','Low'].map(p =>
                   `<option ${t.priority === p ? 'selected' : ''}>${p}</option>`).join('')}
@@ -1002,23 +1010,23 @@ async function renderTaskTable(projectId) {
             </td>
             <td class="tt-assignee px-4 py-3">${assigneeAvatar(t.assigneeName)}</td>
             <td class="tt-start px-4 py-3">
-              <input type="date" value="${t.startDate || ''}" min="${minStart}" class="rounded-lg px-2 py-1 text-xs border border-gray-200 focus:outline-none focus:border-teal w-full" ${canEdit ? '' : 'disabled'}
+              <input type="date" aria-label="Start date of ${esc(t.title)}" value="${t.startDate || ''}" min="${minStart}" class="rounded-lg px-2 py-1 text-xs border border-gray-200 focus:outline-none focus:border-teal w-full" ${canEdit ? '' : 'disabled'}
                 onchange="updateTaskStartDate('${t.id}', this.value, '${projectId}')">
             </td>
-            <td class="tt-due px-4 py-3 text-xs text-gray-400 whitespace-nowrap" data-label="Due">${t.endDate || '—'}</td>
+            <td class="tt-due px-4 py-3 text-xs text-gray-400 whitespace-nowrap" data-label="Due">${formatDateShort(t.endDate)}</td>
             <td class="tt-cost px-4 py-3 text-xs font-mono font-semibold ${(t.cost || 0) > 0 ? 'text-green-600' : 'text-gray-300'}">
               ${(t.cost || 0) > 0 ? '£' + t.cost.toLocaleString() : '—'}
             </td>
             <td class="tt-actions px-4 py-3">
               <div class="flex gap-1">
-                <button onclick="addTaskToGoogleCalendar('${t.id}')" title="Add to Google Calendar"
+                <button onclick="addTaskToGoogleCalendar('${t.id}')" title="Add to Google Calendar" aria-label="Add ${esc(t.title)} to Google Calendar"
                   class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">📅</button>
                 ${canEdit ? `
-                <button onclick="editTask('${t.id}')"
+                <button onclick="editTask('${t.id}')" title="Edit" aria-label="Edit ${esc(t.title)}"
                   class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">✏️</button>
-                <button onclick="duplicateTaskAction('${t.id}','${projectId}')" title="Duplicate"
+                <button onclick="duplicateTaskAction('${t.id}','${projectId}')" title="Duplicate" aria-label="Duplicate ${esc(t.title)}"
                   class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">⧉</button>
-                <button onclick="deleteTaskConfirm('${t.id}','${projectId}')"
+                <button onclick="deleteTaskConfirm('${t.id}','${projectId}')" title="Delete" aria-label="Delete ${esc(t.title)}"
                   class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm opacity-60 hover:opacity-100">🗑️</button>` : ''}
               </div>
             </td>
@@ -1365,7 +1373,10 @@ function formatDuration(startDate, endDate) {
 
 function formatDateShort(dateStr) {
   if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+  // A bare "2026-10-03" is read as local midnight, not UTC, so the day
+  // doesn't slip back one west of Greenwich.
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? new Date(dateStr + 'T00:00:00') : new Date(dateStr);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
 }
 
 // Builds the header columns for the timeline area under the chosen zoom
@@ -2542,9 +2553,22 @@ async function openAddTaskWithDueDate(dateKey) {
   document.getElementById('task-end').value = dateKey;
 }
 
+// Weeks start on Monday (UK, Europe and most of the world) unless the
+// browser's locale is one where Sunday comes first.
+const CALENDAR_WEEK_START = /^(en-(US|CA|PH)|pt-BR|ja|ko|zh-TW|he)/i.test(navigator.language || '') ? 0 : 1;
+const CALENDAR_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const weekdayOffset = d => (d.getDay() - CALENDAR_WEEK_START + 7) % 7;
+function renderCalendarWeekdayHeader() {
+  const head = document.getElementById('calendar-weekday-header');
+  if (!head || head.dataset.start === String(CALENDAR_WEEK_START)) return;
+  head.dataset.start = String(CALENDAR_WEEK_START);
+  head.innerHTML = [0, 1, 2, 3, 4, 5, 6].map(i => `<div class="px-2 py-2 text-center text-xs font-bold text-gray-500">${CALENDAR_WEEKDAYS[(i + CALENDAR_WEEK_START) % 7]}</div>`).join('');
+}
+
 function buildCalendarMonthCells(year, month) {
   const pad = n => String(n).padStart(2, '0');
-  const startWeekday    = new Date(year, month, 1).getDay(); // 0 = Sunday
+  renderCalendarWeekdayHeader();
+  const startWeekday    = weekdayOffset(new Date(year, month, 1)); // days shown from the month before
   const daysInMonth     = new Date(year, month + 1, 0).getDate();
   const daysInPrevMonth = new Date(year, month, 0).getDate();
   const cells = [];
@@ -2559,7 +2583,8 @@ function buildCalendarMonthCells(year, month) {
 function buildCalendarWeekCells(anchorDate) {
   const pad = n => String(n).padStart(2, '0');
   const start = new Date(anchorDate);
-  start.setDate(start.getDate() - start.getDay());
+  start.setDate(start.getDate() - weekdayOffset(start));
+  renderCalendarWeekdayHeader();
   const cells = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date(start);
@@ -2839,7 +2864,7 @@ async function calendarMouseUp() {
 async function renderSettings() {
   try {
     const p = await API.getProfile();
-    document.getElementById('set-name').value     = p.name;
+    document.getElementById('set-name').value     = profileName(p);
     document.getElementById('set-tagline').value  = p.tagline;
     document.getElementById('set-currency').value = p.currency || '£';
     document.getElementById('set-target').value   = p.targetNetWorth;
@@ -3217,7 +3242,7 @@ async function submitAuthRegister() {
   const email    = document.getElementById('auth-register-email').value.trim();
   const password = document.getElementById('auth-register-password').value;
   const confirm  = document.getElementById('auth-register-confirm').value;
-  if (password.length < 6) return showAuthError('auth-register-error', 'Password must be at least 6 characters');
+  if (password.length < 8) return showAuthError('auth-register-error', 'Password must be at least 8 characters');
   if (password !== confirm) return showAuthError('auth-register-error', 'Passwords do not match');
   const acceptTerms = document.getElementById('auth-register-terms').checked;
   if (!acceptTerms) return showAuthError('auth-register-error', 'Please agree to the Terms and Privacy Policy to create an account');
@@ -3272,7 +3297,7 @@ let pendingResetToken = null;
 async function submitAuthReset() {
   const password = document.getElementById('auth-reset-password').value;
   const confirm  = document.getElementById('auth-reset-confirm').value;
-  if (password.length < 6) return showAuthError('auth-reset-error', 'Password must be at least 6 characters');
+  if (password.length < 8) return showAuthError('auth-reset-error', 'Password must be at least 8 characters');
   if (password !== confirm) return showAuthError('auth-reset-error', 'Passwords do not match');
   try {
     await API.resetPassword(pendingResetToken, password);
@@ -3490,7 +3515,7 @@ async function logout() {
 async function submitChangePassword() {
   const currentPassword = document.getElementById('pw-current').value;
   const newPassword     = document.getElementById('pw-new').value;
-  if (newPassword.length < 6) return showToast('New password must be at least 6 characters', 'error');
+  if (newPassword.length < 8) return showToast('New password must be at least 8 characters', 'error');
   try {
     await API.changePassword(currentPassword, newPassword);
     document.getElementById('pw-current').value = '';
@@ -3571,7 +3596,7 @@ async function skipOnboarding() {
 async function finishOnboarding() {
   try {
     await API.updateProfile({
-      name:      document.getElementById('onb-name').value.trim()    || 'Your Name',
+      name:      document.getElementById('onb-name').value.trim(),
       tagline:   document.getElementById('onb-tagline').value.trim() || 'Every Goal, One Path',
       onboarded: true,
     });
@@ -3749,8 +3774,8 @@ async function openTaskDetail(id) {
     document.getElementById('td-progress').innerHTML = taskProgressPanelHTML(t);
     document.getElementById('td-progress').classList.toggle('hidden', !t.targetCount);
     document.getElementById('td-cost').textContent      = (t.cost || 0) > 0 ? '£' + t.cost.toLocaleString() : '—';
-    document.getElementById('td-start').textContent     = t.startDate || '—';
-    document.getElementById('td-end').textContent       = t.endDate || '—';
+    document.getElementById('td-start').textContent     = formatDateShort(t.startDate);
+    document.getElementById('td-end').textContent       = formatDateShort(t.endDate);
     document.getElementById('td-notes').textContent     = t.notes && t.notes.trim() ? t.notes : 'No notes for this task yet.';
     document.getElementById('td-assignee').textContent  = t.assigneeName || 'Unassigned';
 
@@ -7061,3 +7086,24 @@ function showNewVersionNotice() {
 checkForNewVersion();
 setInterval(checkForNewVersion, 5 * 60 * 1000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForNewVersion(); });
+// ── KEYBOARD SHORTCUTS ─────────────────────────────────────────
+// "/" jumps to search, "n" adds a task (to the open project, if any), "a"
+// opens the assistant and "?" lists these. Ignored while typing, with a
+// modifier held, or while a dialog is open.
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
+  const el = e.target;
+  if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+  if (document.querySelector('.modal-overlay.open, .onboarding-overlay.open, .auth-overlay.open')) return;
+  const projectId = APP.currentPage === 'project-detail' ? APP.currentProjectId : undefined;
+  if (e.key === '/') {
+    const search = document.getElementById('global-search-input');
+    if (search && search.offsetParent) { e.preventDefault(); search.focus(); }
+  } else if (e.key === 'n') {
+    e.preventDefault(); openAddTask(projectId);
+  } else if (e.key === 'a') {
+    e.preventDefault(); openAssistant(projectId);
+  } else if (e.key === '?') {
+    showToast('⌨️ Shortcuts: / search · n new task · a assistant · Esc close');
+  }
+});

@@ -10,7 +10,7 @@ if (process.env.SENTRY_DSN) {
 
 const express = require('express');
 const session = require('express-session');
-const cors    = require('cors');
+const compression = require('compression');
 const path    = require('path');
 
 const db = require('./db/connection');
@@ -36,7 +36,21 @@ if (!process.env.SESSION_SECRET) {
 }
 
 // ── MIDDLEWARE ──
-app.use(cors());
+// No "X-Powered-By: Express" advert, and the standard protective headers:
+// no MIME sniffing, no framing by other sites (clickjacking), referrers
+// trimmed to the origin when leaving the site, and HTTPS pinned in
+// production. The browser app and API share one origin, so no CORS
+// headers are sent: other sites can't read the API from a visitor's browser.
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (process.env.NODE_ENV === 'production') res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+  next();
+});
+// gzip: the app's scripts and page shrink to roughly a quarter of their size.
+app.use(compression());
 // Default (100kb) is far too small for the AI chat's file attachments,
 // which travel as base64 inside the JSON body rather than multipart —
 // base64 inflates a file by ~33%, so this covers the same ~15MB ceiling
