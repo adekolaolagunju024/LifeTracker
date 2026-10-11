@@ -7205,7 +7205,7 @@ document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
   const el = e.target;
   if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
-  if (document.querySelector('.modal-overlay.open, .onboarding-overlay.open, .auth-overlay.open')) return;
+  if (document.querySelector('.modal-overlay.open, .onboarding-overlay.open, .auth-overlay.open, .recap-overlay') || (document.getElementById('palette') && !document.getElementById('palette').classList.contains('hidden'))) return;
   const projectId = APP.currentPage === 'project-detail' ? APP.currentProjectId : undefined;
   if (e.key === '/') {
     const search = document.getElementById('global-search-input');
@@ -7215,6 +7215,6 @@ document.addEventListener('keydown', e => {
   } else if (e.key === 'a') {
     e.preventDefault(); openAssistant(projectId);
   } else if (e.key === '?') {
-    showToast('⌨️ Shortcuts: / search · n new task · a assistant · Esc close');
+    showToast('⌨️ Shortcuts: ⌘K command palette · / search · n new task · a assistant · Esc close');
   }
 });

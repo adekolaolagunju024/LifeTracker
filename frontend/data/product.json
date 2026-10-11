@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "A command palette and your week in review",
+      "text": "Press ⌘K (Ctrl+K) or tap ⌘ to jump anywhere, run any action, or type a task and add it in one go (\"call the bank tomorrow\"). And tap 🎬 My week for a Wrapped-style story of your last seven days that you can share."
+    },
+    {
+      "date": "2026-10-11",
       "title": "Templates, Undo and your tasks in your calendar",
       "text": "Start a project from one of six ready-made plans, undo a delete straight from the toast, and subscribe to your due dates in Google Calendar, Outlook or Apple Calendar."
     },
