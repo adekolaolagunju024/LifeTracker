@@ -5,6 +5,7 @@ const templates = require('../templates');
 const db = require('../db/db');
 const { sendChatMessageEmail } = require('../email/chatMail');
 const { notifyMentioned, notifyInvited } = require('../email/activity');
+const { sendProjectInviteEmail } = require('../email/account');
 
 // ── INVITES (registered before /:id so "invites" isn't captured as an id) ──
 
@@ -119,13 +120,34 @@ router.get('/:id/collaborators', (req, res) => {
 });
 
 // POST /api/projects/:id/collaborators — { email, role: 'viewer'|'commenter'|'editor' }
-router.post('/:id/collaborators', (req, res) => {
+router.post('/:id/collaborators', async (req, res) => {
   try {
     const invite = db.inviteCollaborator(req.session.userId, req.params.id, req.body.email, req.body.role);
-    res.status(201).json(invite);
     const project = db.getProjectById(req.session.userId, invite.projectId);
-    const inviterName = db.getProfile(req.session.userId).name;
+    const profileName = db.getProfile(req.session.userId).name;
+    const inviterName = profileName && profileName !== 'Your Name' ? profileName : 'Someone';
+    if (invite.pendingSignup) {
+      // No account yet: email them a link to sign up with that address.
+      const base = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+      const joinUrl = `${base}/app?join=${encodeURIComponent(invite.email)}`;
+      let emailed = false;
+      try { emailed = await sendProjectInviteEmail({ toEmail: invite.email, inviterName, projectTitle: project?.title || 'a project', joinUrl }); }
+      catch (e) { console.error('Project invite email failed:', e.message); }
+      return res.status(201).json({ ...invite, emailed, joinUrl });
+    }
+    res.status(201).json(invite);
     notifyInvited(invite.userId, inviterName, project?.title || '').catch(e => console.error('Invite email failed:', e.message));
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// DELETE /api/projects/:id/email-invites — { email } — owner-only: cancel
+// an invite still waiting for its person to sign up.
+router.delete('/:id/email-invites', (req, res) => {
+  try {
+    if (!db.cancelEmailInvite(req.session.userId, req.params.id, (req.body || {}).email)) return res.status(404).json({ error: 'Invite not found' });
+    res.json({ success: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

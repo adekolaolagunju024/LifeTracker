@@ -493,3 +493,35 @@ test('game rewards: early finishes earn a bonus, a blocker pays once, and daily 
   assert.ok(me.achievements.length >= 20);
   assert.equal(me.rank.name, 'Rookie');
 });
+
+test('inviting someone without an account holds the invite until they sign up with that email', async () => {
+  const owner = await signUp();
+  const project = await (await fetch(`${server.base}/api/projects`, authed(owner, 'POST', { title: 'Shared plan' }))).json();
+  const newcomer = uniqueEmail();
+
+  const res = await fetch(`${server.base}/api/projects/${project.id}/collaborators`, authed(owner, 'POST', { email: newcomer, role: 'commenter' }));
+  assert.equal(res.status, 201);
+  const invite = await res.json();
+  assert.equal(invite.pendingSignup, true);
+  assert.match(invite.joinUrl, /\/app\?join=/);
+  // a second invite to the same email is refused, and it shows in the list
+  assert.equal((await fetch(`${server.base}/api/projects/${project.id}/collaborators`, authed(owner, 'POST', { email: newcomer, role: 'viewer' }))).status, 400);
+  const people = await (await fetch(`${server.base}/api/projects/${project.id}/collaborators`, authed(owner))).json();
+  assert.ok(people.some(p => p.email === newcomer && p.pendingSignup));
+  assert.equal((await fetch(`${server.base}/api/projects/${project.id}/collaborators`, authed(owner, 'POST', { email: 'not-an-email', role: 'viewer' }))).status, 400);
+
+  // signing up with that email brings the invite in, ready to accept
+  const reg = await fetch(`${server.base}/api/auth/register`, json({ email: newcomer, password: 'testpass123', acceptTerms: true }));
+  const cookie = sessionCookie(reg);
+  const invites = await (await fetch(`${server.base}/api/projects/invites`, authed(cookie))).json();
+  assert.ok(invites.some(i => i.projectId === project.id));
+  const after = await (await fetch(`${server.base}/api/projects/${project.id}/collaborators`, authed(owner))).json();
+  assert.ok(!after.some(p => p.pendingSignup));
+
+  // an owner can cancel a waiting invite
+  const other = uniqueEmail();
+  await fetch(`${server.base}/api/projects/${project.id}/collaborators`, authed(owner, 'POST', { email: other, role: 'viewer' }));
+  assert.equal((await fetch(`${server.base}/api/projects/${project.id}/email-invites`, authed(owner, 'DELETE', { email: other }))).status, 200);
+  const final = await (await fetch(`${server.base}/api/projects/${project.id}/collaborators`, authed(owner))).json();
+  assert.ok(!final.some(p => p.email === other));
+});

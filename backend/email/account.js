@@ -22,4 +22,25 @@ async function sendPasswordResetEmail(toEmail, resetUrl) {
   return true;
 }
 
-module.exports = { sendPasswordResetEmail };
+// An invite to a project for someone without an account yet. The link
+// opens sign-up with their email filled in; signing up with it brings the
+// invite in for them to accept.
+async function sendProjectInviteEmail({ toEmail, inviterName, projectTitle, joinUrl }) {
+  const transporter = getTransporter();
+  if (!transporter) return false;
+  await transporter.sendMail({
+    to: toEmail,
+    subject: `${inviterName} invited you to "${projectTitle}" on Waypoint`,
+    html: `<!doctype html><html><body style="margin:0;padding:24px;background:#F4F5F7;font-family:-apple-system,Segoe UI,Arial,sans-serif;">
+      <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:20px;padding:28px;border:1px solid #E3E6EA;">
+        <p style="font-size:16px;font-weight:700;color:#0D1B2A;margin:0 0 12px;">${esc(inviterName)} invited you to plan together</p>
+        <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px;">You've been invited to the project <strong>${esc(projectTitle)}</strong> on Waypoint, a planner that turns goals into plans and makes finishing them a game. Create a free account with this email address and the project will be waiting for you to accept.</p>
+        <a href="${esc(joinUrl)}" style="display:inline-block;background:#0A7E8C;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 22px;border-radius:10px;">Join the project</a>
+        <p style="font-size:12px;color:#6B7280;line-height:1.6;margin:20px 0 0;">If you weren't expecting this, you can ignore this email.</p>
+      </div>
+    </body></html>`,
+  });
+  return true;
+}
+
+module.exports = { sendPasswordResetEmail, sendProjectInviteEmail };

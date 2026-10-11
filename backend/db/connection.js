@@ -454,6 +454,19 @@ db.exec(`
 // find this kind of thing more annoying than fun. One blanket on/off
 // switch, defaulting on, checked client-side before any of it fires.
 addColumnIfMissing('profile', "celebrationEffectsEnabled INTEGER NOT NULL DEFAULT 1");
+// Invites to people who don't have an account yet: held here by email and
+// turned into ordinary pending invites the moment that email signs up.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS project_email_invites (
+    id TEXT PRIMARY KEY,
+    projectId TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    email TEXT NOT NULL COLLATE NOCASE,
+    role TEXT NOT NULL,
+    invitedBy TEXT NOT NULL,
+    createdAt TEXT NOT NULL,
+    UNIQUE(projectId, email)
+  );
+`);
 // A public, read-only link to a project's live progress report
 // (backend/routes/reports.js). One per project; removing the row revokes it.
 db.exec(`
