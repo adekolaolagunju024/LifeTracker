@@ -581,6 +581,7 @@ async function afterAuth() {
   if (window.Jarvis) Jarvis.resumeFocus(); // a focus session survives a reload
   if (window.Billing) Billing.handleReturn(); // back from Stripe's checkout
   if (window.Why) Why.handleShare(); // shared in from another app (manifest share_target)
+  if (window.Why) Why.handleMusicReturn(); // back from linking Spotify or YouTube
 }
 
 // Pending project-share invites — checked once per login (not re-dismissed
