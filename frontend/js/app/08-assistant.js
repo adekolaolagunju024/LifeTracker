@@ -877,8 +877,9 @@ let referralLink = '';
 async function loadReferralCard() {
   try {
     const r = await API.getReferral();
-    referralLink = r.link;
-    document.getElementById('referral-link').value = r.link;
+    // Shown on whatever address this app is actually served from.
+    referralLink = r.link.replace(/^https?:\/\/[^/]+/, location.origin);
+    document.getElementById('referral-link').value = referralLink;
     document.getElementById('referral-stats').textContent =
       `${r.joined} joined · ${r.rewarded} rewarded · ${r.bonusCredits} bonus credits · ${r.invitesLeftToday} invites left today`;
     document.getElementById('referral-share-btn').classList.toggle('hidden', !navigator.share);

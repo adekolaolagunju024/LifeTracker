@@ -332,6 +332,31 @@
        so a widened "Task / Project" column also prints uncompressed. */
     #page-gantt { --gc1: 240px; --gc2: 90px; --gc3: 100px; --gc4: 100px; --gc5: 70px; }
     .gantt-sticky { position: sticky; z-index: 6; background: inherit; }
+    /* Settings: tabs, one section at a time */
+    #page-settings { max-width: 900px; }
+    .settings-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -24px 20px; padding: 0 24px 2px; position: sticky; top: 56px; z-index: 20; background: #F4F5F7; padding-top: 8px; padding-bottom: 8px; }
+    .settings-tabs::-webkit-scrollbar { display: none; }
+    .settings-tabs button { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #E3E6EA; background: #fff; color: #3F4A57; font-weight: 700; font-size: 13px; border-radius: 999px; padding: 8px 14px; white-space: nowrap; }
+    .settings-tabs button[aria-selected="true"] { background: #0D1B2A; color: #fff; border-color: #0D1B2A; }
+    .settings-panel[hidden] { display: none; }
+    .settings-rows > div + div { border-top: 1px solid #F0F2F4; }
+    .settings-rows > div { padding-top: 14px !important; padding-bottom: 14px; margin-top: 0 !important; border-bottom: 0 !important; }
+    .profile-avatar { width: 64px; height: 64px; border-radius: 20px; background: linear-gradient(135deg, #0A7E8C, #0D1B2A); color: #fff; font-size: 24px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .trash-group { border: 1px solid #EEF0F3; border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+    .trash-group > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 12px; cursor: pointer; }
+    .trash-group > summary::-webkit-details-marker { display: none; }
+    .trash-group > summary .chev { transition: transform .15s; color: #8A93A0; font-size: 11px; }
+    .trash-group[open] > summary .chev { transform: rotate(90deg); }
+    .trash-items { border-top: 1px solid #EEF0F3; padding: 4px 12px 8px 40px; background: #FAFBFC; }
+    .trash-filter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .trash-filter button { border: 1px solid #E3E6EA; background: #fff; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700; color: #3F4A57; }
+    .trash-filter button[aria-pressed="true"] { background: #E6F4F5; color: #075E68; border-color: #CDEDEF; }
+    .dark .settings-tabs { background: #0B1220; }
+    .dark .settings-tabs button { background: #111A2B; border-color: #1F2A3D; color: #CBD5E1; }
+    .dark .settings-tabs button[aria-selected="true"] { background: #5EEAD4; color: #0D1B2A; border-color: #5EEAD4; }
+    .dark .settings-rows > div + div, .dark .trash-group, .dark .trash-items { border-color: #1F2A3D; }
+    .dark .trash-items { background: #0F1726; }
+    .dark .trash-filter button { background: #111A2B; border-color: #1F2A3D; color: #CBD5E1; }
     .status-chip { display: inline-flex; align-items: center; gap: 4px; width: 100%; justify-content: center; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 4px 8px; border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
     .status-chip:disabled { cursor: default; }
     .status-chip.is-todo { background: #F0F2F4; color: #3F4A57; border-color: #E3E6EA; }
@@ -2090,22 +2115,54 @@
 
     <!-- ─── SETTINGS ─── -->
     <div class="page p-6" id="page-settings">
-      <div class="mb-6">
+      <div class="mb-5">
         <h2 class="text-2xl font-black text-navy">Settings</h2>
-        <p class="text-gray-500 text-sm mt-1">Personalise your tracker.</p>
+        <p class="text-gray-500 text-sm mt-1">Your profile, alerts, connected apps and data.</p>
       </div>
+      <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+        <button type="button" role="tab" id="settings-tab-profile" aria-controls="settings-panel-profile" data-tab="profile" onclick="showSettingsTab('profile')"><span aria-hidden="true">👤</span>Profile</button>
+        <button type="button" role="tab" id="settings-tab-notifications" aria-controls="settings-panel-notifications" data-tab="notifications" onclick="showSettingsTab('notifications')"><span aria-hidden="true">🔔</span>Notifications</button>
+        <button type="button" role="tab" id="settings-tab-appearance" aria-controls="settings-panel-appearance" data-tab="appearance" onclick="showSettingsTab('appearance')"><span aria-hidden="true">🎨</span>Appearance</button>
+        <button type="button" role="tab" id="settings-tab-apps" aria-controls="settings-panel-apps" data-tab="apps" onclick="showSettingsTab('apps')"><span aria-hidden="true">🔗</span>Connected apps</button>
+        <button type="button" role="tab" id="settings-tab-data" aria-controls="settings-panel-data" data-tab="data" onclick="showSettingsTab('data')"><span aria-hidden="true">🗂️</span>Data and Trash</button>
+        <button type="button" role="tab" id="settings-tab-security" aria-controls="settings-panel-security" data-tab="security" onclick="showSettingsTab('security')"><span aria-hidden="true">🔒</span>Security</button>
+      </div>
+      <section class="settings-panel" role="tabpanel" id="settings-panel-profile" aria-labelledby="settings-tab-profile" data-settings-panel="profile">
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy pb-4 mb-1"><span class="icon-badge" style="background:#6B728022">⚙️</span> Preferences</h3>
-        <div class="flex items-center justify-between py-3.5 border-b border-gray-100">
-          <div class="flex items-center gap-3">
-            <span class="icon-badge" style="background:#1B3A5C22">🌙</span>
-            <div>
-              <p class="text-sm font-semibold text-navy">Dark Mode</p>
-              <p class="text-xs text-gray-400 mt-0.5">Switch between light and dark themes.</p>
-            </div>
+        <div class="flex items-center gap-4 border-b border-gray-100 pb-5 mb-5">
+          <div class="profile-avatar" id="set-avatar" aria-hidden="true">?</div>
+          <div class="min-w-0">
+            <p class="text-lg font-extrabold text-navy truncate" id="set-display-name">Your profile</p>
+            <p class="text-sm text-gray-500 truncate" id="set-display-email"></p>
+            <p class="text-xs font-semibold text-gray-500 mt-1" id="set-display-stats"></p>
           </div>
-          <button onclick="toggleTheme()" class="ios-switch" id="theme-switch" role="switch" aria-label="Toggle dark mode"><span class="ios-switch-knob"></span></button>
         </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1" for="set-name">Your name</label>
+            <input type="text" id="set-name" autocomplete="name" placeholder="What should we call you?" oninput="previewProfile()"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+            <p class="text-[11px] text-gray-400 mt-1">Shown on your dashboard and to people you share projects with.</p>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1" for="set-tagline">Your motto</label>
+            <input type="text" id="set-tagline" maxlength="60" placeholder="e.g. One step a day"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+            <p class="text-[11px] text-gray-400 mt-1">A line under your name in the sidebar.</p>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1" for="set-currency">Currency for task costs</label>
+            <select id="set-currency" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-teal">
+              <option value="£">£ Pound</option><option value="$">$ Dollar</option><option value="€">€ Euro</option><option value="₦">₦ Naira</option><option value="₹">₹ Rupee</option><option value="¥">¥ Yen</option><option value="R">R Rand</option><option value="₵">₵ Cedi</option><option value="KSh">KSh Shilling</option>
+            </select>
+          </div>
+        </div>
+        <button onclick="saveSettings()" class="mt-5 bg-teal hover:bg-teal/90 text-white text-sm font-bold px-5 py-2.5 rounded-xl">Save profile</button>
+      </div>
+      </section>
+      <section class="settings-panel" role="tabpanel" id="settings-panel-notifications" aria-labelledby="settings-tab-notifications" data-settings-panel="notifications">
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5 settings-rows">
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy pb-2"><span class="icon-badge" style="background:#C0642A22">🔔</span> Notifications</h3>
         <div class="flex items-center justify-between py-3.5 border-b border-gray-100">
           <div class="flex items-center gap-3 min-w-0">
             <span class="icon-badge" style="background:#0A7E8C22">📧</span>
@@ -2178,6 +2235,32 @@
         </div>
         <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
           <div class="flex items-center gap-3 min-w-0">
+            <span class="icon-badge" style="background:#0A7E8C22">🎯</span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-navy">Weekly Goal Check-ins (AI)</p>
+              <p class="text-xs text-gray-400 mt-0.5">Once a week, AI looks at how each AI-created goal is actually going and sends a short check-in — what's on track, what's stalled, and one concrete next step. It only reads status, never edits your plan.</p>
+            </div>
+          </div>
+          <button onclick="toggleAiCheckIns()" class="ios-switch" id="ai-checkins-btn" role="switch" aria-label="Toggle weekly AI goal check-ins"><span class="ios-switch-knob"></span></button>
+        </div>
+        <p class="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mt-4">⏰ Alarms for a single task are set on the task itself: open it and tap <strong>Remind me</strong>.</p>
+      </div>
+      </section>
+      <section class="settings-panel" role="tabpanel" id="settings-panel-appearance" aria-labelledby="settings-tab-appearance" data-settings-panel="appearance">
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5 settings-rows">
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy pb-2"><span class="icon-badge" style="background:#6D28D922">🎨</span> Appearance and game</h3>
+        <div class="flex items-center justify-between py-3.5 border-b border-gray-100">
+          <div class="flex items-center gap-3">
+            <span class="icon-badge" style="background:#1B3A5C22">🌙</span>
+            <div>
+              <p class="text-sm font-semibold text-navy">Dark Mode</p>
+              <p class="text-xs text-gray-400 mt-0.5">Switch between light and dark themes.</p>
+            </div>
+          </div>
+          <button onclick="toggleTheme()" class="ios-switch" id="theme-switch" role="switch" aria-label="Toggle dark mode"><span class="ios-switch-knob"></span></button>
+        </div>
+        <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
+          <div class="flex items-center gap-3 min-w-0">
             <span class="icon-badge" style="background:#F59E0B22">🎉</span>
             <div class="min-w-0">
               <p class="text-sm font-semibold text-navy">Celebration Effects</p>
@@ -2206,17 +2289,14 @@
           </div>
           <button onclick="toggleFocusMode()" class="ios-switch" id="focus-mode-btn" role="switch" aria-label="Toggle focus mode"><span class="ios-switch-knob"></span></button>
         </div>
-        <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
-          <div class="flex items-center gap-3 min-w-0">
-            <span class="icon-badge" style="background:#0A7E8C22">🎯</span>
-            <div class="min-w-0">
-              <p class="text-sm font-semibold text-navy">Weekly Goal Check-ins (AI)</p>
-              <p class="text-xs text-gray-400 mt-0.5">Once a week, AI looks at how each AI-created goal is actually going and sends a short check-in — what's on track, what's stalled, and one concrete next step. It only reads status, never edits your plan.</p>
-            </div>
-          </div>
-          <button onclick="toggleAiCheckIns()" class="ios-switch" id="ai-checkins-btn" role="switch" aria-label="Toggle weekly AI goal check-ins"><span class="ios-switch-knob"></span></button>
-        </div>
       </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#7C3AED22">🧭</span> First-Time Setup</h3>
+        <p class="text-xs text-gray-400 mb-3">Re-run the welcome wizard (name, targets, first project, Google Drive).</p>
+        <button onclick="rerunOnboarding()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🧭 Re-run Setup Wizard</button>
+      </div>
+      </section>
+      <section class="settings-panel" role="tabpanel" id="settings-panel-apps" aria-labelledby="settings-tab-apps" data-settings-panel="apps">
       <!-- Calendar feed: due dates in Google / Outlook / Apple Calendar -->
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
         <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-4"><span class="icon-badge" style="background:#0A7E8C22">📅</span> Your tasks in your calendar</h3>
@@ -2230,6 +2310,21 @@
           <a id="calendar-feed-google" target="_blank" rel="noopener" class="text-xs font-semibold text-teal bg-teal/10 hover:bg-teal/20 px-3 py-1.5 rounded-lg" href="#">Add to Google Calendar</a>
           <a id="calendar-feed-webcal" class="text-xs font-semibold text-teal bg-teal/10 hover:bg-teal/20 px-3 py-1.5 rounded-lg" href="#">Open in Apple Calendar or Outlook</a>
           <button type="button" onclick="resetCalendarFeed()" class="text-xs font-semibold text-gray-500 hover:text-red-600 px-3 py-1.5 rounded-lg">Reset link</button>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#1B3A5C22">☁️</span> Cloud backup</h3>
+        <p class="text-sm text-gray-500 mb-1" id="settings-drive-text">Checking connection…</p>
+        <p class="text-xs text-gray-400 mb-4" id="settings-drive-sub"></p>
+        <div class="flex gap-3 flex-wrap" id="settings-drive-actions"></div>
+        <div class="hidden" id="settings-drive-formats">
+          <p class="text-xs font-semibold text-gray-500 mt-5 mb-2 border-t border-gray-100 pt-4">Export a copy as…</p>
+          <div class="flex gap-3 flex-wrap">
+            <button onclick="backupAs('sheets')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📊 Google Sheet</button>
+            <button onclick="backupAs('excel')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📗 Excel (.xlsx)</button>
+            <button onclick="backupAs('pdf')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📄 PDF Report</button>
+            <button onclick="backupAs('image')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🖼️ Image Report</button>
+          </div>
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
@@ -2247,61 +2342,26 @@
         <p class="text-xs text-gray-400" id="referral-status"></p>
         <p class="text-xs text-gray-500 mt-2" id="referral-stats"></p>
       </div>
+      </section>
+      <section class="settings-panel" role="tabpanel" id="settings-panel-data" aria-labelledby="settings-tab-data" data-settings-panel="data">
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#0A7E8C22">👤</span> Your Profile</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Your Name</label>
-            <input type="text" id="set-name" placeholder="e.g. Adekola Olagunju"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Tagline</label>
-            <input type="text" id="set-tagline"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Currency Symbol</label>
-            <input type="text" id="set-currency" value="£" maxlength="3"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Net Worth Target</label>
-            <input type="number" id="set-target" value="100000"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Target Date</label>
-            <input type="date" id="set-date" value="2027-05-01"
-              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-          </div>
-        </div>
-        <button onclick="saveSettings()" class="mt-5 bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-5 py-2.5 rounded-lg">💾 Save Profile</button>
-      </div>
-      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#C0642A22">💾</span> Data Management</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#C0642A22">💾</span> Your data</h3>
         <div class="flex gap-3 flex-wrap">
-          <button onclick="exportData()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">⬇ Export Data (JSON)</button>
-          <button onclick="importData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">⬆ Import Data (JSON)</button>
-          <button onclick="resetData()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">🔄 Reset to Defaults</button>
+          <button onclick="exportData()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">⬇ Download everything (JSON)</button>
+          <button onclick="importData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">⬆ Import a download</button>
         </div>
-        <p class="text-xs text-gray-400 mt-3">Export regularly as a backup. Import to restore on another device.</p>
+        <p class="text-xs text-gray-400 mt-3">A full copy of your projects and tasks. Import it to restore, or to move to another account.</p>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#1B3A5C22">☁️</span> Google Drive Backup</h3>
-        <p class="text-sm text-gray-500 mb-1" id="settings-drive-text">Checking connection…</p>
-        <p class="text-xs text-gray-400 mb-4" id="settings-drive-sub"></p>
-        <div class="flex gap-3 flex-wrap" id="settings-drive-actions"></div>
-        <div class="hidden" id="settings-drive-formats">
-          <p class="text-xs font-semibold text-gray-500 mt-5 mb-2 border-t border-gray-100 pt-4">Export a copy as…</p>
-          <div class="flex gap-3 flex-wrap">
-            <button onclick="backupAs('sheets')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📊 Google Sheet</button>
-            <button onclick="backupAs('excel')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📗 Excel (.xlsx)</button>
-            <button onclick="backupAs('pdf')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📄 PDF Report</button>
-            <button onclick="backupAs('image')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🖼️ Image Report</button>
-          </div>
+        <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-5">
+          <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy"><span class="icon-badge" style="background:#6B728022">🗑️</span> Trash</h3>
+          <button onclick="purgeAllTrashConfirm()" id="btn-empty-trash" class="hidden bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg">Delete All Forever</button>
         </div>
+        <p class="text-xs text-gray-400 mb-4">Deleted projects and tasks land here first — restore them, or delete forever. Anything left here is purged automatically after 30 days.</p>
+        <div id="trash-list"></div>
       </div>
+      </section>
+      <section class="settings-panel" role="tabpanel" id="settings-panel-security" aria-labelledby="settings-tab-security" data-settings-panel="security">
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
         <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#1A7A4A22">🔒</span> Account & Security</h3>
         <p class="text-xs text-gray-400 mb-4">Logged in as <span class="font-semibold text-gray-600" id="account-email">—</span></p>
@@ -2331,19 +2391,6 @@
           </div>
         </div>
       </div>
-      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#7C3AED22">🧭</span> First-Time Setup</h3>
-        <p class="text-xs text-gray-400 mb-3">Re-run the welcome wizard (name, targets, first project, Google Drive).</p>
-        <button onclick="rerunOnboarding()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🧭 Re-run Setup Wizard</button>
-      </div>
-      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-5">
-          <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy"><span class="icon-badge" style="background:#6B728022">🗑️</span> Trash</h3>
-          <button onclick="purgeAllTrashConfirm()" id="btn-empty-trash" class="hidden bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg">Delete All Forever</button>
-        </div>
-        <p class="text-xs text-gray-400 mb-4">Deleted projects and tasks land here first — restore them, or delete forever. Anything left here is purged automatically after 30 days.</p>
-        <div id="trash-list"></div>
-      </div>
       <div class="bg-white rounded-xl border border-red-200 p-6">
         <h3 class="flex items-center gap-2.5 text-sm font-bold text-red-600 border-b border-red-100 pb-3 mb-5"><span class="icon-badge" style="background:#B0302022">⚠️</span> Danger Zone</h3>
         <p class="text-xs text-gray-400 mb-3">Permanently deletes your account and everything in it — every project and task. Export your data first if you want a copy; this cannot be undone.</p>
@@ -2353,6 +2400,7 @@
         </div>
         <button onclick="deleteAccountConfirm()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">🗑️ Delete My Account</button>
       </div>
+      </section>
     </div>
 
   </main>

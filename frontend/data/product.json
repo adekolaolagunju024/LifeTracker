@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "A tidier Settings",
+      "text": "Settings now opens one section at a time: Profile, Notifications, Appearance, Connected apps, Data and Trash, and Security. Your profile shows who you are at a glance, and Trash groups everything by project, so a deleted project and all its tasks come back with one tap."
+    },
+    {
+      "date": "2026-10-11",
       "title": "Focus mode, quicker status and honest progress",
       "text": "Focus mode in Settings hides XP, quests and trophies for serious goals. On the Gantt chart, status is a chip you tap to change. Progress now weighs each task by how long it takes, so a three-week task counts for more than a one-hour one. And the website has a playable demo, no sign-up needed."
     },

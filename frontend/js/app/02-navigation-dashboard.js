@@ -138,7 +138,8 @@ function renderDashboardBento(tasks, allProjects) {
       const filled = Math.round((i + 1) * per) <= done;
       return `<span class="${filled ? 'done' : i === nextIndex ? 'next' : ''}"${i === segCount - 1 && !filled ? ' style="background:#FF8FB0"' : ''}></span>`;
     }).join('');
-    const foes = next ? pendingFoes(next) : 0;
+    // Blockers, not the game's enemy count (a blocker can field several).
+    const foes = next ? (next.obstacles || []).filter(o => !o.resolved).length : 0;
     focus.innerHTML = `
       <div class="flex items-center justify-between gap-3">
         <p class="text-[11px] font-bold tracking-widest uppercase text-[#9FB3C8]">${esc(STAGE_NAMES[getJourneyStage()] || 'Journey')} stage</p>
@@ -147,7 +148,7 @@ function renderDashboardBento(tasks, allProjects) {
       <button type="button" onclick="showPage('project-detail','${f.p.id}')" class="block text-left mt-2 text-xl font-extrabold text-white hover:underline">${esc(f.p.icon || '')} ${esc(f.p.title)}</button>
       <div class="focus-segs mt-3" style="grid-template-columns:repeat(${segCount},minmax(0,1fr))">${segs}</div>
       <div class="flex items-center justify-between gap-3 mt-3 flex-wrap">
-        <p class="text-sm text-[#C9D6E2] min-w-0">${pctDone}% · Next stop: ${esc(next.title)}${foes ? ` · ⚔️ ${foes} ${foes === 1 ? 'enemy' : 'enemies'}` : ''}</p>
+        <p class="text-sm text-[#C9D6E2] min-w-0">${pctDone}% · Next stop: ${esc(next.title)}${foes ? ` · ⚔️ ${foes} ${foes === 1 ? 'blocker' : 'blockers'}` : ''}</p>
         <div class="flex gap-2">
           <button type="button" onclick="openProgressReport('${f.p.id}')" class="text-sm font-bold text-white/80 hover:text-white px-3 min-h-[44px]">Report</button>
           <button type="button" onclick="playJourneyFor('${f.p.id}')" class="bg-[#5EEAD4] text-navy font-extrabold text-sm px-5 min-h-[44px] rounded-xl hover:brightness-105">▶ Play</button>
