@@ -332,7 +332,7 @@ const Jarvis = (() => {
     const h = new Date().getHours();
     const hello = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
     const why = window.Why ? await Why.load().then(() => Why.get()).catch(() => null) : null;
-    const quote = why && why.quotes.length ? why.quotes[Math.floor(Date.now() / 86400000) % why.quotes.length] : null;
+    const quote = why && window.Why && Why.todaysQuote ? Why.todaysQuote() : null; // a different one each day
     const music = why && why.playlists.length ? why.playlists[0] : null;
     const counts = [late.length && `${late.length} overdue`, todays.length && `${todays.length} due today`, blocked.length && `${blocked.length} blocked`].filter(Boolean);
     brief = {
@@ -363,22 +363,24 @@ const Jarvis = (() => {
     const pills = ['streak-badge', 'dash-level-pill'].map(id => document.getElementById(id)).filter(Boolean);
     const home = document.getElementById('dash-head-pills');
     if (home) pills.forEach(p => home.appendChild(p));
-    const line = quote ? `<p class="brief-quote">“${esc(quote.text)}”${quote.source ? ` <span>${esc(quote.source)}</span>` : ''}</p>`
-      : why && why.why ? `<p class="brief-quote">Remember why: ${esc(why.why)}</p>`
-        : `<button type="button" class="brief-add" onclick="showPage('why')">${icon('heart', 'tiny')} Add what keeps you going</button>`;
+    const line = quote ? `<figure class="brief-quote"><blockquote>“${esc(quote.text)}”</blockquote>${quote.source ? `<figcaption>${esc(quote.source)}</figcaption>` : ''}</figure>`
+      : why && why.why ? `<figure class="brief-quote"><blockquote>Remember why: ${esc(why.why)}</blockquote></figure>`
+        : `<button type="button" class="brief-add" onclick="showPage('why')">${icon('heart', 'tiny')} Add a quote or reason that keeps you going</button>`;
+    const tool = (onclick, ic, label, title, extra = '') => `<button type="button" class="brief-tool" onclick="${onclick}" title="${esc(title)}" aria-label="${esc(title)}" ${extra}>${icon(ic)}<span>${esc(label)}</span></button>`;
     box.innerHTML = `<div class="brief-card">
-      <div class="brief-orb" aria-hidden="true"><span></span></div>
-      <div class="min-w-0 flex-1">
-        <div class="brief-top"><p class="brief-date">${esc(dateText)}</p><div class="brief-pills"></div></div>
-        <p class="brief-hello">${esc(hello)}${name ? `, ${esc(name)}` : ''}.</p>
-        <p class="brief-sum">${sum}</p>
-        ${line}
-        <div class="brief-actions">
-          ${mainBtn}
-          ${plan ? `<button type="button" class="brief-icon" onclick="Jarvis.openPlanner()" aria-label="Change today's plan" title="Change today's plan">${icon('list-checks')}</button>` : ''}
-          <button type="button" onclick="Jarvis.talk()">${icon('mic')}Talk</button>
-          ${music ? `<button type="button" onclick="Why.playMusic()">${icon('music')}${esc(music.label || 'My music')}</button>` : `<button type="button" onclick="showPage('why')">${icon('music')}Add music</button>`}
-          <button type="button" class="brief-icon" onclick="Jarvis.hear()" aria-label="Read today out loud" title="Read it out loud">${icon('volume')}</button>
+      <div class="brief-top">
+        <p class="brief-date"><span class="brief-orb" aria-hidden="true"><span></span></span>${esc(dateText)}</p>
+        <div class="brief-pills"></div>
+      </div>
+      <p class="brief-hello">${esc(hello)}${name ? `, ${esc(name)}` : ''}.</p>
+      <p class="brief-sum">${sum}</p>
+      ${line}
+      <div class="brief-actions">
+        ${mainBtn ? `<div class="brief-main">${mainBtn}${plan ? `<button type="button" class="brief-plan" onclick="Jarvis.openPlanner()" aria-label="Change today's plan" title="Change today's plan">${icon('list-checks')}</button>` : ''}</div>` : ''}
+        <div class="brief-tools">
+          ${tool('Jarvis.talk()', 'mic', 'Talk', 'Talk to your assistant (J)')}
+          ${music ? tool('Why.playMusic()', 'music', 'Music', `Play ${music.label || 'your music'}`) : tool("showPage('why')", 'music', 'Music', 'Add your music')}
+          ${tool('Jarvis.hear()', 'volume', 'Listen', 'Read today out loud')}
         </div>
       </div>
     </div>`;

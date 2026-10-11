@@ -18,8 +18,29 @@ const Why = (() => {
   }
   const m = () => (data && data.motivation) || null;
   const isEmpty = x => !x || (!x.why && !x.becoming && !x.mentor.name && !x.quotes.length && !x.playlists.length);
-  const dayIndex = () => Math.floor(Date.now() / 86400000);
-  const todaysQuote = x => (x && x.quotes.length ? x.quotes[dayIndex() % x.quotes.length] : null);
+  // Today's quote: a different one each day, picked at random (the same
+  // all day) from their own quotes and the starter shelf, only from the
+  // sources they chose, never one from a faith they didn't pick. With no
+  // quotes and no sources chosen, the neutral books and speeches shelf.
+  const localKey = d => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  const hash = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+  function quotePool(x) {
+    if (!x) return [];
+    const own = x.quotes || [];
+    const groups = (x.sources && x.sources.length) ? x.sources : (own.length ? [] : ['Books and speeches']);
+    const shelf = ((data && data.library) || []).filter(q => groups.includes(q.group) && !own.some(o => o.text === q.text));
+    return [...own, ...shelf.map(q => ({ text: q.text, source: q.source }))];
+  }
+  function todaysQuote(x, date = new Date()) {
+    const pool = quotePool(x);
+    if (!pool.length) return null;
+    if (pool.length === 1) return pool[0];
+    const pick = d => hash(`${localKey(d)}:${pool.length}`) % pool.length;
+    let i = pick(date);
+    const yesterday = new Date(date); yesterday.setDate(yesterday.getDate() - 1);
+    if (i === pick(yesterday)) i = (i + 1) % pool.length; // never the same two days running
+    return pool[i];
+  }
   const mentorOf = x => {
     if (!x || !x.mentor.name) return null;
     const preset = data.mentors.find(p => p.id === x.mentor.preset);
@@ -423,7 +444,7 @@ const Why = (() => {
     paint();
   }
 
-  return { musicSearch, addResult, addPick, pasteLink, handleShare, load, renderDashboard, alarmHTML, fillStuck, renderPage, interviewSend, interviewListen, toggleSource, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
+  return { todaysQuote: (date) => todaysQuote(m(), date), musicSearch, addResult, addPick, pasteLink, handleShare, load, renderDashboard, alarmHTML, fillStuck, renderPage, interviewSend, interviewListen, toggleSource, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
 })();
 window.Why = Why;
 
