@@ -308,80 +308,8 @@ async function renderDashboard() {
     document.getElementById('hero-goals-prog').style.width   = goalsPct + '%';
     document.getElementById('hero-goals-detail').textContent = `across ${projects.length} project${projects.length === 1 ? '' : 's'}`;
 
-    // Project cards — a glance at the first few, not a full management
-    // table (that's what All Projects is for); capped so this stays a
-    // quick overview even for an account with a dozen projects.
-    const todayKey = localDateKey(new Date());
-
-    // Goals — AI-created roadmaps (isGoal), shown separately from ordinary
-    // projects with progress, days remaining, and the next concrete thing
-    // due, since a goal is meant to be finished, not just managed.
-    const goalProjects = projects.filter(p => p.isGoal);
-    document.getElementById('dashboard-goals-section').classList.toggle('hidden', !goalProjects.length);
-    let goalsHTML = '';
-    goalProjects.forEach(proj => {
-      const gts = tasksInProjectTree(proj.id, allProjects, tasks);
-      const gdone = gts.filter(t => t.status === 'Completed').length;
-      const gp = ProgressMath.progressPct(gts);
-      const dueDates = gts.map(t => t.endDate).filter(Boolean).sort();
-      const latestDue = dueDates[dueDates.length - 1];
-      let daysLine = '';
-      if (latestDue) {
-        const diffDays = Math.ceil((new Date(latestDue) - new Date(todayKey)) / 86400000);
-        daysLine = diffDays >= 0 ? `${diffDays} day${diffDays === 1 ? '' : 's'} left` : `${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? '' : 's'} overdue`;
-      }
-      const nextTask = gts.filter(t => t.status !== 'Completed' && t.endDate).sort((a, b) => a.endDate.localeCompare(b.endDate))[0];
-      const milestoneLine = nextTask ? `Next: ${esc(nextTask.title)} (${nextTask.endDate.slice(0, 10)})` : (gts.length ? 'No dates set on remaining tasks' : 'No tasks yet');
-
-      goalsHTML += `
-        <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-4 cursor-pointer"
-          onclick="showPage('project-detail','${proj.id}')">
-          <div class="flex items-center gap-3 mb-3">
-            <span class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background:${proj.color}1A">${emojiIcon(proj.icon)}</span>
-            <div class="flex-1 min-w-0">
-              <p class="font-bold text-sm text-navy truncate">${esc(proj.title)}</p>
-              <p class="text-xs text-gray-400">${gdone} of ${gts.length} tasks done${daysLine ? ' · ' + daysLine : ''}</p>
-            </div>
-          </div>
-          <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-500" style="width:${gp}%;background:${proj.color}"></div>
-          </div>
-          <p class="text-xs text-gray-400 mt-1.5">${milestoneLine}</p>
-        </div>`;
-    });
-    document.getElementById('dashboard-goals-cards').innerHTML = goalsHTML;
-
-    const DASHBOARD_PROJECT_LIMIT = 4;
-    let cardsHTML = '';
-    projects.slice(0, DASHBOARD_PROJECT_LIMIT).forEach(proj => {
-      const pts      = tasksInProjectTree(proj.id, allProjects, tasks);
-      const pdone    = pts.filter(t => t.status === 'Completed').length;
-      const overdue  = pts.filter(t => t.status !== 'Completed' && t.endDate && t.endDate.slice(0, 10) < todayKey).length;
-      const pp       = ProgressMath.progressPct(pts);
-      const sharedSuffix = proj.role !== 'owner' && proj.ownerName ? ` · ${esc(proj.ownerName)}` : '';
-      const subLine  = `${pts.length} tasks · ${pdone} done` + sharedSuffix;
-      const overdueBadge = overdue > 0 ? `<span class="flex-shrink-0 bg-red-50 text-red-600 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap inline-flex items-center gap-1">${icon('overdue', 'tiny')}${overdue} overdue</span>` : '';
-
-      cardsHTML += `
-        <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-4 cursor-pointer"
-          onclick="showPage('project-detail','${proj.id}')">
-          <div class="flex items-center gap-3 mb-3">
-            <span class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background:${proj.color}1A">${emojiIcon(proj.icon)}</span>
-            <div class="flex-1 min-w-0">
-              <p class="font-bold text-sm text-navy truncate">${esc(proj.title)}</p>
-              <p class="text-xs text-gray-400">${subLine}</p>
-            </div>
-            ${overdueBadge}
-          </div>
-          <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-500"
-              style="width:${pp}%;background:${proj.color}"></div>
-          </div>
-          <p class="text-xs text-gray-400 mt-1.5 text-right">${pp}% complete</p>
-        </div>`;
-    });
-    const emptyMsg = `<p class="text-center text-gray-400 text-sm py-8 col-span-full">No projects yet — <button onclick="openAddProject()" class="text-teal underline">create one</button>.</p>`;
-    document.getElementById('project-stats').innerHTML = cardsHTML || emptyMsg;
+    // Projects and goals have their own page (All Projects); the dashboard
+    // keeps to what to do now.
 
 
   } catch (e) { console.error('Dashboard error:', e); }
