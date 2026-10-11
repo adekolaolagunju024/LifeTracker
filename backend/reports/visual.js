@@ -26,14 +26,14 @@ function findBrowser() {
 }
 
 const esc = s => String(s ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const pct = (a, b) => b > 0 ? Math.min(Math.round((a / b) * 100), 100) : 0;
+const ProgressMath = require('../../frontend/js/progressMath');
 
 function reportHtml(snapshot) {
   const { profile, projects, tasks } = snapshot;
   const done  = tasks.filter(t => t.status === 'Completed').length;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const overdueCount = tasks.filter(t => t.status !== 'Completed' && t.endDate && new Date(t.endDate) < today).length;
-  const goalsPct = pct(done, tasks.length);
+  const goalsPct = ProgressMath.progressPct(tasks);
 
   const projectRows = projects.map(p => {
     const pts = tasks.filter(t => t.projectId === p.id);
@@ -42,7 +42,7 @@ function reportHtml(snapshot) {
       <td>${esc(p.icon)} ${esc(p.title)}</td>
       <td>${pts.length}</td>
       <td>${pdone}</td>
-      <td>${pct(pdone, pts.length)}%</td>
+      <td>${ProgressMath.progressPct(pts)}%</td>
     </tr>`;
   }).join('') || `<tr><td colspan="4" class="muted">No projects yet</td></tr>`;
 

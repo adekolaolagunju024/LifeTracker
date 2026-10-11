@@ -13,6 +13,39 @@
   <link rel="stylesheet" href="/css/site.css">
   <style>
     html { scroll-behavior: smooth; }
+    /* Try-it demo */
+    .demo-ask { margin: 28px auto 0; display: flex; gap: 8px; max-width: 560px; }
+    .demo-ask input { flex: 1; min-width: 0; border: 1px solid #D5DAE0; border-radius: 14px; padding: 14px 16px; font-size: 16px; background: #fff; }
+    .demo-ask input:focus { outline: none; border-color: #0A7E8C; box-shadow: 0 0 0 3px rgba(10,126,140,.15); }
+    .demo-ask button { border: 0; border-radius: 14px; background: #0A7E8C; color: #fff; font-weight: 800; padding: 0 18px; white-space: nowrap; }
+    .demo-picks { margin-top: 14px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .demo-picks button { border: 1px solid #E3E6EA; background: #fff; border-radius: 999px; padding: 8px 14px; font-weight: 700; font-size: 14px; color: #0D1B2A; }
+    .demo-picks button[aria-pressed="true"] { background: #0D1B2A; color: #fff; border-color: #0D1B2A; }
+    .demo-board { margin-top: 28px; border: 1px solid #E3E6EA; border-radius: 24px; background: #F4F5F7; padding: 20px; }
+    .demo-note { margin: 0 0 12px; font-size: 14px; color: #3F4A57; }
+    .demo-road { position: relative; height: 78px; border-radius: 18px; background: #0D1B2A; overflow: hidden; }
+    .demo-road::before { content: ''; position: absolute; left: 24px; right: 24px; top: 50px; height: 6px; border-radius: 3px; background: #23364A; }
+    .demo-fill { position: absolute; left: 24px; top: 50px; height: 6px; border-radius: 3px; background: #5EEAD4; transition: width .6s ease; }
+    .demo-walker { position: absolute; top: 14px; font-size: 30px; transform: translateX(-50%); transition: left .6s ease; }
+    .demo-flag { position: absolute; top: 44px; transform: translateX(-50%); font-size: 14px; }
+    .demo-foe { position: absolute; top: 18px; transform: translateX(-50%); font-size: 24px; animation: demobob 1.2s ease-in-out infinite; }
+    @keyframes demobob { 50% { transform: translate(-50%, -4px); } }
+    .demo-stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 14px 2px; font-weight: 800; color: #0D1B2A; }
+    .demo-stats small { font-weight: 600; color: #5B6472; }
+    .demo-phases { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .demo-phase { background: #fff; border: 1px solid #E3E6EA; border-radius: 18px; padding: 14px; }
+    .demo-phase h3 { margin: 0 0 8px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #075E68; }
+    .demo-task { display: flex; gap: 10px; align-items: flex-start; padding: 8px 4px; border-top: 1px solid #F0F2F4; cursor: pointer; font-size: 14px; color: #0D1B2A; }
+    .demo-task:first-of-type { border-top: 0; }
+    .demo-task input { margin-top: 2px; width: 18px; height: 18px; accent-color: #0A7E8C; flex-shrink: 0; }
+    .demo-task small { display: block; color: #8A93A0; font-size: 12px; }
+    .demo-task.is-done span { text-decoration: line-through; color: #8A93A0; }
+    .demo-task.is-locked { cursor: not-allowed; }
+    .demo-blocker { margin-top: 6px; display: flex; align-items: center; gap: 8px; background: #FDECEA; border: 1px solid #F5C2BC; color: #8E1F14; border-radius: 12px; padding: 8px 10px; font-size: 13px; font-weight: 700; }
+    .demo-blocker button { margin-left: auto; border: 0; border-radius: 10px; background: #B03020; color: #fff; font-weight: 800; padding: 6px 10px; }
+    .demo-finish { margin-top: 16px; text-align: center; background: #0D1B2A; color: #fff; border-radius: 18px; padding: 20px; }
+    .demo-finish a { display: inline-block; margin-top: 10px; background: #5EEAD4; color: #0D1B2A; font-weight: 800; border-radius: 12px; padding: 12px 18px; text-decoration: none; }
+    @media (prefers-reduced-motion: reduce) { .demo-foe { animation: none; } .demo-fill, .demo-walker { transition: none; } }
     .hero-glow { background: #0D1B2A; }
     .js .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
     .reveal.in { opacity: 1; transform: none; }
@@ -39,6 +72,7 @@
         <span class="text-xl font-extrabold tracking-tight"><span class="text-navy">Way</span><span class="text-teal">point</span></span>
       </a>
       <div class="flex items-center gap-5 text-sm">
+        <a href="#try" class="hidden font-semibold text-gray-600 hover:text-navy md:inline">Try it</a>
         <a href="#stages" class="hidden font-semibold text-gray-600 hover:text-navy md:inline">The game</a>
         <a href="#tour" class="hidden font-semibold text-gray-600 hover:text-navy md:inline">Tour</a>
         <a href="#new" class="hidden font-semibold text-gray-600 hover:text-navy md:inline">What's new</a>
@@ -59,7 +93,7 @@
         </p>
         <div class="mt-8 flex flex-wrap items-center gap-4">
           <a href="/app" class="rounded-xl bg-teal px-6 py-3.5 text-base font-bold text-white shadow-xl shadow-teal/30 hover:brightness-110">Start free</a>
-          <a href="#stages" class="rounded-xl border border-gray-300 bg-white px-6 py-3.5 text-base font-bold text-navy hover:border-teal">See the game</a>
+          <a href="#try" class="rounded-xl border border-gray-300 bg-white px-6 py-3.5 text-base font-bold text-navy hover:border-teal">Try it, no sign-up</a>
         </div>
         <p class="mt-5 text-sm text-gray-500">Works in any browser, on Android, and on iPhone once added to your Home Screen.</p>
       </div>
@@ -111,6 +145,25 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <!-- Try it: a playable sample plan, no account (data from backend/templates.js via landing.js) -->
+  <section id="try" class="scroll-mt-6 bg-white py-20">
+    <div class="mx-auto max-w-5xl px-5">
+      <div class="reveal mx-auto max-w-2xl text-center">
+        <p class="text-sm font-bold uppercase tracking-widest text-teal">Try it now</p>
+        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-navy md:text-4xl">Pick a goal and play the first steps</h2>
+        <p class="mt-4 text-lg leading-relaxed text-gray-600">No sign-up. Tick tasks off, beat the blocker, and watch yourself move down the road.</p>
+      </div>
+      <form class="demo-ask" id="demo-ask" autocomplete="off">
+        <label for="demo-goal" class="sr-only">Your goal</label>
+        <input id="demo-goal" type="text" maxlength="80" placeholder="Type a goal, e.g. get a job in the NHS">
+        <button type="submit">Show me a plan</button>
+      </form>
+      <div class="demo-picks" id="demo-picks" role="group" aria-label="Sample goals"></div>
+      <div class="demo-board" id="demo-board" aria-live="polite"></div>
+    </div>
+    <script type="application/json" id="demo-data"><!--@demo--></script>
   </section>
 
   <!-- The Journey stages: one card per stage, from product.json -->
@@ -250,7 +303,67 @@
     </div>
   </footer>
 
+  <script src="/js/progressMath.js"></script>
   <script>
+  // Try-it demo: one sample plan at a time, all in the page.
+  (function () {
+    const data = JSON.parse(document.getElementById('demo-data').textContent || '[]');
+    const board = document.getElementById('demo-board');
+    const picks = document.getElementById('demo-picks');
+    if (!data.length || !board) return;
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const KEYWORDS = { 'job-hunt': /job|career|nhs|role|cv|interview|work|hired|promotion/i, exam: /exam|study|test|degree|cert|revis|course|learn/i, 'side-project': /launch|app|business|side|startup|website|product|shop/i, 'move-home': /move|house|home|flat|rent/i, event: /event|party|wedding|birthday|conference/i, fitness: /run|10k|fit|gym|weight|marathon|health/i };
+    let plan, tasks, beaten, typed = '';
+    function pick(id, goal) {
+      plan = data.find(t => t.id === id) || data[0];
+      typed = goal || '';
+      beaten = false;
+      tasks = plan.phases.flatMap((p, pi) => p.tasks.map((t, ti) => ({ ...t, phase: pi, done: false, blocked: pi === 1 && ti === 0 })))
+        .map(t => ({ ...t, startDate: day(t.start), endDate: day(t.start + t.days - 1), status: 'Not Started' }));
+      picks.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === plan.id)));
+      render();
+    }
+    const day = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+    function render() {
+      tasks.forEach(t => { t.status = t.done ? 'Completed' : 'Not Started'; });
+      const pct = window.ProgressMath ? ProgressMath.progressPct(tasks) : Math.round(tasks.filter(t => t.done).length / tasks.length * 100);
+      const doneN = tasks.filter(t => t.done).length;
+      const at = i => `calc(24px + (100% - 48px) * ${i / tasks.length})`;
+      const foeIndex = tasks.findIndex(t => t.blocked);
+      const finished = doneN === tasks.length;
+      board.innerHTML = `
+        ${typed ? `<p class="demo-note">A sample plan close to <strong>"${esc(typed)}"</strong>. Signed in, the assistant writes one just for your goal.</p>` : ''}
+        <div class="demo-road" role="img" aria-label="${doneN} of ${tasks.length} tasks done">
+          <div class="demo-fill" style="width:calc((100% - 48px) * ${doneN / tasks.length})"></div>
+          ${tasks.map((t, i) => `<span class="demo-flag" style="left:${at(i + 1)}">${i === tasks.length - 1 ? '🏁' : '🚩'}</span>`).join('')}
+          ${!beaten && foeIndex >= 0 ? `<span class="demo-foe" style="left:${at(foeIndex + 0.6)}" aria-hidden="true">👾</span>` : ''}
+          <span class="demo-walker" style="left:${at(doneN)}" aria-hidden="true">${finished ? '🥳' : '🚶'}</span>
+        </div>
+        <div class="demo-stats"><span>🎯 ${pct}% <small>complete, weighted by task size</small></span><span>${esc(plan.icon)} ${esc(plan.title)}</span></div>
+        <div class="demo-phases">${plan.phases.map((p, pi) => `
+          <div class="demo-phase"><h3>${esc(p.title)}</h3>${tasks.map((t, i) => t.phase !== pi ? '' : `
+            <label class="demo-task ${t.done ? 'is-done' : ''} ${t.blocked && !beaten ? 'is-locked' : ''}">
+              <input type="checkbox" data-i="${i}" ${t.done ? 'checked' : ''} ${t.blocked && !beaten ? 'disabled' : ''}>
+              <span>${esc(t.title)}<small>${t.days} day${t.days === 1 ? '' : 's'}</small></span>
+            </label>
+            ${t.blocked && !beaten ? `<div class="demo-blocker">⚔️ ${esc(plan.blocker)}<button type="button" data-beat>Beat it</button></div>` : ''}`).join('')}
+          </div>`).join('')}
+        </div>
+        ${finished ? `<div class="demo-finish"><p style="font-size:20px;font-weight:800;margin:0">🏁 You reached the finish line.</p><p style="margin:6px 0 0;color:#C9D6E2">Now do it for real, with your own goal, dates and reminders.</p><a href="/app">Start free</a></div>` : ''}`;
+    }
+    board.addEventListener('change', e => { const i = e.target.dataset.i; if (i === undefined) return; tasks[+i].done = e.target.checked; render(); });
+    board.addEventListener('click', e => { if (e.target.closest('[data-beat]')) { beaten = true; render(); } });
+    picks.innerHTML = data.map(t => `<button type="button" data-id="${t.id}" aria-pressed="false">${esc(t.icon)} ${esc(t.title)}</button>`).join('');
+    picks.addEventListener('click', e => { const b = e.target.closest('button'); if (b) pick(b.dataset.id); });
+    document.getElementById('demo-ask').addEventListener('submit', e => {
+      e.preventDefault();
+      const goal = document.getElementById('demo-goal').value.trim();
+      if (!goal) return;
+      const match = Object.keys(KEYWORDS).find(id => KEYWORDS[id].test(goal)) || data[0].id;
+      pick(match, goal);
+    });
+    pick(data[0].id);
+  })();
     // Gentle scroll-in for sections; users who prefer reduced motion get it immediately via CSS.
     const io = new IntersectionObserver(entries => {
       entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });

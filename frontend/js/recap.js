@@ -1,4 +1,4 @@
-/* global APP, API, esc, showToast, localDateKey */
+/* global APP, API, esc, showToast, localDateKey, ProgressMath */
 // ── MY WEEK IN REVIEW ───────────────────────────────────────────
 // A short full-screen story of the last seven days, in the spirit of
 // Spotify Wrapped or Strava's year in sport: tasks finished (against the
@@ -43,7 +43,7 @@ async function buildWeeklyRecap() {
   if (topId) {
     const root = byId[topId[0]];
     const all = tasks.filter(t => (rootOf(t.projectId) || {}).id === root.id);
-    top = { title: root.title, icon: root.icon || '📁', count: topId[1], pct: all.length ? Math.round(all.filter(t => t.status === 'Completed').length / all.length * 100) : 0 };
+    top = { title: root.title, icon: root.icon || '📁', count: topId[1], pct: ProgressMath.progressPct(all) };
   }
 
   const today = localDateKey(new Date());
