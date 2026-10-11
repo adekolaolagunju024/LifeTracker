@@ -127,6 +127,7 @@ const Why = (() => {
     body.innerHTML = '<p class="text-sm text-gray-400 py-10 text-center">Loading…</p>';
     try { await load(true); } catch (e) { body.innerHTML = `<p class="text-sm text-red-500">${esc(e.message || 'Could not load')}</p>`; return; }
     draft = JSON.parse(JSON.stringify(m()));
+    accts = null; // check linked accounts afresh each visit
     const fresh = isEmpty(m());
     body.innerHTML = `
       <div class="why-bar">
@@ -335,6 +336,7 @@ const Why = (() => {
             ${i === 0 ? '' : `<button type="button" class="music-row-btn" onclick="Why.makeDefault(${i})" title="Play this one by default" aria-label="Make default">${icon('star')}</button>`}
             <button type="button" class="music-row-btn" onclick="Why.removePlaylist(${i})" aria-label="Remove">${icon('trash')}</button>
           </div>`).join('') : '<p class="why-none">No music yet. Find some below.</p>'}</div>
+        <div class="maccts" id="why-music-accounts"></div>
         <div class="msearch">
           <div class="msearch-box">${icon('search')}<input id="why-music-q" type="search" maxlength="100" placeholder="Search a song, artist or playlist" aria-label="Search for music" oninput="Why.musicSearch(this.value)" autocomplete="off"></div>
           <div class="msearch-results" id="why-music-results" aria-live="polite"></div>
@@ -362,6 +364,76 @@ const Why = (() => {
       </section>`,
     };
     body.innerHTML = sections[tab] || sections.you;
+    if (tab === 'music') paintAccounts();
+  }
+
+  // ── Linked Spotify and YouTube accounts ──
+  // Connect once on the service's own page; your playlists then show up
+  // here, one tap to add. Only offered when the server is set up for it.
+  let accts = null; const linked = {};
+  async function paintAccounts() {
+    const box = document.getElementById('why-music-accounts');
+    if (!box) return;
+    if (!accts) { try { accts = await API.getMusicAccounts(); } catch { accts = {}; } }
+    const list = Object.entries(accts).filter(([, a]) => a.available || a.connected);
+    if (!list.length) { box.innerHTML = ''; return; }
+    box.innerHTML = list.map(([k, a]) => `<div class="macct ${k}">
+      <div class="macct-head">
+        <span class="macct-logo ${k}" aria-hidden="true">${icon(k === 'spotify' ? 'music' : 'play')}</span>
+        <div class="min-w-0 flex-1"><p class="macct-name">${esc(a.name)}</p><p class="macct-sub">${a.connected ? `Connected${a.account ? ` as ${esc(a.account)}` : ''}` : 'Bring in your own playlists'}</p></div>
+        ${a.connected ? `<button type="button" class="macct-off" onclick="Why.disconnectMusic('${k}')">Disconnect</button>` : `<a class="macct-on" href="/api/music/${k}/connect">${icon('link', 'tiny')}Connect</a>`}
+      </div>
+      ${a.connected ? `<div class="macct-list" id="why-linked-${k}"><p class="msearch-note">Loading your playlists…</p></div>` : ''}
+    </div>`).join('');
+    list.filter(([, a]) => a.connected).forEach(([k]) => loadLinked(k));
+  }
+  async function loadLinked(k) {
+    const box = document.getElementById(`why-linked-${k}`);
+    try {
+      if (!linked[k]) linked[k] = (await API.getMusicPlaylists(k)).playlists;
+      paintLinked(k);
+    } catch (e) {
+      if (box) box.innerHTML = `<p class="msearch-note">${esc(e.message || 'Couldn’t load your playlists')}</p>`;
+      if (/expired/i.test(e.message || '')) { accts = null; setTimeout(paintAccounts, 1500); }
+    }
+  }
+  let showAll = {};
+  function paintLinked(k) {
+    const box = document.getElementById(`why-linked-${k}`);
+    const all = linked[k] || [];
+    if (!box) return;
+    if (!all.length) { box.innerHTML = '<p class="msearch-note">No playlists on this account yet.</p>'; return; }
+    const shown = showAll[k] ? all : all.slice(0, 5);
+    box.innerHTML = shown.map((r, i) => {
+      const on = draft.playlists.some(p => p.url === r.url);
+      return `<div class="msearch-row">${r.art ? `<img src="${esc(r.art)}" alt="" loading="lazy">` : `<span class="msearch-art">${icon('music')}</span>`}
+        <div class="min-w-0 flex-1"><p>${esc(r.title)}</p><span>${esc(r.by || '')}</span></div>
+        <button type="button" class="msearch-add ${on ? 'on' : ''}" onclick="Why.addLinked('${k}', ${i})" ${on ? 'disabled aria-label="Added"' : `aria-label="Add ${esc(r.title)}"`}>${icon(on ? 'check' : 'plus')}${on ? 'Added' : 'Add'}</button></div>`;
+    }).join('') + (all.length > 5 && !showAll[k] ? `<button type="button" class="macct-more" onclick="Why.showAllLinked('${k}')">Show all ${all.length}</button>` : '');
+  }
+  function addLinked(k, i) { const r = (linked[k] || [])[i]; if (r) quickAdd(r.url, r.title); }
+  function showAllLinked(k) { showAll[k] = true; paintLinked(k); }
+  async function disconnectMusic(k) {
+    if (!window.confirm(`Disconnect ${accts && accts[k] ? accts[k].name : k}? Music you've already added stays.`)) return;
+    await API.disconnectMusic(k).catch(() => {});
+    accts = null; delete linked[k];
+    paintAccounts();
+  }
+  // Back from Spotify or Google's sign-in page.
+  function handleMusicReturn() {
+    const qs = new URLSearchParams(location.search);
+    const r = qs.get('music');
+    if (!r) return;
+    history.replaceState(null, '', location.pathname);
+    const [k, result] = r.split('-');
+    const name = k === 'spotify' ? 'Spotify' : 'YouTube';
+    accts = null; delete linked[k];
+    tab = 'music';
+    try { localStorage.setItem('wp-why-tab', 'music'); } catch { /* private mode */ }
+    if (result === 'connected') showToast(`${name} connected. Your playlists are in Your why → Music`);
+    else if (result === 'cancelled') showToast(`${name} wasn't connected`);
+    else showToast(`Couldn't connect ${name}. Try again`, 'error');
+    showPage('why');
   }
 
   let shelfOpen = false;
@@ -373,9 +445,10 @@ const Why = (() => {
   const set = (k, v) => { draft[k] = v; changed(false); };
   const setMentor = (k, v) => { draft.mentor[k] = v; if (k === 'name' && draft.mentor.preset) { const p = data.mentors.find(x => x.id === draft.mentor.preset); if (!p || p.name !== v) draft.mentor.preset = null; } changed(false); };
   const serviceOf = url => { const e = Music.embedFor(url); return e ? e.service : 'Opens in a new tab'; };
-  function addPlaylistFromForm() {
+  async function addPlaylistFromForm() {
     const url = document.getElementById('why-music-url').value.trim();
-    const label = document.getElementById('why-music-label').value.trim();
+    let label = document.getElementById('why-music-label').value.trim();
+    if (!label && /^https?:\/\//i.test(url)) label = await API.musicTitle(url).then(r => r.title || '').catch(() => '');
     if (!/^https?:\/\//i.test(url)) { showToast('Paste a link that starts with https://', 'error'); document.getElementById('why-music-url').focus(); return; }
     if (draft.playlists.length >= 12) { showToast('That is 12 already. Remove one to add another', 'error'); return; }
     if (!draft.playlists.some(p => p.url === url)) draft.playlists.push({ url, label: label || serviceOf(url) });
@@ -408,7 +481,7 @@ const Why = (() => {
       const on = draft.playlists.some(p => p.url === r.url);
       return `<div class="msearch-row">
         ${r.art ? `<img src="${esc(r.art)}" alt="" loading="lazy">` : `<span class="msearch-art">${icon('music')}</span>`}
-        <div class="min-w-0 flex-1"><p>${esc(r.title)}</p><span>${r.kind === 'playlist' ? 'Playlist · ' : ''}${esc(r.by || '')}</span></div>
+        <div class="min-w-0 flex-1"><p>${esc(r.title)}</p><span>${r.service ? `<em class="msvc ${esc(r.service.split(' ')[0].toLowerCase())}">${esc(r.service)}</em>` : ''}${r.kind === 'playlist' ? 'Playlist · ' : ''}${esc(r.by || '')}</span></div>
         <button type="button" class="msearch-add ${on ? 'on' : ''}" onclick="Why.addResult(${i})" ${on ? 'disabled aria-label="Added"' : `aria-label="Add ${esc(r.title)}"`}>${icon(on ? 'check' : 'plus')}${on ? 'Added' : 'Add'}</button>
       </div>`;
     }).join('') + (provider ? `<p class="msearch-note">From ${esc(provider)}</p>` : '') : '<p class="msearch-note">Nothing found. Try another name.</p>';
@@ -439,7 +512,8 @@ const Why = (() => {
     }
     const e = Music.embedFor(url);
     if (!e) { showToast('That link isn\'t from a music service Waypoint can play', 'error'); return; }
-    quickAdd(url, e.service === 'Spotify' ? 'From Spotify' : `From ${e.service}`);
+    const title = await API.musicTitle(url).then(r => r.title).catch(() => null);
+    quickAdd(url, title || `From ${e.service}`);
   }
   // Shared from another app (the phone's Share menu, see manifest.json).
   async function handleShare() {
@@ -448,7 +522,7 @@ const Why = (() => {
     history.replaceState(null, '', location.pathname);
     const url = findLink(qs.get('url')) || findLink(qs.get('text'));
     if (!url || !Music.embedFor(url)) { showToast('Share a Spotify, YouTube, Apple Music, SoundCloud or Deezer link to add it to your music', 'error'); return; }
-    const label = (qs.get('title') || '').trim().slice(0, 60) || `From ${Music.embedFor(url).service}`;
+    const label = (qs.get('title') || '').trim().slice(0, 60) || await API.musicTitle(url).then(r => r.title).catch(() => null) || `From ${Music.embedFor(url).service}`;
     try {
       await addPlaylist(url, label);
       showToast(`Added “${label}” to your music`);
@@ -496,7 +570,7 @@ const Why = (() => {
     changed();
   }
 
-  return { todaysQuote: (date) => todaysQuote(m(), date), toggleChat, setTab, musicSearch, addResult, addPick, pasteLink, handleShare, load, renderDashboard, alarmHTML, fillStuck, renderPage, interviewSend, interviewListen, toggleSource, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
+  return { todaysQuote: (date) => todaysQuote(m(), date), toggleChat, setTab, addLinked, showAllLinked, disconnectMusic, handleMusicReturn, musicSearch, addResult, addPick, pasteLink, handleShare, load, renderDashboard, alarmHTML, fillStuck, renderPage, interviewSend, interviewListen, toggleSource, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
 })();
 window.Why = Why;
 

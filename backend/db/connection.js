@@ -528,6 +528,22 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_task_reminders_due ON task_reminders (ackAt, remindAt);
 `);
 
+// Music accounts (backend/musicAccounts.js): a Spotify or YouTube account
+// linked so someone's own playlists show up in Your why. Read-only access;
+// the refresh token is kept to list playlists again later.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS music_accounts (
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    refreshToken TEXT,
+    accessToken TEXT,
+    expiresAt INTEGER,
+    displayName TEXT,
+    connectedAt TEXT NOT NULL,
+    PRIMARY KEY (userId, provider)
+  );
+`);
+
 // Reward pledges (backend/pledges.js): someone who believes in you (a
 // parent, boss, coach, friend, teacher) promises a reward, cash or
 // anything else, for finishing a goal. Waypoint tracks the promise from
