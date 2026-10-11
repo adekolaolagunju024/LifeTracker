@@ -206,7 +206,7 @@ function renderDashboardBento(tasks, allProjects) {
   const inRange = (t, from, to) => t.status === 'Completed' && t.completedAt && Date.parse(t.completedAt) >= from && Date.parse(t.completedAt) < to;
   const week = tasks.filter(t => inRange(t, nowMs - 7 * DAY, nowMs + 1)).length;
   const prev = tasks.filter(t => inRange(t, nowMs - 14 * DAY, nowMs - 7 * DAY)).length;
-  document.getElementById('dash-week-done').innerHTML = `${week} <span class="text-sm font-semibold text-gray-500">task${week === 1 ? '' : 's'} done</span>`;
+  document.getElementById('dash-week-done').textContent = `${week} task${week === 1 ? '' : 's'} done`;
   const trend = document.getElementById('dash-week-trend');
   trend.textContent = week > prev ? `Up ${week - prev} on last week` : week < prev ? `${prev - week} fewer than last week` : (week ? 'Level with last week' : 'A fresh week to start');
   trend.style.color = week >= prev ? '#1A7A4A' : '#9A4410';

@@ -41,7 +41,7 @@ function paletteActions() {
     { icon: '🎬', label: 'My week in review', run: () => openWeeklyRecap() },
     { icon: '❤️', label: 'Your why: what keeps you going', run: () => showPage('why') },
     { icon: '⏱', label: 'Start a 25-minute focus session', run: () => Jarvis.startFocus({ minutes: 25, music: true }) },
-    { icon: '☀️', label: "Today's briefing", run: () => { showPage('dashboard'); setTimeout(() => Jarvis.renderBriefing(true), 300); } },
+    { icon: '🔊', label: "Read today's briefing out loud", run: () => { showPage('dashboard'); setTimeout(() => Jarvis.hear(), 900); } },
     { icon: '🎤', label: 'Talk to the assistant', hint: 'J', run: () => Jarvis.talk() },
     ...(window.Music && Music.isPlaying() ? [{ icon: '🎵', label: Music.isPaused() ? 'Play the music' : 'Pause the music', hint: 'M', run: () => Music.togglePause() }] : []),
     ...(window.Why && Why.get() ? Why.get().playlists.map((p, i) => ({ icon: '🎵', label: `Play ${p.label || 'my music'}`, run: () => Why.playMusic(i) })) : []),
