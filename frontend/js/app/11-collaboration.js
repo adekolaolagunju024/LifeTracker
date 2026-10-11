@@ -195,7 +195,8 @@ function closeProjectChat() {
   closeModal('modal-status-composer');
   document.getElementById('chat-also-email').checked = false;
   document.getElementById('chat-cc-input').value = '';
-  document.getElementById('chat-cc-row').classList.add('hidden');
+  toggleChatEmailOptions();
+  closeChatPlus();
   // Closing the panel should stop your camera/mic immediately, not leave
   // a hidden iframe quietly still broadcasting.
   document.getElementById('live-video-iframe').src = '';
@@ -272,16 +273,22 @@ async function renderProjectChat(projectId) {
   try {
     const messages = await API.getProjectMessages(projectId);
     const names = APP.chatPeopleNames || [];
+    const dayKey = d => new Date(d).toDateString();
+    const dayLabel = d => {
+      const k = dayKey(d); const y = new Date(); y.setDate(y.getDate() - 1);
+      return k === new Date().toDateString() ? 'Today' : k === y.toDateString() ? 'Yesterday' : new Date(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    };
     wrap.innerHTML = messages.length
       ? messages.map((m, i) => {
+          const newDay = !messages[i - 1] || dayKey(messages[i - 1].createdAt) !== dayKey(m.createdAt);
           const isMe = m.userId === APP.currentUserId;
           const canDelete = isMe || APP.chatIsOwner;
           const prev = messages[i - 1];
-          const showHeader = !prev || prev.userId !== m.userId;
-          const time = new Date(m.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+          const showHeader = !prev || prev.userId !== m.userId || newDay;
+          const time = new Date(m.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
           const initial = (m.authorName || '?').trim().charAt(0).toUpperCase();
           const replyQuote = m.replyToId ? `<div class="border-l-2 ${isMe ? 'border-white/40' : 'border-gray-300'} pl-1.5 mb-1 text-[10px] ${isMe ? 'text-white/70' : 'text-gray-400'} truncate max-w-[200px]">↩ ${esc(m.replyToAuthorName || 'a deleted message')}${m.replyToText ? ': ' + esc(m.replyToText.length > 40 ? m.replyToText.slice(0, 40) + '…' : m.replyToText) : ''}</div>` : '';
-          return `
+          return `${newDay ? `<div class="chat-day"><span>${dayLabel(m.createdAt)}</span></div>` : ''}
             <div class="group flex items-end gap-1.5 ${isMe ? 'justify-end' : 'justify-start'} ${showHeader ? 'mt-3' : 'mt-0.5'}">
               ${!isMe ? `<span class="w-6 h-6 rounded-full bg-teal/15 text-teal text-[10px] font-bold flex items-center justify-center flex-shrink-0 self-end ${showHeader ? '' : 'invisible'}" title="${esc(m.authorName)}">${esc(initial)}</span>` : ''}
               <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
@@ -318,32 +325,100 @@ function cancelChatReply() {
   document.getElementById('team-chat-reply-chip').classList.remove('flex');
 }
 
+// Picked from the "+" menu, pasted or dropped: uploads straight away and
+// shows a preview (a thumbnail for photos and videos) until it's sent.
+let chatPreviewUrl = null;
 async function onTeamChatFileSelected(file) {
   if (!file || !APP.chatProjectId) return;
+  const chip = document.getElementById('team-chat-attachment-chip');
+  const thumb = document.getElementById('team-chat-attachment-thumb');
+  const name = document.getElementById('team-chat-attachment-name');
+  if (chatPreviewUrl) URL.revokeObjectURL(chatPreviewUrl);
+  chatPreviewUrl = /^image\/|^video\//.test(file.type) ? URL.createObjectURL(file) : null;
+  thumb.innerHTML = chatPreviewUrl ? (file.type.startsWith('video/') ? `<video src="${chatPreviewUrl}" muted></video>` : `<img src="${chatPreviewUrl}" alt="">`) : icon('paperclip');
+  name.textContent = `Uploading ${file.name}…`;
+  chip.classList.remove('hidden'); chip.classList.add('flex');
+  APP.teamChatPendingAttachment = null;
+  chatInputChanged();
   try {
     const attachment = await API.uploadAttachment(APP.chatProjectId, file);
     APP.teamChatPendingAttachment = attachment;
-    document.getElementById('team-chat-attachment-name').textContent = attachment.originalName;
-    document.getElementById('team-chat-attachment-chip').classList.remove('hidden');
-    document.getElementById('team-chat-attachment-chip').classList.add('flex');
+    name.textContent = attachment.originalName;
+    document.getElementById('team-chat-input').focus();
   } catch (e) {
+    clearTeamChatAttachment();
     showToast('❌ ' + (e.message || 'Failed to upload'), 'error');
   } finally {
     document.getElementById('team-chat-file-input').value = '';
+    chatInputChanged();
   }
 }
 
 function clearTeamChatAttachment() {
   APP.teamChatPendingAttachment = null;
+  if (chatPreviewUrl) { URL.revokeObjectURL(chatPreviewUrl); chatPreviewUrl = null; }
   document.getElementById('team-chat-attachment-chip').classList.add('hidden');
   document.getElementById('team-chat-attachment-chip').classList.remove('flex');
+  chatInputChanged();
 }
 
-// Toggling "Also email this" reveals an optional CC field — most messages
-// are just chat, so this is an explicit opt-in per message, not a setting.
+// The "+" menu.
+function toggleChatPlus() {
+  const menu = document.getElementById('chat-plus-menu');
+  const open = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !open);
+  document.getElementById('chat-plus').setAttribute('aria-expanded', String(open));
+  if (open) setTimeout(() => document.addEventListener('click', closeChatPlusOutside), 0);
+}
+function closeChatPlus() {
+  document.getElementById('chat-plus-menu')?.classList.add('hidden');
+  document.getElementById('chat-plus')?.setAttribute('aria-expanded', 'false');
+  document.removeEventListener('click', closeChatPlusOutside);
+}
+function closeChatPlusOutside(e) { if (!e.target.closest('#chat-plus-menu, #chat-plus')) closeChatPlus(); }
+function chatPick(inputId) { closeChatPlus(); document.getElementById(inputId).click(); }
+function chatPaste(e) {
+  const file = [...(e.clipboardData?.files || [])][0];
+  if (file) { e.preventDefault(); onTeamChatFileSelected(file); }
+}
+// The box grows with what you type, and Send lights up when there's
+// something to send.
+function chatInputChanged() {
+  const input = document.getElementById('team-chat-input');
+  if (!input) return;
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight + 2, 140) + 'px';
+  const btn = document.getElementById('chat-send');
+  if (btn) btn.disabled = !input.value.trim() && !APP.teamChatPendingAttachment;
+}
+// Drop a photo or file anywhere on the chat.
+(() => {
+  const panel = document.getElementById('project-chat-panel');
+  if (!panel) return;
+  let depth = 0;
+  panel.addEventListener('dragenter', e => { if ([...(e.dataTransfer?.types || [])].includes('Files') && APP.chatCanComment) { depth++; panel.classList.add('chat-drop'); } });
+  panel.addEventListener('dragleave', () => { depth = Math.max(0, depth - 1); if (!depth) panel.classList.remove('chat-drop'); });
+  panel.addEventListener('dragover', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')) e.preventDefault(); });
+  panel.addEventListener('drop', e => {
+    depth = 0; panel.classList.remove('chat-drop');
+    const file = [...(e.dataTransfer?.files || [])][0];
+    if (file && APP.chatCanComment) { e.preventDefault(); onTeamChatFileSelected(file); }
+  });
+})();
+
+// Emailing a message is an opt-in per message (from the "+" menu), with an
+// optional CC; most messages are just chat.
+function chatToggleEmail(on) {
+  const box = document.getElementById('chat-also-email');
+  box.checked = on === undefined ? !box.checked : on;
+  toggleChatEmailOptions();
+}
 function toggleChatEmailOptions() {
   const on = document.getElementById('chat-also-email').checked;
   document.getElementById('chat-cc-row').classList.toggle('hidden', !on);
+  document.getElementById('chat-cc-row').classList.toggle('flex', on);
+  const item = document.getElementById('chat-email-item');
+  if (item) item.textContent = on ? "Don't email this" : 'Email this to the team';
 }
 
 async function submitProjectChatMessage() {
@@ -359,6 +434,7 @@ async function submitProjectChatMessage() {
     input.value = '';
     clearTeamChatAttachment();
     cancelChatReply();
+    chatInputChanged();
     if (alsoEmail) {
       document.getElementById('chat-also-email').checked = false;
       document.getElementById('chat-cc-input').value = '';
@@ -403,8 +479,9 @@ async function renderStatusTray(projectId) {
           <span class="text-[10px] text-gray-500 truncate w-full text-center">${isMe ? 'You' : esc(g.authorName.split(' ')[0])}</span>
         </button>`;
     }).join('');
-    wrap.innerHTML = myRing + rings;
-    wrap.classList.toggle('hidden', !myRing && !rings);
+    // Only when someone has a status; your own is posted from the "+" menu.
+    wrap.innerHTML = rings ? myRing + rings : '';
+    wrap.classList.toggle('hidden', !rings);
   } catch (e) { console.error('Status tray error:', e); }
 }
 
