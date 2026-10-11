@@ -85,6 +85,7 @@ function getProfile(userId) {
     aiCheckInsEnabled: !!row.aiCheckInsEnabled,
     pushStreakEnabled: !!row.pushStreakEnabled,
     celebrationEffectsEnabled: !!row.celebrationEffectsEnabled,
+    currentStreak: liveStreak(row),
   };
 }
 
@@ -157,10 +158,10 @@ function listUsersForPushReminders() {
     SELECT u.id AS userId, p.name, p.lastPushDigestSentDate, p.lastFocusNudgeAt,
       p.pushOverdueEnabled, p.pushDueTodayEnabled, p.pushFocusNudgeEnabled,
       p.focusNudgeStartHour, p.focusNudgeEndHour, p.focusNudgeIntervalMinutes,
-      p.pushStreakEnabled, p.currentStreak, p.lastStreakNudgeDate
+      p.pushStreakEnabled, p.currentStreak, p.lastStreakDate, p.lastStreakNudgeDate
     FROM profile p JOIN users u ON u.id = p.userId
     WHERE p.pushRemindersEnabled = 1
-  `).all();
+  `).all().map(u => ({ ...u, currentStreak: liveStreak(u) }));
 }
 function setLastPushDigestSentDate(userId, dateStr) {
   db.prepare('UPDATE profile SET lastPushDigestSentDate = ? WHERE userId = ?').run(dateStr, userId);
@@ -175,6 +176,14 @@ function markTaskOverdueNotified(taskId, iso) {
 // ── MOMENTUM STREAK (consecutive days with >=1 completed task) ──
 function localDateKeyFromDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+// The streak as it stands now. The stored count only changes when a task
+// is finished, so after a missed day it would still show the old number;
+// a streak whose last day was before yesterday has already ended.
+function liveStreak(row, now = new Date()) {
+  if (!row || !row.currentStreak || !row.lastStreakDate) return 0;
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+  return row.lastStreakDate >= localDateKeyFromDate(yesterday) ? row.currentStreak : 0;
 }
 
 // Called from updateTaskById whenever a task just transitioned into
@@ -2066,6 +2075,7 @@ function removeReportMedia(userId, mediaId) {
 }
 
 module.exports = {
+  liveStreak,
   getPledgeLinkTarget,
   listReportMedia, listProjectAttachments, addReportMedia, removeReportMedia,
   purgeOldAnalytics,
