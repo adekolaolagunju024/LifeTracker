@@ -5305,6 +5305,7 @@ document.addEventListener('journeyview', e => {
   const { view, cam } = e.detail || {};
   if (cam) setJourneyPref('journeyCam', cam);
   if (view && view !== getJourneyView()) setJourneyView(view);
+  else renderJourneyViewBar();
 });
 let journeyWebGL = null;
 function journeyCanDo3D() {
@@ -5313,27 +5314,37 @@ function journeyCanDo3D() {
   }
   return journeyWebGL;
 }
-// The view toggle over the 2D scene, matching the one the 3D stages draw
-// in their own corner (2D · Follow cam · Overview): picking a camera
-// switches to 3D with that camera.
+// The view toggle (2D · Follow cam · Overview) sits in the Journey
+// header next to the stage picker, not on the scene, so it never covers
+// the road, the finish or a stage's own meters. One toggle for 2D and 3D:
+// picking a camera from 2D switches to 3D with it; picking one while a 3D
+// stage is showing just moves that stage's camera ('journeysetcam', see
+// makeViewToggle in journey3dKit.js). Hidden where 3D can't run.
 function renderJourneyViewBar() {
-  const wrap = document.getElementById('mountain-scene-wrap');
-  let bar = document.getElementById('journey-view-bar');
-  if (!bar) {
-    bar = document.createElement('div');
-    bar.id = 'journey-view-bar';
-    bar.className = 'journey-view-bar';
-    bar.setAttribute('role', 'group');
-    bar.setAttribute('aria-label', 'View');
-    wrap.appendChild(bar);
-  }
-  const show = getJourneyView() === '2d' || !journeyCanDo3D();
-  bar.hidden = !show;
-  if (!show) return;
+  const bar = document.getElementById('journey-view-bar');
+  if (!bar) return;
+  bar.classList.toggle('hidden', !journeyCanDo3D());
+  if (!journeyCanDo3D()) return;
+  const view = getJourneyView();
+  const cam = getJourneyCam() || 'follow';
   const overview = getJourneyStage() === 'construction' ? 'Site view' : 'Overview';
-  bar.innerHTML = '<button type="button" aria-pressed="true">2D</button>' + (journeyCanDo3D()
-    ? `<button type="button" aria-pressed="false" onclick="event.stopPropagation(); setJourneyView('3d','follow')">Follow cam</button><button type="button" aria-pressed="false" onclick="event.stopPropagation(); setJourneyView('3d','overview')">${overview}</button>`
-    : '');
+  const btn = (key, label, title) => {
+    const on = key === '2d' ? view === '2d' : view === '3d' && cam === key;
+    return `<button type="button" aria-pressed="${on}" title="${title}" onclick="pickJourneyView('${key}')">${label}</button>`;
+  };
+  bar.innerHTML = btn('2d', '2D', 'Show the stage in 2D')
+    + btn('follow', 'Follow<span class="hidden sm:inline"> cam</span>', '3D, with the camera following your character')
+    + btn('overview', overview, '3D, looking over the whole stage');
+}
+function pickJourneyView(key) {
+  if (key === '2d') { if (getJourneyView() !== '2d') setJourneyView('2d'); return; }
+  if (getJourneyView() === '3d') {
+    setJourneyPref('journeyCam', key);
+    document.getElementById('mountain-scene').dispatchEvent(new CustomEvent('journeysetcam', { detail: { cam: key } }));
+    renderJourneyViewBar();
+  } else {
+    setJourneyView('3d', key);
+  }
 }
 
 // Resolves the current competitor to a progress fraction + display label —
