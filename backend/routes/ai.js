@@ -301,7 +301,7 @@ router.post('/edit-project', aiQuota(), async (req, res) => {
   const context = buildEditContext(userId, project);
   try {
     const response = await callAI({
-      system: 'You revise an existing plan the user already has. Make only the changes that address the request, keep everything else as it is, and never mark anything Completed or delete a phase. Delete a task only when the user asks for it (it goes to Trash). Blockers may be added, edited, ticked off or removed when asked. Use only the ids listed in the plan. Dates are YYYY-MM-DD.',
+      system: 'You revise an existing plan the user already has. Make only the changes that address the request, keep everything else as it is, and never mark anything Completed or delete a phase. Delete a task only when the user asks for it (it goes to Trash). Blockers may be added, edited, ticked off or removed when asked. A task\'s progress target (targetCount with an optional targetUnit; 0 clears it) and its predecessors (addPredecessor/removePredecessor: tasks it waits on) may be set when asked. Use only the ids listed in the plan. Dates are YYYY-MM-DD.',
       messages: [{ role: 'user', content: context.text + '\n\nRequested change: ' + feedback }],
       tools: [EDIT_TOOL],
       forceToolName: 'propose_edits',
@@ -323,7 +323,7 @@ router.post('/edit-project', aiQuota(), async (req, res) => {
 // review before anything changes.
 const ASSISTANT_SYSTEM = today => `You are Waypoint's assistant. You help the user set up goals and keep them on track. Today's date is ${today}.
 
-If the user describes a new goal and you have enough to plan it, call propose_project. If the user asks for changes to the project they have open, and that project's plan is included below, call propose_edits. That includes deleting a task the user wants gone (it goes to Trash and can be restored), and a task's blockers (the obstacles in its way, listed under each task): adding one, renaming it, changing its count, ticking it off as cleared, or removing it. Otherwise reply in one or two short sentences, asking a question if you need one. Never say you have made a change: you only propose changes, and the user approves them.`;
+If the user describes a new goal and you have enough to plan it, call propose_project. If the user asks for changes to the project they have open, and that project's plan is included below, call propose_edits. That includes deleting a task the user wants gone (it goes to Trash and can be restored), and a task's blockers (the obstacles in its way, listed under each task): adding one, renaming it, changing its count, ticking it off as cleared, or removing it. It also covers a task's progress target (a count such as 20 pages, set through updateTask's targetCount and targetUnit, or cleared with 0) and its predecessors (the tasks it waits on, shown as "waits on" in the plan): addPredecessor and removePredecessor. Otherwise reply in one or two short sentences, asking a question if you need one. Never say you have made a change: you only propose changes, and the user approves them.`;
 
 router.post('/assistant', aiQuota('assistant'), async (req, res) => {
   if (!isAIConfigured()) {

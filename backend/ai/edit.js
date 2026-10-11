@@ -3,7 +3,8 @@ const db = require('../db/db');
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PRIORITIES = ['High', 'Medium', 'Low'];
 const OPEN_STATUSES = ['Not Started', 'In Progress'];
-const EDITABLE_FIELDS = ['title', 'priority', 'status', 'startDate', 'endDate', 'notes'];
+const EDITABLE_FIELDS = ['title', 'priority', 'status', 'startDate', 'endDate', 'notes', 'targetCount', 'targetUnit'];
+const MAX_TARGET = 100000;
 
 const NEW_TASK_SCHEMA = {
   type: 'object',
@@ -23,7 +24,7 @@ const NEW_TASK_SCHEMA = {
 // as targets, and everything is shown to the user for approval first.
 const EDIT_TOOL = {
   name: 'propose_edits',
-  description: 'Propose changes to an existing plan. You may edit tasks, add tasks, move tasks between phases, rename phases, and add phases. You may also delete a task that is no longer needed (it goes to Trash and can be restored), but only when the user asks for it. You may also manage a task\'s blockers (the obstacles standing in its way): add one, rename it or change how many enemies it puts on the Journey (1 to 5), tick it off as cleared (or back to pending), or remove it. You may not delete phases.',
+  description: 'Propose changes to an existing plan. You may edit tasks, add tasks, move tasks between phases, rename phases, and add phases. You may also delete a task that is no longer needed (it goes to Trash and can be restored), but only when the user asks for it. You may set or clear a task\'s progress target (a count such as 20 pages, with a unit), and add or remove a task\'s predecessors (tasks it waits on before it can start). You may also manage a task\'s blockers (the obstacles standing in its way): add one, rename it or change how many enemies it puts on the Journey (1 to 5), tick it off as cleared (or back to pending), or remove it. You may not delete phases.',
   input_schema: {
     type: 'object',
     properties: {
@@ -33,8 +34,9 @@ const EDIT_TOOL = {
         items: {
           type: 'object',
           properties: {
-            type: { type: 'string', enum: ['updateTask', 'addTask', 'moveTask', 'deleteTask', 'renamePhase', 'addPhase', 'addBlocker', 'updateBlocker', 'removeBlocker'] },
-            taskId: { type: 'string', description: 'For updateTask, moveTask, deleteTask and addBlocker: an existing task id from the plan' },
+            type: { type: 'string', enum: ['updateTask', 'addTask', 'moveTask', 'deleteTask', 'renamePhase', 'addPhase', 'addBlocker', 'updateBlocker', 'removeBlocker', 'addPredecessor', 'removePredecessor'] },
+            taskId: { type: 'string', description: 'For updateTask, moveTask, deleteTask, addBlocker, addPredecessor and removePredecessor: an existing task id from the plan' },
+            predecessorId: { type: 'string', description: 'For addPredecessor and removePredecessor: the id of the task that taskId waits on (another task from the plan)' },
             blockerId: { type: 'string', description: 'For updateBlocker and removeBlocker: an existing blocker id from the plan' },
             blocker: {
               type: 'object',
@@ -57,6 +59,8 @@ const EDIT_TOOL = {
                 startDate: { type: 'string' },
                 endDate: { type: 'string' },
                 notes: { type: 'string' },
+                targetCount: { type: 'integer', minimum: 0, maximum: MAX_TARGET, description: 'The progress target, e.g. 20 for "write 20 pages". 0 clears the target' },
+                targetUnit: { type: 'string', description: 'What the target counts, e.g. "pages" or "calls". Optional' },
               },
             },
             task: NEW_TASK_SCHEMA,
@@ -75,7 +79,7 @@ const EDIT_TOOL = {
 // refer to. Nothing here comes from the client.
 function buildEditContext(userId, project) {
   const children = db.listProjects(userId, { parentId: project.id });
-  const tasks = db.listTasksInProjectTree(userId, project.id);
+  const tasks = db.listTasksInProjectTreeDetailed(userId, project.id);
   const phaseIds = new Set([project.id, ...children.map(c => c.id)]);
   const taskById = new Map(tasks.map(t => [t.id, t]));
   const subIds = new Set(children.map(c => c.id));
@@ -84,7 +88,9 @@ function buildEditContext(userId, project) {
   const lines = [`Project: "${project.title}" (id: ${project.id})`];
   const blockerById = new Map();
   const describe = t => {
-    const line = `  - task id:${t.id} | "${t.title}" | status:${t.status} | priority:${t.priority} | start:${t.startDate || 'none'} | due:${t.endDate || 'none'}`;
+    let line = `  - task id:${t.id} | "${t.title}" | status:${t.status} | priority:${t.priority} | start:${t.startDate || 'none'} | due:${t.endDate || 'none'}`;
+    if (t.targetCount) line += ` | target:${t.targetCount}${t.targetUnit ? ' ' + t.targetUnit : ''} (done ${t.progressCount || 0})`;
+    if ((t.predecessors || []).length) line += ` | waits on:${t.predecessors.map(p => p.id).join(',')}`;
     const blockers = (t.obstacles || []).map(o => {
       blockerById.set(o.id, { ...o, taskId: t.id, taskTitle: t.title, taskStatus: t.status });
       return `      blocker id:${o.id} | "${o.name}" | x${o.count} | ${o.resolved ? 'cleared' : 'pending'}`;
@@ -121,6 +127,21 @@ function sanitizeNewTask(task) {
   };
 }
 
+// Does `fromId` already wait on `targetId`, directly or through a chain?
+// Linking them the other way round would close a loop.
+function waitsOn(index, fromId, targetId) {
+  const seen = new Set();
+  const stack = [fromId];
+  while (stack.length) {
+    const id = stack.pop();
+    if (id === targetId) return true;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    (index.taskById.get(id)?.predecessors || []).forEach(p => stack.push(p.id));
+  }
+  return false;
+}
+
 // Anything the model invents or tries to touch outside the plan is dropped
 // here, before the user ever sees it. Returns only operations that are safe
 // to apply, plus a count of what was dropped.
@@ -141,8 +162,16 @@ function validateOperations(operations, index) {
         else if (key === 'status' && OPEN_STATUSES.includes(value)) fields.status = value;
         else if ((key === 'startDate' || key === 'endDate') && validDate(value)) fields[key] = value;
         else if ((key === 'title' || key === 'notes') && typeof value === 'string') fields[key] = value.trim();
+        else if (key === 'targetCount' && (value === null || (Number.isInteger(value) && value >= 0 && value <= MAX_TARGET))) fields.targetCount = value || null;
+        else if (key === 'targetUnit' && typeof value === 'string') fields.targetUnit = value.trim().slice(0, 30);
       }
       if (fields.title === '') delete fields.title;
+      // A unit means nothing without a count: keep it only when the task
+      // ends up with a target, and drop it when the target is being cleared.
+      const endsWithTarget = fields.targetCount !== undefined ? !!fields.targetCount : !!task.targetCount;
+      if (fields.targetUnit !== undefined && !endsWithTarget) delete fields.targetUnit;
+      if (fields.targetCount === null && !task.targetCount) delete fields.targetCount;
+      if (fields.targetCount !== undefined && fields.targetCount === (task.targetCount || null) && fields.targetUnit === undefined) delete fields.targetCount;
       if (!Object.keys(fields).length) { dropped++; continue; }
       valid.push({ type: 'updateTask', taskId: task.id, currentTitle: task.title, fields, reason });
     } else if (op.type === 'moveTask') {
@@ -185,6 +214,13 @@ function validateOperations(operations, index) {
       if (typeof op.blocker?.resolved === 'boolean' && op.blocker.resolved !== !!current.resolved) changes.resolved = op.blocker.resolved;
       if (!Object.keys(changes).length) { dropped++; continue; }
       valid.push({ type: 'updateBlocker', blockerId: current.id, currentName: current.name, taskTitle: current.taskTitle, changes, reason });
+    } else if (op.type === 'addPredecessor' || op.type === 'removePredecessor') {
+      const task = index.taskById.get(op.taskId);
+      const pred = index.taskById.get(op.predecessorId);
+      if (!task || !pred || task.id === pred.id || task.status === 'Completed') { dropped++; continue; }
+      const linked = (task.predecessors || []).some(p => p.id === pred.id);
+      if (op.type === 'addPredecessor' ? linked || waitsOn(index, pred.id, task.id) : !linked) { dropped++; continue; }
+      valid.push({ type: op.type, taskId: task.id, taskTitle: task.title, predecessorId: pred.id, predecessorTitle: pred.title, reason });
     } else {
       dropped++;
     }

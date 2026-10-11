@@ -321,6 +321,11 @@ function listTasksInProjectTree(userId, projectId) {
   const placeholders = ids.map(() => '?').join(',');
   return db.prepare(`SELECT * FROM tasks WHERE userId = ? AND deletedAt IS NULL AND projectId IN (${placeholders})`).all(userId, ...ids);
 }
+// Same tree, with each task's blockers and predecessors attached — what the
+// AI edit tool needs to see the plan as the task edit window shows it.
+function listTasksInProjectTreeDetailed(userId, projectId) {
+  return attachDependenciesToTasks(attachObstaclesToTasks(listTasksInProjectTree(userId, projectId)));
+}
 
 // Every goal project whose owner has opted into weekly AI check-ins — the
 // scheduler fetches each one's task tree separately (same split as the push
@@ -1758,7 +1763,7 @@ module.exports = {
   getProfile, updateProfile, listUsersForDigest, setLastDigestSentDate,
   getAppConfig, setAppConfig, addPushSubscription, removePushSubscription, removePushSubscriptionByEndpoint,
   listPushSubscriptionsForUser, listUsersForPushReminders, setLastPushDigestSentDate, setLastFocusNudgeAt, markTaskOverdueNotified,
-  listTasksInProjectTree, listGoalProjectsForCheckIn, setProjectLastCheckInAt,
+  listTasksInProjectTree, listTasksInProjectTreeDetailed, listGoalProjectsForCheckIn, setProjectLastCheckInAt,
   setLastStreakNudgeDate, hasCompletedTaskToday, consumeAiQuota, consumeAssistantQuota, logEvent,
   addJourneyXp, bumpJourneyTasksCompleted, grantJourneyAchievement, listJourneyAchievements, isProjectTreeComplete,
   getReferralCode, attachReferral, rewardReferralFor, getReferralStats, invitesSentToday, INVITES_PER_DAY,

@@ -38,7 +38,7 @@ test('moves are dropped for completed tasks, unknown phases, or a task already i
 
 test('the edit tool can delete a task (to Trash) and remove a blocker, but has no way to delete a phase', () => {
   const types = EDIT_TOOL.input_schema.properties.operations.items.properties.type.enum;
-  assert.deepEqual([...types].sort(), ['addBlocker', 'addPhase', 'addTask', 'deleteTask', 'moveTask', 'removeBlocker', 'renamePhase', 'updateBlocker', 'updateTask']);
+  assert.deepEqual([...types].sort(), ['addBlocker', 'addPhase', 'addPredecessor', 'addTask', 'deleteTask', 'moveTask', 'removeBlocker', 'removePredecessor', 'renamePhase', 'updateBlocker', 'updateTask']);
 });
 
 test('deleting an open task is kept with its title; completed or unknown tasks are dropped', () => {
@@ -144,4 +144,51 @@ test('the edit tool tells the model it can manage blockers and delete tasks only
   assert.match(EDIT_TOOL.description, /blockers/);
   assert.match(EDIT_TOOL.description, /only when the user asks/);
   assert.match(EDIT_TOOL.description, /may not delete phases/);
+});
+
+test('a progress target can be set, changed or cleared; a unit without a target is dropped', () => {
+  const tasks = new Map([
+    ['t-plain', { id: 't-plain', title: 'Write report', status: 'Not Started', projectId: 'goal' }],
+    ['t-target', { id: 't-target', title: 'Call clients', status: 'In Progress', projectId: 'goal', targetCount: 10, targetUnit: 'calls' }],
+  ]);
+  const { operations, dropped } = validateOperations([
+    { type: 'updateTask', taskId: 't-plain', fields: { targetCount: 20, targetUnit: '  pages  ' }, reason: 'track pages' },
+    { type: 'updateTask', taskId: 't-target', fields: { targetCount: 0 }, reason: 'no longer counted' },
+    { type: 'updateTask', taskId: 't-plain', fields: { targetUnit: 'pages' }, reason: 'unit alone' },
+    { type: 'updateTask', taskId: 't-target', fields: { targetUnit: 'meetings' }, reason: 'new unit' },
+    { type: 'updateTask', taskId: 't-plain', fields: { targetCount: -3 }, reason: 'bad' },
+    { type: 'updateTask', taskId: 't-plain', fields: { targetCount: 2.5 }, reason: 'bad' },
+    { type: 'updateTask', taskId: 't-plain', fields: { targetCount: 0 }, reason: 'nothing to clear' },
+  ], { ...index, taskById: tasks });
+  assert.equal(dropped, 4);
+  assert.deepEqual(operations.map(o => o.fields), [
+    { targetCount: 20, targetUnit: 'pages' },
+    { targetCount: null },
+    { targetUnit: 'meetings' },
+  ]);
+});
+
+test('predecessors can be added or removed between plan tasks, never in a loop', () => {
+  const tasks = new Map([
+    ['a', { id: 'a', title: 'Design', status: 'Completed', projectId: 'goal', predecessors: [] }],
+    ['b', { id: 'b', title: 'Build', status: 'In Progress', projectId: 'goal', predecessors: [{ id: 'a' }] }],
+    ['c', { id: 'c', title: 'Test', status: 'Not Started', projectId: 'phase-1', predecessors: [{ id: 'b' }] }],
+    ['d', { id: 'd', title: 'Launch', status: 'Not Started', projectId: 'phase-2', predecessors: [] }],
+  ]);
+  const { operations, dropped } = validateOperations([
+    { type: 'addPredecessor', taskId: 'd', predecessorId: 'c', reason: 'launch after testing' },
+    { type: 'removePredecessor', taskId: 'c', predecessorId: 'b', reason: 'can test in parallel' },
+    { type: 'addPredecessor', taskId: 'c', predecessorId: 'b', reason: 'already linked' },
+    { type: 'removePredecessor', taskId: 'd', predecessorId: 'a', reason: 'not linked' },
+    { type: 'addPredecessor', taskId: 'b', predecessorId: 'c', reason: 'would loop' },
+    { type: 'addPredecessor', taskId: 'd', predecessorId: 'd', reason: 'itself' },
+    { type: 'addPredecessor', taskId: 'a', predecessorId: 'd', reason: 'completed task' },
+    { type: 'addPredecessor', taskId: 'd', predecessorId: 'ghost', reason: 'unknown' },
+  ], { ...index, taskById: tasks });
+  assert.equal(dropped, 6);
+  assert.deepEqual(operations, [
+    { type: 'addPredecessor', taskId: 'd', taskTitle: 'Launch', predecessorId: 'c', predecessorTitle: 'Test', reason: 'launch after testing' },
+    { type: 'removePredecessor', taskId: 'c', taskTitle: 'Test', predecessorId: 'b', predecessorTitle: 'Build', reason: 'can test in parallel' },
+  ]);
+  assert.match(EDIT_TOOL.description, /predecessors/);
 });
