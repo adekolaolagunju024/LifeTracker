@@ -28,7 +28,7 @@ test('registration with accepted terms succeeds and issues a session', async () 
 
 test('signed-out visitors see the landing page at /', async () => {
   const html = await (await fetch(`${server.base}/`)).text();
-  assert.match(html, /Turns a vague goal into a plan/);
+  assert.match(html, /Turn a goal into a plan,/);
 });
 
 test('/app always serves the application shell', async () => {
@@ -40,7 +40,7 @@ test('signed-in users get the application at /', async () => {
   const reg = await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true }));
   const html = await (await fetch(`${server.base}/`, { headers: { Cookie: sessionCookie(reg) } })).text();
   assert.match(html, /id="auth-overlay"/);
-  assert.doesNotMatch(html, /Turns a vague goal into a plan/);
+  assert.doesNotMatch(html, /Turn a goal into a plan,/);
 });
 
 for (const page of ['/landing.html', '/privacy.html', '/terms.html']) {
@@ -348,4 +348,33 @@ test('forgot password answers the same for known and unknown emails', async () =
   const unknown = await fetch(`${server.base}/api/auth/forgot-password`, json({ email: uniqueEmail() }));
   assert.equal(known.status, 200);
   assert.deepEqual(await known.json(), await unknown.json());
+});
+
+test('the landing page is filled in from product data: every stage, the latest news, no leftover markers', async () => {
+  const product = require('../frontend/data/product.json');
+  const html = await (await fetch(`${server.base}/`)).text();
+  assert.doesNotMatch(html, /<!--@[a-z]+-->/);
+  for (const stage of product.stages) assert.match(html, new RegExp(`/showcase/stage-${stage.id}\\.webp`));
+  assert.ok(html.includes(product.whatsNew[0].title.replace(/&/g, '&amp;')));
+  assert.equal(await (await fetch(`${server.base}/landing.html`)).text(), html);
+});
+
+test('every landing page screenshot is served, and nothing else under /showcase', async () => {
+  const product = require('../frontend/data/product.json');
+  const names = ['journey', 'phone', 'planner', 'project', 'assistant', ...product.stages.map(s => `stage-${s.id}`)];
+  for (const name of names) {
+    const res = await fetch(`${server.base}/showcase/${name}.webp`);
+    assert.equal(res.status, 200, name);
+    assert.equal(res.headers.get('content-type'), 'image/webp');
+  }
+  assert.equal((await fetch(`${server.base}/showcase/..%2Fpackage.json`)).status, 404);
+  assert.equal((await fetch(`${server.base}/showcase/nope.webp`)).status, 404);
+});
+
+test("the landing page's stages match the Journey's stage picker", async () => {
+  const product = require('../frontend/data/product.json');
+  const html = require('fs').readFileSync(require('path').join(__dirname, '../frontend/index.html'), 'utf8');
+  const select = html.slice(html.indexOf('id="journey-theme-select"'), html.indexOf('</select>', html.indexOf('id="journey-theme-select"')));
+  const picker = [...select.matchAll(/<option value="([a-z]+)">/g)].map(m => m[1]);
+  assert.deepEqual(product.stages.map(s => s.id), picker);
 });

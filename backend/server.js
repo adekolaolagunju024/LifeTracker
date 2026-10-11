@@ -21,6 +21,9 @@ const { startPushReminderScheduler } = require('./push/scheduler');
 const { startCheckInScheduler } = require('./ai/checkIn');
 const { startBackupScheduler } = require('./backup');
 
+const showcase = require('./showcase');
+const { renderLanding } = require('./landing');
+
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
@@ -75,6 +78,8 @@ app.use(session({
 // files keep their names between releases). Images and models can cache.
 const NO_CACHE = /\.(html|js|mjs|css)$/;
 const noCache = res => res.setHeader('Cache-Control', 'no-cache');
+// Rendered from product data, so it's handled before the static files.
+app.get('/landing.html', (req, res) => { noCache(res); res.type('html').send(renderLanding()); });
 app.use(express.static(path.join(__dirname, '../frontend'), {
   index: false,
   setHeaders(res, filePath) { if (NO_CACHE.test(filePath)) noCache(res); },
@@ -86,11 +91,20 @@ app.use('/vendor/three/build', express.static(path.join(__dirname, '../node_modu
 app.use('/vendor/three/examples/jsm', express.static(path.join(__dirname, '../node_modules/three/examples/jsm')));
 
 // The marketing page is the front door for signed-out visitors; signed-in
-// users (and the app's own login screen at /app) get the app itself.
+// users (and the app's own login screen at /app) get the app itself. The
+// landing page is filled in from frontend/data/product.json (see
+// backend/landing.js), so it never goes stale.
 app.get('/', (req, res) => {
-  const file = req.session && req.session.userId ? 'index.html' : 'landing.html';
   noCache(res);
-  res.sendFile(path.join(__dirname, '../frontend', file));
+  if (req.session && req.session.userId) return res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  res.type('html').send(renderLanding());
+});
+// Live screenshots of the app for the landing page (backend/showcase.js).
+app.get('/showcase/:file', (req, res) => {
+  const file = showcase.showcaseFile(req.params.file);
+  if (!file) return res.status(404).end();
+  noCache(res);
+  res.sendFile(file);
 });
 app.get('/app', (req, res) => { noCache(res); res.sendFile(path.join(__dirname, '../frontend/index.html')); });
 
@@ -141,7 +155,12 @@ app.listen(PORT, () => {
   console.log(`\n🚀 Waypoint running at http://localhost:${PORT}\n`);
 });
 
-startDigestScheduler();
-startPushReminderScheduler();
-startCheckInScheduler();
-startBackupScheduler();
+// The private copy started to photograph the app for the landing page
+// (backend/showcase.js) runs no background jobs.
+if (!process.env.SHOWCASE_CHILD) {
+  startDigestScheduler();
+  startPushReminderScheduler();
+  startCheckInScheduler();
+  startBackupScheduler();
+  if (process.env.NODE_ENV === 'production' && process.env.SHOWCASE !== 'off') showcase.scheduleShowcase();
+}

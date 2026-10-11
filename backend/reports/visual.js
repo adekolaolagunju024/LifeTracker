@@ -180,4 +180,4 @@ async function renderGanttImage(cookieHeader, baseUrl) {
   }
 }
 
-module.exports = { renderReportPdf, renderReportImage, renderGanttImage };
+module.exports = { renderReportPdf, renderReportImage, renderGanttImage, findBrowser };

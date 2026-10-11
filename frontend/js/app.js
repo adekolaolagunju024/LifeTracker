@@ -1836,7 +1836,7 @@ function applyGanttPageView(mode) {
   }[mode];
   document.getElementById('gantt-page-heading').textContent = heading;
   document.getElementById('gantt-page-subtitle').textContent = subtitle;
-  document.getElementById('topbar-title').textContent = heading;
+  document.getElementById('topbar-title').textContent = 'Planner';
 
   if (mode === 'journey') { JourneyGame.resume(); renderJourneyView(); } else { JourneyGame.pause(); }
 }
@@ -5579,7 +5579,7 @@ function renderMountainTaskList() {
       <span class="journey-quest-badge ${badgeClass}">${isDone ? '✓' : i + 1}</span>
       <span class="journey-quest-title">${!isDone && waitingOn(t).length ? '<span title="Waiting on another task" aria-hidden="true">🔒 </span>' : ''}${esc(t.title)}</span>
       ${!isDone && foeCount(t) ? `<span class="journey-quest-foes" title="${esc(obstacleNames(t) || 'Blocked')}">⚔️${foeCount(t)}</span>` : ''}
-      ${t.endDate ? `<span class="journey-quest-date">${esc(t.endDate.slice(0, 10))}</span>` : ''}
+      ${t.endDate ? `<span class="journey-quest-date">${esc(formatDateShort(t.endDate.slice(0, 10)))}</span>` : ''}
       <button type="button" class="journey-quest-foe-btn" onclick="event.preventDefault(); event.stopPropagation(); openTaskDetail('${t.id}')" title="Obstacles and details" aria-label="Obstacles and details for ${esc(t.title)}">⚔️</button>
     </label>${!isDone && waitingOn(t).length ? `<div class="journey-waiting">🔗 Waiting on ${waitingOn(t).map(p => esc(p.title)).join(', ')}</div>` : ''}${blockerChecklist(t, canEdit, 'quest')}`;
   }).join('');
@@ -7080,8 +7080,15 @@ function showNewVersionNotice() {
   bar.id = 'new-version-notice';
   bar.setAttribute('role', 'status');
   bar.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-navy text-white text-sm font-semibold pl-4 pr-2 py-2 rounded-xl shadow-2xl';
-  bar.innerHTML = '<span>✨ A new version of Waypoint is ready.</span><button class="bg-teal hover:bg-teal/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg" onclick="location.reload()">Reload</button><button class="text-white/60 hover:text-white text-lg leading-none px-1" aria-label="Dismiss" onclick="this.parentElement.remove()">×</button>';
+  bar.innerHTML = '<span id="new-version-text">✨ A new version of Waypoint is ready.</span><button class="bg-teal hover:bg-teal/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg" onclick="location.reload()">Reload</button><button class="text-white/60 hover:text-white text-lg leading-none px-1" aria-label="Dismiss" onclick="this.parentElement.remove()">×</button>';
   document.body.appendChild(bar);
+  // Say what's new, from the same log the landing page shows
+  // (frontend/data/product.json).
+  fetch('/data/product.json', { cache: 'no-store' }).then(r => r.json()).then(p => {
+    const latest = p && p.whatsNew && p.whatsNew[0];
+    const text = document.getElementById('new-version-text');
+    if (latest && text) text.textContent = `✨ New in Waypoint: ${latest.title}.`;
+  }).catch(() => { /* the plain message stays */ });
 }
 checkForNewVersion();
 setInterval(checkForNewVersion, 5 * 60 * 1000);
