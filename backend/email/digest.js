@@ -123,10 +123,10 @@ async function runDailyDigest() {
           subject: '📋 Your Waypoint digest',
           html,
         });
-        console.log(`Digest email sent to ${u.email}`);
+        console.log(`Digest email sent to user ${u.userId}`); // ids, not addresses, in logs
       }
     } catch (e) {
-      console.error(`Digest email failed for ${u.email}:`, e.message);
+      console.error(`Digest email failed for user ${u.userId}:`, e.message);
     }
     db.setLastDigestSentDate(u.userId, todayKey); // mark checked either way, so a re-run today doesn't reprocess
   }

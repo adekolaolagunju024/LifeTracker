@@ -59,9 +59,9 @@ async function sendActivityEmail(userId, { subject, heading, bodyHtml }) {
       subject,
       html: wrapEmailHtml({ heading, bodyHtml }),
     });
-    console.log(`Activity email sent to ${user.email}: ${subject}`);
+    console.log(`Activity email sent to user ${userId}: ${subject}`); // ids, not addresses, in logs
   } catch (e) {
-    console.error(`Activity email failed for ${user.email}:`, e.message);
+    console.error(`Activity email failed for user ${userId}:`, e.message);
   }
 }
 

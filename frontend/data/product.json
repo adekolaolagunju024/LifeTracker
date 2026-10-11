@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "Clear privacy and terms",
+      "text": "Our Privacy Policy and Terms are rewritten in plain English for UK law: exactly what we collect and why, who we share it with, how long we keep it, and your rights. Deleting your account now also removes your usage history, and old usage records are cleared automatically after 13 months."
+    },
+    {
+      "date": "2026-10-11",
       "title": "Microsoft accounts and OneDrive",
       "text": "Sign in with any Microsoft account (Outlook, Hotmail, work or school) as well as Google, and back up to OneDrive alongside Google Drive. The Gantt chart now shows its timeline properly on a phone held sideways too."
     },
