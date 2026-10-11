@@ -3035,6 +3035,7 @@ async function renderSettings() {
     const p = await API.getProfile();
     document.getElementById('set-name').value     = profileName(p);
     loadCalendarFeed();
+    loadTwoFactorStatus();
     document.getElementById('set-tagline').value  = p.tagline;
     document.getElementById('set-currency').value = p.currency || '£';
     document.getElementById('set-target').value   = p.targetNetWorth;
@@ -3370,6 +3371,8 @@ function showAuthView(view) {
   document.getElementById('auth-view-register').classList.toggle('active', view === 'register');
   document.getElementById('auth-view-forgot').classList.toggle('active', view === 'forgot');
   document.getElementById('auth-view-reset').classList.toggle('active', view === 'reset');
+  document.getElementById('auth-view-2fa').classList.toggle('active', view === '2fa');
+  if (view === '2fa') setTimeout(() => document.getElementById('auth-2fa-code').focus(), 50);
   API.getGoogleLoginStatus().then(status => {
     document.getElementById('google-login-btn').classList.toggle('hidden', !status.configured);
     document.getElementById('google-register-btn').classList.toggle('hidden', !status.configured);
@@ -3432,11 +3435,33 @@ async function submitAuthLogin() {
   const password = document.getElementById('auth-login-password').value;
   const remember = document.getElementById('auth-login-remember').checked;
   try {
-    await API.login(email, password, remember);
+    const result = await API.login(email, password, remember);
     offerToSaveCredential(email, password);
+    if (result && result.twoFactorRequired) {
+      document.getElementById('auth-2fa-code').value = '';
+      document.getElementById('auth-2fa-error').classList.add('hidden');
+      showAuthView('2fa');
+      return;
+    }
     closeAuth();
     await afterAuth();
   } catch (e) { showAuthError('auth-login-error', e.message); }
+}
+
+function handleAuth2faSubmit(event) {
+  event.preventDefault();
+  submitAuth2fa();
+  return false;
+}
+async function submitAuth2fa() {
+  const code = document.getElementById('auth-2fa-code').value.trim();
+  if (!code) return;
+  try {
+    await API.verify2fa(code);
+    closeAuth();
+    if (new URLSearchParams(location.search).has('twofactor')) history.replaceState(null, '', '/app');
+    await afterAuth();
+  } catch (e) { showAuthError('auth-2fa-error', e.message); }
 }
 
 function handleAuthForgotSubmit(event) {
@@ -6306,6 +6331,72 @@ async function inviteFromNewProject(projectId) {
   return ok ? ` Invited ${ok} ${ok === 1 ? 'person' : 'people'}.` : '';
 }
 
+// ── TWO-STEP SIGN-IN (Settings → Account & Security) ──
+let twoFactorCodes = [];
+async function loadTwoFactorStatus() {
+  try {
+    const st = await API.get2faStatus();
+    document.getElementById('twofa-enable-btn').classList.toggle('hidden', st.enabled);
+    document.getElementById('twofa-disable-btn').classList.toggle('hidden', !st.enabled);
+    document.getElementById('twofa-codes-btn').classList.toggle('hidden', !st.enabled);
+    document.getElementById('twofa-status-text').textContent = st.enabled
+      ? `On since ${formatDateShort(st.enabledAt.slice(0, 10))}. ${st.recoveryCodesLeft} recovery code${st.recoveryCodesLeft === 1 ? '' : 's'} left.`
+      : 'Ask for a code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password) as well as your password.';
+  } catch { /* leave the card as it is */ }
+}
+async function startTwoFactorSetup() {
+  try {
+    const { secret, qrSvg } = await API.setup2fa();
+    document.getElementById('twofa-qr').innerHTML = qrSvg; // SVG made by our own server from the secret
+    document.getElementById('twofa-secret').textContent = secret.replace(/(.{4})/g, '$1 ').trim();
+    document.getElementById('twofa-code').value = '';
+    document.getElementById('twofa-error').classList.add('hidden');
+    document.getElementById('twofa-step-scan').classList.remove('hidden');
+    document.getElementById('twofa-step-codes').classList.add('hidden');
+    openModal('modal-2fa');
+    setTimeout(() => document.getElementById('twofa-code').focus(), 100);
+  } catch (e) { showToast('❌ ' + (e.message || 'Could not start set-up'), 'error'); }
+}
+function showRecoveryCodes(codes) {
+  twoFactorCodes = codes;
+  document.getElementById('twofa-codes').innerHTML = codes.map(c => `<span>${esc(c)}</span>`).join('');
+  document.getElementById('twofa-step-scan').classList.add('hidden');
+  document.getElementById('twofa-step-codes').classList.remove('hidden');
+  openModal('modal-2fa');
+}
+async function confirmTwoFactorSetup() {
+  const err = document.getElementById('twofa-error');
+  try {
+    const { recoveryCodes } = await API.enable2fa(document.getElementById('twofa-code').value.trim());
+    showRecoveryCodes(recoveryCodes);
+    loadTwoFactorStatus();
+  } catch (e) { err.textContent = e.message || 'That code did not work'; err.classList.remove('hidden'); }
+}
+function copyRecoveryCodes() {
+  navigator.clipboard.writeText(twoFactorCodes.join('\n')).then(() => showToast('📋 Recovery codes copied'), () => showToast('Select the codes and copy them'));
+}
+function downloadRecoveryCodes() {
+  const blob = new Blob([`Waypoint recovery codes (each works once)\n\n${twoFactorCodes.join('\n')}\n`], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'waypoint-recovery-codes.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+async function disableTwoFactor() {
+  const password = prompt('To turn off two-step sign-in, enter your password:');
+  if (!password) return;
+  const code = prompt('And a code from your authenticator app (or a recovery code):');
+  if (!code) return;
+  try { await API.disable2fa(password, code.trim()); showToast('Two-step sign-in is off'); loadTwoFactorStatus(); }
+  catch (e) { showToast('❌ ' + (e.message || 'Could not turn it off'), 'error'); }
+}
+async function regenerateRecoveryCodes() {
+  const code = prompt('Enter a code from your authenticator app to make new recovery codes (the old ones stop working):');
+  if (!code) return;
+  try { const { recoveryCodes } = await API.newRecoveryCodes(code.trim()); showRecoveryCodes(recoveryCodes); loadTwoFactorStatus(); }
+  catch (e) { showToast('❌ ' + (e.message || 'Could not make new codes'), 'error'); }
+}
+
 // The template gallery at the top of New Project (backend/templates.js):
 // one tap creates the whole plan, dated from today, and opens it.
 let projectTemplatesCache = null;
@@ -7364,6 +7455,7 @@ async function init() {
   if (handleResetTokenRedirect()) return;
   const authed = await checkAuth();
   if (authed) await afterAuth();
+  else if (new URLSearchParams(location.search).has('twofactor')) showAuthView('2fa'); // Google sign-in waiting on a code
   else handleJoinRedirect();
 }
 

@@ -525,3 +525,41 @@ test('inviting someone without an account holds the invite until they sign up wi
   const final = await (await fetch(`${server.base}/api/projects/${project.id}/collaborators`, authed(owner))).json();
   assert.ok(!final.some(p => p.email === other));
 });
+
+test('two-step sign-in: set up, sign in with a code (no replays), recovery codes, and turn off', async () => {
+  const twofactor = require('../backend/twofactor');
+  const email = uniqueEmail();
+  const cookie = sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email, password: 'testpass123', acceptTerms: true })));
+  const setup = await (await fetch(`${server.base}/api/auth/2fa/setup`, authed(cookie, 'POST'))).json();
+  assert.match(setup.otpauthUrl, /^otpauth:\/\/totp\/Waypoint/);
+  assert.match(setup.qrSvg, /<svg/);
+  assert.equal((await fetch(`${server.base}/api/auth/2fa/enable`, authed(cookie, 'POST', { code: '000000' }))).status, 400);
+  const enabled = await (await fetch(`${server.base}/api/auth/2fa/enable`, authed(cookie, 'POST', { code: twofactor.codeForStep(setup.secret, twofactor.stepAt()) }))).json();
+  assert.equal(enabled.recoveryCodes.length, 10);
+
+  // the password alone no longer signs in
+  const login = await fetch(`${server.base}/api/auth/login`, json({ email, password: 'testpass123' }));
+  assert.deepEqual(await login.json(), { twoFactorRequired: true });
+  const pending = sessionCookie(login);
+  assert.equal((await fetch(`${server.base}/api/projects`, authed(pending))).status, 401);
+  assert.equal((await fetch(`${server.base}/api/auth/2fa/verify`, authed(pending, 'POST', { code: '123456' }))).status, 401);
+  // the code used to enable can't be replayed; a recovery code works once
+  const replay = await fetch(`${server.base}/api/auth/2fa/verify`, authed(pending, 'POST', { code: twofactor.codeForStep(setup.secret, twofactor.stepAt()) }));
+  assert.equal(replay.status, 401);
+  const ok = await fetch(`${server.base}/api/auth/2fa/verify`, authed(pending, 'POST', { code: enabled.recoveryCodes[0] }));
+  assert.equal(ok.status, 200);
+  const signedIn = sessionCookie(ok);
+  assert.equal((await fetch(`${server.base}/api/projects`, authed(signedIn))).status, 200);
+  const status = await (await fetch(`${server.base}/api/auth/2fa/status`, authed(signedIn))).json();
+  assert.deepEqual([status.enabled, status.recoveryCodesLeft], [true, 9]);
+
+  const login2 = await fetch(`${server.base}/api/auth/login`, json({ email, password: 'testpass123' }));
+  const reused = await fetch(`${server.base}/api/auth/2fa/verify`, authed(sessionCookie(login2), 'POST', { code: enabled.recoveryCodes[0] }));
+  assert.equal(reused.status, 401, 'a recovery code works only once');
+
+  // turning it off needs the password and a code
+  assert.equal((await fetch(`${server.base}/api/auth/2fa/disable`, authed(signedIn, 'POST', { password: 'wrong', code: enabled.recoveryCodes[1] }))).status, 401);
+  assert.equal((await fetch(`${server.base}/api/auth/2fa/disable`, authed(signedIn, 'POST', { password: 'testpass123', code: enabled.recoveryCodes[1] }))).status, 200);
+  const plain = await (await fetch(`${server.base}/api/auth/login`, json({ email, password: 'testpass123' }))).json();
+  assert.equal(plain.email, email);
+});

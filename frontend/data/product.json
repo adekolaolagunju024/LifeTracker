@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "Two-step sign-in",
+      "text": "Protect your account with a code from an authenticator app, like Google Authenticator or 1Password, on top of your password. Turn it on in Settings, with recovery codes in case you lose your phone."
+    },
+    {
+      "date": "2026-10-11",
       "title": "Invite anyone, even before they join",
       "text": "Invite people while creating a project, and invite anyone by email: people without an account get an email to join, and the project is waiting for them the moment they sign up."
     },

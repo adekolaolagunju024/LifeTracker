@@ -95,6 +95,12 @@ const API = {
   changePassword:  (currentPassword, newPassword) => request('PUT', '/auth/password', { currentPassword, newPassword }),
   deleteAccount:   (password) => request('DELETE', '/auth/account', { password }),
   forgotPassword:  (email)    => request('POST', '/auth/forgot-password', { email }),
+  verify2fa:       (code)     => request('POST', '/auth/2fa/verify', { code }),
+  get2faStatus:    ()         => request('GET',  '/auth/2fa/status'),
+  setup2fa:        ()         => request('POST', '/auth/2fa/setup'),
+  enable2fa:       (code)     => request('POST', '/auth/2fa/enable', { code }),
+  disable2fa:      (password, code) => request('POST', '/auth/2fa/disable', { password, code }),
+  newRecoveryCodes: (code)    => request('POST', '/auth/2fa/recovery-codes', { code }),
   resetPassword:   (token, newPassword) => request('POST', '/auth/reset-password', { token, newPassword }),
   getGoogleLoginStatus: ()   => request('GET',  '/auth/google/status'),
 

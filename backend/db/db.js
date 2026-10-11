@@ -214,6 +214,34 @@ function grantJourneyAchievement(userId, code) {
 function listJourneyAchievements(userId) {
   return db.prepare('SELECT code, unlockedAt FROM journey_achievements WHERE userId = ? ORDER BY unlockedAt ASC').all(userId);
 }
+// ── TWO-STEP SIGN-IN ──
+function setTotpPendingSecret(userId, secret) {
+  db.prepare('UPDATE users SET totpPendingSecret = ? WHERE id = ?').run(secret, userId);
+}
+function enableTotp(userId, secret, step, recoveryHashes) {
+  db.prepare('UPDATE users SET totpSecret = ?, totpPendingSecret = NULL, totpEnabledAt = ?, totpLastStep = ?, totpRecoveryHashes = ? WHERE id = ?')
+    .run(secret, new Date().toISOString(), step, JSON.stringify(recoveryHashes), userId);
+}
+function disableTotp(userId) {
+  db.prepare('UPDATE users SET totpSecret = NULL, totpPendingSecret = NULL, totpEnabledAt = NULL, totpLastStep = NULL, totpRecoveryHashes = NULL WHERE id = ?').run(userId);
+}
+// Records the code step just used, but only if it's newer than the last one
+// (so two requests racing with the same code can't both succeed).
+function claimTotpStep(userId, step) {
+  return db.prepare('UPDATE users SET totpLastStep = ? WHERE id = ? AND (totpLastStep IS NULL OR totpLastStep < ?)').run(step, userId, step).changes === 1;
+}
+function setTotpRecoveryHashes(userId, hashes) {
+  db.prepare('UPDATE users SET totpRecoveryHashes = ? WHERE id = ?').run(JSON.stringify(hashes), userId);
+}
+// Spends one recovery code (by hash); true if it was valid and unused.
+function useTotpRecoveryCode(userId, hash) {
+  const row = db.prepare('SELECT totpRecoveryHashes FROM users WHERE id = ?').get(userId);
+  const hashes = row && row.totpRecoveryHashes ? JSON.parse(row.totpRecoveryHashes) : [];
+  if (!hashes.includes(hash)) return false;
+  setTotpRecoveryHashes(userId, hashes.filter(h => h !== hash));
+  return true;
+}
+
 // ── GAME COUNTERS AND DAILY QUESTS (backend/journey.js) ──
 const JOURNEY_COUNTERS = new Set(['journeyBlockersBeaten', 'journeyEarlyFinishes', 'journeyQuestDays']);
 function bumpJourneyCounter(userId, column) {
@@ -1864,6 +1892,7 @@ function getUserIdByCalendarFeedToken(token) {
 }
 
 module.exports = {
+  setTotpPendingSecret, enableTotp, disableTotp, claimTotpStep, setTotpRecoveryHashes, useTotpRecoveryCode,
   getCalendarFeedToken, getUserIdByCalendarFeedToken, bumpJourneyCounter, markObstacleRewarded, lastCompletionBefore, questActivityToday, claimQuestBonus, projectTreeTaskCount, localDateKeyFromDate, getReportLink, createReportLink, deleteReportLink, getReportLinkTarget,
   listAssistantConversations, getAssistantConversation, saveAssistantConversation, deleteAssistantConversation,
   listObstacles, addObstacle, updateObstacle, deleteObstacle, setTaskPredecessors,

@@ -437,6 +437,13 @@ addColumnIfMissing('profile', "journeyEarlyFinishes INTEGER NOT NULL DEFAULT 0")
 addColumnIfMissing('profile', "journeyQuestDays INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing('profile', "lastQuestBonusDate TEXT");
 addColumnIfMissing('task_obstacles', "xpAwardedAt TEXT");
+// Two-step sign-in (backend/twofactor.js): the authenticator secret, one
+// being set up, the last code step used (no replays) and recovery-code hashes.
+addColumnIfMissing('users', "totpSecret TEXT");
+addColumnIfMissing('users', "totpPendingSecret TEXT");
+addColumnIfMissing('users', "totpEnabledAt TEXT");
+addColumnIfMissing('users', "totpLastStep INTEGER");
+addColumnIfMissing('users', "totpRecoveryHashes TEXT");
 
 // Unlocked achievements — a small, fixed set of codes (see JOURNEY_ACHIEVEMENTS
 // in backend/journey.js); one row per account per code, granted once.
