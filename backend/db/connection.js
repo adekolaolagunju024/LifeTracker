@@ -446,6 +446,16 @@ db.exec(`
 // find this kind of thing more annoying than fun. One blanket on/off
 // switch, defaulting on, checked client-side before any of it fires.
 addColumnIfMissing('profile', "celebrationEffectsEnabled INTEGER NOT NULL DEFAULT 1");
+// A public, read-only link to a project's live progress report
+// (backend/routes/reports.js). One per project; removing the row revokes it.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS report_links (
+    projectId TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    createdBy TEXT NOT NULL,
+    createdAt TEXT NOT NULL
+  );
+`);
 // A private, revocable link to each user's tasks as a calendar feed
 // (backend/routes/calendar.js), kept out of the profile row so it's only
 // ever returned by its own endpoint.

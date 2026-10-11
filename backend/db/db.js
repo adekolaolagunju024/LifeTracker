@@ -1755,6 +1755,27 @@ function deleteAssistantConversation(userId, id) {
   db.prepare('DELETE FROM assistant_conversations WHERE id = ? AND userId = ?').run(id, userId);
 }
 
+// ── SHARED PROGRESS REPORTS ──
+function getReportLink(projectId) {
+  return db.prepare('SELECT token, createdAt FROM report_links WHERE projectId = ?').get(projectId) || null;
+}
+function createReportLink(userId, projectId) {
+  const existing = getReportLink(projectId);
+  if (existing) return existing;
+  const token = require('crypto').randomBytes(18).toString('base64url');
+  const createdAt = new Date().toISOString();
+  db.prepare('INSERT INTO report_links (projectId, token, createdBy, createdAt) VALUES (?,?,?,?)').run(projectId, token, userId, createdAt);
+  return { token, createdAt };
+}
+function deleteReportLink(projectId) {
+  db.prepare('DELETE FROM report_links WHERE projectId = ?').run(projectId);
+}
+// The project behind a share token, with its owner (whose view the public
+// report shows). Null once revoked, or if the project is in Trash.
+function getReportLinkTarget(token) {
+  return db.prepare('SELECT r.projectId, p.userId AS ownerId FROM report_links r JOIN projects p ON p.id = r.projectId WHERE r.token = ? AND p.deletedAt IS NULL').get(String(token || '')) || null;
+}
+
 // ── CALENDAR FEED ──
 // The secret in a user's calendar subscription link. `reset` swaps it for a
 // new one, so an old link that was shared by mistake stops working.
@@ -1772,7 +1793,7 @@ function getUserIdByCalendarFeedToken(token) {
 }
 
 module.exports = {
-  getCalendarFeedToken, getUserIdByCalendarFeedToken,
+  getCalendarFeedToken, getUserIdByCalendarFeedToken, getReportLink, createReportLink, deleteReportLink, getReportLinkTarget,
   listAssistantConversations, getAssistantConversation, saveAssistantConversation, deleteAssistantConversation,
   listObstacles, addObstacle, updateObstacle, deleteObstacle, setTaskPredecessors,
   createUser, getUserByEmail, getUserById, setUserPasswordHash, deleteUser,

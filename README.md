@@ -11,6 +11,14 @@ A general-purpose personal goal tracker — Career is just one of the built-in p
 - **Undo** — deleting a task (or several) happens at once with an Undo button in the toast for 8 seconds, instead of an "are you sure?" first. It all goes to Trash, so Undo just restores it. Deleting a project still asks first, and offers Undo too
 - **Calendar feed** — Settings → "Your tasks in your calendar" gives a private link to subscribe to in Google Calendar, Outlook or Apple Calendar (with one-tap buttons). Every task with a due date is an all-day event that keeps itself up to date, marked ✅ when done. The link carries a revocable token instead of a sign-in, since calendar apps can't sign in, and "Reset link" retires the old one (`GET /calendar/<token>.ics`, `GET /api/calendar/feed`, `POST /api/calendar/feed/reset`; tokens in `calendar_feeds`)
 - **Costs** use the currency chosen in Settings everywhere
+- **Progress reports** — 📄 Report on a project's header (or ⋯ → Progress report, or the palette) opens a report on that project or goal. It shows:
+  - the schedule status (ahead, on track or behind, by how many points against where the dates say it should be) and a forecast finish from the last two weeks' pace
+  - a plain-English summary
+  - tiles for done, in progress, overdue and days left
+  - every phase with a progress bar and status, and a timeline of the phases with today marked
+  - what's recently done and coming up, what's overdue, open and cleared blockers, and tasks waiting on others
+
+  It downloads as a PDF (headless Chromium), prints, goes by email, or shares as a **live read-only link** (`/r/<token>`, not indexed) that its owner or an editor can turn off at any time. Anyone who can see the project can view the report (`backend/reports/progress.js`; `GET /api/reports/projects/:id/progress`, `.html` and `.pdf`; `GET`/`POST`/`DELETE /api/reports/projects/:id/share`)
 - **Command palette** — ⌘K / Ctrl+K (or the ⌘ button in the top bar, for phones) opens one box to do anything, like Linear or Raycast: jump to any page, project or task, run an action (new task, new project or template, assistant, week in review, dark mode, switch Journey stage), or type anything and add it as a task ("call the bank tomorrow" sets the due date) or hand it to the assistant. Arrow keys and Enter (`frontend/js/palette.js`)
 - **My week in review** — 🎬 My week on the dashboard (or the palette) plays a Wrapped-style story of the last seven days: tasks finished against the week before, the best day, blockers beaten, the streak, the project that moved most and what's coming up, ending on a summary ("On a roll 🔥") that shares as a 1080×1350 image (the phone's share sheet, or a download). Tap or arrow keys to move, Esc to close (`frontend/js/recap.js`)
 - **Keyboard shortcuts** — `/` search, `n` new task (in the open project), `a` assistant, `?` lists them, `Esc` closes

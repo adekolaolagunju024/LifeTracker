@@ -1,5 +1,6 @@
 /* global APP, API, esc, showPage, openAddTask, openAddProject, openAssistant, toggleTheme, showToast,
-   sendAssistantMessage, openTaskDetail, openWeeklyRecap, setJourneyTheme, localDateKey */
+   sendAssistantMessage, openTaskDetail, openWeeklyRecap, setJourneyTheme, localDateKey, formatDateShort,
+   renderTaskTable, openProgressReport */
 // ── COMMAND PALETTE (⌘K / Ctrl+K) ──────────────────────────────
 // One box to do anything, like Linear, Raycast or Notion: jump to any
 // page, project or task, run an action, add a task straight from what you
@@ -38,6 +39,7 @@ function paletteActions() {
     { icon: '🧩', label: 'New project from a template', run: () => { showPage('projects'); openAddProject(); } },
     { icon: '✨', label: 'Open the assistant', hint: 'A', run: () => openAssistant(here) },
     { icon: '🎬', label: 'My week in review', run: () => openWeeklyRecap() },
+    ...(here ? [{ icon: '📄', label: 'Progress report for this project', run: () => openProgressReport(here) }] : []),
     { icon: '🌗', label: 'Switch light / dark mode', run: () => toggleTheme() },
     { icon: '⌨️', label: 'Keyboard shortcuts', hint: '?', run: () => showToast('⌨️ Shortcuts: ⌘K command palette · / search · n new task · a assistant · Esc close') },
     ...PALETTE_PAGES.map(([id, icon, name]) => ({ icon, label: `Go to ${name}`, run: () => showPage(id) })),
