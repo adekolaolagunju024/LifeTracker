@@ -232,6 +232,26 @@ async function tickBlocker(taskId, obstacleId, checkbox) {
 function waitingOn(t) {
   return (t.predecessors || []).filter(p => p.status !== 'Completed');
 }
+// Each task carries a snapshot of its predecessors' status, taken when it
+// was loaded. When a task changes here (ticked off on the Journey, moved on
+// the Kanban, edited in its panel), refresh that snapshot on every loaded
+// task waiting on it, so the 🔒 lifts at once instead of after a reload.
+function syncPredecessorSnapshots(task) {
+  if (!task || !task.id) return;
+  [mountainState && mountainState.tasks, APP.ganttTasks].forEach(list => (list || []).forEach(x => (x.predecessors || []).forEach(p => {
+    if (p.id !== task.id) return;
+    if (task.status) p.status = task.status;
+    if (task.title) p.title = task.title;
+  })));
+}
+{
+  const update = API.updateTask;
+  API.updateTask = async (id, data) => {
+    const saved = await update(id, data);
+    syncPredecessorSnapshots(saved && saved.id ? saved : { id, ...data });
+    return saved;
+  };
+}
 function taskGateMessage(t, nextStatus) {
   if (!t || nextStatus === 'Not Started') return '';
   const waiting = waitingOn(t);
