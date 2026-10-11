@@ -963,7 +963,9 @@
        Explicitly screen-only: printing from a phone still has this same
        narrow max-width match, and Print/PDF wants every column, not the
        on-screen mobile layout's reduced set. */
-    @media screen and (max-width: 767px) {
+    /* Phones in landscape too: wider than 767px, but with the five frozen
+       columns (about 560px) only a sliver of the timeline was left. */
+    @media screen and (max-width: 767px), screen and (orientation: landscape) and (max-height: 500px) {
       /* Only the name stays frozen: status shows as a dot beside it (the
          dropdown was clipped to "No…" at this width) and the badges move
          out of the way so the task name can be read. */
@@ -1028,6 +1030,14 @@
       #sidebar { transform: translateX(-100%); transition: transform .25s ease; }
       #sidebar.mobile-open { transform: translateX(0); }
       #main-content { margin-left: 0 !important; }
+    }
+    /* A phone on its side is wider than 767px but only ~400px tall: give
+       the page the full width and keep the menu behind ☰, as in portrait. */
+    @media (orientation: landscape) and (max-height: 500px) and (min-width: 768px) {
+      #sidebar { transform: translateX(-100%); transition: transform .25s ease; }
+      #sidebar.mobile-open { transform: translateX(0); }
+      #main-content { margin-left: 0 !important; }
+      button[aria-label="Open menu"] { display: inline-block !important; }
     }
 
     /* Accessibility: visible keyboard focus ring everywhere */
@@ -1209,10 +1219,15 @@
       <p class="text-gray-500 text-sm mb-5">Log in to continue.</p>
 
       <div id="google-login-btn">
-        <button type="button" onclick="startGoogleLogin()"
+        <button type="button" onclick="startGoogleLogin()" id="google-login-only"
           class="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-300 mb-4">
           <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.4 0 10.3-1.9 14-5.1l-6.5-5.4C29.5 35.4 26.9 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.6 5.1C9.6 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l6.5 5.4C41.5 35.6 44 30.2 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
           Sign in with Google
+        </button>
+        <button type="button" onclick="startMicrosoftLogin()" id="ms-login-only"
+          class="hidden w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-300 mb-4">
+          <svg width="18" height="18" viewBox="0 0 23 23" aria-hidden="true"><path fill="#F25022" d="M1 1h10v10H1z"/><path fill="#7FBA00" d="M12 1h10v10H12z"/><path fill="#00A4EF" d="M1 12h10v10H1z"/><path fill="#FFB900" d="M12 12h10v10H12z"/></svg>
+          Sign in with Microsoft
         </button>
         <div class="flex items-center gap-3 mb-4">
           <div class="flex-1 h-px bg-gray-200"></div>
@@ -1301,10 +1316,15 @@
       <p class="text-gray-500 text-sm mb-5">Create an account to get started.</p>
 
       <div id="google-register-btn">
-        <button type="button" onclick="startGoogleLogin()"
+        <button type="button" onclick="startGoogleLogin()" id="google-register-only"
           class="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-300 mb-4">
           <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.4 0 10.3-1.9 14-5.1l-6.5-5.4C29.5 35.4 26.9 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.6 5.1C9.6 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l6.5 5.4C41.5 35.6 44 30.2 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
           Sign up with Google
+        </button>
+        <button type="button" onclick="startMicrosoftLogin()" id="ms-register-only"
+          class="hidden w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-lg border border-gray-300 mb-4">
+          <svg width="18" height="18" viewBox="0 0 23 23" aria-hidden="true"><path fill="#F25022" d="M1 1h10v10H1z"/><path fill="#7FBA00" d="M12 1h10v10H12z"/><path fill="#00A4EF" d="M1 12h10v10H1z"/><path fill="#FFB900" d="M12 12h10v10H12z"/></svg>
+          Sign up with Microsoft
         </button>
         <p class="text-[11px] text-gray-400 text-center -mt-2 mb-3">By continuing you agree to the <a href="/terms.html" target="_blank" rel="noopener" class="text-teal hover:underline">Terms</a> and <a href="/privacy.html" target="_blank" rel="noopener" class="text-teal hover:underline">Privacy Policy</a>.</p>
         <div class="flex items-center gap-3 mb-4">
@@ -2314,6 +2334,7 @@
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
         <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#1B3A5C22">☁️</span> Cloud backup</h3>
+        <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Google Drive</p>
         <p class="text-sm text-gray-500 mb-1" id="settings-drive-text">Checking connection…</p>
         <p class="text-xs text-gray-400 mb-4" id="settings-drive-sub"></p>
         <div class="flex gap-3 flex-wrap" id="settings-drive-actions"></div>
@@ -2325,6 +2346,12 @@
             <button onclick="backupAs('pdf')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📄 PDF Report</button>
             <button onclick="backupAs('image')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🖼️ Image Report</button>
           </div>
+        </div>
+        <div class="border-t border-gray-100 mt-5 pt-5">
+          <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Microsoft OneDrive</p>
+          <p class="text-sm text-gray-500 mb-1" id="onedrive-text">Checking connection…</p>
+          <p class="text-xs text-gray-400 mb-4" id="onedrive-sub"></p>
+          <div class="flex gap-3 flex-wrap" id="onedrive-actions"></div>
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">

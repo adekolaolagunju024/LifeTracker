@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "Microsoft accounts and OneDrive",
+      "text": "Sign in with any Microsoft account (Outlook, Hotmail, work or school) as well as Google, and back up to OneDrive alongside Google Drive. The Gantt chart now shows its timeline properly on a phone held sideways too."
+    },
+    {
+      "date": "2026-10-11",
       "title": "A tidier Settings",
       "text": "Settings now opens one section at a time: Profile, Notifications, Appearance, Connected apps, Data and Trash, and Security. Your profile shows who you are at a glance, and Trash groups everything by project, so a deleted project and all its tasks come back with one tap."
     },

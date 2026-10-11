@@ -5,6 +5,7 @@ const bcrypt  = require('bcryptjs');
 const crypto  = require('crypto');
 const { v4: uuid } = require('uuid');
 const { google } = require('googleapis');
+const microsoft = require('../microsoft');
 const db = require('../db/db');
 const { sendPasswordResetEmail } = require('../email/account');
 const twofactor = require('../twofactor');
@@ -237,6 +238,57 @@ router.get('/google/callback', async (req, res) => {
     res.redirect('/');
   } catch (e) {
     console.error('Google login error:', e.message);
+    res.redirect('/app?auth=error');
+  }
+});
+
+// ── Continue with Microsoft (backend/microsoft.js) ──
+// GET /api/auth/microsoft/status
+router.get('/microsoft/status', (req, res) => {
+  res.json({ configured: microsoft.isConfigured() });
+});
+
+// GET /api/auth/microsoft — to Microsoft's sign-in page
+router.get('/microsoft', (req, res) => {
+  if (!microsoft.isConfigured()) return res.status(400).send('Sign in with Microsoft is not set up on this server yet.');
+  res.redirect(microsoft.authUrl(req, { scopes: microsoft.SIGN_IN_SCOPES, path: '/api/auth/microsoft/callback', stateKey: 'msLoginState' }));
+});
+
+// GET /api/auth/microsoft/callback — same account rules as Google: an
+// existing account with that email signs in, otherwise one is created.
+// Only an email Microsoft has verified can do either (see
+// identityFromClaims), so a work account can't claim someone else's.
+router.get('/microsoft/callback', async (req, res) => {
+  const { code, error } = req.query;
+  if (error || !code || !microsoft.checkState(req, 'msLoginState')) return res.redirect('/app?auth=error');
+  try {
+    const tokens = await microsoft.exchangeCode(req, { code, scopes: microsoft.SIGN_IN_SCOPES, path: '/api/auth/microsoft/callback' });
+    const who = microsoft.identityFromClaims(microsoft.readIdToken(tokens.id_token));
+    if (!who.email) return res.redirect('/app?auth=error');
+    if (!who.verified) return res.redirect('/app?auth=unverified');
+
+    let user = db.getUserByEmail(who.email);
+    if (!user) {
+      // As with Google, the buttons carry the "by continuing you agree"
+      // notice, recorded as acceptance at account creation.
+      user = db.createUser({
+        id: uuid(),
+        email: who.email,
+        passwordHash: await bcrypt.hash(crypto.randomUUID(), 10),
+        createdAt: new Date().toISOString(),
+        acceptedTermsAt: new Date().toISOString(),
+      });
+      db.logEvent(user.id, 'user_registered');
+      if (who.name) { try { db.updateProfile(user.id, { name: who.name }); } catch { /* name is optional */ } }
+    }
+    if (user.totpEnabledAt) {
+      req.session.pending2fa = { userId: user.id, remember: true, until: Date.now() + 5 * 60 * 1000 };
+      return res.redirect('/app?twofactor=1');
+    }
+    await signIn(req, user.id);
+    res.redirect('/');
+  } catch (e) {
+    console.error('Microsoft login error:', e.message);
     res.redirect('/app?auth=error');
   }
 });
