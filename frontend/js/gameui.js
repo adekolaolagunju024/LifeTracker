@@ -73,18 +73,22 @@ function renderDailyQuests(quests, opts = {}) {
     badge.classList.remove('hidden'); badge.classList.add('flex');
     badge.title = done === quests.length ? "All of today's quests are done!" : "Today's quests";
   }
-  const card = document.getElementById('dashboard-quests');
-  if (card) {
-    card.classList.remove('hidden');
-    document.getElementById('dashboard-quests-count').textContent = done === quests.length ? `All done! +${opts.bonusXp || 30} XP earned` : `${done} of ${quests.length} done · finish all for +${opts.bonusXp || 30} XP`;
-    document.getElementById('dashboard-quests-list').innerHTML = quests.map(q => `
-      <div class="quest-chip ${q.done ? 'is-done' : ''}">
-        <span class="quest-icon">${emojiIcon(q.done ? '✅' : q.icon)}</span>
-        <span class="min-w-0"><span class="block truncate font-semibold">${esc(q.text)}</span>
-        <span class="quest-bar"><i style="width:${Math.round(q.progress / q.target * 100)}%"></i></span></span>
-        <span class="quest-count">${q.progress}/${q.target}</span>
-      </div>`).join('');
-  }
+  lastQuests = { quests, bonusXp: opts.bonusXp || 30 };
+  paintQuestLine();
+}
+// On the dashboard, today's quests are one line in the Journey tile; the
+// Trophy Case has them in full.
+let lastQuests = null;
+function paintQuestLine() {
+  const el = document.getElementById('dash-quest-line');
+  if (!el || !lastQuests) return;
+  const { quests, bonusXp } = lastQuests;
+  const done = quests.filter(q => q.done).length;
+  const nextQ = quests.find(q => !q.done);
+  el.innerHTML = `<button type="button" class="quest-line" onclick="openJourneyTrophyCase()" title="Today's quests">
+    ${icon('goal')}<span class="min-w-0 truncate">${done === quests.length ? `All quests done · +${bonusXp} XP` : `Quest: ${esc(nextQ.text)}`}</span>
+    <span class="quest-dots" aria-label="${done} of ${quests.length} done">${quests.map(q => `<i class="${q.done ? 'on' : ''}"></i>`).join('')}</span>
+  </button>`;
 }
 async function loadDailyQuests() {
   try {

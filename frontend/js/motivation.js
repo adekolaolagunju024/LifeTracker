@@ -240,19 +240,31 @@ const Why = (() => {
 
       <section class="why-sec">
         <h3>${icon('music')}Your music</h3>
-        <p class="why-help">Save the playlists and songs that get you going: focus, workout, worship, anything. Paste a Spotify, YouTube, Apple Music, SoundCloud or Deezer link. They play right here in Waypoint and keep playing while you work and on your Journey.</p>
+        <p class="why-help">The playlists and songs that get you going. They play right here in Waypoint and keep playing while you work and on your Journey.</p>
         <div class="music-lib">${draft.playlists.length ? draft.playlists.map((p, i) => `
           <div class="music-row ${i === 0 ? 'is-default' : ''}">
             <button type="button" class="music-row-play" onclick="Why.playMusic(${i})" aria-label="Play ${esc(p.label || 'this')}">${icon('play')}</button>
             <div class="min-w-0 flex-1"><p>${esc(p.label || 'Untitled')}</p><span>${esc(serviceOf(p.url))}${i === 0 ? ' · plays by default' : ''}</span></div>
             ${i === 0 ? '' : `<button type="button" class="music-row-btn" onclick="Why.makeDefault(${i})" title="Play this one by default" aria-label="Make default">${icon('star')}</button>`}
             <button type="button" class="music-row-btn" onclick="Why.removePlaylist(${i})" aria-label="Remove">${icon('trash')}</button>
-          </div>`).join('') : '<p class="why-none">No music yet.</p>'}</div>
-        <div class="why-add">
-          <input id="why-music-url" type="url" maxlength="500" placeholder="https://open.spotify.com/playlist/…">
-          <input id="why-music-label" maxlength="60" placeholder="Name it, e.g. Deep focus">
-          <button type="button" onclick="Why.addPlaylistFromForm()">${icon('plus')}Add</button>
+          </div>`).join('') : '<p class="why-none">No music yet. Find some below.</p>'}</div>
+        <div class="msearch">
+          <div class="msearch-box">${icon('search')}<input id="why-music-q" type="search" maxlength="100" placeholder="Search a song, artist or playlist" aria-label="Search for music" oninput="Why.musicSearch(this.value)" autocomplete="off"></div>
+          <div class="msearch-results" id="why-music-results" aria-live="polite"></div>
         </div>
+        ${(data.picks || []).length ? `<p class="why-label mt-3">Quick picks</p>
+        <div class="why-chips">${data.picks.map((p, i) => { const on = draft.playlists.some(x => x.url === p.url); return `<button type="button" class="why-chip ${on ? 'on' : ''}" onclick="Why.addPick(${i})" ${on ? 'aria-pressed="true"' : ''}>${icon(on ? 'check' : 'plus', 'tiny')} ${esc(p.label)}</button>`; }).join('')}</div>` : ''}
+        <div class="msearch-more">
+          <button type="button" class="why-chip" onclick="Why.pasteLink()">${icon('clipboard', 'tiny')} Paste a link</button>
+          <details class="msearch-link"><summary>Add by link</summary>
+            <div class="why-add">
+              <input id="why-music-url" type="url" maxlength="500" placeholder="Spotify, YouTube, Apple Music, SoundCloud or Deezer link">
+              <input id="why-music-label" maxlength="60" placeholder="Name it, e.g. Deep focus">
+              <button type="button" onclick="Why.addPlaylistFromForm()">${icon('plus')}Add</button>
+            </div>
+          </details>
+        </div>
+        <p class="why-help mt-2">${icon('smartphone', 'tiny')} On your phone, with Waypoint added to your home screen: tap <b>Share</b> in Spotify or YouTube and pick Waypoint.</p>
       </section>
 
       <section class="why-sec">
@@ -284,6 +296,82 @@ const Why = (() => {
     if (draft.playlists.length >= 12) { showToast('That is 12 already. Remove one to add another', 'error'); return; }
     if (!draft.playlists.some(p => p.url === url)) draft.playlists.push({ url, label: label || serviceOf(url) });
     paint();
+  }
+  // ── Finding music without copying links ──
+  // Search (Spotify's catalogue, or Apple's when Spotify isn't set up),
+  // quick picks, one-tap paste and the phone's Share menu. Each adds and
+  // saves straight away.
+  let searchTimer = null; let searchSeq = 0; let lastResults = [];
+  function musicSearch(q) {
+    clearTimeout(searchTimer);
+    const box = document.getElementById('why-music-results');
+    if (!q.trim()) { box.innerHTML = ''; lastResults = []; return; }
+    box.innerHTML = '<p class="msearch-note">Searching…</p>';
+    searchTimer = setTimeout(async () => {
+      const seq = ++searchSeq;
+      try {
+        const r = await API.searchMusic(q.trim());
+        if (seq !== searchSeq) return;
+        lastResults = r.results || [];
+        paintResults(r.provider);
+      } catch { if (seq === searchSeq) box.innerHTML = '<p class="msearch-note">Search isn\'t available right now. Paste a link instead.</p>'; }
+    }, 350);
+  }
+  function paintResults(provider) {
+    const box = document.getElementById('why-music-results');
+    if (!box) return;
+    box.innerHTML = lastResults.length ? lastResults.map((r, i) => {
+      const on = draft.playlists.some(p => p.url === r.url);
+      return `<div class="msearch-row">
+        ${r.art ? `<img src="${esc(r.art)}" alt="" loading="lazy">` : `<span class="msearch-art">${icon('music')}</span>`}
+        <div class="min-w-0 flex-1"><p>${esc(r.title)}</p><span>${r.kind === 'playlist' ? 'Playlist · ' : ''}${esc(r.by || '')}</span></div>
+        <button type="button" class="msearch-add ${on ? 'on' : ''}" onclick="Why.addResult(${i})" ${on ? 'disabled aria-label="Added"' : `aria-label="Add ${esc(r.title)}"`}>${icon(on ? 'check' : 'plus')}${on ? 'Added' : 'Add'}</button>
+      </div>`;
+    }).join('') + (provider ? `<p class="msearch-note">From ${esc(provider)}</p>` : '') : '<p class="msearch-note">Nothing found. Try another name.</p>';
+  }
+  async function quickAdd(url, label) {
+    if (draft.playlists.some(p => p.url === url)) return;
+    if (draft.playlists.length >= 12) { showToast('That is 12 already. Remove one to add another', 'error'); return; }
+    draft.playlists.push({ url, label });
+    try {
+      await addPlaylist(url, label);
+      showToast(`Added “${label}” to your music`);
+    } catch { draft.playlists = draft.playlists.filter(p => p.url !== url); showToast('Could not add that', 'error'); }
+    const q = document.getElementById('why-music-q')?.value || '';
+    paint();
+    const input = document.getElementById('why-music-q');
+    if (input && q) { input.value = q; paintResults(); }
+  }
+  function addResult(i) { const r = lastResults[i]; if (r) quickAdd(r.url, r.kind === 'song' && r.by ? `${r.title} · ${r.by}` : r.title); }
+  function addPick(i) { const p = (data.picks || [])[i]; if (p) quickAdd(p.url, p.label); }
+  const findLink = text => (String(text || '').match(/https?:\/\/[^\s"'<>]+/) || [])[0] || '';
+  async function pasteLink() {
+    let text = '';
+    try { text = await navigator.clipboard.readText(); } catch { /* not allowed */ }
+    const url = findLink(text);
+    if (!url) {
+      document.querySelector('.msearch-link')?.setAttribute('open', '');
+      document.getElementById('why-music-url')?.focus();
+      showToast(text ? "That isn't a link. Copy the share link from your music app" : 'Paste the link in the box', text ? 'error' : undefined);
+      return;
+    }
+    const e = Music.embedFor(url);
+    if (!e) { showToast('That link isn\'t from a music service Waypoint can play', 'error'); return; }
+    quickAdd(url, e.service === 'Spotify' ? 'From Spotify' : `From ${e.service}`);
+  }
+  // Shared from another app (the phone's Share menu, see manifest.json).
+  async function handleShare() {
+    const qs = new URLSearchParams(location.search);
+    if (!qs.has('url') && !qs.has('text')) return; // the Share menu sends title, text and url
+    history.replaceState(null, '', location.pathname);
+    const url = findLink(qs.get('url')) || findLink(qs.get('text'));
+    if (!url || !Music.embedFor(url)) { showToast('Share a Spotify, YouTube, Apple Music, SoundCloud or Deezer link to add it to your music', 'error'); return; }
+    const label = (qs.get('title') || '').trim().slice(0, 60) || `From ${Music.embedFor(url).service}`;
+    try {
+      await addPlaylist(url, label);
+      showToast(`Added “${label}” to your music`);
+      showPage('why');
+    } catch { showToast('Could not add that', 'error'); }
   }
   function makeDefault(i) { const [p] = draft.playlists.splice(i, 1); draft.playlists.unshift(p); paint(); }
   function removePlaylist(i) { draft.playlists.splice(i, 1); paint(); }
@@ -335,7 +423,7 @@ const Why = (() => {
     paint();
   }
 
-  return { load, renderDashboard, alarmHTML, fillStuck, renderPage, interviewSend, interviewListen, toggleSource, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
+  return { musicSearch, addResult, addPick, pasteLink, handleShare, load, renderDashboard, alarmHTML, fillStuck, renderPage, interviewSend, interviewListen, toggleSource, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
 })();
 window.Why = Why;
 
@@ -344,6 +432,21 @@ window.Why = Why;
 // embed players), so it keeps going while they move between pages and
 // play the Journey. Minimising tucks the player away without stopping it;
 // closing stops it. Links we can't embed open in a new tab instead.
+// ── The top bar's dock ──
+// Floating things (the music player, the focus timer) can be hidden; while
+// hidden they wait as a small button in the top bar.
+const TopDock = {
+  set(key, html) {
+    const bar = document.getElementById('topdock');
+    if (!bar) return;
+    let el = bar.querySelector(`[data-dock="${key}"]`);
+    if (!html) { el?.remove(); return; }
+    if (!el) { el = document.createElement('span'); el.dataset.dock = key; bar.appendChild(el); }
+    if (el.innerHTML !== html) el.innerHTML = html;
+  },
+};
+window.TopDock = TopDock;
+
 const Music = (() => {
   // Turns a sharing link into the service's embed address, or null.
   function embedFor(raw) {
@@ -388,12 +491,13 @@ const Music = (() => {
     const e = embedFor(item.url);
     if (!e) { window.open(item.url, '_blank', 'noopener'); return; }
     let d = dock();
-    if (d && at === i) { d.classList.remove('is-min'); return; } // already playing: just show it
+    if (d && at === i) { show(); d.classList.remove('is-min'); return; } // already playing: just show it
     if (!d) { d = document.createElement('div'); d.id = 'music-dock'; d.className = 'music-dock'; d.setAttribute('role', 'region'); d.setAttribute('aria-label', 'Your music'); document.body.appendChild(d); }
     at = i;
     remember({ url: item.url, min: false });
     const label = item.label || e.service;
-    d.classList.remove('is-min', 'show-lib');
+    d.classList.remove('is-min', 'show-lib', 'is-hidden');
+    TopDock.set('music', null);
     d.innerHTML = `
       <div class="music-bar">
         <span class="music-bar-ic">${icon('music')}</span>
@@ -402,6 +506,7 @@ const Music = (() => {
         <button type="button" class="music-btn music-full music-rep" onclick="Music.cycleRepeat()"></button>
         ${queue.length > 1 ? `<button type="button" class="music-btn music-full" onclick="Music.toggleLib()" aria-label="Your music library" title="Library">${icon('list-music')}</button>` : ''}
         <button type="button" class="music-btn music-minbtn" onclick="Music.toggleMin()" aria-label="Minimise the player" title="Minimise (keeps playing)">${icon('chevron_down')}</button>
+        <button type="button" class="music-btn" onclick="Music.hide()" aria-label="Hide the player. The music keeps playing" title="Hide (keeps playing)">${icon('eye-off')}</button>
         <button type="button" class="music-btn music-full" onclick="Music.stop()" aria-label="Stop the music" title="Stop">${icon('close')}</button>
       </div>
       ${transportHTML(e)}
@@ -583,6 +688,7 @@ const Music = (() => {
       b.title = current.paused ? 'Play (M)' : 'Pause (M)';
     });
     document.getElementById('music-dock').classList.toggle('is-paused', current.paused);
+    paintDockButton();
   }
   // M pauses or plays the music from anywhere in the app.
   document.addEventListener('keydown', ev => {
@@ -594,8 +700,28 @@ const Music = (() => {
     showToast(current.paused ? '⏸ Music paused (M to play)' : '▶ Music playing');
   });
   function toggleMin() { const d = dock(); if (!d) return; d.classList.toggle('is-min'); if (queue[at]) remember({ url: queue[at].url, min: d.classList.contains('is-min') }); }
+  // Hidden: off screen but still playing, with a small button in the top
+  // bar to bring it back.
+  function hide() {
+    const d = dock(); if (!d) return;
+    d.classList.add('is-hidden');
+    if (queue[at]) remember({ url: queue[at].url, min: d.classList.contains('is-min'), hidden: true });
+    paintDockButton();
+  }
+  function show() {
+    const d = dock(); if (!d) return;
+    d.classList.remove('is-hidden');
+    if (queue[at]) remember({ url: queue[at].url, min: d.classList.contains('is-min') });
+    TopDock.set('music', null);
+  }
+  function paintDockButton() {
+    const d = dock();
+    if (!d || !d.classList.contains('is-hidden')) { TopDock.set('music', null); return; }
+    const label = (queue[at] && queue[at].label) || 'Music';
+    TopDock.set('music', `<button type="button" onclick="Music.show()" title="${esc(label)}. Show the player (M pauses)" aria-label="Show the music player"><span class="eq ${current && current.paused ? 'paused' : ''}"><i></i><i></i><i></i></span><span class="hidden sm:inline">Music</span></button>`);
+  }
   function toggleLib() { const d = dock(); if (d) d.classList.toggle('show-lib'); }
-  function stop() { const d = dock(); if (d) d.remove(); at = -1; current = null; spotify = null; remember(null); }
+  function stop() { const d = dock(); if (d) d.remove(); at = -1; current = null; spotify = null; remember(null); TopDock.set('music', null); }
   // Music keeps going while they use the app, until they stop it. After a
   // reload the player comes back ready (browsers need one tap to play).
   function remember(state) { try { if (state) localStorage.setItem('wp-music', JSON.stringify(state)); else localStorage.removeItem('wp-music'); } catch { /* private mode */ } }
@@ -604,10 +730,10 @@ const Music = (() => {
     try { saved = JSON.parse(localStorage.getItem('wp-music') || 'null'); } catch { saved = null; }
     if (!saved || dock() || !list.length) return;
     const i = list.findIndex(p => p.url === saved.url);
-    if (i >= 0) { start(list, i); dock()?.classList.toggle('is-min', !!saved.min); }
+    if (i >= 0) { start(list, i); dock()?.classList.toggle('is-min', !!saved.min); if (saved.hidden) hide(); }
   }
   const isPlaying = () => !!dock();
 
-  return { embedFor, start, go, next, prev, toggleMin, toggleLib, togglePause, setPaused, seek, cycleRepeat, stop, isPlaying, restore, isPaused: () => !!(current && current.paused), repeatMode: () => repeat, _ended: ended };
+  return { embedFor, start, go, next, prev, hide, show, toggleMin, toggleLib, togglePause, setPaused, seek, cycleRepeat, stop, isPlaying, restore, isPaused: () => !!(current && current.paused), repeatMode: () => repeat, _ended: ended };
 })();
 window.Music = Music;

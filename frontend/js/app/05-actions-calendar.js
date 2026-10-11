@@ -147,7 +147,7 @@ async function loadAIInsights() {
   btn.disabled = true;
   btn.innerHTML = `<span class="spinner"></span> Thinking…`;
   body.classList.remove('hidden');
-  body.innerHTML = `<p class="text-xs text-white/60 flex items-center gap-2"><span class="spinner"></span> Reading your open tasks and asking Claude to prioritize them — usually 15-20s…</p>`;
+  body.innerHTML = `<p class="text-xs text-gray-500 flex items-center gap-2"><span class="spinner"></span> Reading your open tasks and asking Claude to prioritize them — usually 15-20s…</p>`;
   try {
     const result = await API.getAIInsights();
     APP.aiInsights = result;
@@ -155,8 +155,8 @@ async function loadAIInsights() {
   } catch (e) {
     const notConfigured = (e.message || '').includes('not configured');
     body.innerHTML = `
-      <div class="bg-white/10 rounded-lg p-4 text-xs text-white/70">
-        <p class="font-semibold text-white mb-1">${icon('warning', 'mr-1')}${esc(e.message || 'AI insights are unavailable')}</p>
+      <div class="bg-gray-50 border border-gray-100 rounded-lg p-4 text-xs text-gray-600">
+        <p class="font-semibold text-navy mb-1">${icon('warning', 'mr-1')}${esc(e.message || 'AI insights are unavailable')}</p>
         ${notConfigured ? `<p>Add an Anthropic API key to the server's <code class="bg-black/20 px-1 rounded">.env</code> file as <code class="bg-black/20 px-1 rounded">ANTHROPIC_API_KEY</code>, then restart the server.</p>` : ''}
       </div>`;
   } finally {

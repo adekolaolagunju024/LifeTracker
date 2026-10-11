@@ -18,9 +18,12 @@ function showPage(id, projectId = null, _skipHistory = false) {
   }
 
   APP.currentPage      = id;
-  // The dashboard's focus card already says what's late, so its banner
-  // only shows on other pages.
-  document.getElementById('digest-banner')?.classList.toggle('on-dashboard', id === 'dashboard');
+  // The dashboard and Actions already say what's late, so the banner never
+  // shows there, and once you've seen either it stays away for the day.
+  if (id === 'dashboard' || id === 'actions') {
+    document.getElementById('digest-banner')?.classList.add('hidden');
+    try { localStorage.setItem('digestDismissedDate', localDateKey(new Date())); } catch { /* private mode */ }
+  }
   APP.currentProjectId = projectId;
   APP.filters          = { status: '', priority: '', search: '', tag: '' };
   closeMobileSidebar();
@@ -105,7 +108,10 @@ function syncBottomNav(page) {
 const STAGE_NAMES = { football: 'Football', castle: 'Castle', ocean: 'Ocean', space: 'Space', corporate: 'Corporate', construction: 'Construction', life: 'Life Path', launch: 'Product Launch' };
 function dueLabel(endDate, todayKey) {
   if (!endDate) return { text: '', late: false };
-  if (endDate < todayKey) return { text: `${formatDateShort(endDate)} · late`, late: true };
+  if (endDate < todayKey) {
+    const late = Math.round((new Date(todayKey + 'T00:00:00') - new Date(endDate + 'T00:00:00')) / 86400000);
+    return { text: late === 1 ? 'Yesterday' : `${late} days late`, late: true };
+  }
   if (endDate === todayKey) return { text: 'Today', late: false };
   const days = Math.round((new Date(endDate + 'T00:00:00') - new Date(todayKey + 'T00:00:00')) / 86400000);
   if (days === 1) return { text: 'Tomorrow', late: false };
@@ -142,28 +148,28 @@ function renderDashboardBento(tasks, allProjects) {
     const nextIndex = Math.floor(f.tree.indexOf(next) / per);
     const segs = Array.from({ length: segCount }, (_, i) => {
       const filled = Math.round((i + 1) * per) <= done;
-      return `<span class="${filled ? 'done' : i === nextIndex ? 'next' : ''}"${i === segCount - 1 && !filled ? ' style="background:#FF8FB0"' : ''}></span>`;
+      return `<span class="${filled ? 'done' : i === nextIndex ? 'next' : i === segCount - 1 ? 'end' : ''}"></span>`;
     }).join('');
     // Blockers, not the game's enemy count (a blocker can field several).
     const foes = next ? (next.obstacles || []).filter(o => !o.resolved).length : 0;
     focus.innerHTML = `
       <div class="flex items-center justify-between gap-3">
-        <p class="text-[11px] font-bold tracking-widest uppercase text-[#9FB3C8]">${esc(STAGE_NAMES[getJourneyStage()] || 'Journey')} stage</p>
-        ${status ? `<p class="text-xs font-bold" style="color:${gap < -5 ? '#FDBA74' : '#5EEAD4'}">${status}</p>` : ''}
+        <p class="fc-kicker">${esc(STAGE_NAMES[getJourneyStage()] || 'Journey')} stage</p>
+        ${status ? `<p class="fc-status ${gap < -5 ? 'behind' : ''}">${status}</p>` : ''}
       </div>
-      <button type="button" onclick="showPage('project-detail','${f.p.id}')" class="block text-left mt-2 text-xl font-extrabold text-white hover:underline">${emojiIcon(f.p.icon || '')} ${esc(f.p.title)}</button>
+      <button type="button" onclick="showPage('project-detail','${f.p.id}')" class="fc-title">${emojiIcon(f.p.icon || '')} ${esc(f.p.title)}</button>
       <div class="focus-segs mt-3" style="grid-template-columns:repeat(${segCount},minmax(0,1fr))">${segs}</div>
-      <div class="flex items-center justify-between gap-3 mt-3 flex-wrap">
-        <p class="text-sm text-[#C9D6E2] min-w-0">${pctDone}% · Next stop: ${esc(next.title)}${foes ? ` · ${icon('blocker')} ${foes} ${foes === 1 ? 'blocker' : 'blockers'}` : ''}</p>
-        <div class="flex gap-2">
-          <button type="button" onclick="openProgressReport('${f.p.id}')" class="text-sm font-bold text-white/80 hover:text-white px-3 min-h-[44px]">Report</button>
-          <button type="button" onclick="playJourneyFor('${f.p.id}')" class="bg-[#5EEAD4] text-navy font-extrabold text-sm px-5 min-h-[44px] rounded-xl hover:brightness-105 inline-flex items-center gap-1.5">${icon('play')}Play</button>
-        </div>
-      </div>`;
+      <div class="fc-foot flex items-center justify-between gap-3 flex-wrap">
+        <p class="fc-sub">${pctDone}% · Next stop: ${esc(next.title)}${foes ? ` · ${icon('blocker')} ${foes} ${foes === 1 ? 'blocker' : 'blockers'}` : ''}</p>
+        <button type="button" onclick="playJourneyFor('${f.p.id}')" class="fc-play">${icon('play')}Play</button>
+      </div>
+      <div id="dash-quest-line"></div>`;
+    if (typeof paintQuestLine === 'function') paintQuestLine();
   }
 
   // Your focus: what needs attention first (late, due today, blocked,
-  // waiting), each with its reason, then what's due next; five at most.
+  // waiting), each with its reason, then what's due next; three at most,
+  // with the rest a tap away.
   // The counts above it open Actions, which has the full list.
   const byId = Object.fromEntries(allProjects.map(p => [p.id, p]));
   const open = tasks.filter(t => t.status !== 'Completed');
@@ -178,7 +184,10 @@ function renderDashboardBento(tasks, allProjects) {
     .map(([cls, n, label, ic]) => `<button type="button" class="focus-count ${cls}" onclick="showPage('actions')" aria-label="${n} ${label}. Open Actions">${icon(ic)}${n} ${label}</button>`);
   document.getElementById('dash-attention-counts').innerHTML = countChips.length ? countChips.join('') : `<span class="focus-count clear">${icon('done')}Nothing late or blocked</span>`;
   const rank = t => (dueKey(t) && dueKey(t) < todayKey ? 0 : dueKey(t) === todayKey ? 1 : blockersOf(t) ? 2 : waitingOn(t).length ? 3 : 4);
-  const focusList = [...open].sort((a, b) => rank(a) - rank(b) || (dueKey(a) || '9999').localeCompare(dueKey(b) || '9999') || (a.priority === 'High' ? -1 : b.priority === 'High' ? 1 : 0)).slice(0, 5);
+  const focusList = [...open].sort((a, b) => rank(a) - rank(b) || (dueKey(a) || '9999').localeCompare(dueKey(b) || '9999') || (a.priority === 'High' ? -1 : b.priority === 'High' ? 1 : 0));
+  const SHOW = 3;
+  const more = focusList.length - SHOW;
+  focusList.length = Math.min(focusList.length, SHOW);
   document.getElementById('dash-upnext').innerHTML = focusList.length ? focusList.map(t => {
     const due = dueLabel(t.endDate, todayKey);
     const n = blockersOf(t);
@@ -198,7 +207,7 @@ function renderDashboardBento(tasks, allProjects) {
       <span class="flex-shrink-0 w-20 text-right text-xs font-semibold ${due.late ? 'text-red-600' : dueKey(t) === todayKey ? 'text-amber-700' : 'text-gray-500'}">${esc(due.text)}</span>
       <button type="button" class="attention-act" onclick="Reminders.openSheet('${t.id}')" title="Remind me" aria-label="Set a reminder for ${esc(t.title)}">${icon('alarm')}</button>
     </div>`;
-  }).join('') : '<p class="text-sm text-gray-500 py-4">Nothing open. Plan your next goal with the assistant, or start from a template.</p>';
+  }).join('') + (more > 0 ? `<button type="button" class="focus-more" onclick="showPage('actions')">${more} more in Actions →</button>` : '') : '<p class="text-sm text-gray-500 py-4">Nothing open. Plan your next goal with the assistant, or start from a template.</p>';
 
   // This week against last week.
   const DAY = 86400000;

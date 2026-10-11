@@ -188,6 +188,8 @@ const ICON_PATHS = {
   'repeat-1': '<path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" /><path d="M11 10h1v4" />',
   'rewind': '<polygon points="11 19 2 12 11 5 11 19" /><polygon points="22 19 13 12 22 5 22 19" />',
   'fast-forward': '<polygon points="13 19 22 12 13 5 13 19" /><polygon points="2 19 11 12 2 5 2 19" />',
+  'eye-off': '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" />',
+  'list-checks': '<path d="m3 17 2 2 4-4" /><path d="m3 7 2 2 4-4" /><path d="M13 6h8" /><path d="M13 12h8" /><path d="M13 18h8" />',
   'minimize-2': '<polyline points="4 14 10 14 10 20" /><polyline points="20 10 14 10 14 4" /><line x1="14" x2="21" y1="10" y2="3" /><line x1="3" x2="10" y1="21" y2="14" />',
   'maximize-2': '<polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" x2="14" y1="3" y2="10" /><line x1="3" x2="10" y1="21" y2="14" />',
 };
@@ -375,7 +377,7 @@ function iconForEmoji(value) {
   return EMOJI_TO_ICON[key] || null;
 }
 function emojiIcon(value, cls = '') {
-  const name = iconForEmoji(value);
+  const name = iconForEmoji(value) || (ICON_PATHS[value] ? value : null); // an emoji, or already an icon name
   if (name) return icon(name, cls);
   // Any other emoji gets the plain folder, so everything stays in one style.
   if (/\p{Extended_Pictographic}/u.test(String(value || ''))) return icon('folder', cls);

@@ -57,7 +57,7 @@ const CSP = [
   "script-src 'self' 'unsafe-inline' https://open.spotify.com", // Spotify's embed API, for pause and play
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
-  "img-src 'self' data: blob: https://images.pexels.com",
+  "img-src 'self' data: blob: https://images.pexels.com https://*.mzstatic.com https://i.scdn.co https://mosaic.scdn.co https://image-cdn-ak.spotifycdn.com https://image-cdn-fa.spotifycdn.com",
   "media-src 'self' blob: https://videos.pexels.com",
   "connect-src 'self' blob: data:", // 3D models unpack their textures through blob: URLs
   // Jitsi for live calls; the music services' own players for Your why.

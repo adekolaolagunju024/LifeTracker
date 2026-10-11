@@ -580,6 +580,7 @@ async function afterAuth() {
   if (window.Why) Why.load().catch(() => {}); // ready for the alarm screen
   if (window.Jarvis) Jarvis.resumeFocus(); // a focus session survives a reload
   if (window.Billing) Billing.handleReturn(); // back from Stripe's checkout
+  if (window.Why) Why.handleShare(); // shared in from another app (manifest share_target)
 }
 
 // Pending project-share invites — checked once per login (not re-dismissed

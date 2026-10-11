@@ -37,6 +37,7 @@ const API = {
   getProfile:    ()        => request('GET',    '/profile'),
   updateProfile: (data)    => request('PUT',    '/profile', data),
   getMotivation: ()        => request('GET',    '/motivation'),
+  searchMusic: (q)         => request('GET',    `/motivation/music-search?q=${encodeURIComponent(q)}`),
   getBilling:    ()        => request('GET',    '/billing'),
   startCheckout: (interval) => request('POST',  '/billing/checkout', { interval }),
   openBillingPortal: ()    => request('POST',   '/billing/portal'),
