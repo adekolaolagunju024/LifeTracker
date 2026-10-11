@@ -10,9 +10,13 @@ async function renderSettings() {
     loadCalendarFeed();
     loadTwoFactorStatus();
     document.getElementById('set-tagline').value  = p.tagline;
-    document.getElementById('set-currency').value = p.currency || '£';
-    document.getElementById('set-target').value   = p.targetNetWorth;
-    document.getElementById('set-date').value     = p.targetDate;
+    const cur = document.getElementById('set-currency');
+    if (p.currency && ![...cur.options].some(o => o.value === p.currency)) cur.add(new Option(p.currency, p.currency));
+    cur.value = p.currency || '£';
+    const longest = p.longestStreak || 0;
+    document.getElementById('set-display-stats').textContent = p.currentStreak ? `🔥 ${p.currentStreak}-day streak${longest > p.currentStreak ? ` · best ${longest}` : ''}` : (longest ? `Best streak: ${longest} days` : 'Finish a task today to start a streak');
+    previewProfile();
+    showSettingsTab(APP.settingsTab || (() => { try { return localStorage.getItem('settingsTab'); } catch { return null; } })() || 'profile');
     setEmailDigestButton(p.emailDigestEnabled);
     setPushRemindersButton(p);
     setActivityEmailsButton(p.activityEmailsEnabled);
@@ -21,12 +25,50 @@ async function renderSettings() {
     APP.profile = p;
     loadReferralCard();
     renderSettingsDrive();
-    renderTrash();
-    API.getMe().then(me => { document.getElementById('account-email').textContent = me.email; }).catch(() => {});
+    API.getMe().then(me => {
+      document.getElementById('account-email').textContent = me.email;
+      document.getElementById('set-display-email').textContent = me.email;
+    }).catch(() => {});
   } catch (e) { console.error('Settings error:', e); }
 }
 
+// Settings show one section at a time (tabs); the last one opened is
+// remembered on this device. showSettingsTab('data') from anywhere jumps
+// straight to Trash.
+function showSettingsTab(key) {
+  if (!document.querySelector(`[data-settings-panel="${key}"]`)) key = 'profile';
+  APP.settingsTab = key;
+  try { localStorage.setItem('settingsTab', key); } catch { /* storage off */ }
+  document.querySelectorAll('[data-settings-panel]').forEach(p => { p.hidden = p.dataset.settingsPanel !== key; });
+  document.querySelectorAll('.settings-tabs [data-tab]').forEach(b => {
+    const on = b.dataset.tab === key;
+    b.setAttribute('aria-selected', String(on));
+    b.tabIndex = on ? 0 : -1;
+    if (on) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+  if (key === 'data') renderTrash();
+}
+// Arrow keys move between the tabs, as a tab list should.
+document.addEventListener('keydown', e => {
+  if (!e.target.closest || !e.target.closest('.settings-tabs') || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+  const tabs = [...document.querySelectorAll('.settings-tabs [data-tab]')];
+  const i = tabs.indexOf(e.target);
+  const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+  showSettingsTab(next.dataset.tab); next.focus();
+});
+// The avatar and name at the top of Profile follow the name as it's typed.
+function previewProfile() {
+  const name = document.getElementById('set-name').value.trim();
+  const initials = name ? name.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() : '👤';
+  document.getElementById('set-avatar').textContent = initials;
+  document.getElementById('set-display-name').textContent = name || 'Add your name';
+}
+
 // ── TRASH ────────────────────────────────────────────────────────
+// Grouped by project: a deleted project carries its folders and tasks as
+// one entry (restoring it brings them all back), and tasks deleted on their
+// own sit under the project they came from. Groups open to show what's in
+// them, each item still restorable on its own.
 async function renderTrash() {
   const list = document.getElementById('trash-list');
   try {
@@ -36,36 +78,64 @@ async function renderTrash() {
       list.innerHTML = `<p class="text-center text-gray-400 text-sm py-6">Trash is empty</p>`;
       return;
     }
-    // A trashed task's own project might still be active (deleted solo) or
-    // also sitting in Trash (deleted together) — look it up either way so
-    // the row can show which project it came from.
-    const projectById = Object.fromEntries([...projects, ...activeProjects].map(p => [p.id, p]));
-
+    const trashedById = Object.fromEntries(projects.map(p => [p.id, p]));
+    const activeById = Object.fromEntries(activeProjects.map(p => [p.id, p]));
     const daysLeft = deletedAt => Math.max(0, 30 - Math.floor((Date.now() - new Date(deletedAt)) / 86400000));
-    const row = (icon, title, sub, deletedAt, onRestore, onPurge) => `
-      <div class="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0">
-        <span class="text-lg flex-shrink-0">${icon}</span>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-semibold text-navy truncate">${esc(title)}</p>
-          <p class="text-xs text-gray-400 truncate">${sub} · purges in ${daysLeft(deletedAt)} day${daysLeft(deletedAt) === 1 ? '' : 's'}</p>
-        </div>
-        <button onclick="${onRestore}" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0">Restore</button>
-        <button onclick="${onPurge}" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0">Delete Forever</button>
-      </div>`;
-
-    list.innerHTML =
-      projects.map(p => row(p.icon || '📁', p.title, p.parentId ? 'Sub-folder' : 'Project', p.deletedAt,
-        `restoreProjectFromTrash('${p.id}')`, `purgeProjectFromTrash('${p.id}','${esc(p.title)}')`)).join('') +
-      tasks.map(t => {
-        const proj = projectById[t.projectId];
-        const sub = 'Task' + (proj ? ' · ' + esc(proj.title) : '');
-        return row(proj?.icon || '📄', t.title, sub, t.deletedAt,
-          `restoreTaskFromTrash('${t.id}')`, `purgeTaskFromTrash('${t.id}','${esc(t.title)}')`);
-      }).join('');
+    const purgeText = d => `purges in ${daysLeft(d)} day${daysLeft(d) === 1 ? '' : 's'}`;
+    // The trashed project a project belongs under: its trashed parent, else itself.
+    const rootOf = p => (p.parentId && trashedById[p.parentId]) ? trashedById[p.parentId] : p;
+    const groups = new Map(); // key -> { project, trashed, folders: [], tasks: [] }
+    const groupFor = (key, project, trashed) => {
+      if (!groups.has(key)) groups.set(key, { project, trashed, folders: [], tasks: [] });
+      return groups.get(key);
+    };
+    projects.forEach(p => {
+      const root = rootOf(p);
+      const g = groupFor(root.id, root, true);
+      if (root.id !== p.id) g.folders.push(p);
+    });
+    tasks.forEach(t => {
+      const own = trashedById[t.projectId];
+      if (own) { groupFor(rootOf(own).id, rootOf(own), true).tasks.push(t); return; }
+      const live = activeById[t.projectId];
+      const top = live && live.parentId && activeById[live.parentId] ? activeById[live.parentId] : live;
+      groupFor('live:' + (top ? top.id : 'none'), top || { title: 'Unknown project', icon: '📄' }, false).tasks.push({ ...t, folder: live && top && live.id !== top.id ? live.title : '' });
+    });
+    const iconBtn = (label, onclick, danger) => `<button type="button" onclick="${onclick}" class="text-xs font-semibold px-2.5 py-1 rounded-lg flex-shrink-0 ${danger ? 'text-red-600 hover:bg-red-50' : 'text-teal hover:bg-teal/10'}">${label}</button>`;
+    const sorted = [...groups.values()].sort((a, b) => (b.trashed - a.trashed) || String(b.project.deletedAt || '').localeCompare(String(a.project.deletedAt || '')));
+    const nT = tasks.length, nP = projects.filter(p => !p.parentId || !trashedById[p.parentId]).length;
+    list.innerHTML = `<p class="text-xs font-semibold text-gray-500 mb-3">${nP ? `${nP} project${nP === 1 ? '' : 's'}` : ''}${nP && nT ? ' · ' : ''}${nT ? `${nT} task${nT === 1 ? '' : 's'}` : ''}</p>` + sorted.map(g => {
+      const p = g.project;
+      const counts = [g.folders.length ? `${g.folders.length} folder${g.folders.length === 1 ? '' : 's'}` : '', g.tasks.length ? `${g.tasks.length} task${g.tasks.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+      const sub = g.trashed ? `${p.parentId ? 'Folder' : 'Project'}${counts ? ' · ' + counts : ''} · ${purgeText(p.deletedAt)}` : `Deleted from this project, which is still active · ${counts}`;
+      const ids = g.tasks.map(t => t.id).join(',');
+      const actions = g.trashed
+        ? iconBtn('Restore all', `event.preventDefault(); restoreProjectFromTrash('${p.id}')`) + iconBtn('Delete forever', `event.preventDefault(); purgeProjectFromTrash('${p.id}','${esc(p.title).replace(/'/g, '&#39;')}')`, true)
+        : iconBtn('Restore all', `event.preventDefault(); restoreTasksFromTrash('${ids}')`);
+      const items = [
+        ...g.folders.map(f => `<div class="flex items-center gap-2 py-2"><span>📁</span><div class="flex-1 min-w-0"><p class="text-sm font-semibold text-navy truncate">${esc(f.title)}</p><p class="text-[11px] text-gray-400">Folder · ${purgeText(f.deletedAt)}</p></div>${iconBtn('Restore', `restoreProjectFromTrash('${f.id}')`)}</div>`),
+        ...g.tasks.map(t => `<div class="flex items-center gap-2 py-2"><span class="text-gray-300">•</span><div class="flex-1 min-w-0"><p class="text-sm text-navy truncate">${esc(t.title)}</p><p class="text-[11px] text-gray-400">${t.folder ? esc(t.folder) + ' · ' : ''}${purgeText(t.deletedAt)}</p></div>${iconBtn('Restore', `restoreTaskFromTrash('${t.id}')`)}${iconBtn('Delete', `purgeTaskFromTrash('${t.id}','${esc(t.title).replace(/'/g, '&#39;')}')`, true)}</div>`),
+      ].join('');
+      return `<details class="trash-group">
+        <summary><span class="chev" aria-hidden="true">▶</span><span class="text-lg flex-shrink-0">${esc(p.icon || '📁')}</span>
+          <span class="flex-1 min-w-0"><span class="block text-sm font-bold text-navy truncate">${esc(p.title)}</span><span class="block text-xs text-gray-400 truncate">${sub}</span></span>
+          <span class="flex flex-wrap justify-end gap-1">${actions}</span></summary>
+        ${items ? `<div class="trash-items">${items}</div>` : ''}
+      </details>`;
+    }).join('');
   } catch (e) {
     console.error('Trash error:', e);
     list.innerHTML = `<p class="text-center text-red-400 text-sm py-6">Failed to load Trash</p>`;
   }
+}
+
+async function restoreTasksFromTrash(idList) {
+  try {
+    for (const id of idList.split(',').filter(Boolean)) await API.restoreTask(id);
+    showToast('✅ Restored');
+    renderTrash();
+    updateSidebar();
+  } catch (e) { showToast('❌ ' + (e.message || 'Failed to restore'), 'error'); }
 }
 
 async function restoreProjectFromTrash(id) {
@@ -118,11 +188,9 @@ async function saveSettings() {
       name:           document.getElementById('set-name').value,
       tagline:        document.getElementById('set-tagline').value,
       currency:       document.getElementById('set-currency').value,
-      targetNetWorth: parseFloat(document.getElementById('set-target').value) || 100000,
-      targetDate:     document.getElementById('set-date').value,
     });
     updateSidebar();
-    showToast('✅ Settings saved!');
+    showToast('✅ Profile saved');
   } catch (e) { showToast('❌ Failed to save', 'error'); }
 }
 
@@ -829,8 +897,8 @@ async function renderSettingsDrive() {
     const formatsEl = document.getElementById('settings-drive-formats');
 
     if (!status.configured) {
-      textEl.textContent = 'Not configured on this server.';
-      subEl.textContent  = 'Add GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI to the server .env file to enable this.';
+      textEl.textContent = 'Google Drive backup isn\'t available yet.';
+      subEl.textContent  = 'You can still download everything any time from Data and Trash.';
       actionsEl.innerHTML = '';
       formatsEl.classList.add('hidden');
       return;

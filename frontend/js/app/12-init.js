@@ -92,12 +92,6 @@ async function runImportData(data) {
   }
 }
 
-async function resetData() {
-  confirmAction('Reset ALL data? This cannot be undone.', async () => {
-    showToast('✅ Reset — restart your server to apply');
-  });
-}
-
 // ── INIT ─────────────────────────────────────────────────────────
 async function init() {
   document.getElementById('topbar-date').textContent =
