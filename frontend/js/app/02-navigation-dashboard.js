@@ -294,6 +294,7 @@ async function renderDashboard() {
     document.getElementById('streak-badge').classList.toggle('hidden', !profile.currentStreak);
     document.getElementById('streak-count').textContent = profile.currentStreak || 0;
     renderDashboardBento(tasks, allProjects);
+    if (typeof renderDashboardRecap === 'function') renderDashboardRecap();
 
     // Goals Progress hero — overall task completion across every project,
     // regardless of type; goals are goals, whether Career, Health, etc.

@@ -1,4 +1,4 @@
-/* global APP, API, esc, showToast, localDateKey, ProgressMath */
+/* global APP, API, esc, showToast, localDateKey, ProgressMath, icon */
 // ── MY WEEK IN REVIEW ───────────────────────────────────────────
 // A short full-screen story of the last seven days, in the spirit of
 // Spotify Wrapped or Strava's year in sport: tasks finished (against the
@@ -11,11 +11,11 @@ const RECAP_SLIDE_MS = 5000;
 let recapState = null;
 
 function recapTitleFor(done) {
-  if (done >= 15) return ['Unstoppable', '🚀'];
-  if (done >= 8) return ['On a roll', '🔥'];
-  if (done >= 4) return ['Building momentum', '⚡'];
-  if (done >= 1) return ['Getting going', '🌱'];
-  return ['Warming up', '☕'];
+  if (done >= 15) return ['Unstoppable', 'rocket'];
+  if (done >= 8) return ['On a roll', 'flame'];
+  if (done >= 4) return ['Building momentum', 'zap'];
+  if (done >= 1) return ['Getting going', 'sprout'];
+  return ['Warming up', 'coffee'];
 }
 
 // Everything the story shows, worked out from data the app already has.
@@ -51,12 +51,12 @@ async function buildWeeklyRecap() {
   const next = tasks.filter(t => t.status !== 'Completed' && t.endDate && t.endDate >= today && t.endDate <= weekAhead)
     .sort((a, b) => a.endDate.localeCompare(b.endDate));
 
-  const [title, emoji] = recapTitleFor(done.length);
+  const [title, titleIcon] = recapTitleFor(done.length);
   return {
     name: ((APP.profile && APP.profile.name) || '').trim() !== 'Your Name' ? ((APP.profile && APP.profile.name) || '').split(' ')[0] : '',
     done: done.length, prev: donePrev.length, bestDay, foes: foes.reduce((n, o) => n + (o.count || 1), 0), foeNames: foes.slice(0, 3).map(o => o.name),
     streak: (APP.profile && APP.profile.currentStreak) || 0, longest: (APP.profile && APP.profile.longestStreak) || 0,
-    level: gaming ? gaming.level : null, top, next, title, emoji,
+    level: gaming ? gaming.level : null, top, next, title, titleIcon,
     range: `${new Date(weekStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(now).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
   };
 }
@@ -70,11 +70,11 @@ function recapSlides(r) {
     { bg: 'linear-gradient(160deg,#1B3A5C,#0A7E8C)', html: `<p class="recap-kicker">Tasks finished</p><p class="recap-huge">${r.done}</p><p class="recap-sub">${esc(trend)}</p>` },
   ];
   if (r.bestDay) slides.push({ bg: 'linear-gradient(160deg,#4C1D95,#BE185D)', html: `<p class="recap-kicker">Your best day</p><p class="recap-big">${esc(r.bestDay[0])}</p><p class="recap-sub">${r.bestDay[1]} task${r.bestDay[1] === 1 ? '' : 's'} done in one day.</p>` });
-  if (r.foes) slides.push({ bg: 'linear-gradient(160deg,#7F1D1D,#C2410C)', html: `<p class="recap-kicker">Blockers beaten</p><p class="recap-huge">⚔️ ${r.foes}</p><p class="recap-sub">${r.foeNames.map(n => `“${esc(n)}”`).join(', ')}${r.foeNames.length ? ' and more, cleared out of your way.' : ''}</p>` });
-  slides.push({ bg: 'linear-gradient(160deg,#9A3412,#F59E0B)', html: `<p class="recap-kicker">Your streak</p><p class="recap-huge">🔥 ${r.streak}</p><p class="recap-sub">${r.streak ? `day${r.streak === 1 ? '' : 's'} in a row${r.longest > r.streak ? `. Your best is ${r.longest}.` : '. Your best yet!'}` : 'Finish one task today to start a new one.'}</p>` });
+  if (r.foes) slides.push({ bg: 'linear-gradient(160deg,#7F1D1D,#C2410C)', html: `<p class="recap-kicker">Blockers beaten</p><p class="recap-huge">${icon('blocker', 'recap-ic')}${r.foes}</p><p class="recap-sub">${r.foeNames.map(n => `“${esc(n)}”`).join(', ')}${r.foeNames.length ? ' and more, cleared out of your way.' : ''}</p>` });
+  slides.push({ bg: 'linear-gradient(160deg,#9A3412,#F59E0B)', html: `<p class="recap-kicker">Your streak</p><p class="recap-huge">${icon('flame', 'recap-ic')}${r.streak}</p><p class="recap-sub">${r.streak ? `day${r.streak === 1 ? '' : 's'} in a row${r.longest > r.streak ? `. Your best is ${r.longest}.` : '. Your best yet!'}` : 'Finish one task today to start a new one.'}</p>` });
   if (r.top) slides.push({ bg: 'linear-gradient(160deg,#064E3B,#0A7E8C)', html: `<p class="recap-kicker">Most progress</p><p class="recap-big">${esc(r.top.icon)} ${esc(r.top.title)}</p><p class="recap-sub">${r.top.count} task${r.top.count === 1 ? '' : 's'} this week. Now ${r.top.pct}% complete.</p><div class="recap-bar"><span style="width:${r.top.pct}%"></span></div>` });
   slides.push({ bg: 'linear-gradient(160deg,#0D1B2A,#1B3A5C)', html: `<p class="recap-kicker">Coming up</p>${r.next.length ? `<ul class="recap-list">${r.next.slice(0, 4).map(t => `<li><span>${esc(t.title)}</span><b>${esc(new Date(t.endDate + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' }))}</b></li>`).join('')}</ul>` : '<p class="recap-big">A clear week</p><p class="recap-sub">Nothing due in the next seven days. A good time to plan the next goal.</p>'}` });
-  slides.push({ bg: 'linear-gradient(160deg,#0A7E8C,#0D1B2A)', final: true, html: `<p class="recap-kicker">This week you were</p><p class="recap-big">${r.emoji} ${esc(r.title)}</p><div class="recap-stats"><div><b>${r.done}</b><span>tasks</span></div><div><b>${r.foes}</b><span>blockers</span></div><div><b>${r.streak}</b><span>day streak</span></div>${r.level ? `<div><b>${r.level}</b><span>level</span></div>` : ''}</div><div class="recap-actions"><button type="button" data-recap="share">Share my week</button><button type="button" data-recap="close">Done</button></div>` });
+  slides.push({ bg: 'linear-gradient(160deg,#0A7E8C,#0D1B2A)', final: true, html: `<p class="recap-kicker">This week you were</p><p class="recap-big">${icon(r.titleIcon, 'recap-ic')}${esc(r.title)}</p><div class="recap-stats"><div><b>${r.done}</b><span>tasks</span></div><div><b>${r.foes}</b><span>blockers</span></div><div><b>${r.streak}</b><span>day streak</span></div>${r.level ? `<div><b>${r.level}</b><span>level</span></div>` : ''}</div><div class="recap-actions"><button type="button" data-recap="share">Share my week</button><button type="button" data-recap="close">Done</button></div>` });
   return slides;
 }
 
@@ -147,7 +147,7 @@ function drawRecapImage(r) {
   g.fillStyle = grad; g.fillRect(0, 0, 1080, 1350);
   const font = (w, s) => `${w} ${s}px Inter, system-ui, -apple-system, Segoe UI, sans-serif`;
   g.fillStyle = 'rgba(255,255,255,.7)'; g.font = font(700, 34); g.fillText(`MY WEEK IN WAYPOINT · ${r.range.toUpperCase()}`, 80, 140);
-  g.fillStyle = '#fff'; g.font = font(900, 96); g.fillText(`${r.emoji} ${r.title}`, 80, 290);
+  g.fillStyle = '#fff'; g.font = font(900, 96); g.fillText(r.title, 80, 290);
   const stats = [[r.done, 'tasks done'], [r.foes, 'blockers beaten'], [r.streak, 'day streak'], ...(r.level ? [[r.level, 'level']] : [])];
   stats.forEach(([n, label], i) => {
     const x = 80 + (i % 2) * 470; const y = 470 + Math.floor(i / 2) * 260;
@@ -179,4 +179,60 @@ async function shareWeeklyRecap() {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   showToast('🖼️ Saved your week as an image');
+}
+
+// ── On the dashboard ──
+// The same story, playing by itself inside the "This week" card: a quick
+// status update the moment the app opens. It loops, pauses while you hover
+// or the tab is in the background, and a tap moves it on. The expand button
+// opens the full-screen version with sharing.
+const RECAP_MINI_MS = 4500;
+let dashRecap = null;
+
+async function renderDashboardRecap() {
+  const box = document.getElementById('dash-recap');
+  if (!box) return;
+  let data;
+  try { data = await buildWeeklyRecap(); } catch { box.classList.add('hidden'); return; }
+  // No title card (the box says what it is) and no share buttons.
+  const slides = recapSlides(data).slice(1)
+    .map(s => (s.final ? { ...s, html: s.html.replace(/<div class="recap-actions">[\s\S]*<\/div>$/, '') } : s));
+  if (dashRecap) clearTimeout(dashRecap.timer);
+  box.classList.remove('hidden');
+  box.innerHTML = `<div class="recap-progress">${slides.map(() => '<span></span>').join('')}</div>
+    <button type="button" class="recap-expand" onclick="openWeeklyRecap()" aria-label="Play my week full screen" title="Full screen">${icon('expand')}</button>
+    <div class="recap-body"></div>
+    <button type="button" class="recap-nav recap-prev" aria-label="Previous slide"></button><button type="button" class="recap-nav recap-next" aria-label="Next slide"></button>`;
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  dashRecap = { box, slides, index: 0, timer: null, paused: reduce };
+  box.querySelector('.recap-prev').onclick = () => showMiniRecapSlide(dashRecap.index - 1);
+  box.querySelector('.recap-next').onclick = () => showMiniRecapSlide(dashRecap.index + 1);
+  box.onmouseenter = () => { dashRecap.paused = true; box.classList.add('paused'); clearTimeout(dashRecap.timer); };
+  box.onmouseleave = () => { dashRecap.paused = reduce; box.classList.remove('paused'); showMiniRecapSlide(dashRecap.index); };
+  showMiniRecapSlide(0);
+}
+
+function showMiniRecapSlide(i) {
+  const s = dashRecap;
+  if (!s || !s.box.isConnected) return;
+  const n = s.slides.length;
+  s.index = ((i % n) + n) % n; // loops both ways
+  const slide = s.slides[s.index];
+  s.box.style.background = slide.bg;
+  const body = s.box.querySelector('.recap-body');
+  body.innerHTML = slide.html;
+  body.classList.remove('recap-in'); void body.offsetWidth; body.classList.add('recap-in');
+  const ms = slide.final ? RECAP_MINI_MS * 2 : RECAP_MINI_MS;
+  s.box.querySelectorAll('.recap-progress > span').forEach((bar, j) => {
+    bar.classList.toggle('done', j < s.index);
+    bar.classList.toggle('active', j === s.index);
+    bar.style.animationDuration = `${ms}ms`;
+  });
+  clearTimeout(s.timer);
+  if (s.paused) return;
+  s.timer = setTimeout(function tick() {
+    // Off screen or in a background tab: wait rather than skip ahead.
+    if (document.hidden || !s.box.offsetParent) { s.timer = setTimeout(tick, 1000); return; }
+    showMiniRecapSlide(s.index + 1);
+  }, ms);
 }
