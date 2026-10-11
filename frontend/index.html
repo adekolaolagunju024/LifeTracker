@@ -285,6 +285,8 @@
     .music-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
     .music-btn .ic { width: 17px; height: 17px; }
     .music-frame { padding: 0 8px; }
+    .music-frame > iframe, .music-frame > div { width: 100%; height: 100%; }
+    .music-dock.is-paused .music-bar-ic { background: rgba(255,255,255,.08); color: #9FB3C8; }
     .music-frame iframe { width: 100%; height: 100%; border: 0; border-radius: 12px; background: #000; }
     .music-open { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #9FB3C8; padding: 6px 12px 10px; }
     .music-open:hover { color: #5EEAD4; }
@@ -294,7 +296,12 @@
     .music-libpick button:hover { background: rgba(255,255,255,.08); }
     .music-libpick button.on { color: #5EEAD4; font-weight: 700; }
     /* Minimised: the player stays loaded off screen so the music keeps going */
-    .music-dock.is-min { width: auto; }
+    .music-dock.is-min { width: auto; left: auto; }
+    .music-dock.is-min .music-full, .music-dock.is-min .music-bar-text small { display: none; }
+    .music-dock.is-min .music-bar-text { max-width: 120px; }
+    .music-btn.music-rep.on { color: #5EEAD4; }
+    .music-btn.music-rep.on::after { content: ''; position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #5EEAD4; transform: translateY(12px); }
+    .music-btn { position: relative; }
     .music-dock.is-min .music-frame { position: fixed; left: -10000px; top: 0; width: 320px; }
     .music-dock.is-min .music-open, .music-dock.is-min .music-libpick { display: none; }
     .music-dock.is-min .music-btn .ic { transform: none; }

@@ -185,6 +185,8 @@ const ICON_PATHS = {
   'skip-forward': '<polygon points="5 4 15 12 5 20 5 4" /><line x1="19" x2="19" y1="5" y2="19" />',
   'list-music': '<path d="M21 15V6" /><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" /><path d="M12 12H3" /><path d="M16 6H3" /><path d="M12 18H3" />',
   'pause': '<rect x="14" y="4" width="4" height="16" rx="1" /><rect x="6" y="4" width="4" height="16" rx="1" />',
+  'repeat-1': '<path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" /><path d="M11 10h1v4" />',
+  'maximize-2': '<polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" x2="14" y1="3" y2="10" /><line x1="3" x2="10" y1="21" y2="14" />',
 };
 
 function icon(name, cls = '') {
@@ -199,7 +201,7 @@ const EMOJI_ICON = [
   [/^📎/u, 'paperclip'], [/^[🏆🥇]/u, 'trophy'], [/^🔥/u, 'flame'], [/^[⏰⏱]/u, 'alarm'], [/^🗑/u, 'trash'],
   [/^[🔒🔐]/u, 'lock'], [/^[✉📨📧📩]/u, 'mail'], [/^⚠/u, 'warning'], [/^✨/u, 'sparkles'], [/^🎯/u, 'goal'],
   [/^[📈📊]/u, 'chart'], [/^👥/u, 'users'], [/^📅/u, 'calendar'], [/^[☁💾]/u, 'cloud'], [/^[✏📝]/u, 'edit'],
-  [/^[📄📋]/u, 'file'], [/^[🔔]/u, 'bell'], [/^📷/u, 'camera'],
+  [/^[📄📋]/u, 'file'], [/^[🔔]/u, 'bell'], [/^📷/u, 'camera'], [/^⏸/u, 'pause'], [/^▶/u, 'play'],
 ];
 const LEADING_EMOJI = /^(?:[\p{Extended_Pictographic}\u2190-\u21FF\u2713-\u2716\uFE0F\u200D]+\s*)+/u;
 

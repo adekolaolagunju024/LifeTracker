@@ -43,6 +43,7 @@ function paletteActions() {
     { icon: '⏱', label: 'Start a 25-minute focus session', run: () => Jarvis.startFocus({ minutes: 25, music: true }) },
     { icon: '☀️', label: "Today's briefing", run: () => { showPage('dashboard'); setTimeout(() => Jarvis.renderBriefing(true), 300); } },
     { icon: '🎤', label: 'Talk to the assistant', hint: 'J', run: () => Jarvis.talk() },
+    ...(window.Music && Music.isPlaying() ? [{ icon: '🎵', label: Music.isPaused() ? 'Play the music' : 'Pause the music', hint: 'M', run: () => Music.togglePause() }] : []),
     ...(window.Why && Why.get() ? Why.get().playlists.map((p, i) => ({ icon: '🎵', label: `Play ${p.label || 'my music'}`, run: () => Why.playMusic(i) })) : []),
     ...(here ? [{ icon: '📄', label: 'Progress report for this project', run: () => openProgressReport(here) }] : []),
     { icon: '🌗', label: 'Switch light / dark mode', run: () => toggleTheme() },

@@ -256,18 +256,19 @@ const Music = (() => {
     const host = u.hostname.replace(/^www\.|^m\./, '');
     if (host === 'open.spotify.com') {
       const m = u.pathname.match(/^\/(?:intl-[a-z-]+\/)?(playlist|album|track|artist|episode|show)\/([A-Za-z0-9]+)/);
-      return m ? { src: `https://open.spotify.com/embed/${m[1]}/${m[2]}?utm_source=waypoint`, height: 152, service: 'Spotify', open: raw } : null;
+      return m ? { src: `https://open.spotify.com/embed/${m[1]}/${m[2]}?utm_source=waypoint`, height: 152, service: 'Spotify', open: raw, control: 'spotify', uri: `spotify:${m[1]}:${m[2]}` } : null;
     }
     if (host === 'youtube.com' || host === 'music.youtube.com' || host === 'youtu.be') {
       const list = u.searchParams.get('list');
       const video = host === 'youtu.be' ? u.pathname.slice(1) : u.searchParams.get('v');
       const base = 'https://www.youtube-nocookie.com/embed/';
-      if (video && /^[\w-]{6,}$/.test(video)) return { src: `${base}${video}?autoplay=1${list ? `&list=${encodeURIComponent(list)}` : ''}`, height: 170, service: 'YouTube', open: raw };
-      if (list) return { src: `${base}videoseries?autoplay=1&list=${encodeURIComponent(list)}`, height: 170, service: 'YouTube', open: raw };
+      const api = `&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
+      if (video && /^[\w-]{6,}$/.test(video)) return { src: `${base}${video}?autoplay=1${api}${list ? `&list=${encodeURIComponent(list)}` : ''}`, height: 170, service: 'YouTube', open: raw, control: 'youtube' };
+      if (list) return { src: `${base}videoseries?autoplay=1${api}&list=${encodeURIComponent(list)}`, height: 170, service: 'YouTube', open: raw, control: 'youtube' };
       return null;
     }
     if (host === 'music.apple.com') return { src: `https://embed.music.apple.com${u.pathname}${u.search}`, height: 175, service: 'Apple Music', open: raw };
-    if (host === 'soundcloud.com') return { src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(raw)}&auto_play=true&visual=false`, height: 166, service: 'SoundCloud', open: raw };
+    if (host === 'soundcloud.com') return { src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(raw)}&auto_play=true&visual=false`, height: 166, service: 'SoundCloud', open: raw, control: 'soundcloud' };
     if (host === 'deezer.com') {
       const m = u.pathname.match(/\/(playlist|album|track)\/(\d+)/);
       return m ? { src: `https://widget.deezer.com/widget/dark/${m[1]}/${m[2]}?autoplay=true`, height: 150, service: 'Deezer', open: raw } : null;
@@ -301,23 +302,152 @@ const Music = (() => {
       <div class="music-bar">
         <span class="music-bar-ic">${icon('music')}</span>
         <span class="music-bar-text"><b>${esc(label)}</b><small>${esc(e.service)}${queue.length > 1 ? ` · ${i + 1} of ${queue.length}` : ''}</small></span>
-        ${queue.length > 1 ? `<button type="button" class="music-btn" onclick="Music.prev()" aria-label="Previous playlist" title="Previous">${icon('skip-back')}</button>
-        <button type="button" class="music-btn" onclick="Music.next()" aria-label="Next playlist" title="Next">${icon('skip-forward')}</button>
-        <button type="button" class="music-btn" onclick="Music.toggleLib()" aria-label="Your music library" title="Library">${icon('list-music')}</button>` : ''}
-        <button type="button" class="music-btn" onclick="Music.toggleMin()" aria-label="Minimise or show the player" title="Minimise (keeps playing)">${icon('chevron_down')}</button>
-        <button type="button" class="music-btn" onclick="Music.stop()" aria-label="Stop the music" title="Stop">${icon('close')}</button>
+        ${queue.length > 1 ? `<button type="button" class="music-btn music-full" onclick="Music.prev()" aria-label="Previous playlist" title="Previous">${icon('skip-back')}</button>` : ''}
+        <button type="button" class="music-btn music-pp" onclick="Music.togglePause()" aria-label="Pause or play (M)" title="Pause / play (M)">${icon('pause')}</button>
+        ${queue.length > 1 ? `<button type="button" class="music-btn music-full" onclick="Music.next()" aria-label="Next playlist" title="Next">${icon('skip-forward')}</button>` : ''}
+        <button type="button" class="music-btn music-full music-rep" onclick="Music.cycleRepeat()"></button>
+        ${queue.length > 1 ? `<button type="button" class="music-btn music-full" onclick="Music.toggleLib()" aria-label="Your music library" title="Library">${icon('list-music')}</button>` : ''}
+        <button type="button" class="music-btn music-minbtn" onclick="Music.toggleMin()" aria-label="Minimise the player" title="Minimise (keeps playing)">${icon('chevron_down')}</button>
+        <button type="button" class="music-btn music-full" onclick="Music.stop()" aria-label="Stop the music" title="Stop">${icon('close')}</button>
       </div>
       <div class="music-libpick">${queue.map((q, j) => `<button type="button" class="${j === i ? 'on' : ''}" onclick="Music.go(${j})">${icon(j === i ? 'volume' : 'play', 'tiny')}<span>${esc(q.label || 'Untitled')}</span></button>`).join('')}</div>
       <div class="music-frame" style="height:${e.height}px">
         <iframe src="${esc(e.src)}" title="${esc(label)} on ${esc(e.service)}" allow="autoplay; encrypted-media; clipboard-write; fullscreen; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe>
       </div>
-      <a class="music-open" href="${esc(item.url)}" target="_blank" rel="noopener">Open in ${esc(e.service)} ${icon('external', 'tiny')}</a>`;
+      <a class="music-open" href="${esc(item.url)}" target="_blank" rel="noopener">${isPhone() ? `Keep playing in ${esc(e.service)} when you leave` : `Open in ${esc(e.service)}`} ${icon('external', 'tiny')}</a>`;
+    current = { ...e, paused: false };
+    spotify = null;
+    syncRepeat();
+    if (e.control === 'spotify') attachSpotify(d.querySelector('.music-frame iframe'), e.uri);
+    else if (e.control === 'youtube' || e.control === 'soundcloud') {
+      // Ask the player to tell us when it finishes, for repeat.
+      d.querySelector('.music-frame iframe').addEventListener('load', () => {
+        if (e.control === 'youtube') { post({ event: 'listening', id: 1 }); if (repeat === 'one') post({ event: 'command', func: 'setLoop', args: [true] }); }
+        else post({ method: 'addEventListener', value: 'finish' });
+      });
+    }
   }
+
+  // ── Repeat: off, all (loop the library), one (replay this one) ──
+  // Spotify, YouTube and SoundCloud say when they finish; Apple Music and
+  // Deezer don't, so repeat can't follow them.
+  let repeat = (() => { try { return localStorage.getItem('wp-music-repeat') || 'off'; } catch { return 'off'; } })();
+  const REPEAT = { off: ['repeat', 'Repeat is off'], all: ['repeat', 'Repeating all your music'], one: ['repeat-1', 'Repeating this one'] };
+  function cycleRepeat() {
+    repeat = repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off';
+    try { localStorage.setItem('wp-music-repeat', repeat); } catch { /* private mode */ }
+    if (current && current.control === 'youtube') post({ event: 'command', func: 'setLoop', args: [repeat !== 'off'] });
+    syncRepeat();
+    const unsupported = current && !current.control;
+    showToast(unsupported && repeat !== 'off' ? `${REPEAT[repeat][1]}. ${current.service} can't tell Waypoint when it ends, so this works with Spotify, YouTube and SoundCloud` : REPEAT[repeat][1]);
+  }
+  function syncRepeat() {
+    const b = document.querySelector('#music-dock .music-rep');
+    if (!b) return;
+    b.innerHTML = icon(REPEAT[repeat][0]);
+    b.classList.toggle('on', repeat !== 'off');
+    b.setAttribute('aria-label', `${REPEAT[repeat][1]}. Change repeat`);
+    b.title = REPEAT[repeat][1];
+  }
+  // What to do when the current one finishes.
+  function ended() {
+    if (!current || current.endedAt > Date.now() - 3000) return; // one finish, one action
+    current.endedAt = Date.now();
+    if (repeat === 'one') restartCurrent();
+    else if (queue.length > 1 && (repeat === 'all' || at < queue.length - 1)) go(at + 1);
+    else if (repeat === 'all') restartCurrent();
+  }
+  function restartCurrent() {
+    if (!current) return;
+    if (current.control === 'spotify' && spotify) { spotify.seek(0); spotify.resume(); }
+    else if (current.control === 'youtube') { post({ event: 'command', func: 'seekTo', args: [0, true] }); post({ event: 'command', func: 'playVideo', args: [] }); }
+    else if (current.control === 'soundcloud') { post({ method: 'seekTo', value: 0 }); post({ method: 'play' }); }
+  }
+  window.addEventListener('message', ev => {
+    if (!current || !/youtube|soundcloud/.test(ev.origin)) return;
+    let msg = ev.data;
+    try { if (typeof msg === 'string') msg = JSON.parse(msg); } catch { return; }
+    if (!msg) return;
+    if (current.control === 'youtube' && msg.event === 'onStateChange') {
+      if (msg.info === 0) ended();
+      else if (msg.info === 1 || msg.info === 2) { current.paused = msg.info === 2; syncPP(); }
+    }
+    if (current.control === 'youtube' && msg.event === 'infoDelivery' && msg.info && msg.info.playerState === 0) ended();
+    if (current.control === 'soundcloud' && msg.method === 'finish') ended();
+  });
+
+  // ── Pause and play ──
+  // Spotify through its embed API, YouTube and SoundCloud by message; Apple
+  // Music and Deezer have no way to be controlled from outside, so pausing
+  // them stops the player and playing again starts it afresh.
+  let current = null;
+  let spotify = null;
+  const isPhone = () => window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  function loadSpotifyApi() {
+    if (window.__spotifyApi) return window.__spotifyApi;
+    window.__spotifyApi = new Promise((resolve, reject) => {
+      window.onSpotifyIframeApiReady = api => resolve(api);
+      const sc = document.createElement('script');
+      sc.src = 'https://open.spotify.com/embed/iframe-api/v1';
+      sc.async = true;
+      sc.onerror = () => { window.__spotifyApi = null; reject(new Error('Spotify player unavailable')); };
+      document.head.appendChild(sc);
+      setTimeout(() => reject(new Error('Spotify player slow')), 8000);
+    });
+    return window.__spotifyApi;
+  }
+  function attachSpotify(frame, uri) {
+    loadSpotifyApi().then(api => {
+      if (!frame.isConnected) return;
+      const holder = document.createElement('div');
+      frame.replaceWith(holder);
+      api.createController(holder, { uri, width: '100%', height: current ? current.height : 152 }, ctrl => {
+        spotify = ctrl;
+        ctrl.addListener('playback_update', ev => {
+          if (!current || !ev.data) return;
+          current.paused = !!ev.data.isPaused; syncPP();
+          const { position, duration } = ev.data;
+          if (duration && position >= duration - 800 && ev.data.isPaused) ended();
+        });
+        try { ctrl.play(); } catch { /* they tap play */ }
+      });
+    }).catch(() => { /* the plain player still works */ });
+  }
+  const post = msg => { const f = document.querySelector('#music-dock .music-frame iframe'); if (f && f.contentWindow) f.contentWindow.postMessage(JSON.stringify(msg), '*'); };
+  function setPaused(p) {
+    if (!current) return;
+    if (current.control === 'spotify' && spotify) { if (p) spotify.pause(); else spotify.resume(); }
+    else if (current.control === 'youtube') post({ event: 'command', func: p ? 'pauseVideo' : 'playVideo', args: [] });
+    else if (current.control === 'soundcloud') post({ method: p ? 'pause' : 'play' });
+    else {
+      const f = document.querySelector('#music-dock .music-frame iframe');
+      if (f) f.src = p ? 'about:blank' : current.src;
+    }
+    current.paused = p;
+    syncPP();
+  }
+  function togglePause() { if (current) setPaused(!current.paused); }
+  function syncPP() {
+    const b = document.querySelector('#music-dock .music-pp');
+    if (!b || !current) return;
+    b.innerHTML = icon(current.paused ? 'play' : 'pause');
+    b.setAttribute('aria-label', current.paused ? 'Play (M)' : 'Pause (M)');
+    document.getElementById('music-dock').classList.toggle('is-paused', current.paused);
+  }
+  // M pauses or plays the music from anywhere in the app.
+  document.addEventListener('keydown', ev => {
+    if (ev.key !== 'm' || ev.metaKey || ev.ctrlKey || ev.altKey || !current || !document.getElementById('music-dock')) return;
+    const el = document.activeElement;
+    if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+    ev.preventDefault();
+    togglePause();
+    showToast(current.paused ? '⏸ Music paused (M to play)' : '▶ Music playing');
+  });
   const next = () => go(at + 1);
   const prev = () => go(at - 1);
   function toggleMin() { const d = dock(); if (!d) return; d.classList.toggle('is-min'); if (queue[at]) remember({ url: queue[at].url, min: d.classList.contains('is-min') }); }
   function toggleLib() { const d = dock(); if (d) d.classList.toggle('show-lib'); }
-  function stop() { const d = dock(); if (d) d.remove(); at = -1; remember(null); }
+  function stop() { const d = dock(); if (d) d.remove(); at = -1; current = null; spotify = null; remember(null); }
   // Music keeps going while they use the app, until they stop it. After a
   // reload the player comes back ready (browsers need one tap to play).
   function remember(state) { try { if (state) localStorage.setItem('wp-music', JSON.stringify(state)); else localStorage.removeItem('wp-music'); } catch { /* private mode */ } }
@@ -330,6 +460,6 @@ const Music = (() => {
   }
   const isPlaying = () => !!dock();
 
-  return { embedFor, start, go, next, prev, toggleMin, toggleLib, stop, isPlaying, restore };
+  return { embedFor, start, go, next, prev, toggleMin, toggleLib, togglePause, setPaused, cycleRepeat, stop, isPlaying, restore, isPaused: () => !!(current && current.paused), repeatMode: () => repeat, _ended: ended };
 })();
 window.Music = Music;

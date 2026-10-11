@@ -160,7 +160,7 @@ document.addEventListener('keydown', e => {
   } else if (e.key === 'a') {
     e.preventDefault(); openAssistant(projectId);
   } else if (e.key === '?') {
-    showToast('Shortcuts: ⌘K command palette · / search · n new task · a assistant · Esc close');
+    showToast('Shortcuts: ⌘K command palette · / search · n new task · a assistant · j talk · m pause music · Esc close');
   }
 });
 
