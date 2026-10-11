@@ -84,6 +84,10 @@ app.use(compression());
 // which travel as base64 inside the JSON body rather than multipart —
 // base64 inflates a file by ~33%, so this covers the same ~15MB ceiling
 // multer enforces on the plain file-upload endpoint.
+// Stripe's webhook needs the raw body to check its signature, so it comes
+// before the JSON parser and before sign-in.
+const billingRoutes = require('./routes/billing');
+app.post('/api/stripe/webhook', ...billingRoutes.webhook);
 app.use(express.json({ limit: '20mb' }));
 app.use(session({
   store: new SqliteStore({ client: db, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
@@ -177,6 +181,7 @@ app.use('/api/uploads',  require('./routes/uploads'));
 app.use('/api/push',     require('./routes/push'));
 app.use('/api/reminders', require('./routes/reminders'));
 app.use('/api/motivation', require('./routes/motivation'));
+app.use('/api/billing', billingRoutes.router);
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/journey-gaming', require('./routes/journeyGaming'));

@@ -411,6 +411,30 @@
     .pc-close:hover { color: #fff; }
     .ja-summary { margin-left: 44px; font-size: 12px; font-weight: 800; color: #0A7E8C; }
     @media (prefers-reduced-motion: reduce) { .pc-ring { animation: none; } }
+    /* Your plan */
+    .plan-card { border-radius: 18px; padding: 18px 20px; background: #fff; border: 1px solid #E3E6EA; }
+    .plan-card.is-pro { background: radial-gradient(120% 140% at 0% 0%, #12384A 0%, #0D1B2A 60%); color: #fff; border: 0; }
+    .plan-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .plan-badge { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; border-radius: 999px; padding: 4px 10px; background: #F1F3F5; color: #3F4A57; }
+    .plan-card.is-pro .plan-badge { background: #FCD34D; color: #0D1B2A; }
+    .plan-title { font-size: 17px; font-weight: 800; }
+    .plan-sub { font-size: 13px; color: #5B6472; margin-top: 4px; }
+    .plan-card.is-pro .plan-sub { color: #9FB3C8; }
+    .plan-perks { margin-top: 12px; display: grid; gap: 6px; }
+    .plan-perks li { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; }
+    .plan-perks .ic { width: 17px; height: 17px; color: #0A7E8C; margin-top: 2px; }
+    .plan-card.is-pro .plan-perks .ic { color: #5EEAD4; }
+    .plan-buy { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .plan-buy button { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; border-radius: 14px; padding: 10px 16px; font-weight: 800; font-size: 15px; background: #0A7E8C; color: #fff; min-width: 150px; }
+    .plan-buy button small { font-size: 12px; font-weight: 600; opacity: .85; }
+    .plan-buy button.alt { background: #E6F4F5; color: #075E68; }
+    .plan-buy button:disabled { opacity: .6; }
+    .plan-manage { margin-top: 14px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; background: rgba(255,255,255,.12); color: #fff; border-radius: 12px; padding: 9px 14px; }
+    .plan-note { font-size: 12px; color: #6B7480; margin-top: 10px; }
+    .plan-card.is-pro .plan-note { color: #9FB3C8; }
+    .dark .plan-card:not(.is-pro) { background: #111A2B; border-color: #1F2A3D; }
+    .dark .plan-sub { color: #94A3B8; }
+    .dark .plan-badge { background: #1A2436; color: #CBD5E1; }
     /* Your why, as a conversation */
     .why-chat { background: radial-gradient(120% 140% at 0% 0%, #12384A 0%, #0D1B2A 60%, #0B1220 100%); color: #fff; border-radius: 20px; padding: 18px; margin-bottom: 16px; }
     .why-chat-head { display: flex; gap: 12px; align-items: center; }
@@ -2592,6 +2616,8 @@
         <button type="button" role="tab" id="settings-tab-security" aria-controls="settings-panel-security" data-tab="security" onclick="showSettingsTab('security')"><span aria-hidden="true"><span class="ei" data-icon="lock"></span></span>Security</button>
       </div>
       <section class="settings-panel" role="tabpanel" id="settings-panel-profile" aria-labelledby="settings-tab-profile" data-settings-panel="profile">
+      <!-- Your plan (js/billing.js): Free, or Waypoint Pro through Stripe -->
+      <div id="plan-card" class="mb-5"></div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
         <div class="flex items-center gap-4 border-b border-gray-100 pb-5 mb-5">
           <div class="profile-avatar" id="set-avatar" aria-hidden="true">?</div>
@@ -3804,6 +3830,7 @@
 <script src="js/reports.js"></script>
 <script src="js/motivation.js"></script>
 <script src="js/jarvis.js"></script>
+<script src="js/billing.js"></script>
 
 </body>
 </html>

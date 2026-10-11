@@ -442,6 +442,13 @@ addColumnIfMissing('task_obstacles', "xpAwardedAt TEXT");
 addColumnIfMissing('users', "totpSecret TEXT");
 addColumnIfMissing('users', "totpPendingSecret TEXT");
 addColumnIfMissing('users', "totpEnabledAt TEXT");
+// Waypoint Pro (backend/billing.js): set only by Stripe's signed webhook.
+addColumnIfMissing('users', "plan TEXT NOT NULL DEFAULT 'free'");
+addColumnIfMissing('users', "planStatus TEXT");
+addColumnIfMissing('users', "planRenewsAt TEXT");
+addColumnIfMissing('users', "planCancelAtPeriodEnd INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('users', "stripeCustomerId TEXT");
+addColumnIfMissing('users', "stripeSubscriptionId TEXT");
 addColumnIfMissing('users', "totpLastStep INTEGER");
 addColumnIfMissing('users', "totpRecoveryHashes TEXT");
 

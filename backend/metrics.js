@@ -106,6 +106,7 @@ function buildMetrics(now = Date.now()) {
     generatedAt: iso(now),
     headline: {
       users: users.length,
+      pro: require('./billing').isConfigured() || count("SELECT COUNT(*) AS n FROM users WHERE plan = 'pro'") ? count("SELECT COUNT(*) AS n FROM users WHERE plan = 'pro'") : null,
       signups7: users.filter(u => u.joined >= last7).length,
       signupsPrev7: users.filter(u => u.joined >= prev7 && u.joined < last7).length,
       active7: activeUsers(last7),

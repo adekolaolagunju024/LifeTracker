@@ -308,12 +308,15 @@ function setLastStreakNudgeDate(userId, dateStr) {
 
 // Per-account daily cap on user-triggered AI calls. Returns false (and
 // spends nothing) once today's allowance is used up.
+// Pro (backend/billing.js) gets ten times the allowance, as fair use.
 const AI_QUOTAS = {
-  ai: { count: 'aiCallsToday', date: 'aiCallsResetDate', limit: 15 },
-  assistant: { count: 'assistantCallsToday', date: 'assistantCallsResetDate', limit: 40 },
+  ai: { count: 'aiCallsToday', date: 'aiCallsResetDate', limit: 15, pro: 150 },
+  assistant: { count: 'assistantCallsToday', date: 'assistantCallsResetDate', limit: 40, pro: 400 },
 };
 function consumeQuota(userId, kind) {
-  const { count, date, limit } = AI_QUOTAS[kind];
+  const { count, date } = AI_QUOTAS[kind];
+  const isPro = (db.prepare('SELECT plan FROM users WHERE id = ?').get(userId) || {}).plan === 'pro';
+  const limit = isPro ? AI_QUOTAS[kind].pro : AI_QUOTAS[kind].limit;
   const todayKey = localDateKeyFromDate(new Date());
   const profile = getProfile(userId);
   const used = profile[date] === todayKey ? profile[count] : 0;

@@ -37,6 +37,9 @@ const API = {
   getProfile:    ()        => request('GET',    '/profile'),
   updateProfile: (data)    => request('PUT',    '/profile', data),
   getMotivation: ()        => request('GET',    '/motivation'),
+  getBilling:    ()        => request('GET',    '/billing'),
+  startCheckout: (interval) => request('POST',  '/billing/checkout', { interval }),
+  openBillingPortal: ()    => request('POST',   '/billing/portal'),
   saveMotivation: (data)   => request('PUT',    '/motivation', data),
   whyInterview:  (messages) => request('POST', '/ai/why-interview', { messages }),
 

@@ -106,7 +106,7 @@ const Metrics = (() => {
         ${tile('Activation', h.activation.rate === null ? '—' : h.activation.rate + '%', h.activation.of ? `finished a task in their first week · of ${h.activation.of}` : 'needs people who joined 7+ days ago', 'Of people who joined 7–90 days ago')}
         ${tile('Week-4 retention', h.week4.rate === null ? '—' : h.week4.rate + '%', h.week4.of ? `still active in week 4 · of ${h.week4.of}` : 'needs people who joined 28+ days ago')}
         ${tile('Visit → sign-up', h.landing.rate === null ? '—' : h.landing.rate + '%', h.landing.rate === null ? `Counting visits${h.landing.since ? ' since ' + fmtDay(h.landing.since) : ''} · ${h.landing.views30} so far` : `${h.landing.signups30} sign-ups from ${h.landing.views30} landing visits (30 days)`, 'Landing-page visits, crawlers skipped. Shown once there are at least 20.')}
-        ${tile('Paying customers', '—', 'Payments aren’t set up yet')}
+        ${tile('Paying customers', h.pro === null ? '—' : h.pro, h.pro === null ? 'Payments aren’t set up yet' : 'on Waypoint Pro')}
       </div>
       <div class="metric-grid2">
         ${barChart('metric-signups', 'New sign-ups per week', m.weeks, 'signups', 'sign-ups')}
