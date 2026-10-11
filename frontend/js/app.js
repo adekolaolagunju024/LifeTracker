@@ -4504,15 +4504,24 @@ const REVISE_LABELS = {
   addBlocker: 'Add blocker',
   updateBlocker: 'Change blocker',
   removeBlocker: 'Remove blocker',
+  addPredecessor: 'Add predecessor',
+  removePredecessor: 'Remove predecessor',
 };
+
+const REVISE_FIELD_LABELS = { startDate: 'start', endDate: 'due', targetCount: 'target', targetUnit: 'target unit' };
 
 function describeReviseOp(op) {
   if (op.type === 'updateTask') {
-    const changes = Object.entries(op.fields).map(([k, v]) => `${k} → ${v || 'none'}`).join(', ');
+    const fields = { ...op.fields };
+    // Show a target as one change ("target → 20 pages"), not two.
+    if (fields.targetCount && fields.targetUnit) { fields.targetCount = `${fields.targetCount} ${fields.targetUnit}`; delete fields.targetUnit; }
+    const changes = Object.entries(fields).map(([k, v]) => `${REVISE_FIELD_LABELS[k] || k} → ${v || 'none'}`).join(', ');
     return `"${esc(op.currentTitle)}": ${esc(changes)}`;
   }
   if (op.type === 'addTask') return `"${esc(op.task.title)}" (${esc(op.task.priority)}${op.task.endDate ? ', due ' + esc(op.task.endDate) : ''})`;
   if (op.type === 'deleteTask') return `"${esc(op.currentTitle)}" (moves to Trash, where you can restore it)`;
+  if (op.type === 'addPredecessor') return `"${esc(op.taskTitle)}" waits for "${esc(op.predecessorTitle)}" to finish`;
+  if (op.type === 'removePredecessor') return `"${esc(op.taskTitle)}" no longer waits for "${esc(op.predecessorTitle)}"`;
   if (op.type === 'moveTask') return `"${esc(op.currentTitle)}" to "${esc(op.toPhaseTitle)}"`;
   if (op.type === 'renamePhase') return `to "${esc(op.title)}"`;
   if (op.type === 'addBlocker') return `⚔️ "${esc(op.blocker.name)}" ×${op.blocker.count} on "${esc(op.taskTitle)}"`;
@@ -4548,6 +4557,13 @@ async function applyOperations(projectId, ops) {
       await API.updateObstacle(op.blockerId, op.changes);
     } else if (op.type === 'removeBlocker') {
       await API.deleteObstacle(op.blockerId);
+    } else if (op.type === 'addPredecessor' || op.type === 'removePredecessor') {
+      // The endpoint replaces the whole list, so read the current one first
+      // (an earlier op in this batch may have changed it).
+      const task = await API.getTask(op.taskId);
+      const ids = (task.predecessors || []).map(p => p.id).filter(id => id !== op.predecessorId);
+      if (op.type === 'addPredecessor') ids.push(op.predecessorId);
+      await API.setPredecessors(op.taskId, ids);
     }
   }
 }
@@ -4683,9 +4699,9 @@ function clearAssistantFocus() {
 // One-tap starters that fit where the assistant was opened from.
 function renderAssistantSuggestions() {
   const ideas = APP.assistantTaskId
-    ? ['Split it into smaller tasks', 'Push the due date back a week', 'Add a blocker to it', 'Delete this task']
+    ? ['Split it into smaller tasks', 'Push the due date back a week', 'Set a target count for it', 'Make it wait on another task', 'Add a blocker to it', 'Delete this task']
     : APP.assistantProjectId
-      ? ['What should I do next?', 'Add any missing tasks', 'Spread the due dates out', 'Delete tasks I no longer need']
+      ? ['What should I do next?', 'Add any missing tasks', 'Link tasks in the right order', 'Spread the due dates out', 'Delete tasks I no longer need']
       : ['Plan a new goal for me', 'Help me prioritise this week'];
   document.getElementById('assistant-suggestions').innerHTML = ideas.map(text =>
     `<button type="button" onclick="useAssistantSuggestion(this.textContent)" class="flex-shrink-0 whitespace-nowrap text-xs font-semibold text-teal bg-teal/10 hover:bg-teal/20 px-3 py-1.5 rounded-full">${esc(text)}</button>`).join('');
