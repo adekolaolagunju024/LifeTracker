@@ -271,7 +271,7 @@
     .recap-nav { position: absolute; top: 0; bottom: 0; z-index: 1; background: none; border: 0; cursor: pointer; }
     .recap-prev { left: 0; width: 35%; } .recap-next { right: 0; width: 65%; }
     /* Phones and tablets: the week story straight after the goal card, so it plays on opening */
-    @media (max-width: 1023px) { #dash-focus { order: 0; } #dash-week-card { order: 1; } #dash-upnext-card { order: 2; } #dashboard-quests { order: 3; } }
+    @media (max-width: 1023px) { #dash-upnext-card { order: 0; } #dash-week-card { order: 1; } #dash-focus { order: 2; } #dashboard-quests { order: 3; } }
     /* The music player dock (js/motivation.js, Music): stays while you move around the app */
     .music-dock { position: fixed; right: 16px; bottom: 16px; z-index: 75; width: min(360px, calc(100vw - 32px)); background: #0D1B2A; color: #fff; border-radius: 18px; box-shadow: 0 18px 50px rgba(5,10,20,.35); overflow: hidden; }
     @media (max-width: 767px) { .music-dock { right: 8px; left: 8px; width: auto; bottom: calc(92px + env(safe-area-inset-bottom)); } }
@@ -330,7 +330,14 @@
     .brief-orb { width: 52px; height: 52px; flex-shrink: 0; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #A7F3EB, #0A7E8C 60%, #075E68); box-shadow: 0 0 24px rgba(94,234,212,.55), inset 0 0 12px rgba(255,255,255,.35); position: relative; }
     .brief-orb span { position: absolute; inset: -6px; border-radius: 50%; border: 2px solid rgba(94,234,212,.45); animation: orbpulse 2.4s ease-out infinite; }
     @keyframes orbpulse { 0% { transform: scale(.9); opacity: .9; } 100% { transform: scale(1.35); opacity: 0; } }
-    .brief-hello { font-size: 18px; font-weight: 800; letter-spacing: -.01em; padding-right: 28px; }
+    .brief-hello { font-size: 22px; font-weight: 800; letter-spacing: -.015em; }
+    .brief-sum button { color: #fff; font-weight: 700; text-decoration: underline; text-decoration-color: rgba(255,255,255,.35); text-underline-offset: 3px; }
+    .brief-sum button:hover { color: #5EEAD4; }
+    .brief-quote { margin-top: 10px; font-size: 15px; font-weight: 600; line-height: 1.45; color: #E8EEF5; }
+    .brief-quote span { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; color: #9FB3C8; }
+    .brief-add { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #5EEAD4; }
+    .brief-actions .brief-icon { width: 38px; padding: 9px 0; justify-content: center; }
+    @media (max-width: 640px) { .brief-card { gap: 12px; padding: 16px; } .brief-orb { width: 40px; height: 40px; } .brief-hello { font-size: 19px; } }
     .brief-sum { font-size: 13px; color: #9FB3C8; margin-top: 2px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
     .brief-list { margin-top: 10px; counter-reset: b; display: grid; gap: 4px; }
     .brief-list li { counter-increment: b; display: flex; gap: 8px; align-items: baseline; font-size: 14px; }
@@ -1977,50 +1984,32 @@
 
     <!-- ─── DASHBOARD ─── -->
     <div class="page active p-6" id="page-dashboard">
-      <!-- Header: greeting, the command bar (⌘K) and the game pills -->
-      <div class="mb-5 flex items-end gap-3 flex-wrap">
-        <div class="flex-1 min-w-[14rem]">
-          <p class="text-sm text-gray-500 font-semibold" id="dash-date"></p>
-          <h2 class="text-[28px] leading-tight font-extrabold text-navy tracking-tight"><span id="dash-greeting">Welcome back</span><span id="hero-name"></span></h2>
-          <p class="hidden text-xs font-semibold text-teal mt-1" id="bonus-credits-line"></p>
-        </div>
+      <!-- Header: the date and the game pills. The greeting lives in the
+           Today card below, with what matters now. -->
+      <div class="mb-3 flex items-center gap-3 flex-wrap">
+        <p class="flex-1 text-sm text-gray-500 font-semibold" id="dash-date"></p>
+        <h2 class="sr-only"><span id="dash-greeting">Welcome back</span><span id="hero-name"></span></h2>
         <div class="flex items-center gap-2 flex-wrap">
           <span class="pill-streak hidden" id="streak-badge" title="Days in a row with a finished task" data-icon="flame"><span><span id="streak-count">0</span>-day streak</span></span>
           <button type="button" class="pill-level" id="dash-level-pill" onclick="openJourneyTrophyCase()" title="Your rank and level. Open the Trophy Case">Lv 1</button>
         </div>
       </div>
-      <div class="flex gap-2 mb-5">
-        <button type="button" onclick="openPalette()" class="flex-1 min-w-0 flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 min-h-[48px] text-left text-sm font-semibold text-gray-500 hover:border-teal">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
-          <span class="flex-1 truncate">Search, jump to, or add a task…</span>
-          <kbd class="hidden sm:inline text-[11px] font-bold text-gray-400 border border-gray-200 rounded-md px-1.5 py-0.5">⌘K</kbd>
-        </button>
-        <button type="button" onclick="openAssistant()" class="flex-shrink-0 bg-teal hover:bg-teal/90 text-white rounded-2xl min-h-[48px] px-4 flex items-center gap-2 text-sm font-bold" aria-label="Open the assistant">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v12"></path><path d="M8 7v4a4 4 0 0 0 8 0V7"></path><path d="M12 19v2"></path></svg>
-          <span class="hidden sm:inline">Assistant</span>
-        </button>
-      </div>
+      <p class="hidden text-xs font-semibold text-teal -mt-1 mb-3" id="bonus-credits-line"></p>
 
-      <!-- Today's briefing from the assistant (js/jarvis.js), once a day -->
-      <div id="dash-brief" class="hidden mb-5"></div>
+      <!-- Today (js/jarvis.js): one card from the assistant with the
+           greeting, what's late or due, today's quote from Your why, and
+           buttons to start, talk and play your music. -->
+      <div id="dash-brief" class="mb-4"></div>
 
-      <!-- Your why: today's quote, their reason, their mentor, their music -->
-      <div id="dash-why" class="hidden mb-5"></div>
+      <button type="button" onclick="openPalette()" class="w-full flex items-center gap-3 bg-white border border-gray-200 rounded-2xl px-4 min-h-[48px] text-left text-sm font-semibold text-gray-500 hover:border-teal mb-5">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <span class="flex-1 truncate">Search, jump to, or add a task…</span>
+        <kbd class="hidden sm:inline text-[11px] font-bold text-gray-400 border border-gray-200 rounded-md px-1.5 py-0.5">⌘K</kbd>
+      </button>
 
-      <!-- Bento: the focus goal (navy, with its stage), today's quests, up
-           next with tick boxes, and this week -->
+      <!-- Bento: what to do (Your focus) beside this week, then the focus
+           goal with its Journey stage and today's quests -->
       <div class="grid grid-cols-1 gap-4 mb-6 lg:grid-cols-3 lg:items-start [&>*]:min-w-0">
-        <div class="focus-card lg:col-span-2 hidden" id="dash-focus"></div>
-
-        <!-- Today's quests (js/gameui.js): three small goals, new each day -->
-        <div id="dashboard-quests" class="hidden bg-white rounded-2xl border border-gray-200 p-4">
-          <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-            <div><p class="text-[15px] font-extrabold text-navy">Today's quests</p><p class="text-xs text-gray-500 mt-0.5 font-semibold" id="dashboard-quests-count"></p></div>
-            <button onclick="openJourneyTrophyCase()" class="text-xs font-bold text-teal hover:underline">Trophies →</button>
-          </div>
-          <div class="grid gap-2" id="dashboard-quests-list"></div>
-        </div>
-
         <div class="bg-white rounded-2xl border border-gray-200 px-4 py-3 lg:col-span-2" id="dash-upnext-card">
           <!-- Your focus: the one dashboard list of what to do. What needs
                attention (late, blocked, due today, waiting) comes first with
@@ -2036,14 +2025,23 @@
         <div class="bg-white rounded-2xl border border-gray-200 p-3 flex flex-col gap-1" id="dash-week-card">
           <!-- My week, playing as a story (js/recap.js) -->
           <div class="recap-mini" id="dash-recap" role="region" aria-label="Your week so far, as slides"></div>
-          <p class="text-[15px] font-extrabold text-navy px-1 pt-2">This week</p>
-          <p class="text-3xl font-extrabold text-navy px-1" id="dash-week-done">0 <span class="text-sm font-semibold text-gray-500">tasks done</span></p>
-          <p class="text-xs font-bold px-1" id="dash-week-trend"></p>
+          <p class="text-sm font-extrabold text-navy px-1 pt-2 flex items-baseline gap-2 flex-wrap">This week: <span class="week-done" id="dash-week-done">0 tasks done</span> <span class="text-xs font-bold" id="dash-week-trend"></span></p>
           <div class="mx-1 mt-2 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="goals-bar-fill h-full rounded-full transition-all duration-500" id="hero-goals-prog" style="width:0%"></div></div>
           <p class="text-xs text-gray-500 mt-1 px-1"><span id="hero-goals-pct">0%</span> of all planned work · <span id="hero-goals-sub">0 of 0 tasks complete</span> <span id="hero-goals-detail" class="hidden"></span></p>
-          <p class="text-xs text-gray-500 px-1"><span id="kpi-total">0</span> tasks · <span id="kpi-done">0</span> done · <span id="kpi-inprog">0</span> in progress</p>
-          <button onclick="openWeeklyRecap()" class="mt-auto pt-2 px-1 pb-1 text-left text-sm font-extrabold text-teal hover:underline inline-flex items-center gap-1.5" data-icon="expand">Watch full screen</button>
+          <p class="hidden"><span id="kpi-total">0</span><span id="kpi-done">0</span><span id="kpi-inprog">0</span></p>
         </div>
+
+        <div class="focus-card lg:col-span-2 hidden" id="dash-focus"></div>
+
+        <!-- Today's quests (js/gameui.js): three small goals, new each day -->
+        <div id="dashboard-quests" class="hidden bg-white rounded-2xl border border-gray-200 p-4">
+          <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <div><p class="text-[15px] font-extrabold text-navy">Today's quests</p><p class="text-xs text-gray-500 mt-0.5 font-semibold" id="dashboard-quests-count"></p></div>
+            <button onclick="openJourneyTrophyCase()" class="text-xs font-bold text-teal hover:underline">Trophies →</button>
+          </div>
+          <div class="grid gap-2" id="dashboard-quests-list"></div>
+        </div>
+
       </div>
 
       <!-- Goals — projects created via the AI chat ("Chat with AI") flow,

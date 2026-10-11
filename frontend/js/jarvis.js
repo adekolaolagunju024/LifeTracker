@@ -179,15 +179,16 @@ const Jarvis = (() => {
     bubble.appendChild(row);
   }
 
-  // ── Morning briefing ──
-  // Once a day on the dashboard: what matters today, read out on request,
-  // and one tap to start the first thing with your music on.
+  // ── Today ──
+  // The top of the dashboard: the greeting, what's late or due, your
+  // streak, today's quote from Your why, and one tap to start the first
+  // thing (with your music), talk to the assistant, play your music, or
+  // hear it all read out.
   let brief = null;
-  async function renderBriefing(force) {
+  async function renderBriefing() {
     const box = document.getElementById('dash-brief');
     if (!box) return;
     const today = localDateKey(new Date());
-    if (!force && store.get('wp-briefed') === today) { box.classList.add('hidden'); return; }
     let tasks, profile;
     try { [tasks, profile] = await Promise.all([API.getTasks(), API.getProfile()]); } catch { return; }
     const open = tasks.filter(t => t.status !== 'Completed');
@@ -196,47 +197,48 @@ const Jarvis = (() => {
     const todays = open.filter(t => due(t) === today);
     const blocked = open.filter(t => (t.obstacles || []).some(o => !o.resolved));
     const rank = t => (late.includes(t) ? 0 : todays.includes(t) ? 1 : t.status === 'In Progress' ? 2 : t.priority === 'High' ? 3 : 4);
-    const top = open.filter(t => !blocked.includes(t)).sort((a, b) => rank(a) - rank(b) || (due(a) || '9999').localeCompare(due(b) || '9999')).slice(0, 3);
+    const top = open.filter(t => !blocked.includes(t)).sort((a, b) => rank(a) - rank(b) || (due(a) || '9999').localeCompare(due(b) || '9999'))[0] || null;
     const name = profile && profile.name && profile.name !== 'Your Name' ? profile.name.split(' ')[0] : '';
     const h = new Date().getHours();
     const hello = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
     const why = window.Why ? await Why.load().then(() => Why.get()).catch(() => null) : null;
     const quote = why && why.quotes.length ? why.quotes[Math.floor(Date.now() / 86400000) % why.quotes.length] : null;
+    const music = why && why.playlists.length ? why.playlists[0] : null;
     const counts = [late.length && `${late.length} overdue`, todays.length && `${todays.length} due today`, blocked.length && `${blocked.length} blocked`].filter(Boolean);
-    const spoken = [
-      `${hello}${name ? `, ${name}` : ''}.`,
-      counts.length ? `You have ${counts.join(', ')}.` : 'Nothing is late. A good day to get ahead.',
-      top.length ? `First up: ${top[0].title}.` : '',
-      profile && profile.currentStreak ? `You're on a ${profile.currentStreak}-day streak.` : '',
-      quote ? `And remember: ${quote.text}` : why && why.why ? `Remember why: ${why.why}.` : '',
-    ].filter(Boolean).join(' ');
-    brief = { top, spoken };
-    box.classList.remove('hidden');
+    brief = {
+      top,
+      spoken: [
+        `${hello}${name ? `, ${name}` : ''}.`,
+        counts.length ? `You have ${counts.join(', ')}.` : 'Nothing is late. A good day to get ahead.',
+        top ? `First up: ${top.title}.` : '',
+        profile && profile.currentStreak ? `You're on a ${profile.currentStreak}-day streak.` : '',
+        quote ? `And remember: ${quote.text}` : why && why.why ? `Remember why: ${why.why}.` : '',
+      ].filter(Boolean).join(' '),
+    };
+    const line = quote ? `<p class="brief-quote">“${esc(quote.text)}”${quote.source ? ` <span>${esc(quote.source)}</span>` : ''}</p>`
+      : why && why.why ? `<p class="brief-quote">Remember why: ${esc(why.why)}</p>`
+        : `<button type="button" class="brief-add" onclick="showPage('why')">${icon('heart', 'tiny')} Add what keeps you going</button>`;
     box.innerHTML = `<div class="brief-card">
       <div class="brief-orb" aria-hidden="true"><span></span></div>
       <div class="min-w-0 flex-1">
-        <p class="brief-hello">${esc(hello)}${name ? `, ${esc(name)}` : ''}. Here's your day.</p>
-        <p class="brief-sum">${counts.length ? esc(counts.join(' · ')) : 'Nothing late. A good day to get ahead.'}${profile && profile.currentStreak ? ` · ${icon('flame', 'tiny')} ${profile.currentStreak}-day streak` : ''}</p>
-        ${top.length ? `<ol class="brief-list">${top.map(t => `<li><button type="button" onclick="openTaskDetail('${t.id}')">${esc(t.title)}</button></li>`).join('')}</ol>` : ''}
+        <p class="brief-hello">${esc(hello)}${name ? `, ${esc(name)}` : ''}.</p>
+        <p class="brief-sum">${counts.length ? esc(counts.join(' · ')) : 'Nothing late. A good day to get ahead.'}${top ? ` · First up: <button type="button" onclick="openTaskDetail('${top.id}')">${esc(top.title)}</button>` : ''}</p>
+        ${line}
         <div class="brief-actions">
-          ${top.length ? `<button type="button" class="brief-go" onclick="Jarvis.startDay()">${icon('play')}Start my day</button>` : ''}
-          <button type="button" onclick="Jarvis.hear()">${icon('volume')}Hear it</button>
-          <button type="button" onclick="Jarvis.talk()">${icon('mic')}Talk to me</button>
+          ${top ? `<button type="button" class="brief-go" onclick="Jarvis.startDay()">${icon('play')}Start my day</button>` : ''}
+          <button type="button" onclick="Jarvis.talk()">${icon('mic')}Talk</button>
+          ${music ? `<button type="button" onclick="Why.playMusic()">${icon('music')}${esc(music.label || 'My music')}</button>` : `<button type="button" onclick="showPage('why')">${icon('music')}Add music</button>`}
+          <button type="button" class="brief-icon" onclick="Jarvis.hear()" aria-label="Read today out loud" title="Read it out loud">${icon('volume')}</button>
+          ${why && !isWhyEmpty(why) ? `<button type="button" class="brief-icon" onclick="showPage('why')" aria-label="Edit your why" title="Your why">${icon('heart')}</button>` : ''}
         </div>
       </div>
-      <button type="button" class="brief-x" onclick="Jarvis.dismissBriefing()" aria-label="Hide today's briefing">${icon('close')}</button>
     </div>`;
   }
+  const isWhyEmpty = x => !x.why && !x.becoming && !x.mentor.name && !x.quotes.length && !x.playlists.length;
   const hear = () => brief && say(brief.spoken);
   function startDay() {
-    if (!brief || !brief.top.length) return;
-    const t = brief.top[0];
-    startFocus({ taskId: t.id, title: t.title, minutes: 25, music: true });
-    dismissBriefing();
-  }
-  function dismissBriefing() {
-    store.set('wp-briefed', localDateKey(new Date()));
-    document.getElementById('dash-brief')?.classList.add('hidden');
+    if (!brief || !brief.top) return;
+    startFocus({ taskId: brief.top.id, title: brief.top.title, minutes: 25, music: true });
   }
 
   // ── Always one key away ──
@@ -253,6 +255,6 @@ const Jarvis = (() => {
     talk();
   });
 
-  return { startFocus, stopFocus, togglePause, extend, focusDone, resumeFocus, handle, renderBriefing, hear, startDay, dismissBriefing, talk, isFocusing: () => !!focus };
+  return { startFocus, stopFocus, togglePause, extend, focusDone, resumeFocus, handle, renderBriefing, hear, startDay, talk, isFocusing: () => !!focus };
 })();
 window.Jarvis = Jarvis;
