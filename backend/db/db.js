@@ -306,13 +306,17 @@ function consumeQuota(userId, kind) {
   const todayKey = localDateKeyFromDate(new Date());
   const profile = getProfile(userId);
   const used = profile[date] === todayKey ? profile[count] : 0;
+  // Each call is also counted for the owner's metrics (AI cost per user).
+  const logCall = () => logEvent(userId, kind === 'ai' ? 'ai_call' : 'assistant_call');
   if (used >= limit) {
     // Once today's allowance is used up, referral bonus credits cover the rest.
     if (!profile.bonusAiCredits) return false;
     db.prepare('UPDATE profile SET bonusAiCredits = bonusAiCredits - 1 WHERE userId = ?').run(userId);
+    logCall();
     return true;
   }
   db.prepare(`UPDATE profile SET ${count} = ?, ${date} = ? WHERE userId = ?`).run(used + 1, todayKey, userId);
+  logCall();
   return true;
 }
 function consumeAiQuota(userId) { return consumeQuota(userId, 'ai'); }
@@ -1071,6 +1075,12 @@ function leaveProject(userId, projectId) {
 // active if this is recent, away otherwise.
 function touchLastActive(userId) {
   db.prepare('UPDATE users SET lastActiveAt = ? WHERE id = ?').run(new Date().toISOString(), userId);
+}
+// One "active_day" event per person per UTC day, the backbone of weekly
+// active users and retention on the owner's metrics page.
+function recordActiveDay(userId, dayKey = new Date().toISOString().slice(0, 10)) {
+  const seen = db.prepare("SELECT 1 FROM analytics_events WHERE userId = ? AND event = 'active_day' AND createdAt >= ? LIMIT 1").get(userId, dayKey);
+  if (!seen) logEvent(userId, 'active_day');
 }
 
 // ── NOTIFICATIONS ────────────────────────────────────────────────
@@ -1976,6 +1986,7 @@ function markReminderRung(id, iso = new Date().toISOString()) {
 }
 
 module.exports = {
+  recordActiveDay,
   getOneDrive, setOneDrive,
   listReminders, getReminder, setTaskReminder, deleteTaskReminder, snoozeReminder, ackReminder, listRemindersToRing, markReminderRung,
   setTotpPendingSecret, enableTotp, disableTotp, claimTotpStep, setTotpRecoveryHashes, useTotpRecoveryCode,

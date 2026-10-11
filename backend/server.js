@@ -23,6 +23,7 @@ const { startBackupScheduler } = require('./backup');
 
 const showcase = require('./showcase');
 const { renderLanding } = require('./landing');
+const metrics = require('./metrics');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -121,6 +122,7 @@ app.use('/vendor/three/examples/jsm', express.static(path.join(__dirname, '../no
 app.get('/', (req, res) => {
   noCache(res);
   if (req.session && req.session.userId) return res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  try { metrics.countPageView('landing', req.get('user-agent')); } catch { /* counting never blocks the page */ }
   res.type('html').send(renderLanding());
 });
 // Live screenshots of the app for the landing page (backend/showcase.js).
@@ -173,6 +175,7 @@ app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/uploads',  require('./routes/uploads'));
 app.use('/api/push',     require('./routes/push'));
 app.use('/api/reminders', require('./routes/reminders'));
+app.use('/api/admin', require('./routes/admin'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/journey-gaming', require('./routes/journeyGaming'));
 app.use('/api/calendar', calendar.apiRouter);

@@ -332,6 +332,58 @@
        so a widened "Task / Project" column also prints uncompressed. */
     #page-gantt { --gc1: 240px; --gc2: 90px; --gc3: 100px; --gc4: 100px; --gc5: 70px; }
     .gantt-sticky { position: sticky; z-index: 6; background: inherit; }
+    /* Owner metrics (js/metrics.js) */
+    #page-metrics { max-width: 1100px; }
+    .metric-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .metric-tiles.small { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin: 0; }
+    .metric-tile { background: #fff; border: 1px solid #E3E6EA; border-radius: 16px; padding: 14px 16px; }
+    .metric-tiles.small .metric-tile { background: #F8F9FA; }
+    .metric-label { font-size: 12px; font-weight: 700; color: #5B6472; margin: 0; }
+    .metric-value { font-size: 28px; font-weight: 800; color: #0D1B2A; margin: 4px 0 0; line-height: 1.1; }
+    .metric-tiles.small .metric-value { font-size: 22px; }
+    .metric-sub { font-size: 12px; color: #5B6472; margin: 4px 0 0; }
+    .metric-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
+    .metric-card { background: #fff; border: 1px solid #E3E6EA; border-radius: 18px; padding: 16px; margin: 0 0 12px; }
+    .metric-card-title { font-size: 14px; font-weight: 800; color: #0D1B2A; margin: 0 0 10px; }
+    .metric-card-title span { font-weight: 600; color: #8A93A0; font-size: 12px; margin-left: 6px; }
+    .metric-svg { width: 100%; height: auto; display: block; }
+    .metric-grid { stroke: #EEF0F3; stroke-width: 1; }
+    .metric-axis { fill: #8A93A0; font-size: 11px; font-family: inherit; }
+    .metric-bar path { fill: #0A7E8C; }
+    .metric-bar.is-hot path, .metric-bar:focus path { fill: #075E68; }
+    .metric-bar:focus { outline: none; }
+    .metric-table { margin-top: 8px; font-size: 12px; color: #5B6472; }
+    .metric-table summary { cursor: pointer; font-weight: 700; }
+    .metric-table table { margin-top: 6px; border-collapse: collapse; }
+    .metric-table td, .metric-table th { padding: 3px 12px 3px 0; text-align: left; }
+    #metric-tip { position: fixed; z-index: 80; pointer-events: none; background: #0D1B2A; color: #fff; font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 8px; opacity: 0; transition: opacity .1s; }
+    #metric-tip.on { opacity: 1; }
+    .metric-funnel { display: flex; flex-direction: column; gap: 8px; }
+    .metric-funnel-row { display: grid; grid-template-columns: 160px 1fr 110px; align-items: center; gap: 12px; font-size: 13px; }
+    .metric-funnel-label { font-weight: 700; color: #0D1B2A; }
+    .metric-funnel-track { height: 14px; background: #F0F2F4; border-radius: 4px; overflow: hidden; }
+    .metric-funnel-track span { display: block; height: 100%; background: #0A7E8C; border-radius: 0 4px 4px 0; min-width: 2px; }
+    .metric-funnel-num { font-weight: 800; color: #0D1B2A; text-align: right; }
+    .metric-funnel-num small { font-weight: 600; color: #5B6472; }
+    @media (max-width: 600px) { .metric-funnel-row { grid-template-columns: 1fr auto; } .metric-funnel-track { grid-column: 1 / -1; order: 3; } }
+    .metric-cohort-wrap { overflow-x: auto; }
+    .metric-cohort { border-collapse: separate; border-spacing: 2px; font-size: 12px; min-width: 560px; width: 100%; }
+    .metric-cohort th { font-weight: 700; color: #5B6472; text-align: left; padding: 4px 6px; white-space: nowrap; }
+    .metric-cohort td { text-align: center; padding: 6px 4px; border-radius: 4px; color: #0D1B2A; font-weight: 700; background: #F8F9FA; }
+    .metric-cohort td.s1 { background: #E6F4F5; } .metric-cohort td.s2 { background: #B3E0E4; } .metric-cohort td.s3 { background: #6FC3CB; }
+    .metric-cohort td.s4 { background: #1C8F9C; color: #fff; } .metric-cohort td.s5 { background: #075E68; color: #fff; }
+    .metric-note { font-size: 12px; color: #8A93A0; margin: 10px 0 0; }
+    .dark .metric-tile, .dark .metric-card { background: #111A2B; border-color: #1F2A3D; }
+    .dark .metric-tiles.small .metric-tile, .dark .metric-cohort td { background: #0F1726; }
+    .dark .metric-value, .dark .metric-card-title, .dark .metric-funnel-label, .dark .metric-funnel-num { color: #F1F5F9; }
+    .dark .metric-label, .dark .metric-sub, .dark .metric-funnel-num small, .dark .metric-cohort th, .dark .metric-table { color: #94A3B8; }
+    .dark .metric-grid { stroke: #1F2A3D; }
+    .dark .metric-bar path, .dark .metric-funnel-track span { fill: #2DD4BF; background: #2DD4BF; }
+    .dark .metric-bar.is-hot path { fill: #5EEAD4; }
+    .dark .metric-funnel-track { background: #1A2436; }
+    .dark .metric-cohort td { color: #E2E8F0; }
+    .dark .metric-cohort td.s1 { background: #12303A; } .dark .metric-cohort td.s2 { background: #11505A; } .dark .metric-cohort td.s3 { background: #0E7480; }
+    .dark .metric-cohort td.s4 { background: #14A3A8; color: #0D1B2A; } .dark .metric-cohort td.s5 { background: #5EEAD4; color: #0D1B2A; }
     /* Settings: tabs, one section at a time */
     #page-settings { max-width: 900px; }
     .settings-tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -24px 20px; padding: 0 24px 2px; position: sticky; top: 56px; z-index: 20; background: #F4F5F7; padding-top: 8px; padding-bottom: 8px; }
@@ -1483,6 +1535,11 @@
         <span class="icon-badge" style="background:rgba(10,126,140,.22)">💬</span> Chats
         <span class="hidden ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center leading-none" id="nav-chats-badge">0</span>
       </button>
+      <!-- Owner only (js/metrics.js shows it) -->
+      <button class="hidden nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('metrics')" data-page="metrics" id="nav-metrics">
+        <span class="icon-badge" style="background:rgba(13,27,42,.12)">📈</span> Metrics
+      </button>
     </div>
 
     <div class="mx-4 border-t border-white/10"></div>
@@ -2131,6 +2188,18 @@
         <p class="text-gray-500 text-sm mt-1">Every project you've shared or been shared, in one place.</p>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden" id="chats-list"></div>
+    </div>
+
+    <!-- ─── METRICS (owner only; js/metrics.js, backend/metrics.js) ─── -->
+    <div class="page p-6" id="page-metrics">
+      <div class="flex items-end justify-between gap-3 flex-wrap mb-5">
+        <div>
+          <h2 class="text-2xl font-black text-navy">Metrics</h2>
+          <p class="text-gray-500 text-sm mt-1">Is Waypoint working? Sign-ups, first wins and who comes back. <span id="metrics-updated" class="text-gray-400"></span></p>
+        </div>
+        <button type="button" onclick="Metrics.refresh()" class="bg-white border border-gray-200 hover:border-teal text-navy text-xs font-bold px-3 py-2 rounded-lg">↻ Refresh</button>
+      </div>
+      <div id="metrics-body"></div>
     </div>
 
     <!-- ─── SETTINGS ─── -->
@@ -3242,6 +3311,7 @@
 <script src="js/palette.js"></script>
 <script src="js/recap.js"></script>
 <script src="js/reminders.js"></script>
+<script src="js/metrics.js"></script>
 
 </body>
 </html>

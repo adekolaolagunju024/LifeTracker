@@ -206,6 +206,10 @@ const API = {
   unsubscribePush:   (endpoint) => request('POST', '/push/unsubscribe', { endpoint }),
   testPush:          ()         => request('POST', '/push/test'),
 
+  // ── OWNER METRICS ──
+  getAdminMe:        ()                 => request('GET', '/admin/me'),
+  getAdminMetrics:   ()                 => request('GET', '/admin/metrics'),
+
   // ── TASK REMINDERS (alarms) ──
   getReminders:      ()                 => request('GET', '/reminders'),
   setTaskReminder:   (taskId, data)     => request('PUT', `/reminders/task/${taskId}`, data),
