@@ -1689,7 +1689,69 @@ function getProjectSnapshot(userId, projectId) {
   return { profile: getProfile(userId), projects, tasks };
 }
 
+// ── ASSISTANT CONVERSATIONS ─────────────────────────────────────
+// Each user's saved chats with the assistant, newest first. Only the
+// owner ever reads or writes them. Messages are cleaned on the way in:
+// two roles, text capped, at most the latest 200, and an attachment
+// reduced to its file name.
+const CONVERSATION_ID = /^[A-Za-z0-9-]{8,64}$/;
+function cleanConversationMessages(messages) {
+  return (Array.isArray(messages) ? messages : [])
+    .filter(m => m && (m.role === 'user' || m.role === 'assistant'))
+    .map(m => {
+      const out = { role: m.role, content: String(m.content || '').slice(0, 4000) };
+      if (m.kind === 'edits' || m.kind === 'proposal') out.kind = m.kind;
+      const name = m.attachmentName || (m.attachment && m.attachment.name);
+      if (name) out.attachmentName = String(name).slice(0, 200);
+      return out;
+    })
+    .filter(m => m.content.trim() || m.attachmentName)
+    .slice(-200);
+}
+function listAssistantConversations(userId) {
+  return db.prepare('SELECT id, projectId, title, messages, createdAt, updatedAt FROM assistant_conversations WHERE userId = ? ORDER BY updatedAt DESC LIMIT 50')
+    .all(userId)
+    .map(r => {
+      const msgs = JSON.parse(r.messages || '[]');
+      const last = msgs[msgs.length - 1];
+      const project = r.projectId ? getProjectById(userId, r.projectId) : null;
+      return { id: r.id, projectId: r.projectId, projectTitle: project ? project.title : null, title: r.title, count: msgs.length,
+        preview: last ? String(last.content || '').slice(0, 120) : '', createdAt: r.createdAt, updatedAt: r.updatedAt };
+    });
+}
+function getAssistantConversation(userId, id) {
+  const r = db.prepare('SELECT * FROM assistant_conversations WHERE id = ? AND userId = ?').get(id, userId);
+  if (!r) return null;
+  return { id: r.id, projectId: r.projectId, title: r.title, messages: JSON.parse(r.messages || '[]'), createdAt: r.createdAt, updatedAt: r.updatedAt };
+}
+function saveAssistantConversation(userId, id, { projectId, messages }) {
+  if (!CONVERSATION_ID.test(String(id || ''))) throw new Error('Invalid conversation id');
+  const existing = db.prepare('SELECT userId, projectId FROM assistant_conversations WHERE id = ?').get(id);
+  if (existing && existing.userId !== userId) throw new Error('Conversation not found');
+  let project = null;
+  if (projectId) {
+    project = getProjectById(userId, projectId);
+    if (!project) throw new Error('Project not found');
+  }
+  const clean = cleanConversationMessages(messages);
+  const firstUser = clean.find(m => m.role === 'user');
+  const title = (firstUser ? (firstUser.content.trim() || firstUser.attachmentName || '') : '').replace(/\s+/g, ' ').slice(0, 80) || 'New chat';
+  const now = new Date().toISOString();
+  if (existing) {
+    db.prepare('UPDATE assistant_conversations SET projectId = ?, title = ?, messages = ?, updatedAt = ? WHERE id = ?')
+      .run(project ? project.id : null, title, JSON.stringify(clean), now, id);
+  } else {
+    db.prepare('INSERT INTO assistant_conversations (id, userId, projectId, title, messages, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(id, userId, project ? project.id : null, title, JSON.stringify(clean), now, now);
+  }
+  return getAssistantConversation(userId, id);
+}
+function deleteAssistantConversation(userId, id) {
+  db.prepare('DELETE FROM assistant_conversations WHERE id = ? AND userId = ?').run(id, userId);
+}
+
 module.exports = {
+  listAssistantConversations, getAssistantConversation, saveAssistantConversation, deleteAssistantConversation,
   listObstacles, addObstacle, updateObstacle, deleteObstacle, setTaskPredecessors,
   createUser, getUserByEmail, getUserById, setUserPasswordHash, deleteUser,
   setPasswordResetToken, getUserByResetToken, clearPasswordResetToken,

@@ -406,6 +406,23 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_task_dependencies_pred ON task_dependencies(predecessorId);
 `);
 
+// Saved conversations with the Waypoint assistant, so a chat survives
+// closing the window and can be picked up again from its history. The
+// messages are kept as a JSON array of { role, content, kind?, attachmentName? }
+// (an attached file's contents are never stored, just its name).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS assistant_conversations (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    projectId TEXT,
+    title TEXT NOT NULL DEFAULT '',
+    messages TEXT NOT NULL DEFAULT '[]',
+    createdAt TEXT NOT NULL,
+    updatedAt TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_assistant_conversations_user ON assistant_conversations(userId, updatedAt);
+`);
+
 // Journey gaming: XP accrues per account (not per project) as real tasks
 // are completed anywhere — the same worker/house "levels up" across every
 // project's Journey view. Deliberately not project-scoped: the point is to
