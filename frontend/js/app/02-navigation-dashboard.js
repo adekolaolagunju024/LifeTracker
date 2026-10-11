@@ -18,6 +18,9 @@ function showPage(id, projectId = null, _skipHistory = false) {
   }
 
   APP.currentPage      = id;
+  // The dashboard's focus card already says what's late, so its banner
+  // only shows on other pages.
+  document.getElementById('digest-banner')?.classList.toggle('on-dashboard', id === 'dashboard');
   APP.currentProjectId = projectId;
   APP.filters          = { status: '', priority: '', search: '', tag: '' };
   closeMobileSidebar();
@@ -157,23 +160,42 @@ function renderDashboardBento(tasks, allProjects) {
       </div>`;
   }
 
-  // Up next: the next few open tasks by due date, ticked off right here.
-  const upnext = tasks.filter(t => t.status !== 'Completed')
-    .sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999') || (a.priority === 'High' ? -1 : 0)).slice(0, 5);
+  // Your focus: what needs attention first (late, due today, blocked,
+  // waiting), each with its reason, then what's due next; five at most.
+  // The counts above it open Actions, which has the full list.
   const byId = Object.fromEntries(allProjects.map(p => [p.id, p]));
-  document.getElementById('dash-upnext').innerHTML = upnext.length ? upnext.map(t => {
+  const open = tasks.filter(t => t.status !== 'Completed');
+  const dueKey = t => (t.endDate || '').slice(0, 10);
+  const blockersOf = t => (t.obstacles || []).filter(o => !o.resolved).length;
+  const late = open.filter(t => dueKey(t) && dueKey(t) < todayKey);
+  const today = open.filter(t => dueKey(t) === todayKey);
+  const blocked = open.filter(t => blockersOf(t));
+  const waitingTasks = open.filter(t => waitingOn(t).length);
+  const countChips = [['late', late.length, 'overdue', '🔴'], ['blocked', blocked.length, 'blocked', '⚔️'], ['today', today.length, 'due today', '📌'], ['waiting', waitingTasks.length, 'waiting', '🔗']]
+    .filter(([, n]) => n)
+    .map(([cls, n, label, icon]) => `<button type="button" class="focus-count ${cls}" onclick="showPage('actions')" aria-label="${n} ${label}. Open Actions">${icon} ${n} ${label}</button>`);
+  document.getElementById('dash-attention-counts').innerHTML = countChips.length ? countChips.join('') : '<span class="focus-count clear">🎉 Nothing late or blocked</span>';
+  const rank = t => (dueKey(t) && dueKey(t) < todayKey ? 0 : dueKey(t) === todayKey ? 1 : blockersOf(t) ? 2 : waitingOn(t).length ? 3 : 4);
+  const focusList = [...open].sort((a, b) => rank(a) - rank(b) || (dueKey(a) || '9999').localeCompare(dueKey(b) || '9999') || (a.priority === 'High' ? -1 : b.priority === 'High' ? 1 : 0)).slice(0, 5);
+  document.getElementById('dash-upnext').innerHTML = focusList.length ? focusList.map(t => {
     const due = dueLabel(t.endDate, todayKey);
-    const foes = pendingFoes(t);
-    const waiting = waitingOn(t).length;
-    return `<label class="flex items-center gap-3 min-h-[52px] border-b border-gray-100 last:border-0 cursor-pointer">
-      <input type="checkbox" class="w-5 h-5 accent-teal flex-shrink-0" onchange="completeFromDashboard('${t.id}', this)" aria-label="Mark ${esc(t.title)} done" ${waiting ? 'disabled title="Waiting on another task"' : ''}>
-      <span class="flex-1 min-w-0">
-        <span class="block text-sm font-semibold text-navy truncate">${waiting ? '🔒 ' : ''}${esc(t.title)}</span>
-        <span class="block text-[11px] text-gray-500 truncate">${esc((byId[t.projectId] || {}).title || '')}</span>
-      </span>
-      ${foes ? `<span class="flex-shrink-0 text-[11px] font-extrabold text-red-700 bg-red-50 px-2 py-0.5 rounded-full">⚔️ ${foes}</span>` : ''}
-      <span class="flex-shrink-0 w-20 text-right text-xs font-semibold ${due.late ? 'text-red-600' : 'text-gray-500'}">${esc(due.text)}</span>
-    </label>`;
+    const n = blockersOf(t);
+    const waiting = waitingOn(t);
+    const stuck = n > 0 || waiting.length > 0;
+    const proj = byId[t.projectId] || {};
+    const canEdit = proj.role === 'owner' || proj.role === 'editor';
+    const why = [];
+    if (n) why.push(`<span class="attention-why blocked">⚔️ ${n} blocker${n === 1 ? '' : 's'}</span>`);
+    if (waiting.length) why.push(`<span class="attention-why waiting" title="Waiting on ${esc(waiting.map(p => p.title).join(', '))}">🔗 Waiting</span>`);
+    return `<div class="flex items-center gap-3 min-h-[52px] border-b border-gray-100 last:border-0">
+      <input type="checkbox" class="w-5 h-5 accent-teal flex-shrink-0" onchange="completeFromDashboard('${t.id}', this)" aria-label="${stuck ? 'Blocked: ' : 'Mark '}${esc(t.title)}${stuck ? '' : ' done'}" ${stuck || !canEdit ? `disabled title="${stuck ? 'Clear what is in the way first' : 'View-only'}"` : ''}>
+      <button type="button" onclick="openTaskDetail('${t.id}')" class="flex-1 min-w-0 text-left">
+        <span class="block text-sm font-semibold text-navy truncate hover:text-teal">${stuck ? '🔒 ' : ''}${esc(t.title)}</span>
+        <span class="block text-[11px] text-gray-500 truncate">${why.join('')}${esc(proj.title || '')}</span>
+      </button>
+      <span class="flex-shrink-0 w-20 text-right text-xs font-semibold ${due.late ? 'text-red-600' : dueKey(t) === todayKey ? 'text-amber-700' : 'text-gray-500'}">${esc(due.text)}</span>
+      <button type="button" class="attention-act" onclick="Reminders.openSheet('${t.id}')" title="Remind me" aria-label="Set a reminder for ${esc(t.title)}">⏰</button>
+    </div>`;
   }).join('') : '<p class="text-sm text-gray-500 py-4">Nothing open. Plan your next goal with the assistant, or start from a template.</p>';
 
   // This week against last week.
@@ -356,70 +378,8 @@ async function renderDashboard() {
     const emptyMsg = `<p class="text-center text-gray-400 text-sm py-8 col-span-full">No projects yet — <button onclick="openAddProject()" class="text-teal underline">create one</button>.</p>`;
     document.getElementById('project-stats').innerHTML = cardsHTML || emptyMsg;
 
-    renderAttention(tasks, allProjects, todayKey);
 
   } catch (e) { console.error('Dashboard error:', e); }
-}
-
-// Needs your attention: same definitions as the Actions page (overdue,
-// blocked, due today, waiting on another task), with the three most
-// urgent tasks actionable in place.
-function renderAttention(tasks, projects, todayKey) {
-  const projectById = Object.fromEntries(projects.map(p => [p.id, p]));
-  const open = tasks.filter(t => t.status !== 'Completed');
-  const due = t => (t.endDate || '').slice(0, 10);
-  const blockersOf = t => (t.obstacles || []).filter(o => !o.resolved).length;
-  const overdue = open.filter(t => due(t) && due(t) < todayKey);
-  const today = open.filter(t => due(t) === todayKey);
-  const blocked = open.filter(t => blockersOf(t));
-  const waiting = open.filter(t => waitingOn(t).length);
-  const counts = [
-    ['Overdue', overdue.length, overdue.length ? 'is-hot' : ''],
-    ['Blocked', blocked.length, blocked.length ? 'is-hot' : ''],
-    ['Due today', today.length, today.length ? 'is-warn' : ''],
-    ['Waiting on others', waiting.length, waiting.length ? 'is-warn' : ''],
-  ];
-  document.getElementById('dash-attention-counts').innerHTML = counts.map(([label, n, cls]) =>
-    `<button type="button" class="attention-count ${cls}" onclick="showPage('actions')" aria-label="${n} ${label.toLowerCase()}. Open Actions"><b>${n}</b><span>${label}</span></button>`).join('');
-  // Most urgent first: the longest overdue, then due today, then blocked, then waiting.
-  const rank = t => (due(t) && due(t) < todayKey ? 0 : due(t) === todayKey ? 1 : blockersOf(t) ? 2 : 3);
-  const urgent = [...new Set([...overdue, ...today, ...blocked, ...waiting])]
-    .sort((a, b) => rank(a) - rank(b) || (due(a) || '9999').localeCompare(due(b) || '9999'))
-    .slice(0, 3);
-  const list = document.getElementById('dash-attention-list');
-  if (!urgent.length) {
-    list.innerHTML = '<p class="text-sm text-gray-500 py-1">🎉 All clear: nothing late, blocked or due today.</p>';
-    return;
-  }
-  const daysBetween = (a, b) => Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000);
-  list.innerHTML = urgent.map(t => {
-    const proj = projectById[t.projectId];
-    const canEdit = proj && (proj.role === 'owner' || proj.role === 'editor');
-    const n = blockersOf(t), w = waitingOn(t);
-    const why = [];
-    if (due(t) && due(t) < todayKey) { const d = daysBetween(due(t), todayKey); why.push(`<span class="attention-why late">${d} day${d === 1 ? '' : 's'} late</span>`); }
-    if (due(t) === todayKey) why.push('<span class="attention-why today">Due today</span>');
-    if (n) why.push(`<span class="attention-why blocked">⚔️ ${n} blocker${n === 1 ? '' : 's'}</span>`);
-    if (w.length) why.push(`<span class="attention-why waiting" title="Waiting on ${esc(w.map(p => p.title).join(', '))}">🔗 Waiting</span>`);
-    const stuck = n > 0 || w.length > 0;
-    return `<div class="attention-row">
-      <div class="flex-1 min-w-0">
-        <button type="button" onclick="openTaskDetail('${t.id}')" class="block text-left text-sm font-bold text-navy hover:text-teal truncate max-w-full">${esc(t.title)}</button>
-        <p class="text-xs text-gray-500 mt-1 truncate">${why.join('')}${proj ? esc(proj.icon || '') + ' ' + esc(proj.title) : ''}</p>
-      </div>
-      ${canEdit ? `<button type="button" class="attention-act" onclick="attentionDone('${t.id}')" ${stuck ? 'disabled' : ''} title="${stuck ? 'Clear what is in the way first' : 'Mark as done'}" aria-label="${stuck ? 'Blocked: clear what is in the way first' : 'Mark ' + esc(t.title) + ' as done'}">${stuck ? '🔒' : '✓'}</button>` : ''}
-      <button type="button" class="attention-act" onclick="Reminders.openSheet('${t.id}')" title="Remind me" aria-label="Set a reminder for ${esc(t.title)}">⏰</button>
-    </div>`;
-  }).join('');
-}
-async function attentionDone(taskId) {
-  try {
-    const saved = await API.updateTask(taskId, { status: 'Completed' });
-    if (saved && saved.journeyReward) announceJourneyReward(saved.journeyReward);
-    else Sfx.play('complete');
-  } catch (e) { taskErrorToast(e); return; }
-  showToast('✅ Done!');
-  renderDashboard();
 }
 
 // ── PROJECTS LIST ───────────────────────────────────────────────

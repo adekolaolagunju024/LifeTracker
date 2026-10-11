@@ -374,6 +374,16 @@
     .td-fact.is-soon .v small { color: #9A4410; }
     .dark .td-fact { background: #0F1726; border-color: #1F2A3D; } .dark .td-fact .v { color: #F1F5F9; }
     .dark .td-fact.is-late { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.3); } .dark .td-fact.is-late .v small { color: #FCA5A5; }
+    /* Dashboard: Your focus */
+    .focus-counts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+    .focus-count { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; border-radius: 999px; padding: 4px 10px; border: 0; cursor: pointer; }
+    .focus-count.late, .focus-count.blocked { background: #FDECEA; color: #B91C1C; }
+    .focus-count.today, .focus-count.waiting { background: #FFF6E5; color: #9A4410; }
+    .focus-count.clear { background: #E9F9EF; color: #14532B; cursor: default; }
+    .dark .focus-count.late, .dark .focus-count.blocked { background: rgba(239,68,68,.14); color: #FCA5A5; }
+    .dark .focus-count.today, .dark .focus-count.waiting { background: rgba(245,158,11,.14); color: #FCD34D; }
+    .dark .focus-count.clear { background: rgba(52,211,153,.12); color: #6EE7B7; }
+    #digest-banner.on-dashboard { display: none !important; }
     /* Dashboard: Needs your attention */
     .attention-card { background: #fff; border: 1px solid #E3E6EA; border-radius: 20px; padding: 16px; }
     .attention-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
@@ -1760,10 +1770,14 @@
         </div>
 
         <div class="bg-white rounded-2xl border border-gray-200 px-4 py-3 lg:col-span-2" id="dash-upnext-card">
-          <div class="flex items-center justify-between gap-3 mb-1">
-            <p class="text-[15px] font-extrabold text-navy">Up next</p>
+          <!-- Your focus: the one dashboard list of what to do. What needs
+               attention (late, blocked, due today, waiting) comes first with
+               the reason, then what's due next. Actions holds the full list. -->
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <p class="text-[15px] font-extrabold text-navy">Your focus</p>
             <button onclick="showPage('actions')" class="text-xs font-bold text-teal hover:underline">All actions →</button>
           </div>
+          <div class="focus-counts" id="dash-attention-counts"></div>
           <div id="dash-upnext"><p class="text-sm text-gray-400 py-3">Loading…</p></div>
         </div>
 
@@ -1805,18 +1819,7 @@
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="project-stats"></div>
 
-      <!-- Needs your attention: what's late, blocked, due today or waiting
-           on someone else, as counts that open Actions, plus the three most
-           urgent tasks with one-tap Done / Remind / Open, so the first
-           things to deal with can be dealt with right here. -->
-      <section class="attention-card" aria-labelledby="dash-attention-title">
-        <div class="flex items-center justify-between gap-3 mb-3">
-          <h3 class="text-[15px] font-extrabold text-navy" id="dash-attention-title">Needs your attention</h3>
-          <button type="button" onclick="showPage('actions')" class="text-xs font-bold text-teal hover:underline">Open Actions →</button>
-        </div>
-        <div class="attention-counts" id="dash-attention-counts"></div>
-        <div id="dash-attention-list"><p class="text-sm text-gray-400 py-2">Loading…</p></div>
-      </section>
+
     </div>
 
     <!-- ─── ALL PROJECTS ─── -->
