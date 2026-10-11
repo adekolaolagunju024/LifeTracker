@@ -817,9 +817,10 @@ async function renderProjectDetail(projectId) {
     document.getElementById('btn-new-subfolder').classList.toggle('hidden', !!proj.parentId || !canEdit);
     document.getElementById('btn-add-task-header').classList.toggle('hidden', !canEdit);
     document.getElementById('btn-edit-project').classList.toggle('hidden', !canEdit);
-    document.getElementById('btn-assistant-project').classList.toggle('hidden', !!proj.parentId);
-    document.getElementById('btn-assistant-project-menu').classList.toggle('hidden', !!proj.parentId);
-    document.getElementById('btn-revise-tasks').classList.toggle('hidden', !canEdit || !!proj.parentId);
+    // a sub-folder's plan lives in its top-level project; openAssistantFor
+    // works on that one
+    document.getElementById('btn-assistant-project').classList.toggle('hidden', !canEdit);
+    document.getElementById('btn-revise-tasks').classList.toggle('hidden', !canEdit);
 
     // Chat only makes sense once there's someone else to talk to.
     document.getElementById('btn-project-chat').classList.toggle('hidden', proj.role === 'owner' && !proj.collaboratorCount);
@@ -4497,6 +4498,7 @@ const REVISE_LABELS = {
   updateTask: 'Change task',
   addTask: 'Add task',
   moveTask: 'Move task',
+  deleteTask: 'Delete task',
   renamePhase: 'Rename phase',
   addPhase: 'Add phase',
   addBlocker: 'Add blocker',
@@ -4510,6 +4512,7 @@ function describeReviseOp(op) {
     return `"${esc(op.currentTitle)}": ${esc(changes)}`;
   }
   if (op.type === 'addTask') return `"${esc(op.task.title)}" (${esc(op.task.priority)}${op.task.endDate ? ', due ' + esc(op.task.endDate) : ''})`;
+  if (op.type === 'deleteTask') return `"${esc(op.currentTitle)}" (moves to Trash, where you can restore it)`;
   if (op.type === 'moveTask') return `"${esc(op.currentTitle)}" to "${esc(op.toPhaseTitle)}"`;
   if (op.type === 'renamePhase') return `to "${esc(op.title)}"`;
   if (op.type === 'addBlocker') return `⚔️ "${esc(op.blocker.name)}" ×${op.blocker.count} on "${esc(op.taskTitle)}"`;
@@ -4530,6 +4533,8 @@ async function applyOperations(projectId, ops) {
       await API.updateTask(op.taskId, op.fields);
     } else if (op.type === 'moveTask') {
       await API.updateTask(op.taskId, { projectId: op.toPhaseId });
+    } else if (op.type === 'deleteTask') {
+      await API.deleteTask(op.taskId);
     } else if (op.type === 'addTask') {
       await API.addTask({ ...op.task, projectId: op.phaseId });
     } else if (op.type === 'renamePhase') {
@@ -4553,14 +4558,16 @@ async function applyOperations(projectId, ops) {
 const ASSISTANT_SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let assistantRecognition = null;
 
-function openAssistant(projectId) {
+// Opening the assistant picks up the latest chat for the same project (or
+// the latest general one), so closing the window never loses a
+// conversation; 🕘 History lists every saved chat, ＋ New starts one.
+// Each exchange is saved to the server (see saveAssistantChat).
+async function openAssistant(projectId, opts = {}) {
   APP.assistantProjectId = projectId || null;
-  APP.assistantMessages = [];
+  APP.assistantTaskId = opts.taskId || null;
+  APP.assistantTaskTitle = opts.taskTitle || '';
   clearAssistantAttachment();
-  document.getElementById('assistant-chat').innerHTML = '';
-  document.getElementById('assistant-context').textContent = projectId
-    ? 'Ask about this project. Changes are shown for approval first.'
-    : 'Create a goal, or ask for changes. Nothing changes until you approve it.';
+  document.getElementById('assistant-input').value = '';
   document.getElementById('assistant-mic').classList.toggle('hidden', !ASSISTANT_SpeechRecognition);
   let speak = false;
   let autoSend = false;
@@ -4570,9 +4577,169 @@ function openAssistant(projectId) {
   } catch {}
   document.getElementById('assistant-speak').checked = speak;
   document.getElementById('assistant-autosend').checked = autoSend;
-  assistantBubble('assistant', 'Hi! Tell me what you want to achieve, or what to change. You can type or tap the mic.');
+  showAssistantPane('chat');
+  updateAssistantContext();
   openModal('modal-assistant');
+  let resumed = false;
+  try {
+    const latest = (await API.getAssistantConversations()).find(c => (c.projectId || null) === APP.assistantProjectId);
+    if (latest) resumed = await loadAssistantConversation(latest.id, { keepFocus: true });
+  } catch { /* offline or signed out: a fresh chat still works */ }
+  if (!resumed) startNewAssistantChat({ keepFocus: true });
   document.getElementById('assistant-input').focus();
+}
+
+// From a project or task page: a sub-folder's plan lives in its top-level
+// project, so the assistant works on that, focused on the task if any.
+async function openAssistantFor({ projectId = null, taskId = null, taskTitle = '' } = {}) {
+  let pid = projectId;
+  if (pid) {
+    try { const p = await API.getProject(pid); if (p.parentId) pid = p.parentId; } catch { /* keep the id we have */ }
+  }
+  return openAssistant(pid, { taskId, taskTitle });
+}
+async function askAIAboutTask(taskId) {
+  const id = taskId || document.getElementById('task-id').value;
+  if (!id) return;
+  let task;
+  try { task = await API.getTask(id); } catch (e) { showToast('❌ ' + (e.message || 'Could not open that task'), 'error'); return; }
+  closeModal('modal-task');
+  if (!document.getElementById('task-detail-panel').classList.contains('translate-x-full')) closeTaskDetail();
+  openAssistantFor({ projectId: task.projectId, taskId: task.id, taskTitle: task.title });
+}
+function askAIAboutProject() {
+  const id = document.getElementById('proj-id').value;
+  if (!id) return;
+  closeModal('modal-project');
+  openAssistantFor({ projectId: id });
+}
+
+const newAssistantId = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`);
+function assistantGreeting() {
+  if (APP.assistantTaskId) return `What would you like to do with "${APP.assistantTaskTitle}"? I can change it, split it up, add a blocker, or delete it. Nothing changes until you approve it.`;
+  if (APP.assistantProjectId) return 'What would you like to change in this project? I can add, edit, move or delete tasks. Nothing changes until you approve it.';
+  return 'Hi! Tell me what you want to achieve, or what to change. You can type or tap the mic.';
+}
+function startNewAssistantChat({ keepFocus = false } = {}) {
+  if (!keepFocus) { APP.assistantTaskId = null; APP.assistantTaskTitle = ''; }
+  APP.assistantConversationId = newAssistantId();
+  APP.assistantMessages = [];
+  showAssistantPane('chat');
+  document.getElementById('assistant-chat').innerHTML = '';
+  assistantBubble('assistant', assistantGreeting());
+  updateAssistantContext();
+  renderAssistantSuggestions();
+}
+async function loadAssistantConversation(id, { keepFocus = false } = {}) {
+  const convo = await API.getAssistantConversation(id);
+  if (!convo) return false;
+  if (!keepFocus) { APP.assistantTaskId = null; APP.assistantTaskTitle = ''; }
+  APP.assistantConversationId = convo.id;
+  APP.assistantProjectId = convo.projectId || null;
+  APP.assistantMessages = convo.messages.map(m => ({ ...m, content: m.content || (m.attachmentName ? `(attached ${m.attachmentName})` : '') }));
+  showAssistantPane('chat');
+  const wrap = document.getElementById('assistant-chat');
+  wrap.innerHTML = '';
+  convo.messages.forEach(m => {
+    if (m.role === 'user') assistantBubble('user', (m.attachmentName ? '📎 ' + m.attachmentName + (m.content ? '\n' : '') : '') + (m.content || ''));
+    else {
+      assistantBubble('assistant', m.content);
+      if (m.kind === 'edits') assistantNote('These were suggested changes. Ask again to see them to approve.');
+    }
+  });
+  if (APP.assistantTaskId) assistantBubble('assistant', assistantGreeting());
+  updateAssistantContext();
+  renderAssistantSuggestions();
+  return true;
+}
+function assistantNote(text) {
+  const wrap = document.getElementById('assistant-chat');
+  const el = document.createElement('p');
+  el.className = 'text-[11px] text-gray-400 pl-1 -mt-2';
+  el.textContent = text;
+  wrap.appendChild(el);
+}
+// Saves the whole chat after each exchange; file contents are never kept,
+// only their names.
+function saveAssistantChat() {
+  if (!APP.assistantConversationId || !APP.assistantMessages.some(m => m.role === 'user')) return;
+  const messages = APP.assistantMessages.map(m => ({ role: m.role, content: m.content, kind: m.kind, attachmentName: m.attachment ? m.attachment.name : m.attachmentName }));
+  API.saveAssistantConversation(APP.assistantConversationId, { projectId: APP.assistantProjectId, messages }).catch(() => { /* the chat itself still works */ });
+}
+function updateAssistantContext() {
+  document.getElementById('assistant-context').textContent = APP.assistantProjectId
+    ? 'Working on this project. Changes are shown for approval first.'
+    : 'Create a goal, or ask for changes. Nothing changes until you approve it.';
+  const focus = document.getElementById('assistant-focus');
+  focus.classList.toggle('hidden', !APP.assistantTaskId);
+  focus.classList.toggle('flex', !!APP.assistantTaskId);
+  document.getElementById('assistant-focus-text').textContent = APP.assistantTaskId ? `About the task "${APP.assistantTaskTitle}"` : '';
+}
+function clearAssistantFocus() {
+  APP.assistantTaskId = null; APP.assistantTaskTitle = '';
+  updateAssistantContext();
+  renderAssistantSuggestions();
+}
+// One-tap starters that fit where the assistant was opened from.
+function renderAssistantSuggestions() {
+  const ideas = APP.assistantTaskId
+    ? ['Split it into smaller tasks', 'Push the due date back a week', 'Add a blocker to it', 'Delete this task']
+    : APP.assistantProjectId
+      ? ['What should I do next?', 'Add any missing tasks', 'Spread the due dates out', 'Delete tasks I no longer need']
+      : ['Plan a new goal for me', 'Help me prioritise this week'];
+  document.getElementById('assistant-suggestions').innerHTML = ideas.map(text =>
+    `<button type="button" onclick="useAssistantSuggestion(this.textContent)" class="flex-shrink-0 whitespace-nowrap text-xs font-semibold text-teal bg-teal/10 hover:bg-teal/20 px-3 py-1.5 rounded-full">${esc(text)}</button>`).join('');
+}
+function useAssistantSuggestion(text) {
+  const input = document.getElementById('assistant-input');
+  input.value = text;
+  sendAssistantMessage();
+}
+function showAssistantPane(which) {
+  const history = which === 'history';
+  document.getElementById('assistant-chat').classList.toggle('hidden', history);
+  document.getElementById('assistant-history').classList.toggle('hidden', !history);
+  document.getElementById('assistant-composer').classList.toggle('hidden', history);
+  document.getElementById('assistant-focus').classList.toggle('invisible', history);
+  document.getElementById('assistant-history-btn').classList.toggle('text-teal', history);
+}
+// 🕘 History: every saved chat, newest first, with its project; tap one to
+// carry on where it left off.
+async function toggleAssistantHistory() {
+  if (!document.getElementById('assistant-history').classList.contains('hidden')) { showAssistantPane('chat'); return; }
+  showAssistantPane('history');
+  const box = document.getElementById('assistant-history');
+  box.innerHTML = '<p class="text-sm text-gray-400 px-2 py-6 text-center">Loading your chats…</p>';
+  let list = [];
+  try { list = await API.getAssistantConversations(); } catch (e) { box.innerHTML = `<p class="text-sm text-red-500 px-2 py-6 text-center">${esc(e.message || 'Could not load your chats')}</p>`; return; }
+  if (!list.length) { box.innerHTML = '<p class="text-sm text-gray-400 px-2 py-8 text-center">No saved chats yet. Your conversations will show up here.</p>'; return; }
+  const when = iso => {
+    const mins = Math.round((Date.now() - new Date(iso)) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    if (mins < 1440) return `${Math.round(mins / 60)} h ago`;
+    return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  };
+  box.innerHTML = '<p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 mb-2">Your chats</p>' + list.map(c => `
+    <div class="group flex items-start gap-2 rounded-xl px-3 py-2.5 mb-1 cursor-pointer hover:bg-gray-50 ${c.id === APP.assistantConversationId ? 'bg-teal/5 ring-1 ring-teal/30' : ''}" onclick="openSavedAssistantChat('${c.id}')">
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-semibold text-navy truncate">${esc(c.title || 'New chat')}</p>
+        <p class="text-xs text-gray-400 truncate">${c.projectTitle ? '📁 ' + esc(c.projectTitle) + ' · ' : ''}${esc(when(c.updatedAt))} · ${c.count} message${c.count === 1 ? '' : 's'}</p>
+        ${c.preview ? `<p class="text-xs text-gray-500 truncate mt-0.5">${esc(c.preview)}</p>` : ''}
+      </div>
+      <button onclick="event.stopPropagation(); deleteSavedAssistantChat('${c.id}')" title="Delete this chat" aria-label="Delete this chat" class="text-gray-300 hover:text-red-500 px-1 text-sm flex-shrink-0">🗑️</button>
+    </div>`).join('');
+}
+async function openSavedAssistantChat(id) {
+  try { await loadAssistantConversation(id); } catch (e) { showToast('❌ ' + (e.message || 'Could not open that chat'), 'error'); }
+}
+function deleteSavedAssistantChat(id) {
+  confirmAction('Delete this chat? This can\'t be undone.', async () => {
+    try { await API.deleteAssistantConversation(id); } catch (e) { showToast('❌ ' + (e.message || 'Could not delete that chat'), 'error'); return; }
+    if (id === APP.assistantConversationId) startNewAssistantChat();
+    showAssistantPane('chat');
+    toggleAssistantHistory();
+  });
 }
 
 function closeAssistant() {
@@ -4639,9 +4806,18 @@ function resumeAssistantListening() {
   }, 1000);
 }
 
+// While the mic is on, a listening panel (a pulsing orb and moving sound
+// bars, like Shazam's) shows above the box with the words as they're
+// heard, and the mic button glows red; tap either to stop.
+function setAssistantListeningUI(on) {
+  document.getElementById('assistant-mic').classList.toggle('is-listening', on);
+  document.getElementById('assistant-mic').setAttribute('aria-label', on ? 'Stop listening' : 'Speak');
+  document.getElementById('assistant-listening').classList.toggle('is-on', on);
+  document.getElementById('assistant-suggestions').classList.toggle('hidden', on);
+  if (on) document.getElementById('assistant-listening-text').textContent = 'Speak now';
+}
 function toggleAssistantListening() {
   if (!ASSISTANT_SpeechRecognition) return;
-  const mic = document.getElementById('assistant-mic');
   if (assistantRecognition) { assistantRecognition.stop(); return; }
   const input = document.getElementById('assistant-input');
   const rec = new ASSISTANT_SpeechRecognition();
@@ -4649,15 +4825,21 @@ function toggleAssistantListening() {
   rec.interimResults = true;
   rec.continuous = false;
   const base = input.value ? input.value + ' ' : '';
-  rec.onresult = e => { input.value = base + Array.from(e.results).map(r => r[0].transcript).join(''); };
+  rec.onresult = e => {
+    const heard = Array.from(e.results).map(r => r[0].transcript).join('');
+    input.value = base + heard;
+    document.getElementById('assistant-listening-text').textContent = heard || 'Speak now';
+  };
   rec.onend = () => {
     assistantRecognition = null;
-    mic.classList.remove('bg-red-100');
+    setAssistantListeningUI(false);
     if (document.getElementById('assistant-autosend').checked && input.value.trim()) sendAssistantMessage(true);
   };
-  rec.onerror = () => { assistantRecognition = null; mic.classList.remove('bg-red-100'); assistantBubble('assistant', 'I could not hear that. You can type instead.'); };
+  rec.onerror = () => { assistantRecognition = null; setAssistantListeningUI(false); assistantBubble('assistant', 'I could not hear that. You can type instead.'); };
   assistantRecognition = rec;
-  mic.classList.add('bg-red-100');
+  setAssistantListeningUI(true);
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  if (navigator.vibrate) navigator.vibrate(30);
   rec.start();
 }
 
@@ -4712,18 +4894,20 @@ async function sendAssistantMessage(viaVoice = false) {
     const res = await fetch('/api/ai/assistant', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: APP.assistantMessages, projectId: APP.assistantProjectId }),
+      body: JSON.stringify({ messages: APP.assistantMessages, projectId: APP.assistantProjectId, taskId: APP.assistantTaskId }),
     });
     const body = await res.json();
     thinking.remove();
     if (!res.ok) throw new Error(body.error || 'The assistant could not respond');
     if (body.type === 'message') {
       APP.assistantMessages.push({ role: 'assistant', content: body.text });
+      saveAssistantChat();
       assistantBubble('assistant', body.text);
       speakAssistant(body.text).then(resumeAssistantListening);
     } else if (body.type === 'proposal') {
       const title = body.proposal.title || 'your goal';
-      APP.assistantMessages.push({ role: 'assistant', content: `I drafted a goal: ${title}.` });
+      APP.assistantMessages.push({ role: 'assistant', content: `I drafted a goal: ${title}.`, kind: 'proposal' });
+      saveAssistantChat();
       assistantBubble('assistant', `I've drafted "${title}". Review it, then create it when you're happy.`);
       speakAssistant(`I've drafted ${title}. Review it, then create it when you're happy.`);
       closeModal('modal-assistant');
@@ -4734,6 +4918,7 @@ async function sendAssistantMessage(viaVoice = false) {
     }
   } catch (e) {
     thinking.remove();
+    saveAssistantChat(); // keep what was asked, even when the reply failed
     assistantBubble('assistant', '⚠️ ' + (e.message || 'Something went wrong. Try again.'));
   } finally {
     input.disabled = false;
@@ -4745,7 +4930,8 @@ async function sendAssistantMessage(viaVoice = false) {
 function renderAssistantEdits(body) {
   APP.assistantEdits = body.operations;
   const summary = body.summary || 'Here are the changes I suggest.';
-  APP.assistantMessages.push({ role: 'assistant', content: summary });
+  APP.assistantMessages.push({ role: 'assistant', content: summary, kind: 'edits' });
+  saveAssistantChat();
   const wrap = document.getElementById('assistant-chat');
   const card = document.createElement('div');
   card.className = 'bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2 text-sm';
@@ -5736,6 +5922,7 @@ API.updateTask = async function (id, patch) {
 
 function openAddProject() {
   document.getElementById('modal-project-title').textContent = 'New Project';
+  document.getElementById('project-ai-btn').classList.add('hidden');
   document.getElementById('proj-id').value     = '';
   document.getElementById('proj-parent').value = '';
   document.getElementById('proj-title').value  = '';
@@ -5750,6 +5937,7 @@ function openAddProject() {
 
 function openAddSubfolder(parentId) {
   document.getElementById('modal-project-title').textContent = 'New Sub-folder';
+  document.getElementById('project-ai-btn').classList.add('hidden');
   document.getElementById('proj-id').value     = '';
   document.getElementById('proj-parent').value = parentId;
   document.getElementById('proj-title').value  = '';
@@ -5765,6 +5953,7 @@ function openAddSubfolder(parentId) {
 async function editProject(id) {
   const p = await API.getProject(id);
   document.getElementById('modal-project-title').textContent = p.parentId ? 'Edit Sub-folder' : 'Edit Project';
+  document.getElementById('project-ai-btn').classList.toggle('hidden', !(p.role === 'owner' || p.role === 'editor'));
   document.getElementById('proj-id').value     = id;
   document.getElementById('proj-parent').value = p.parentId || '';
   document.getElementById('proj-title').value  = p.title;
@@ -6359,6 +6548,7 @@ function deleteStatusFromViewer() {
 // TASK MODAL
 async function openAddTask(projectId) {
   document.getElementById('modal-task-title').textContent = 'New Task';
+  document.getElementById('task-ai-btn').classList.add('hidden');
   document.getElementById('task-id').value         = '';
   document.getElementById('task-title-in').value   = '';
   document.getElementById('task-status').value     = 'Not Started';
@@ -6382,6 +6572,7 @@ async function openAddTask(projectId) {
 async function editTask(id) {
   const t = await API.getTask(id);
   document.getElementById('modal-task-title').textContent = 'Edit Task';
+  document.getElementById('task-ai-btn').classList.remove('hidden');
   document.getElementById('task-id').value         = id;
   document.getElementById('task-title-in').value   = t.title;
   document.getElementById('task-status').value     = t.status;

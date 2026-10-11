@@ -301,7 +301,7 @@ router.post('/edit-project', aiQuota(), async (req, res) => {
   const context = buildEditContext(userId, project);
   try {
     const response = await callAI({
-      system: 'You revise an existing plan the user already has. Make only the changes that address the request, keep everything else as it is, and never mark anything Completed or delete any task or phase (blockers may be added, edited, ticked off or removed when asked). Use only the ids listed in the plan. Dates are YYYY-MM-DD.',
+      system: 'You revise an existing plan the user already has. Make only the changes that address the request, keep everything else as it is, and never mark anything Completed or delete a phase. Delete a task only when the user asks for it (it goes to Trash). Blockers may be added, edited, ticked off or removed when asked. Use only the ids listed in the plan. Dates are YYYY-MM-DD.',
       messages: [{ role: 'user', content: context.text + '\n\nRequested change: ' + feedback }],
       tools: [EDIT_TOOL],
       forceToolName: 'propose_edits',
@@ -323,7 +323,7 @@ router.post('/edit-project', aiQuota(), async (req, res) => {
 // review before anything changes.
 const ASSISTANT_SYSTEM = today => `You are Waypoint's assistant. You help the user set up goals and keep them on track. Today's date is ${today}.
 
-If the user describes a new goal and you have enough to plan it, call propose_project. If the user asks for changes to the project they have open, and that project's plan is included below, call propose_edits. That includes a task's blockers (the obstacles in its way, listed under each task): adding one, renaming it, changing its count, ticking it off as cleared, or removing it. Otherwise reply in one or two short sentences, asking a question if you need one. Never say you have made a change: you only propose changes, and the user approves them.`;
+If the user describes a new goal and you have enough to plan it, call propose_project. If the user asks for changes to the project they have open, and that project's plan is included below, call propose_edits. That includes deleting a task the user wants gone (it goes to Trash and can be restored), and a task's blockers (the obstacles in its way, listed under each task): adding one, renaming it, changing its count, ticking it off as cleared, or removing it. Otherwise reply in one or two short sentences, asking a question if you need one. Never say you have made a change: you only propose changes, and the user approves them.`;
 
 router.post('/assistant', aiQuota('assistant'), async (req, res) => {
   if (!isAIConfigured()) {
@@ -334,6 +334,8 @@ router.post('/assistant', aiQuota('assistant'), async (req, res) => {
   const cleaned = incoming
     .filter(m => m && (m.role === 'user' || m.role === 'assistant') && ((typeof m.content === 'string' && m.content.trim()) || m.attachment))
     .slice(-20);
+  // a long chat trimmed to its latest messages must still start with the user
+  while (cleaned.length > 1 && cleaned[0].role !== 'user' && incoming.length > 20) cleaned.shift();
   if (!cleaned.length || cleaned[0].role !== 'user') {
     return res.status(400).json({ error: 'Say something to the assistant first' });
   }
@@ -345,6 +347,11 @@ router.post('/assistant', aiQuota('assistant'), async (req, res) => {
     if (!db.canEditProject(userId, project.id)) return res.status(403).json({ error: 'You need edit access to change this project' });
     if (project.parentId) return res.status(400).json({ error: 'Open the top-level project to change its plan' });
     context = buildEditContext(userId, project);
+    // Opened from a task: "this task" means that one.
+    if (req.body.taskId && context.index.taskById.has(req.body.taskId)) {
+      const t = context.index.taskById.get(req.body.taskId);
+      context.text += `\n\nThe user opened the assistant from the task "${t.title}" (task id:${t.id}). When they say "this task" or "it", they mean that task.`;
+    }
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -376,6 +383,30 @@ router.post('/assistant', aiQuota('assistant'), async (req, res) => {
     const apiMessage = e?.error?.error?.message || e?.message || 'Unknown error';
     res.status(502).json({ error: apiMessage });
   }
+});
+
+// ── SAVED CONVERSATIONS ─────────────────────────────────────────
+// The assistant's chats, kept per user so one can be picked up again
+// after closing the window. The client saves the whole (cleaned) message
+// list after each exchange; nothing here calls the AI.
+router.get('/conversations', (req, res) => {
+  res.json(db.listAssistantConversations(req.session.userId));
+});
+router.get('/conversations/:id', (req, res) => {
+  const convo = db.getAssistantConversation(req.session.userId, req.params.id);
+  if (!convo) return res.status(404).json({ error: 'Conversation not found' });
+  res.json(convo);
+});
+router.put('/conversations/:id', (req, res) => {
+  try {
+    res.json(db.saveAssistantConversation(req.session.userId, req.params.id, { projectId: req.body.projectId || null, messages: req.body.messages }));
+  } catch (e) {
+    res.status(/not found/i.test(e.message) ? 404 : 400).json({ error: e.message });
+  }
+});
+router.delete('/conversations/:id', (req, res) => {
+  db.deleteAssistantConversation(req.session.userId, req.params.id);
+  res.json({ success: true });
 });
 
 module.exports = router;

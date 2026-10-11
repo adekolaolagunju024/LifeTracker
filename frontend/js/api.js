@@ -66,6 +66,11 @@ const API = {
   // ── AI INSIGHTS ──
   getAIStatus:   ()  => request('GET',  '/ai/status'),
   getAIInsights: ()  => request('POST', '/ai/insights'),
+  // saved chats with the assistant
+  getAssistantConversations: ()        => request('GET',    '/ai/conversations'),
+  getAssistantConversation:  (id)      => request('GET',    `/ai/conversations/${id}`),
+  saveAssistantConversation: (id, d)   => request('PUT',    `/ai/conversations/${id}`, d),
+  deleteAssistantConversation: (id)    => request('DELETE', `/ai/conversations/${id}`),
 
   // ── GOOGLE DRIVE ──
   getDriveStatus:     ()  => request('GET',  '/drive/status'),

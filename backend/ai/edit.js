@@ -17,12 +17,13 @@ const NEW_TASK_SCHEMA = {
   required: ['title'],
 };
 
-// Only add and edit operations exist for tasks and phases, so the model has
-// no way to express deleting one; the one thing it may remove is a blocker
-// (an obstacle on a task). Completed tasks are never offered as targets.
+// Tasks can be added, edited, moved and deleted (deleting moves a task to
+// Trash, where it can be restored); phases can only be added or renamed,
+// never deleted. Blockers can be managed. Completed tasks are never offered
+// as targets, and everything is shown to the user for approval first.
 const EDIT_TOOL = {
   name: 'propose_edits',
-  description: 'Propose changes to an existing plan. You may edit tasks, add tasks, move tasks between phases, rename phases, and add phases. You may also manage a task\'s blockers (the obstacles standing in its way): add one, rename it or change how many enemies it puts on the Journey (1 to 5), tick it off as cleared (or back to pending), or remove it. You may not delete tasks or phases.',
+  description: 'Propose changes to an existing plan. You may edit tasks, add tasks, move tasks between phases, rename phases, and add phases. You may also delete a task that is no longer needed (it goes to Trash and can be restored), but only when the user asks for it. You may also manage a task\'s blockers (the obstacles standing in its way): add one, rename it or change how many enemies it puts on the Journey (1 to 5), tick it off as cleared (or back to pending), or remove it. You may not delete phases.',
   input_schema: {
     type: 'object',
     properties: {
@@ -32,8 +33,8 @@ const EDIT_TOOL = {
         items: {
           type: 'object',
           properties: {
-            type: { type: 'string', enum: ['updateTask', 'addTask', 'moveTask', 'renamePhase', 'addPhase', 'addBlocker', 'updateBlocker', 'removeBlocker'] },
-            taskId: { type: 'string', description: 'For updateTask and addBlocker: an existing task id from the plan' },
+            type: { type: 'string', enum: ['updateTask', 'addTask', 'moveTask', 'deleteTask', 'renamePhase', 'addPhase', 'addBlocker', 'updateBlocker', 'removeBlocker'] },
+            taskId: { type: 'string', description: 'For updateTask, moveTask, deleteTask and addBlocker: an existing task id from the plan' },
             blockerId: { type: 'string', description: 'For updateBlocker and removeBlocker: an existing blocker id from the plan' },
             blocker: {
               type: 'object',
@@ -148,6 +149,10 @@ function validateOperations(operations, index) {
       const task = index.taskById.get(op.taskId);
       if (!task || task.status === 'Completed' || !index.phaseIds.has(op.phaseId) || task.projectId === op.phaseId) { dropped++; continue; }
       valid.push({ type: 'moveTask', taskId: task.id, currentTitle: task.title, toPhaseId: op.phaseId, toPhaseTitle: index.phaseTitles.get(op.phaseId), reason });
+    } else if (op.type === 'deleteTask') {
+      const task = index.taskById.get(op.taskId);
+      if (!task || task.status === 'Completed') { dropped++; continue; }
+      valid.push({ type: 'deleteTask', taskId: task.id, currentTitle: task.title, reason });
     } else if (op.type === 'addTask') {
       const task = sanitizeNewTask(op.task);
       if (!index.phaseIds.has(op.phaseId) || !task) { dropped++; continue; }

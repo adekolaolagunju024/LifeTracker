@@ -36,9 +36,19 @@ test('moves are dropped for completed tasks, unknown phases, or a task already i
   assert.equal(dropped, 3);
 });
 
-test('the edit tool cannot express deleting a task or phase; the only removal is a blocker', () => {
+test('the edit tool can delete a task (to Trash) and remove a blocker, but has no way to delete a phase', () => {
   const types = EDIT_TOOL.input_schema.properties.operations.items.properties.type.enum;
-  assert.deepEqual([...types].sort(), ['addBlocker', 'addPhase', 'addTask', 'moveTask', 'removeBlocker', 'renamePhase', 'updateBlocker', 'updateTask']);
+  assert.deepEqual([...types].sort(), ['addBlocker', 'addPhase', 'addTask', 'deleteTask', 'moveTask', 'removeBlocker', 'renamePhase', 'updateBlocker', 'updateTask']);
+});
+
+test('deleting an open task is kept with its title; completed or unknown tasks are dropped', () => {
+  const { operations, dropped } = validateOperations([
+    { type: 'deleteTask', taskId: 't-open', reason: 'no longer needed' },
+    { type: 'deleteTask', taskId: 't-done', reason: 'x' },
+    { type: 'deleteTask', taskId: 'made-up', reason: 'x' },
+  ], index);
+  assert.equal(dropped, 2);
+  assert.deepEqual(operations, [{ type: 'deleteTask', taskId: 't-open', currentTitle: 'Open task', reason: 'no longer needed' }]);
 });
 
 test('an edit to an open task is kept, with its real title and only allowed fields', () => {
@@ -94,7 +104,7 @@ test('a new phase is kept when it has a title, and its tasks are sanitized', () 
 });
 
 test('unknown operation types are dropped', () => {
-  const { operations, dropped } = validateOperations([{ type: 'deleteTask', taskId: 't-open', reason: 'x' }], index);
+  const { operations, dropped } = validateOperations([{ type: 'deletePhase', phaseId: 'phase-1', reason: 'x' }], index);
   assert.equal(operations.length, 0);
   assert.equal(dropped, 1);
 });
@@ -129,8 +139,9 @@ test('blockers can be renamed, recounted, ticked off or removed, only if they ex
   assert.equal(operations[2].currentName, 'Supplier quote');
 });
 
-test('the edit tool tells the model it can manage blockers but not delete tasks', () => {
+test('the edit tool tells the model it can manage blockers and delete tasks only when asked, never phases', () => {
   assert.ok(EDIT_TOOL.input_schema.properties.operations.items.properties.type.enum.includes('removeBlocker'));
   assert.match(EDIT_TOOL.description, /blockers/);
-  assert.match(EDIT_TOOL.description, /may not delete tasks or phases/);
+  assert.match(EDIT_TOOL.description, /only when the user asks/);
+  assert.match(EDIT_TOOL.description, /may not delete phases/);
 });

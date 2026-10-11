@@ -264,3 +264,43 @@ test('completing a task awards Journey XP and reports it on the response', async
   const stillSame = await (await fetch(`${server.base}/api/journey-gaming/me`, { headers: { Cookie: cookie } })).json();
   assert.equal(stillSame.xp, 15);
 });
+
+test('assistant conversations are saved, listed newest first, reopened, kept private and deletable', async () => {
+  const me = sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true })));
+  const project = await (await fetch(`${server.base}/api/projects`, json({ title: 'Launch plan' }, me))).json();
+  const put = (id, body, cookie = me) => fetch(`${server.base}/api/ai/conversations/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(body) });
+
+  const first = await put('convo-aaaa-1111', { projectId: project.id, messages: [
+    { role: 'user', content: 'Add a task to book the venue', attachment: { name: 'plan.pdf', dataBase64: 'AAAA' } },
+    { role: 'assistant', content: 'Here are the changes I suggest.', kind: 'edits' },
+    { role: 'system', content: 'ignored' },
+  ] });
+  assert.equal(first.status, 200);
+  const saved = await first.json();
+  assert.equal(saved.title, 'Add a task to book the venue');
+  assert.equal(saved.messages.length, 2);
+  assert.equal(saved.messages[0].attachmentName, 'plan.pdf');
+  assert.equal(saved.messages[0].attachment, undefined, 'file contents are never stored');
+  assert.equal(saved.messages[1].kind, 'edits');
+
+  await put('convo-bbbb-2222', { messages: [{ role: 'user', content: 'Plan a marathon' }] });
+  const list = await (await fetch(`${server.base}/api/ai/conversations`, { headers: { Cookie: me } })).json();
+  assert.deepEqual(list.map(c => c.id), ['convo-bbbb-2222', 'convo-aaaa-1111']);
+  assert.equal(list[1].projectTitle, 'Launch plan');
+  assert.equal(list[1].count, 2);
+
+  // continuing a chat updates it in place
+  await put('convo-aaaa-1111', { projectId: project.id, messages: [...saved.messages, { role: 'user', content: 'And a caterer' }] });
+  const reopened = await (await fetch(`${server.base}/api/ai/conversations/convo-aaaa-1111`, { headers: { Cookie: me } })).json();
+  assert.equal(reopened.messages.length, 3);
+
+  // someone else can neither read nor overwrite it
+  const other = sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true })));
+  assert.equal((await fetch(`${server.base}/api/ai/conversations/convo-aaaa-1111`, { headers: { Cookie: other } })).status, 404);
+  assert.equal((await put('convo-aaaa-1111', { messages: [{ role: 'user', content: 'mine now' }] }, other)).status, 404);
+  assert.equal((await put('bad id!', { messages: [] })).status, 400);
+
+  await fetch(`${server.base}/api/ai/conversations/convo-aaaa-1111`, { method: 'DELETE', headers: { Cookie: me } });
+  const after = await (await fetch(`${server.base}/api/ai/conversations`, { headers: { Cookie: me } })).json();
+  assert.deepEqual(after.map(c => c.id), ['convo-bbbb-2222']);
+});
