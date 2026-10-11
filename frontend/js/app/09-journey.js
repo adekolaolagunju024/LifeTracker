@@ -321,7 +321,14 @@ function mountainExpectedFraction() {
 // with a long history of exactly that complaint.
 function renderJourneyStats(done, total, youFrac, expectedFrac, competitor) {
   const wrap = document.getElementById('mountain-stats');
-  const pct = total ? Math.round(youFrac * 100) : 0;
+  // The numbers here weigh tasks by size (js/progressMath.js); the scene
+  // itself still walks flag to flag. Against the schedule, the pace uses
+  // the same weights; against a teammate, it stays task-for-task.
+  if (total) {
+    youFrac = ProgressMath.progressFraction(mountainState.tasks);
+    if (competitor && competitor.isComputer) expectedFrac = ProgressMath.expectedFraction(mountainState.tasks, mountainState.project.startDate || (mountainState.project.createdAt || '').slice(0, 10));
+  }
+  const pct = total ? ProgressMath.progressPct(mountainState.tasks) : 0;
   const streak = (APP.profile && APP.profile.currentStreak) || 0;
   let paceIcon, paceValue, paceLabel;
   if (!total || expectedFrac === null) {
@@ -329,7 +336,7 @@ function renderJourneyStats(done, total, youFrac, expectedFrac, competitor) {
   } else {
     const deltaPct = Math.round((youFrac - expectedFrac) * 100);
     if (youFrac > expectedFrac + 0.03) { paceIcon = '🏆'; paceValue = `+${deltaPct}%`; paceLabel = 'Ahead'; }
-    else if (youFrac < expectedFrac - 0.03) { paceIcon = '⏳'; paceValue = `${deltaPct}%`; paceLabel = 'Behind'; }
+    else if (youFrac < expectedFrac - 0.03) { paceIcon = '⏳'; paceValue = `${Math.abs(deltaPct)}%`; paceLabel = 'Behind'; }
     else { paceIcon = '🤝'; paceValue = 'Even'; paceLabel = competitor ? competitor.label : 'Pace'; }
   }
   wrap.innerHTML = `
@@ -852,6 +859,8 @@ async function celebrateTaskCompletion(task) {
 // backend/journey.js), so there's nothing to re-derive client-side.
 function announceJourneyReward(reward) {
   if (!reward) return;
+  // Focus mode: the rewards still count, quietly, with no announcements.
+  if (focusModeOn()) { updateJourneyLevelBadge({ level: reward.level, rank: reward.rank }); if (reward.quests) renderDailyQuests(reward.quests); return; }
   floatXp(reward.xpAwarded - (reward.questBonus || 0), reward.early ? 'early finish bonus' : reward.blocker ? 'blocker beaten' : '');
   let delay = 700;
   if (reward.questBonus) {

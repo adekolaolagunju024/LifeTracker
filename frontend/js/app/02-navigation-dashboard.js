@@ -126,8 +126,8 @@ function renderDashboardBento(tasks, allProjects) {
   focus.classList.toggle('hidden', !f);
   if (f) {
     const done = f.tree.filter(t => t.status === 'Completed').length;
-    const pctDone = pct(done, f.tree.length);
-    const expected = expectedFractionForTasks(f.tree, f.p.startDate || (f.p.createdAt || '').slice(0, 10));
+    const pctDone = ProgressMath.progressPct(f.tree);
+    const expected = ProgressMath.expectedFraction(f.tree, f.p.startDate || (f.p.createdAt || '').slice(0, 10));
     const gap = expected === null ? null : pctDone - Math.round(expected * 100);
     const status = gap === null ? '' : gap >= 5 ? 'Ahead' : gap >= -5 ? 'On track' : gap >= -15 ? 'Slightly behind' : 'Behind';
     const next = f.open[0];
@@ -273,7 +273,7 @@ async function renderDashboard() {
 
     // Goals Progress hero — overall task completion across every project,
     // regardless of type; goals are goals, whether Career, Health, etc.
-    const goalsPct = pct(done, tasks.length);
+    const goalsPct = ProgressMath.progressPct(tasks);
     document.getElementById('hero-goals-pct').textContent    = goalsPct + '%';
     document.getElementById('hero-goals-sub').textContent    = `${done} of ${tasks.length} tasks complete`;
     document.getElementById('hero-goals-prog').style.width   = goalsPct + '%';
@@ -293,7 +293,7 @@ async function renderDashboard() {
     goalProjects.forEach(proj => {
       const gts = tasksInProjectTree(proj.id, allProjects, tasks);
       const gdone = gts.filter(t => t.status === 'Completed').length;
-      const gp = pct(gdone, gts.length);
+      const gp = ProgressMath.progressPct(gts);
       const dueDates = gts.map(t => t.endDate).filter(Boolean).sort();
       const latestDue = dueDates[dueDates.length - 1];
       let daysLine = '';
@@ -328,7 +328,7 @@ async function renderDashboard() {
       const pts      = tasksInProjectTree(proj.id, allProjects, tasks);
       const pdone    = pts.filter(t => t.status === 'Completed').length;
       const overdue  = pts.filter(t => t.status !== 'Completed' && t.endDate && t.endDate.slice(0, 10) < todayKey).length;
-      const pp       = pct(pdone, pts.length);
+      const pp       = ProgressMath.progressPct(pts);
       const sharedSuffix = proj.role !== 'owner' && proj.ownerName ? ` · 👤 ${esc(proj.ownerName)}` : '';
       const subLine  = `${pts.length} tasks · ${pdone} done` + sharedSuffix;
       const overdueBadge = overdue > 0 ? `<span class="flex-shrink-0 bg-red-50 text-red-600 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">🔴 ${overdue} overdue</span>` : '';
@@ -404,7 +404,7 @@ async function renderProjects() {
       const pts   = tasksInProjectTree(proj.id, allProjects, tasks);
       const pdone = pts.filter(t => t.status === 'Completed').length;
       const pinp  = pts.filter(t => t.status === 'In Progress').length;
-      const pp    = pct(pdone, pts.length);
+      const pp    = ProgressMath.progressPct(pts);
       const cost  = pts.reduce((s, t) => s + (t.cost || 0), 0);
       const tagsHTML = `<span class="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pts.length} tasks</span>
         <span class="bg-green-50 text-green-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pdone} done</span>

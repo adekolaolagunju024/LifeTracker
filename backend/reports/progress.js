@@ -11,7 +11,9 @@ const isoDay = d => d.toISOString().slice(0, 10);
 const atNoon = iso => new Date(`${iso}T12:00:00Z`);
 const longDate = iso => atNoon(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const shortDate = iso => atNoon(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-const pctOf = (a, b) => (b ? Math.round((a / b) * 100) : 0);
+// Progress weighs each task by its planned length, the same maths the app
+// uses (frontend/js/progressMath.js), so a report never disagrees with it.
+const ProgressMath = require('../../frontend/js/progressMath');
 
 function scheduleFor(tasks, fallbackStart, today) {
   const ends = tasks.map(t => t.endDate).filter(Boolean).sort();
@@ -19,8 +21,7 @@ function scheduleFor(tasks, fallbackStart, today) {
   const start = starts[0] || fallbackStart || null;
   const end = ends[ends.length - 1] || null;
   if (!start || !end || end <= start) return { start, end, expected: null };
-  const span = atNoon(end) - atNoon(start);
-  return { start, end, expected: Math.max(0, Math.min(1, (atNoon(today) - atNoon(start)) / span)) };
+  return { start, end, expected: ProgressMath.expectedFraction(tasks, fallbackStart, atNoon(today).getTime()) };
 }
 
 function statusFor(pct, expected, done, total) {
@@ -43,7 +44,7 @@ function buildProgressReport(viewerId, projectId, now = new Date()) {
   const ids = new Set(groups.map(p => p.id));
   const tasks = db.listTasks(viewerId).filter(t => ids.has(t.projectId));
   const done = tasks.filter(t => t.status === 'Completed');
-  const pct = pctOf(done.length, tasks.length);
+  const pct = ProgressMath.progressPct(tasks);
   const sched = scheduleFor(tasks, project.startDate || (project.createdAt || '').slice(0, 10), today);
   const status = statusFor(pct, sched.expected, done.length, tasks.length);
 
@@ -68,7 +69,7 @@ function buildProgressReport(viewerId, projectId, now = new Date()) {
     if (!own.length && g.id === project.id) return null;
     const d = own.filter(t => t.status === 'Completed').length;
     const s = scheduleFor(own, null, today);
-    const p = pctOf(d, own.length);
+    const p = ProgressMath.progressPct(own);
     return { title: g.id === project.id ? 'General' : g.title, icon: g.icon || '📁', total: own.length, done: d, pct: p, start: s.start, end: s.end, status: statusFor(p, s.expected, d, own.length) };
   }).filter(Boolean);
 

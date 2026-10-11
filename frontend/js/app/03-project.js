@@ -81,7 +81,7 @@ async function renderProjectDetail(projectId) {
       document.getElementById('detail-subfolders-grid').innerHTML = children.map(sub => {
         const pts = allTasks.filter(t => t.projectId === sub.id);
         const pdone = pts.filter(t => t.status === 'Completed').length;
-        const pp = pct(pdone, pts.length);
+        const pp = ProgressMath.progressPct(pts);
         return `
           <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-4 cursor-pointer project-card"
             style="border-top: 3px solid ${sub.color}" onclick="showPage('project-detail','${sub.id}')">

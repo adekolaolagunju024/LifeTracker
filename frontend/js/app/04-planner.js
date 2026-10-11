@@ -259,12 +259,11 @@ function renderGanttStats(tasks, project) {
   const wrap = document.getElementById('gantt-stats-strip');
   if (!wrap) return;
   const total = tasks.length;
-  const done = tasks.filter(t => t.status === 'Completed').length;
-  const pct = total ? Math.round((done / total) * 100) : 0;
+  const pct = ProgressMath.progressPct(tasks);
   const streak = (APP.profile && APP.profile.currentStreak) || 0;
   const fallbackStart = project && (project.startDate || (project.createdAt && project.createdAt.slice(0, 10)));
-  const expectedFrac = total ? expectedFractionForTasks(tasks, fallbackStart) : null;
-  const youFrac = total ? done / total : 0;
+  const expectedFrac = total ? ProgressMath.expectedFraction(tasks, fallbackStart) : null;
+  const youFrac = ProgressMath.progressFraction(tasks);
   let paceIcon, paceValue, paceLabel;
   if (!total || expectedFrac === null) {
     paceIcon = '⏱️'; paceValue = '—'; paceLabel = 'Own pace';
@@ -583,11 +582,7 @@ async function renderGantt() {
               <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">🗑️</button>` : ''}
             </div>
             <div class="gantt-sticky gantt-sticky-2 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
-              <select class="ui-select-compact w-full rounded px-1 py-1 text-[10px] font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}" ${canEditGroup ? '' : 'disabled'}
-                onclick="event.stopPropagation()" onchange="updateGanttTaskStatus('${t.id}', this.value)">
-                ${['Not Started','In Progress','Completed'].map(s =>
-                  `<option ${t.status === s ? 'selected' : ''}>${s}</option>`).join('')}
-              </select>
+              ${statusChipHTML(t, canEditGroup)}
             </div>
             <div class="gantt-sticky gantt-sticky-3 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
               <input type="date" value="${t.startDate || ''}" min="${minStart}" class="w-full rounded px-1 py-1 text-[10px] border border-gray-200 focus:outline-none focus:border-teal" ${canEditGroup ? '' : 'disabled'}
@@ -963,6 +958,53 @@ function scrollGanttToToday() {
   const offset = line.getBoundingClientRect().left - area.getBoundingClientRect().left;
   pane.scrollLeft = Math.max(0, offset - Math.min(80, area.clientWidth * 0.15));
 }
+
+// ── STATUS CHIPS ────────────────────────────────────────────────
+// A task's status as a coloured chip with a text label and icon (so it
+// never relies on colour alone). Tapping it opens a three-way menu right
+// there, one tap to change instead of a native dropdown each time.
+const STATUS_CHIP = {
+  'Not Started': { icon: '○', label: 'To do', cls: 'is-todo' },
+  'In Progress': { icon: '◐', label: 'Doing', cls: 'is-doing' },
+  'Completed':   { icon: '✓', label: 'Done',  cls: 'is-done' },
+};
+function statusChipHTML(t, canEdit) {
+  const c = STATUS_CHIP[t.status] || STATUS_CHIP['Not Started'];
+  return `<button type="button" class="status-chip ${c.cls}" ${canEdit ? `onclick="event.stopPropagation(); openStatusMenu(this, '${t.id}', '${t.status}')" aria-haspopup="menu"` : 'disabled'}
+    title="${t.status}${canEdit ? ' (tap to change)' : ''}" aria-label="Status: ${t.status}${canEdit ? '. Change status' : ''}"><span aria-hidden="true">${c.icon}</span>${c.label}</button>`;
+}
+function closeStatusMenu() { document.getElementById('status-menu')?.remove(); }
+function openStatusMenu(btn, taskId, current) {
+  closeStatusMenu();
+  const menu = document.createElement('div');
+  menu.id = 'status-menu';
+  menu.setAttribute('role', 'menu');
+  menu.innerHTML = Object.entries(STATUS_CHIP).map(([status, c]) =>
+    `<button type="button" role="menuitemradio" aria-checked="${status === current}" class="status-chip ${c.cls} ${status === current ? 'is-current' : ''}" data-status="${status}"><span aria-hidden="true">${c.icon}</span>${status}</button>`).join('');
+  document.body.appendChild(menu);
+  const r = btn.getBoundingClientRect();
+  const top = r.bottom + menu.offsetHeight + 8 > innerHeight ? r.top - menu.offsetHeight - 4 : r.bottom + 4;
+  menu.style.top = Math.max(8, top) + 'px';
+  menu.style.left = Math.max(8, Math.min(innerWidth - menu.offsetWidth - 8, r.left)) + 'px';
+  menu.addEventListener('click', e => {
+    const pick = e.target.closest('[data-status]');
+    if (!pick) return;
+    closeStatusMenu();
+    if (pick.dataset.status !== current) updateGanttTaskStatus(taskId, pick.dataset.status);
+  });
+  menu.querySelector('[aria-checked="true"]')?.focus();
+  setTimeout(() => document.addEventListener('click', closeStatusMenu, { once: true }), 0);
+  menu.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeStatusMenu(); btn.focus(); }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const items = [...menu.querySelectorAll('button')];
+      const i = items.indexOf(document.activeElement);
+      items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+      e.preventDefault();
+    }
+  });
+}
+window.addEventListener('scroll', closeStatusMenu, true);
 
 // ── GANTT DEPENDENCY ARROWS ───────────────────────────────────────
 // Finish-to-start arrows, MS Project style: from the end of each

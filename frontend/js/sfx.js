@@ -7,7 +7,8 @@
 // has interacted with the page, as browsers require.
 const Sfx = (() => {
   let ctx = null;
-  const enabled = () => { try { return localStorage.getItem('gameSounds') !== '0'; } catch { return true; } };
+  // Off in Focus mode too, whatever the sound switch says.
+  const enabled = () => { try { return localStorage.getItem('gameSounds') !== '0' && localStorage.getItem('focusMode') !== '1'; } catch { return true; } };
   const audio = () => {
     if (!ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;

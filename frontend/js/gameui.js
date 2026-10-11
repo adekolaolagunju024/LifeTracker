@@ -6,8 +6,24 @@
 // the game-sound switches. Sounds come from js/sfx.js.
 
 // "+15 XP" rising from the bottom of the screen.
+// Focus mode (Settings) hides the game layer; see the stylesheet too.
+function focusModeOn() { return document.documentElement.classList.contains('focus-mode'); }
+function toggleFocusMode() {
+  const on = !focusModeOn();
+  document.documentElement.classList.toggle('focus-mode', on);
+  try { localStorage.setItem('focusMode', on ? '1' : '0'); } catch { /* storage off */ }
+  syncFocusModeButton();
+  syncSoundButtons();
+  showToast(on ? '🧘 Focus mode on: the game layer is hidden' : '🎮 Focus mode off: XP, quests and trophies are back');
+}
+function syncFocusModeButton() {
+  const sw = document.getElementById('focus-mode-btn');
+  if (sw) { sw.classList.toggle('on', focusModeOn()); sw.setAttribute('aria-checked', String(focusModeOn())); }
+}
+document.addEventListener('DOMContentLoaded', syncFocusModeButton);
+
 function floatXp(amount, note) {
-  if (!amount) return;
+  if (!amount || focusModeOn()) return;
   const chip = document.createElement('div');
   chip.className = 'xp-float';
   chip.setAttribute('aria-hidden', 'true');
@@ -19,6 +35,7 @@ function floatXp(amount, note) {
 // The level-up moment: big number, the rank (and a "new rank" ribbon when
 // it changes), a fanfare and confetti. Tap anywhere or wait to close.
 function showLevelUp(reward) {
+  if (focusModeOn()) return;
   Sfx.play('levelup');
   document.getElementById('levelup-overlay')?.remove();
   const el = document.createElement('div');
