@@ -122,6 +122,11 @@ app.get('/api/version', (req, res) => {
   res.json({ version: BUILD_ID });
 });
 
+// A user's tasks as a subscribable calendar feed, behind a private token
+// rather than a session (calendar apps can't sign in).
+const calendar = require('./routes/calendar');
+app.use('/calendar', calendar.publicRouter);
+
 // ── AUTH GATE — everything else under /api requires a logged-in session ──
 app.use('/api', requireAuth);
 
@@ -142,6 +147,7 @@ app.use('/api/uploads',  require('./routes/uploads'));
 app.use('/api/push',     require('./routes/push'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/journey-gaming', require('./routes/journeyGaming'));
+app.use('/api/calendar', calendar.apiRouter);
 
 // ── CATCH ALL — serve frontend ──
 app.get('*', (req, res) => {

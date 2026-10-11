@@ -378,3 +378,56 @@ test("the landing page's stages match the Journey's stage picker", async () => {
   const picker = [...select.matchAll(/<option value="([a-z]+)">/g)].map(m => m[1]);
   assert.deepEqual(product.stages.map(s => s.id), picker);
 });
+
+const signUp = async () => sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true })));
+const authed = (cookie, method = 'GET', body) => ({ method, headers: { Cookie: cookie, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+
+test('templates are listed and one creates a whole dated plan with phases, targets and dependencies', async () => {
+  const cookie = await signUp();
+  const list = await (await fetch(`${server.base}/api/projects/templates`, authed(cookie))).json();
+  assert.ok(list.length >= 6);
+  const jobHunt = list.find(t => t.id === 'job-hunt');
+  assert.ok(jobHunt.tasks > 0 && jobHunt.phases === 3);
+
+  const res = await fetch(`${server.base}/api/projects/from-template`, authed(cookie, 'POST', { templateId: 'job-hunt', startDate: '2027-01-04' }));
+  assert.equal(res.status, 201);
+  const project = await res.json();
+  assert.equal(project.title, 'Land a new job');
+  assert.equal(project.startDate, '2027-01-04');
+  const phases = await (await fetch(`${server.base}/api/projects?parentId=${project.id}`, authed(cookie))).json();
+  assert.equal(phases.length, 3);
+  const tasks = (await (await fetch(`${server.base}/api/tasks`, authed(cookie))).json()).filter(t => phases.some(p => p.id === t.projectId));
+  assert.equal(tasks.length, jobHunt.tasks);
+  const cv = tasks.find(t => t.title.startsWith('Update my CV'));
+  assert.equal(cv.startDate, '2027-01-04');
+  const apply = tasks.find(t => t.title === 'Send applications');
+  assert.deepEqual([apply.targetCount, apply.targetUnit], [15, 'applications']);
+  assert.deepEqual(apply.predecessors.map(p => p.id), [cv.id]);
+
+  assert.equal((await fetch(`${server.base}/api/projects/from-template`, authed(cookie, 'POST', { templateId: 'nope' }))).status, 404);
+});
+
+test('the calendar feed lists due tasks for its token only, and resetting the link revokes the old one', async () => {
+  const cookie = await signUp();
+  const project = await (await fetch(`${server.base}/api/projects`, authed(cookie, 'POST', { title: 'Feed, test; project' }))).json();
+  await fetch(`${server.base}/api/tasks`, authed(cookie, 'POST', { projectId: project.id, title: 'Book the venue, then confirm', endDate: '2027-03-05' }));
+  await fetch(`${server.base}/api/tasks`, authed(cookie, 'POST', { projectId: project.id, title: 'No date yet' }));
+
+  const { url } = await (await fetch(`${server.base}/api/calendar/feed`, authed(cookie))).json();
+  const path = new URL(url).pathname;
+  assert.match(path, /^\/calendar\/[A-Za-z0-9_-]{20,}\.ics$/);
+  const feed = await fetch(`${server.base}${path}`);
+  assert.equal(feed.status, 200);
+  assert.match(feed.headers.get('content-type'), /text\/calendar/);
+  const ics = await feed.text();
+  assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
+  assert.match(ics, /DTSTART;VALUE=DATE:20270305\r\n/);
+  assert.match(ics, /SUMMARY:⏳ Book the venue\\, then confirm/);
+  assert.doesNotMatch(ics, /No date yet/);
+  assert.ok(ics.split('\r\n').every(line => Buffer.byteLength(line) <= 75));
+
+  const reset = await (await fetch(`${server.base}/api/calendar/feed/reset`, authed(cookie, 'POST'))).json();
+  assert.notEqual(reset.url, url);
+  assert.equal((await fetch(`${server.base}${path}`)).status, 404);
+  assert.equal((await fetch(`${server.base}/api/calendar/feed`)).status, 401);
+});

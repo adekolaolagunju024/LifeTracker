@@ -446,5 +446,15 @@ db.exec(`
 // find this kind of thing more annoying than fun. One blanket on/off
 // switch, defaulting on, checked client-side before any of it fires.
 addColumnIfMissing('profile', "celebrationEffectsEnabled INTEGER NOT NULL DEFAULT 1");
+// A private, revocable link to each user's tasks as a calendar feed
+// (backend/routes/calendar.js), kept out of the profile row so it's only
+// ever returned by its own endpoint.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS calendar_feeds (
+    userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    createdAt TEXT NOT NULL
+  );
+`);
 
 module.exports = db;

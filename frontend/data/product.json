@@ -1,22 +1,95 @@
 {
   "_comment": "One source for what the public pages say about the app. The landing page is rendered from it on the server and the app's 'new version' notice reads it, so a change here (made in the same pull request as the feature) shows up everywhere. Add a whatsNew entry, newest first, for every change users will notice. The stages must match the Journey's stage picker (a test checks).",
   "stages": [
-    { "id": "football", "emoji": "⚽", "name": "Football", "line": "Dribble past rival players and score at the goal." },
-    { "id": "castle", "emoji": "🏰", "name": "Castle", "line": "A knight swings at giant frogs and black knights on the way to the dragon." },
-    { "id": "ocean", "emoji": "🌊", "name": "Ocean", "line": "Dive past sharks and jellyfish swarms to the treasure." },
-    { "id": "space", "emoji": "🚀", "name": "Space", "line": "Fly up beside asteroids and alien saucers and blast them." },
-    { "id": "corporate", "emoji": "🏢", "name": "Corporate", "line": "Stamp red tape APPROVED on the road to the boardroom." },
-    { "id": "construction", "emoji": "🏗️", "name": "Construction", "line": "Watch the building go up phase by phase as tasks are done." },
-    { "id": "life", "emoji": "🌱", "name": "Life Path", "line": "Grow up from a kid to a grown-up on the road to your dream home." },
-    { "id": "launch", "emoji": "💡", "name": "Product Launch", "line": "Take an idea to a launch stage full of happy customers." }
+    {
+      "id": "football",
+      "emoji": "⚽",
+      "name": "Football",
+      "line": "Dribble past rival players and score at the goal."
+    },
+    {
+      "id": "castle",
+      "emoji": "🏰",
+      "name": "Castle",
+      "line": "A knight swings at giant frogs and black knights on the way to the dragon."
+    },
+    {
+      "id": "ocean",
+      "emoji": "🌊",
+      "name": "Ocean",
+      "line": "Dive past sharks and jellyfish swarms to the treasure."
+    },
+    {
+      "id": "space",
+      "emoji": "🚀",
+      "name": "Space",
+      "line": "Fly up beside asteroids and alien saucers and blast them."
+    },
+    {
+      "id": "corporate",
+      "emoji": "🏢",
+      "name": "Corporate",
+      "line": "Stamp red tape APPROVED on the road to the boardroom."
+    },
+    {
+      "id": "construction",
+      "emoji": "🏗️",
+      "name": "Construction",
+      "line": "Watch the building go up phase by phase as tasks are done."
+    },
+    {
+      "id": "life",
+      "emoji": "🌱",
+      "name": "Life Path",
+      "line": "Grow up from a kid to a grown-up on the road to your dream home."
+    },
+    {
+      "id": "launch",
+      "emoji": "💡",
+      "name": "Product Launch",
+      "line": "Take an idea to a launch stage full of happy customers."
+    }
   ],
   "whatsNew": [
-    { "date": "2026-10-11", "title": "Faster, safer and easier to use", "text": "Pages load about four times lighter, password reset emails a link, sign-in is better protected, calendar weeks start on Monday in the UK, and there are keyboard shortcuts: / to search, n for a new task, a for the assistant." },
-    { "date": "2026-10-11", "title": "Tasks unlock the moment you finish what they wait on", "text": "Tick off a predecessor and the tasks waiting on it open up straight away." },
-    { "date": "2026-10-11", "title": "The assistant handles dependencies and targets", "text": "Ask it to make one task wait on another, or to set a target such as \"write 20 pages\", and approve the change." },
-    { "date": "2026-10-11", "title": "A listening assistant with saved chats", "text": "A Shazam-style listening light, chat history you can come back to, and Ask AI on every project and task. Works with AirPods." },
-    { "date": "2026-10-10", "title": "Product Launch stage", "text": "Take an idea from the lab to a launch stage full of happy customers, in 2D or 3D." },
-    { "date": "2026-10-10", "title": "Blockers you fight in person", "text": "Name what's in your way and it appears on the Journey. Your character stays and deals with each one as you tick it off." },
-    { "date": "2026-10-10", "title": "Task dependencies", "text": "Make a task wait for another to finish, shown with arrows on the Gantt chart." }
+    {
+      "date": "2026-10-11",
+      "title": "Templates, Undo and your tasks in your calendar",
+      "text": "Start a project from one of six ready-made plans, undo a delete straight from the toast, and subscribe to your due dates in Google Calendar, Outlook or Apple Calendar."
+    },
+    {
+      "date": "2026-10-11",
+      "title": "Faster, safer and easier to use",
+      "text": "Pages load about four times lighter, password reset emails a link, sign-in is better protected, calendar weeks start on Monday in the UK, and there are keyboard shortcuts: / to search, n for a new task, a for the assistant."
+    },
+    {
+      "date": "2026-10-11",
+      "title": "Tasks unlock the moment you finish what they wait on",
+      "text": "Tick off a predecessor and the tasks waiting on it open up straight away."
+    },
+    {
+      "date": "2026-10-11",
+      "title": "The assistant handles dependencies and targets",
+      "text": "Ask it to make one task wait on another, or to set a target such as \"write 20 pages\", and approve the change."
+    },
+    {
+      "date": "2026-10-11",
+      "title": "A listening assistant with saved chats",
+      "text": "A Shazam-style listening light, chat history you can come back to, and Ask AI on every project and task. Works with AirPods."
+    },
+    {
+      "date": "2026-10-10",
+      "title": "Product Launch stage",
+      "text": "Take an idea from the lab to a launch stage full of happy customers, in 2D or 3D."
+    },
+    {
+      "date": "2026-10-10",
+      "title": "Blockers you fight in person",
+      "text": "Name what's in your way and it appears on the Journey. Your character stays and deals with each one as you tick it off."
+    },
+    {
+      "date": "2026-10-10",
+      "title": "Task dependencies",
+      "text": "Make a task wait for another to finish, shown with arrows on the Gantt chart."
+    }
   ]
 }

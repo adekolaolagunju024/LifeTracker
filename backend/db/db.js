@@ -1755,7 +1755,24 @@ function deleteAssistantConversation(userId, id) {
   db.prepare('DELETE FROM assistant_conversations WHERE id = ? AND userId = ?').run(id, userId);
 }
 
+// ── CALENDAR FEED ──
+// The secret in a user's calendar subscription link. `reset` swaps it for a
+// new one, so an old link that was shared by mistake stops working.
+function getCalendarFeedToken(userId, { reset = false } = {}) {
+  const row = db.prepare('SELECT token FROM calendar_feeds WHERE userId = ?').get(userId);
+  if (row && !reset) return row.token;
+  const token = require('crypto').randomBytes(24).toString('base64url');
+  db.prepare('INSERT INTO calendar_feeds (userId, token, createdAt) VALUES (?,?,?) ON CONFLICT(userId) DO UPDATE SET token = excluded.token, createdAt = excluded.createdAt')
+    .run(userId, token, new Date().toISOString());
+  return token;
+}
+function getUserIdByCalendarFeedToken(token) {
+  const row = db.prepare('SELECT userId FROM calendar_feeds WHERE token = ?').get(String(token || ''));
+  return row ? row.userId : null;
+}
+
 module.exports = {
+  getCalendarFeedToken, getUserIdByCalendarFeedToken,
   listAssistantConversations, getAssistantConversation, saveAssistantConversation, deleteAssistantConversation,
   listObstacles, addObstacle, updateObstacle, deleteObstacle, setTaskPredecessors,
   createUser, getUserByEmail, getUserById, setUserPasswordHash, deleteUser,
