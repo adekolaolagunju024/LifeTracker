@@ -180,4 +180,16 @@ async function renderGanttImage(cookieHeader, baseUrl) {
   }
 }
 
-module.exports = { renderReportPdf, renderReportImage, renderGanttImage, findBrowser };
+// Any standalone HTML page as an A4 PDF (used for progress reports).
+async function renderHtmlPdf(html) {
+  const browser = await launchBrowser();
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'load' });
+    return await page.pdf({ format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } });
+  } finally {
+    await browser.close();
+  }
+}
+
+module.exports = { renderReportPdf, renderReportImage, renderGanttImage, renderHtmlPdf, findBrowser };

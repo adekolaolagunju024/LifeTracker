@@ -7218,3 +7218,71 @@ document.addEventListener('keydown', e => {
     showToast('⌨️ Shortcuts: ⌘K command palette · / search · n new task · a assistant · Esc close');
   }
 });
+
+// ── PROGRESS REPORT ────────────────────────────────────────────
+// A shareable report on one project or goal (backend/reports/progress.js):
+// previewed here, downloadable as a PDF, printable, and shareable as a
+// live read-only link that its owner or an editor can turn off again.
+let reportProjectId = null;
+let reportShareUrl = null;
+async function openProgressReport(projectId) {
+  if (!projectId) return;
+  reportProjectId = projectId;
+  document.getElementById('report-frame').src = `/api/reports/projects/${projectId}/progress.html?t=${Date.now()}`;
+  document.getElementById('report-pdf').href = `/api/reports/projects/${projectId}/progress.pdf`;
+  openModal('modal-report');
+  reportShareUrl = null;
+  showReportShareBar(null, false);
+  try {
+    const share = await API.getReportShare(projectId);
+    reportShareUrl = share.url;
+    document.getElementById('report-share-btn').classList.toggle('hidden', !share.canManage && !share.url);
+    showReportShareBar(share.url, share.canManage);
+  } catch { /* preview, PDF and print still work */ }
+}
+function showReportShareBar(url, canManage) {
+  document.getElementById('report-share-bar').classList.toggle('hidden', !url);
+  document.getElementById('report-share-url').value = url || '';
+  document.getElementById('report-stop-btn').classList.toggle('hidden', !canManage);
+}
+async function ensureReportShareUrl() {
+  if (reportShareUrl) return reportShareUrl;
+  const { url } = await API.createReportShare(reportProjectId);
+  reportShareUrl = url;
+  showReportShareBar(url, true);
+  return url;
+}
+async function shareProgressReport() {
+  let url;
+  try { url = await ensureReportShareUrl(); } catch (e) { showToast('❌ ' + (e.message || 'Could not share the report'), 'error'); return; }
+  const title = document.getElementById('report-frame').contentDocument?.title || 'Progress report';
+  if (navigator.share) {
+    try { await navigator.share({ title, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  copyProgressReportLink();
+}
+async function copyProgressReportLink() {
+  const url = reportShareUrl || document.getElementById('report-share-url').value;
+  if (!url) return;
+  try { await navigator.clipboard.writeText(url); showToast('📋 Report link copied'); }
+  catch { document.getElementById('report-share-url').select(); showToast('Select the link and copy it'); }
+}
+function stopSharingProgressReport() {
+  confirmAction('Stop sharing this report? Anyone with the link will no longer be able to open it.', async () => {
+    try { await API.deleteReportShare(reportProjectId); reportShareUrl = null; showReportShareBar(null, true); showToast('🔒 The report link is turned off'); }
+    catch (e) { showToast('❌ ' + (e.message || 'Could not stop sharing'), 'error'); }
+  });
+}
+function printProgressReport() {
+  const frame = document.getElementById('report-frame');
+  try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch { window.open(frame.src, '_blank'); }
+}
+async function emailProgressReport() {
+  let url;
+  try { url = await ensureReportShareUrl(); } catch { url = ''; }
+  const doc = document.getElementById('report-frame').contentDocument;
+  const title = doc?.title || 'Progress report';
+  const summary = doc?.querySelector('.summary')?.textContent || '';
+  const body = `${summary}\n\n${url ? `See the live report: ${url}` : ''}`;
+  window.location.href = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+}

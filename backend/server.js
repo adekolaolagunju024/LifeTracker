@@ -126,6 +126,8 @@ app.get('/api/version', (req, res) => {
 // rather than a session (calendar apps can't sign in).
 const calendar = require('./routes/calendar');
 app.use('/calendar', calendar.publicRouter);
+// Live progress reports shared by link (read-only, revocable).
+app.use('/r', require('./routes/reports').publicRouter);
 
 // ── AUTH GATE — everything else under /api requires a logged-in session ──
 app.use('/api', requireAuth);

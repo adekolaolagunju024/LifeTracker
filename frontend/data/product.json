@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "Progress reports you can share",
+      "text": "Any project or goal now has a progress report: on track or behind, a forecast finish date, every phase, a timeline, what's done, what's next and what's in the way. Download it as a PDF, print it, email it, or share a live read-only link you can turn off at any time."
+    },
+    {
+      "date": "2026-10-11",
       "title": "A command palette and your week in review",
       "text": "Press ⌘K (Ctrl+K) or tap ⌘ to jump anywhere, run any action, or type a task and add it in one go (\"call the bank tomorrow\"). And tap 🎬 My week for a Wrapped-style story of your last seven days that you can share."
     },

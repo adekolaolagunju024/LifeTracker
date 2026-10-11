@@ -431,3 +431,34 @@ test('the calendar feed lists due tasks for its token only, and resetting the li
   assert.equal((await fetch(`${server.base}${path}`)).status, 404);
   assert.equal((await fetch(`${server.base}/api/calendar/feed`)).status, 401);
 });
+
+test('a progress report covers the plan, and its share link is live, read-only and revocable', async () => {
+  const cookie = await signUp();
+  const project = await (await fetch(`${server.base}/api/projects/from-template`, authed(cookie, 'POST', { templateId: 'event' }))).json();
+  const data = await (await fetch(`${server.base}/api/reports/projects/${project.id}/progress`, authed(cookie))).json();
+  assert.equal(data.project.title, 'Plan an event');
+  assert.equal(data.phases.length, 3);
+  assert.equal(data.total, data.phases.reduce((n, p) => n + p.total, 0));
+  assert.ok(data.waiting.length > 0, 'template dependencies show as waiting tasks');
+  assert.match(data.summary, /0% complete/);
+
+  const html = await (await fetch(`${server.base}/api/reports/projects/${project.id}/progress.html`, authed(cookie))).text();
+  assert.match(html, /Progress report/);
+  assert.match(html, /Plan an event/);
+
+  // other people can't read it, and there's no link until one is made
+  const stranger = await signUp();
+  assert.equal((await fetch(`${server.base}/api/reports/projects/${project.id}/progress.html`, authed(stranger))).status, 404);
+  assert.equal((await (await fetch(`${server.base}/api/reports/projects/${project.id}/share`, authed(cookie))).json()).url, null);
+
+  const { url } = await (await fetch(`${server.base}/api/reports/projects/${project.id}/share`, authed(cookie, 'POST'))).json();
+  const path = new URL(url).pathname;
+  assert.match(path, /^\/r\/[A-Za-z0-9_-]{20,}$/);
+  const pub = await fetch(`${server.base}${path}`);
+  assert.equal(pub.status, 200);
+  assert.equal(pub.headers.get('x-robots-tag'), 'noindex');
+  assert.match(await pub.text(), /updates itself whenever the plan changes/);
+
+  await fetch(`${server.base}/api/reports/projects/${project.id}/share`, authed(cookie, 'DELETE'));
+  assert.equal((await fetch(`${server.base}${path}`)).status, 404);
+});
