@@ -335,32 +335,74 @@
     .asst-music-done { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #0A7E8C; }
     #journey-music-btn .ic { width: 15px; height: 15px; }
     /* Personal assistant (js/jarvis.js): the morning briefing and focus sessions */
-    .brief-card { position: relative; display: flex; gap: 16px; align-items: flex-start; background: radial-gradient(120% 140% at 0% 0%, #12384A 0%, #0D1B2A 55%, #0B1220 100%); color: #fff; border-radius: 20px; padding: 18px 20px; overflow: hidden; }
+    .brief-card { position: relative; display: flex; gap: 16px; align-items: flex-start; background: linear-gradient(135deg, #E9F8F6 0%, #FFFFFF 62%); border: 1px solid #D5ECEA; color: #0D1B2A; border-radius: 20px; padding: 18px 20px; overflow: hidden; }
     .brief-orb { width: 52px; height: 52px; flex-shrink: 0; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #A7F3EB, #0A7E8C 60%, #075E68); box-shadow: 0 0 24px rgba(94,234,212,.55), inset 0 0 12px rgba(255,255,255,.35); position: relative; }
     .brief-orb span { position: absolute; inset: -6px; border-radius: 50%; border: 2px solid rgba(94,234,212,.45); animation: orbpulse 2.4s ease-out infinite; }
     @keyframes orbpulse { 0% { transform: scale(.9); opacity: .9; } 100% { transform: scale(1.35); opacity: 0; } }
     .brief-hello { font-size: 22px; font-weight: 800; letter-spacing: -.015em; }
-    .brief-sum button { color: #fff; font-weight: 700; text-decoration: underline; text-decoration-color: rgba(255,255,255,.35); text-underline-offset: 3px; }
-    .brief-sum button:hover { color: #5EEAD4; }
-    .brief-quote { margin-top: 10px; font-size: 15px; font-weight: 600; line-height: 1.45; color: #E8EEF5; }
-    .brief-quote span { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; color: #9FB3C8; }
-    .brief-add { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #5EEAD4; }
+    .brief-sum button { color: #0D1B2A; font-weight: 700; text-decoration: underline; text-decoration-color: rgba(13,27,42,.25); text-underline-offset: 3px; text-align: left; }
+    .brief-sum button:hover { color: #0A7E8C; }
+    .brief-quote { margin-top: 10px; font-size: 15px; font-weight: 600; line-height: 1.45; color: #1F2A37; }
+    .brief-quote span { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; color: #6B7280; }
+    .brief-add { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #0A7E8C; }
     .brief-actions .brief-icon { width: 38px; padding: 9px 0; justify-content: center; }
-    @media (max-width: 640px) { .brief-card { gap: 12px; padding: 16px; } .brief-orb { width: 40px; height: 40px; } .brief-hello { font-size: 19px; } }
-    .brief-sum { font-size: 13px; color: #9FB3C8; margin-top: 2px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    @media (max-width: 640px) { .brief-card { gap: 12px; padding: 16px; } .brief-orb { display: none; } .brief-hello { font-size: 20px; } }
+    .brief-sum { font-size: 13px; color: #5B6472; margin-top: 2px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
     .brief-list { margin-top: 10px; counter-reset: b; display: grid; gap: 4px; }
     .brief-list li { counter-increment: b; display: flex; gap: 8px; align-items: baseline; font-size: 14px; }
-    .brief-list li::before { content: counter(b); font-size: 11px; font-weight: 800; color: #5EEAD4; width: 16px; }
-    .brief-list button { text-align: left; color: #E8EEF5; font-weight: 600; }
-    .brief-list button:hover { color: #5EEAD4; text-decoration: underline; }
+    .brief-list li::before { content: counter(b); font-size: 11px; font-weight: 800; color: #0A7E8C; width: 16px; }
+    .brief-list button { text-align: left; color: #1F2A37; font-weight: 600; }
+    .brief-list button:hover { color: #0A7E8C; text-decoration: underline; }
     .brief-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-    .brief-actions button { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; border-radius: 12px; padding: 9px 13px; background: rgba(255,255,255,.1); color: #E8EEF5; }
-    .brief-actions button:hover { background: rgba(255,255,255,.18); }
-    .brief-actions .brief-go { background: #5EEAD4; color: #0D1B2A; }
+    .brief-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
+    .brief-date { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #0A7E8C; }
+    .brief-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+    .brief-pills .pill-streak, .brief-pills .pill-level { font-size: 12px; padding: 4px 10px; }
+    .brief-pills .pill-streak.hidden { display: none; }
+    .dash-row { display: grid; gap: 16px; margin-bottom: 16px; }
+    .dash-row > * { min-width: 0; }
+    @media (min-width: 900px) {
+      .dash-row1 { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+      .dash-row2 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+      .dash-row2:has(> #dash-focus.hidden) { grid-template-columns: 1fr; }
+      .dash-row1:has(> #dash-brief:empty) { grid-template-columns: 1fr; }
+      .dash-row1 > #dash-brief > .brief-card { height: 100%; }
+    }
+    .dash-week .recap-mini { height: 100%; min-height: 200px; }
+    .dash-week { display: flex; flex-direction: column; }
+    .quest-line { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 12px; padding-top: 10px; border-top: 1px solid #EEF0F2; font-size: 13px; font-weight: 700; color: #3B4552; text-align: left; }
+    .quest-line:hover { color: #0A7E8C; }
+    .dark .quest-line { border-top-color: rgba(255,255,255,.1); color: #C9D6E2; }
+    .dark .quest-line:hover { color: #fff; }
+    .dark .quest-line .quest-dots i { background: rgba(255,255,255,.18); }
+    .quest-line .ic { width: 15px; height: 15px; color: #0A7E8C; }
+    .quest-line .quest-dots { display: flex; gap: 4px; margin-left: auto; }
+    .quest-line .quest-dots i { width: 8px; height: 8px; border-radius: 50%; background: #E3E6EA; }
+    .quest-line .quest-dots i.on { background: #0A7E8C; }
+    .focus-more { display: block; width: 100%; text-align: left; font-size: 12px; font-weight: 700; color: #0A7E8C; padding: 8px 0 2px; }
+    .focus-more:hover { text-decoration: underline; }
+    .dark .focus-more { color: #5EEAD4; }
+    .brief-actions button { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; border-radius: 12px; padding: 9px 13px; background: #fff; border: 1px solid #E3E6EA; color: #1F2A37; }
+    .brief-actions button:hover { background: #F3F5F7; }
+    .brief-actions .brief-go { background: #0A7E8C; border-color: #0A7E8C; color: #fff; }
+    .brief-actions .brief-go:hover { background: #086C78; }
     .brief-actions .ic { width: 15px; height: 15px; }
-    .brief-x { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 9px; color: #9FB3C8; display: flex; align-items: center; justify-content: center; }
-    .brief-x:hover { background: rgba(255,255,255,.1); color: #fff; }
+    .brief-x { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 9px; color: #6B7280; display: flex; align-items: center; justify-content: center; }
+    .brief-x:hover { background: #F1F3F5; color: #0D1B2A; }
     @media (prefers-reduced-motion: reduce) { .brief-orb span { animation: none; } }
+    .dark .brief-card { background: radial-gradient(120% 140% at 0% 0%, #12384A 0%, #0D1B2A 55%, #0B1220 100%); border-color: transparent; color: #fff; }
+    .dark .brief-sum { color: #9FB3C8; }
+    .dark .brief-sum button { color: #fff; text-decoration-color: rgba(255,255,255,.35); }
+    .dark .brief-sum button:hover, .dark .brief-list button:hover { color: #5EEAD4; }
+    .dark .brief-quote { color: #E8EEF5; }
+    .dark .brief-quote span { color: #9FB3C8; }
+    .dark .brief-add, .dark .brief-date, .dark .brief-list li::before { color: #5EEAD4; }
+    .dark .brief-list button { color: #E8EEF5; }
+    .dark .brief-actions button { background: rgba(255,255,255,.1); border-color: transparent; color: #E8EEF5; }
+    .dark .brief-actions button:hover { background: rgba(255,255,255,.18); }
+    .dark .brief-actions .brief-go { background: #5EEAD4; color: #0D1B2A; }
+    .dark .brief-x { color: #9FB3C8; }
+    .dark .brief-x:hover { background: rgba(255,255,255,.1); color: #fff; }
     .focus-hud { position: fixed; left: 50%; top: 66px; transform: translateX(-50%); z-index: 74; display: flex; align-items: center; gap: 10px; background: #0D1B2A; color: #fff; border-radius: 999px; padding: 6px 8px 6px 8px; box-shadow: 0 12px 36px rgba(5,10,20,.35); max-width: calc(100vw - 24px); }
     .focus-hud.is-done { border-radius: 18px; padding: 12px 16px; }
     .focus-ring { width: 34px; height: 34px; transform: rotate(-90deg); flex-shrink: 0; }
@@ -382,6 +424,62 @@
     .focus-actions .ic { width: 15px; height: 15px; }
     .focus-hud.is-min { top: auto; bottom: 16px; gap: 6px; padding: 5px 6px 5px 6px; }
     .focus-hud.is-min .focus-hud-main { display: none; }
+    .focus-hud.is-hidden { display: none; }
+    /* Start my day: the plan-your-day sheet */
+    .dayplan-overlay { position: fixed; inset: 0; z-index: 90; background: rgba(13,27,42,.42); display: flex; align-items: center; justify-content: center; padding: 16px; animation: dpfade .18s ease-out; }
+    @keyframes dpfade { from { opacity: 0; } }
+    .dayplan { width: min(560px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: #fff; color: #0D1B2A; border-radius: 22px; padding: 20px; box-shadow: 0 30px 80px rgba(5,10,20,.3); }
+    .dayplan-head { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
+    .dayplan-kicker { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #0A7E8C; }
+    .dayplan h3 { font-size: 22px; font-weight: 800; letter-spacing: -.015em; margin-top: 2px; }
+    .dayplan-sub { font-size: 13px; color: #5B6472; margin-top: 4px; }
+    .dayplan-x { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #6B7280; flex-shrink: 0; }
+    .dayplan-x:hover { background: #F1F3F5; color: #0D1B2A; }
+    .dayplan-list { display: grid; gap: 6px; margin-top: 16px; }
+    .dayplan-row { display: flex; align-items: center; gap: 10px; border: 1px solid #E3E6EA; border-radius: 14px; padding: 10px 12px; cursor: pointer; transition: border-color .15s, background .15s; }
+    .dayplan-row:hover { border-color: #9ACBD1; }
+    .dayplan-row.on { border-color: #0A7E8C; background: #F0FAF9; }
+    .dayplan-row.is-blocked { opacity: .6; cursor: not-allowed; }
+    .dayplan-row input { width: 18px; height: 18px; accent-color: #0A7E8C; flex-shrink: 0; }
+    .dayplan-n { width: 20px; height: 20px; border-radius: 50%; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .dayplan-row.on .dayplan-n { background: #0A7E8C; color: #fff; }
+    .dayplan-t { display: block; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dayplan-m { display: block; font-size: 12px; color: #6B7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dayplan-when { font-size: 12px; font-weight: 700; color: #6B7280; flex-shrink: 0; text-align: right; }
+    .dayplan-when.late { color: #B91C1C; }
+    .dayplan-empty { font-size: 14px; color: #6B7280; padding: 8px 2px; }
+    .dayplan-add { display: flex; gap: 8px; margin-top: 10px; }
+    .dayplan-add input { flex: 1; min-width: 0; border: 1px solid #E3E6EA; border-radius: 12px; padding: 10px 12px; font-size: 14px; }
+    .dayplan-add input:focus { outline: 2px solid #0A7E8C; outline-offset: -1px; }
+    .dayplan-add button { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; border-radius: 12px; padding: 0 14px; background: #F1F3F5; color: #1F2A37; }
+    .dayplan-add .ic, .dayplan-go .ic { width: 15px; height: 15px; }
+    .dayplan-opts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .dayplan-label { font-size: 13px; font-weight: 700; color: #3B4552; }
+    .dayplan-len { display: inline-flex; background: #F1F3F5; border-radius: 12px; padding: 3px; }
+    .dayplan-len button { font-size: 13px; font-weight: 700; color: #5B6472; padding: 6px 11px; border-radius: 9px; }
+    .dayplan-len button[aria-checked="true"] { background: #fff; color: #0D1B2A; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .dayplan-music { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #3B4552; margin-left: auto; cursor: pointer; }
+    .dayplan-music input { accent-color: #0A7E8C; }
+    .dayplan-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 18px; padding-top: 14px; border-top: 1px solid #EEF0F2; }
+    .dayplan-ai { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #0A7E8C; }
+    .dayplan-ai:hover { text-decoration: underline; }
+    .dayplan-go { display: inline-flex; align-items: center; gap: 6px; background: #0A7E8C; color: #fff; font-weight: 800; font-size: 14px; border-radius: 12px; padding: 11px 18px; margin-left: auto; }
+    .dayplan-go:hover { background: #086C78; }
+    .dayplan-go:disabled { background: #C9D2DA; cursor: not-allowed; }
+    @media (max-width: 640px) {
+      .dayplan-overlay { align-items: flex-end; padding: 0; }
+      .dayplan { border-radius: 22px 22px 0 0; max-height: 88vh; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); }
+      .dayplan-go { width: 100%; justify-content: center; }
+    }
+    .dark .dayplan { background: #111A2B; color: #E8EEF5; }
+    .dark .dayplan-sub, .dark .dayplan-m, .dark .dayplan-when { color: #94A3B8; }
+    .dark .dayplan-row { border-color: #24324A; }
+    .dark .dayplan-row.on { background: rgba(94,234,212,.08); border-color: #5EEAD4; }
+    .dark .dayplan-add input { background: #0B1220; border-color: #24324A; color: #E8EEF5; }
+    .dark .dayplan-add button, .dark .dayplan-len { background: #1A2436; color: #E8EEF5; }
+    .dark .dayplan-len button[aria-checked="true"] { background: #24324A; color: #fff; }
+    .dark .dayplan-label, .dark .dayplan-music { color: #C9D6E2; }
+    .dark .dayplan-foot { border-top-color: #24324A; }
     .focus-hud.is-min .focus-ring { width: 28px; height: 28px; }
     .focus-hud.is-min .focus-time { font-size: 14px; padding: 0 2px; }
     .focus-hud.is-min .focus-btn { width: 28px; height: 28px; }
@@ -453,23 +551,29 @@
     .dark .plan-sub { color: #94A3B8; }
     .dark .plan-badge { background: #1A2436; color: #CBD5E1; }
     /* Your why, as a conversation */
-    .why-chat { background: radial-gradient(120% 140% at 0% 0%, #12384A 0%, #0D1B2A 60%, #0B1220 100%); color: #fff; border-radius: 20px; padding: 18px; margin-bottom: 16px; }
+    .why-chat { background: linear-gradient(135deg, #E9F8F6 0%, #FFFFFF 62%); border: 1px solid #D5ECEA; color: #0D1B2A; border-radius: 20px; padding: 18px; margin-bottom: 16px; }
     .why-chat-head { display: flex; gap: 12px; align-items: center; }
     .brief-orb.small { width: 40px; height: 40px; }
     .why-chat-title { font-size: 18px; font-weight: 800; }
-    .why-chat-sub { font-size: 13px; color: #9FB3C8; }
+    .why-chat-sub { font-size: 13px; color: #5B6472; }
     .why-chat-log { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto; padding-right: 2px; }
     .why-msg { max-width: 85%; font-size: 15px; line-height: 1.45; padding: 10px 13px; border-radius: 16px; white-space: pre-wrap; }
-    .why-msg.assistant { align-self: flex-start; background: rgba(255,255,255,.1); border-bottom-left-radius: 6px; }
-    .why-msg.user { align-self: flex-end; background: #5EEAD4; color: #0D1B2A; font-weight: 600; border-bottom-right-radius: 6px; }
+    .why-msg.assistant { align-self: flex-start; background: #fff; border: 1px solid #E3E6EA; border-bottom-left-radius: 6px; }
+    .why-msg.user { align-self: flex-end; background: #0A7E8C; color: #fff; font-weight: 600; border-bottom-right-radius: 6px; }
     .why-chat-input { display: flex; gap: 8px; margin-top: 14px; }
-    .why-chat-input input { flex: 1; min-width: 0; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); color: #fff; border-radius: 14px; padding: 0 14px; height: 46px; font-size: 15px; }
-    .why-chat-input input::placeholder { color: #8BA0B5; }
-    .why-chat-input input:focus { outline: none; border-color: #5EEAD4; }
+    .why-chat-input input { flex: 1; min-width: 0; background: #fff; border: 1px solid #D5DBE1; color: #0D1B2A; border-radius: 14px; padding: 0 14px; height: 46px; font-size: 15px; }
+    .why-chat-input input::placeholder { color: #8A94A3; }
+    .why-chat-input input:focus { outline: none; border-color: #0A7E8C; box-shadow: 0 0 0 3px rgba(10,126,140,.12); }
     .why-chat-mic, .why-chat-send { width: 46px; height: 46px; flex-shrink: 0; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
-    .why-chat-mic { background: rgba(255,255,255,.1); color: #E8EEF5; }
+    .why-chat-mic { background: #fff; border: 1px solid #D5DBE1; color: #1F2A37; }
     .why-chat-mic.on { background: #F43F5E; color: #fff; animation: orbpulse 1.4s ease-out infinite; }
-    .why-chat-send { background: #5EEAD4; color: #0D1B2A; }
+    .why-chat-send { background: #0A7E8C; color: #fff; }
+    .dark .why-chat { background: radial-gradient(120% 140% at 0% 0%, #12384A 0%, #0D1B2A 60%, #0B1220 100%); border-color: transparent; color: #fff; }
+    .dark .why-chat-sub { color: #9FB3C8; }
+    .dark .why-msg.assistant { background: rgba(255,255,255,.1); border-color: transparent; }
+    .dark .why-msg.user, .dark .why-chat-send { background: #5EEAD4; color: #0D1B2A; }
+    .dark .why-chat-input input { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); color: #fff; }
+    .dark .why-chat-mic { background: rgba(255,255,255,.1); border-color: transparent; color: #E8EEF5; }
     .why-chat-mic .ic, .why-chat-send .ic { width: 20px; height: 20px; }
     .why-form-wrap > summary { cursor: pointer; list-style: none; font-size: 14px; font-weight: 800; color: #075E68; padding: 8px 2px 12px; }
     .why-form-wrap > summary::-webkit-details-marker { display: none; }
@@ -522,6 +626,44 @@
     .why-q button:disabled { color: #16A34A; }
     .why-q.shelf { background: #FAFBFC; }
     .why-none { font-size: 13px; color: #9AA3AE; margin-bottom: 8px; }
+    .msearch { margin-top: 12px; }
+    .msearch-box { display: flex; align-items: center; gap: 8px; border: 1px solid #D5DBE1; border-radius: 14px; padding: 0 12px; background: #fff; }
+    .msearch-box:focus-within { border-color: #0A7E8C; box-shadow: 0 0 0 3px rgba(10,126,140,.12); }
+    .msearch-box .ic { width: 17px; height: 17px; color: #6B7280; flex-shrink: 0; }
+    .msearch-box input, .msearch-box input:focus { flex: 1; min-width: 0; border: 0 !important; outline: 0 !important; box-shadow: none !important; padding: 12px 0 !important; font-size: 15px; background: transparent !important; }
+    .msearch-results { display: grid; gap: 2px; margin-top: 6px; }
+    .msearch-row { display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 12px; }
+    .msearch-row:hover { background: #F5F7F8; }
+    .msearch-row img, .msearch-art { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: #E6F4F5; display: flex; align-items: center; justify-content: center; color: #0A7E8C; }
+    .msearch-row p { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .msearch-row span { display: block; font-size: 12px; color: #6B7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .msearch-add { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; font-size: 13px; font-weight: 800; color: #0A7E8C; border: 1px solid #BFE3E6; border-radius: 10px; padding: 6px 10px; }
+    .msearch-add:hover { background: #E6F4F5; }
+    .msearch-add.on { color: #1A7A4A; border-color: transparent; }
+    .msearch-add .ic { width: 14px; height: 14px; }
+    .msearch-note { font-size: 12px; color: #6B7280; padding: 6px 4px; }
+    .msearch-more { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .msearch-link { flex: 1; min-width: 200px; }
+    .msearch-link summary { cursor: pointer; font-size: 13px; font-weight: 700; color: #0A7E8C; padding: 7px 0; list-style: none; }
+    .msearch-link summary::-webkit-details-marker { display: none; }
+    .msearch-link[open] summary { margin-bottom: 8px; }
+    .dark .msearch-box { background: #0B1220; border-color: #24324A; color: #E8EEF5; }
+    .dark .msearch-row:hover { background: #1A2436; }
+    .dark .msearch-row span, .dark .msearch-note { color: #94A3B8; }
+    .dark .msearch-add { color: #5EEAD4; border-color: #2B4A55; }
+    /* Hidden floating things live in the top bar until they're wanted */
+    .topdock { display: flex; align-items: center; gap: 6px; }
+    .topdock button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px; border-radius: 9px; background: #E6F4F5; color: #075E68; font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .topdock button:hover { background: #D2ECEE; }
+    .topdock .ic { width: 15px; height: 15px; }
+    .topdock .eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+    .topdock .eq i { width: 3px; background: currentColor; border-radius: 1px; animation: eq 1s ease-in-out infinite; }
+    .topdock .eq i:nth-child(2) { animation-delay: -.4s; } .topdock .eq i:nth-child(3) { animation-delay: -.7s; }
+    .topdock .eq.paused i { animation: none; height: 4px; }
+    @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 12px; } }
+    .dark .topdock button { background: rgba(94,234,212,.12); color: #5EEAD4; }
+    @media (prefers-reduced-motion: reduce) { .topdock .eq i { animation: none; height: 8px; } }
+    .music-dock.is-hidden { position: fixed; left: -10000px; top: 0; width: 320px; }
     .why-add { display: grid; grid-template-columns: 1fr; gap: 8px; }
     @media (min-width: 720px) { .why-add { grid-template-columns: 2fr 1fr auto; } }
     .why-add button, .why-save-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #0A7E8C; color: #fff; font-weight: 800; font-size: 14px; border-radius: 12px; padding: 10px 16px; }
@@ -716,7 +858,6 @@
     .dark .focus-count.late, .dark .focus-count.blocked { background: rgba(239,68,68,.14); color: #FCA5A5; }
     .dark .focus-count.today, .dark .focus-count.waiting { background: rgba(245,158,11,.14); color: #FCD34D; }
     .dark .focus-count.clear { background: rgba(52,211,153,.12); color: #6EE7B7; }
-    #digest-banner.on-dashboard { display: none !important; }
     /* Dashboard: Needs your attention */
     .attention-card { background: #fff; border: 1px solid #E3E6EA; border-radius: 20px; padding: 16px; }
     .attention-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
@@ -1589,26 +1730,40 @@
     /* Focus mode (Settings): the plan without the game. XP, levels, quests
        and trophies step aside; the Journey map, streak and every planning
        feature stay. */
-    html.focus-mode #dash-level-pill, html.focus-mode #dashboard-quests, html.focus-mode #journey-level-badge,
+    html.focus-mode #dash-level-pill, html.focus-mode #dash-quest-line, html.focus-mode #journey-level-badge,
     html.focus-mode #journey-quest-badge, html.focus-mode .xp-float, html.focus-mode #levelup-overlay, html.focus-mode .game-only { display: none !important; }
     .pill-streak, .pill-level { display: inline-flex; align-items: center; gap: 5px; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 14px; padding: 7px 12px; border-radius: 999px; white-space: nowrap; }
     .pill-streak { background: #FFF1E3; color: #9A4410; }
     .pill-streak.hidden { display: none; }
     .pill-level { background: #E6F4F5; color: #075E68; }
-    .focus-card { background: #0D1B2A !important; color: #fff; border-radius: 24px; padding: 20px; }
+    .focus-card { background: #fff; border: 1px solid #E3E6EA; color: #0D1B2A; border-radius: 24px; padding: 20px; }
+    .fc-kicker { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #6B7280; }
+    .fc-status { font-size: 12px; font-weight: 800; color: #0A7E8C; }
+    .fc-status.behind { color: #B45309; }
+    .fc-title { display: block; text-align: left; margin-top: 8px; font-size: 17px; line-height: 1.3; font-weight: 800; color: #0D1B2A; }
+    .fc-title:hover { color: #0A7E8C; }
+    .fc-title .ic { color: #0A7E8C; }
+    .fc-sub { font-size: 12px; color: #5B6472; min-width: 0; }
+    .fc-play { background: #0A7E8C; color: #fff; font-weight: 800; font-size: 14px; padding: 0 14px; min-height: 38px; border-radius: 12px; display: inline-flex; align-items: center; gap: 6px; }
+    .fc-play:hover { background: #086C78; }
+    .dark .fc-kicker { color: #9FB3C8; }
+    .dark .fc-title { color: #fff; }
+    .dark .fc-title .ic, .dark .fc-status { color: #5EEAD4; }
+    .dark .fc-status.behind { color: #FDBA74; }
+    .dark .fc-sub { color: #C9D6E2; }
+    .dark .fc-play { background: #5EEAD4; color: #0D1B2A; }
     /* The goal as a small tile among three */
     .focus-card.tile { border-radius: 18px; padding: 16px; display: flex; flex-direction: column; }
-    .focus-card.tile .text-xl { font-size: 17px; line-height: 1.3; }
-    .focus-card.tile > div:last-child { margin-top: auto; padding-top: 12px; }
-    .focus-card.tile > div:last-child p { font-size: 12px; }
-    .focus-card.tile button[onclick^="openProgressReport"] { display: none; }
-    .focus-card.tile button[onclick^="playJourneyFor"] { min-height: 38px; padding: 0 14px; }
-    .dash-tiles .recap-mini { height: 190px; }
-    .dash-tiles #dashboard-quests .quest-chip { padding-top: 6px; padding-bottom: 6px; }
+    .focus-card.tile .fc-foot { margin-top: auto; padding-top: 12px; }
     .focus-segs { display: grid; gap: 6px; }
-    .focus-segs > span { height: 10px; border-radius: 6px; background: #23364A; }
-    .focus-segs > span.done { background: #5EEAD4; }
-    .focus-segs > span.next { background: transparent; border: 2px solid #5EEAD4; }
+    .focus-segs > span { height: 8px; border-radius: 6px; background: #E8ECEF; }
+    .focus-segs > span.done { background: #0A7E8C; }
+    .focus-segs > span.next { background: transparent; border: 2px solid #0A7E8C; }
+    .focus-segs > span.end { background: #FFD3DF; }
+    .dark .focus-segs > span { background: #23364A; }
+    .dark .focus-segs > span.done { background: #5EEAD4; }
+    .dark .focus-segs > span.next { background: transparent; border-color: #5EEAD4; }
+    .dark .focus-segs > span.end { background: #FF8FB0; }
 
     /* ── DARK MODE ──────────────────────────────────────────────────
        Applied via global overrides keyed to the existing Tailwind
@@ -1635,7 +1790,7 @@
     .dark #sidebar .nav-item.active { background: rgba(94,234,212,.12) !important; color: #5EEAD4 !important; }
     .dark .pill-streak { background: rgba(249,115,22,.15); color: #FDBA74; }
     .dark .pill-level { background: rgba(94,234,212,.12); color: #5EEAD4; }
-    .dark .focus-card { background: #0A2236 !important; }
+    .dark .focus-card { background: #0A2236; border-color: transparent; color: #fff; }
 
     .dark .text-navy      { color: #F1F5F9 !important; }
     .dark .text-navy-2    { color: #CBD5E1 !important; }
@@ -2053,7 +2208,9 @@
         <div class="hidden absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50 max-h-80 overflow-y-auto" id="global-search-results"></div>
       </div>
       <div class="flex items-center gap-2 md:gap-3 flex-shrink-0">
-        <span class="text-gray-400 text-xs font-mono hidden sm:inline" id="topbar-date"></span>
+        <!-- The music player and focus timer, when hidden, wait here -->
+        <div class="topdock" id="topdock"></div>
+        <span class="text-gray-400 text-xs font-mono hidden lg:inline" id="topbar-date"></span>
         <button onclick="openPalette()" aria-label="Command palette (Ctrl+K)" title="Command palette (⌘K / Ctrl+K)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="palette-btn">⌘</button>
         <div class="relative">
           <button onclick="toggleNotifications(event)" aria-label="Notifications" class="relative bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="notif-bell-btn" data-icon="bell">
@@ -2098,26 +2255,37 @@
     <div class="page active p-6" id="page-dashboard">
       <!-- Header: the date and the game pills. The greeting lives in the
            Today card below, with what matters now. -->
-      <div class="mb-3 flex items-center gap-3 flex-wrap">
+      <!-- The date and the game pills sit here until the Today card loads,
+           then move into its top line (js/jarvis.js), saving a row. -->
+      <div class="mb-3 flex items-center gap-3 flex-wrap" id="dash-head">
         <p class="flex-1 text-sm text-gray-500 font-semibold" id="dash-date"></p>
         <h2 class="sr-only"><span id="dash-greeting">Welcome back</span><span id="hero-name"></span></h2>
-        <div class="flex items-center gap-2 flex-wrap">
+        <div class="flex items-center gap-2 flex-wrap" id="dash-head-pills">
           <span class="pill-streak hidden" id="streak-badge" title="Days in a row with a finished task" data-icon="flame"><span><span id="streak-count">0</span>-day streak</span></span>
           <button type="button" class="pill-level" id="dash-level-pill" onclick="openJourneyTrophyCase()" title="Your rank and level. Open the Trophy Case">Lv 1</button>
         </div>
       </div>
       <p class="hidden text-xs font-semibold text-teal -mt-1 mb-3" id="bonus-credits-line"></p>
 
-      <!-- Today (js/jarvis.js): one card from the assistant with the
-           greeting, what's late or due, today's quote from Your why, and
-           buttons to start, talk and play your music. -->
-      <div id="dash-brief" class="mb-4"></div>
+      <!-- Row one: your week as a story, then Today (js/jarvis.js), the
+           assistant's card with the greeting, what's first, today's quote
+           and Start my day. -->
+      <div class="dash-row dash-row1">
+        <div class="dash-week bg-white rounded-2xl border border-gray-200 p-2.5" id="dash-week-card">
+          <div class="recap-mini" id="dash-recap" role="region" aria-label="Your week so far, as slides"></div>
+          <p class="hidden">This week: <span id="dash-week-done">0 tasks done</span> <span id="dash-week-trend"></span></p>
+          <div class="hidden"><div id="hero-goals-prog"></div><span id="hero-goals-pct"></span><span id="hero-goals-sub"></span><span id="hero-goals-detail"></span><span id="kpi-total">0</span><span id="kpi-done">0</span><span id="kpi-inprog">0</span></div>
+        </div>
+        <div id="dash-brief" class="min-w-0"></div>
+      </div>
 
-      <!-- Your focus: the one list of what to do now -->
-        <div class="bg-white rounded-2xl border border-gray-200 px-4 py-3 mb-4" id="dash-upnext-card">
-          <!-- Your focus: the one dashboard list of what to do. What needs
-               attention (late, blocked, due today, waiting) comes first with
-               the reason, then what's due next. Actions holds the full list. -->
+      <!-- Row two: Your focus, the one list of what to do now, and your
+           goal's Journey (with today's quests as one line). -->
+      <div class="dash-row dash-row2 mb-6">
+        <div class="bg-white rounded-2xl border border-gray-200 px-4 py-3 min-w-0" id="dash-upnext-card">
+          <!-- What needs attention (late, blocked, due today, waiting) comes
+               first with the reason, then what's due next. Actions holds
+               the full list. -->
           <div class="flex items-center justify-between gap-3 mb-2">
             <p class="text-[15px] font-extrabold text-navy">Your focus</p>
             <button onclick="showPage('actions')" class="text-xs font-bold text-teal hover:underline">All actions →</button>
@@ -2125,31 +2293,8 @@
           <div class="focus-counts" id="dash-attention-counts"></div>
           <div id="dash-upnext"><p class="text-sm text-gray-400 py-3">Loading…</p></div>
         </div>
-
-
-      <!-- Three small tiles: your week as a story, your goal's Journey and
-           today's quests. Projects live on All Projects. -->
-      <div class="dash-tiles grid grid-cols-1 gap-4 mb-6 md:grid-cols-3 [&>*]:min-w-0">
-        <div class="bg-white rounded-2xl border border-gray-200 p-3 flex flex-col" id="dash-week-card">
-          <div class="recap-mini" id="dash-recap" role="region" aria-label="Your week so far, as slides"></div>
-          <p class="text-xs font-bold text-gray-500 px-1 pt-2 flex items-baseline gap-1.5 flex-wrap">This week: <span class="text-navy" id="dash-week-done">0 tasks done</span> <span id="dash-week-trend"></span></p>
-          <div class="hidden"><div id="hero-goals-prog"></div><span id="hero-goals-pct"></span><span id="hero-goals-sub"></span><span id="hero-goals-detail"></span><span id="kpi-total">0</span><span id="kpi-done">0</span><span id="kpi-inprog">0</span></div>
-        </div>
-
-        <div class="focus-card tile hidden" id="dash-focus"></div>
-
-        <!-- Today's quests (js/gameui.js): three small goals, new each day -->
-        <div id="dashboard-quests" class="hidden bg-white rounded-2xl border border-gray-200 p-4">
-          <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
-            <div><p class="text-[15px] font-extrabold text-navy">Today's quests</p><p class="text-xs text-gray-500 mt-0.5 font-semibold" id="dashboard-quests-count"></p></div>
-            <button onclick="openJourneyTrophyCase()" class="text-xs font-bold text-teal hover:underline">Trophies →</button>
-          </div>
-          <div class="grid gap-2" id="dashboard-quests-list"></div>
-        </div>
-
+        <div class="focus-card tile hidden min-w-0" id="dash-focus"></div>
       </div>
-
-
     </div>
 
     <!-- ─── ALL PROJECTS ─── -->
@@ -2159,7 +2304,7 @@
           <h2 class="text-2xl font-black text-navy">Projects</h2>
           <p class="text-gray-500 text-sm mt-1">Each project is a collection of related goals and tasks.</p>
         </div>
-        <div class="flex gap-3 flex-shrink-0">
+        <div class="flex gap-2 flex-wrap">
           <button onclick="openAssistant()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all"><span class="ei" data-icon="mic"></span> Assistant</button>
           <button onclick="Reports.openPortfolioPicker()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all" title="A report on all your projects at once, for a board or team meeting"><span class="ei" data-icon="chart-column"></span> Portfolio report</button>
           <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
@@ -2529,13 +2674,13 @@
       </div>
 
       <!-- AI Insights -->
-      <div class="bg-gradient-to-br from-navy to-navy-2 rounded-xl p-5 mb-6 text-white">
+      <div class="bg-white border border-gray-200 rounded-2xl p-4 mb-6">
         <div class="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <p class="text-sm font-bold flex items-center gap-1.5"><span class="flex" data-icon="sparkles"></span>AI Insights</p>
-            <p class="text-xs text-white/50 mt-0.5">Get a short, prioritised plan for what's below, with the next step for each. Takes about 15 seconds and counts towards your AI allowance.</p>
+          <div class="min-w-0">
+            <p class="text-sm font-bold text-navy flex items-center gap-1.5"><span class="flex text-teal" data-icon="sparkles"></span>Not sure where to start?</p>
+            <p class="text-xs text-gray-500 mt-0.5">The assistant reads what's below and gives you a short order to do it in, with the next step for each. About 15 seconds.</p>
           </div>
-          <button onclick="loadAIInsights()" id="ai-insights-btn" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">Analyze My Tasks</button>
+          <button onclick="loadAIInsights()" id="ai-insights-btn" class="bg-teal/10 hover:bg-teal/20 text-teal text-xs font-bold px-4 py-2 rounded-lg whitespace-nowrap">Plan it for me</button>
         </div>
         <div class="hidden mt-4" id="ai-insights-body"></div>
       </div>
