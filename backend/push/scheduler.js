@@ -161,6 +161,10 @@ function startPushReminderScheduler() {
   cron.schedule('0 8 * * *', () => {
     checkDueTodayDigest().catch(e => console.error('Due-today push failed:', e.message));
   });
+  // Retention: usage events older than 13 months (see the Privacy Policy).
+  cron.schedule('30 3 * * *', () => {
+    try { db.purgeOldAnalytics(); } catch (e) { console.error('Analytics purge failed:', e.message); }
+  });
   cron.schedule('0 20 * * *', () => {
     checkStreakNudge().catch(e => console.error('Streak nudge check failed:', e.message));
   });

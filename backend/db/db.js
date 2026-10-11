@@ -44,7 +44,18 @@ function setUserPasswordHash(id, passwordHash) {
 // Every other table's userId column is ON DELETE CASCADE, so this alone
 // removes the profile, projects, tasks, and integrations too.
 function deleteUser(id) {
-  db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  // Usage events have no foreign key to users (they outlive nothing else),
+  // so they go explicitly: deleting an account removes them too, as the
+  // Privacy Policy promises.
+  db.transaction(() => {
+    db.prepare('DELETE FROM analytics_events WHERE userId = ?').run(id);
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  })();
+}
+// Usage events older than 13 months are deleted (Privacy Policy §6).
+function purgeOldAnalytics(now = new Date()) {
+  const cutoff = new Date(now.getTime() - 396 * 86400000).toISOString();
+  return db.prepare('DELETE FROM analytics_events WHERE createdAt < ?').run(cutoff).changes;
 }
 
 function setPasswordResetToken(id, token, expiresAt) {
@@ -1986,6 +1997,7 @@ function markReminderRung(id, iso = new Date().toISOString()) {
 }
 
 module.exports = {
+  purgeOldAnalytics,
   recordActiveDay,
   getOneDrive, setOneDrive,
   listReminders, getReminder, setTaskReminder, deleteTaskReminder, snoozeReminder, ackReminder, listRemindersToRing, markReminderRung,

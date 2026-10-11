@@ -136,3 +136,19 @@ test('consent timestamp is stored when provided', () => {
   const user = newUser();
   assert.ok(db.getUserById(user.id).acceptedTermsAt);
 });
+
+test('deleting an account removes its usage events; old events are purged', () => {
+  const user = newUser();
+  db.logEvent(user.id, 'active_day');
+  const raw = new Database(dbFile);
+  raw.prepare("INSERT INTO analytics_events (id, userId, event, createdAt) VALUES (?, ?, 'active_day', ?)").run(randomUUID(), 'someone-else', '2020-01-01T00:00:00.000Z');
+  raw.close();
+  db.deleteUser(user.id);
+  const check = new Database(dbFile);
+  assert.equal(check.prepare('SELECT COUNT(*) AS n FROM analytics_events WHERE userId = ?').get(user.id).n, 0);
+  check.close();
+  assert.ok(db.purgeOldAnalytics() >= 1);
+  const after = new Database(dbFile);
+  assert.equal(after.prepare("SELECT COUNT(*) AS n FROM analytics_events WHERE createdAt < '2021-01-01'").get().n, 0);
+  after.close();
+});
