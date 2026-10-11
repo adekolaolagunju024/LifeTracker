@@ -302,12 +302,13 @@ const Music = (() => {
       <div class="music-bar">
         <span class="music-bar-ic">${icon('music')}</span>
         <span class="music-bar-text"><b>${esc(label)}</b><small>${esc(e.service)}${queue.length > 1 ? ` · ${i + 1} of ${queue.length}` : ''}</small></span>
-        ${queue.length > 1 ? `<button type="button" class="music-btn" onclick="Music.prev()" aria-label="Previous playlist" title="Previous">${icon('skip-back')}</button>
-        <button type="button" class="music-btn" onclick="Music.next()" aria-label="Next playlist" title="Next">${icon('skip-forward')}</button>
-        <button type="button" class="music-btn" onclick="Music.toggleLib()" aria-label="Your music library" title="Library">${icon('list-music')}</button>` : ''}
+        ${queue.length > 1 ? `<button type="button" class="music-btn music-full" onclick="Music.prev()" aria-label="Previous playlist" title="Previous">${icon('skip-back')}</button>` : ''}
         <button type="button" class="music-btn music-pp" onclick="Music.togglePause()" aria-label="Pause or play (M)" title="Pause / play (M)">${icon('pause')}</button>
-        <button type="button" class="music-btn" onclick="Music.toggleMin()" aria-label="Minimise or show the player" title="Minimise (keeps playing)">${icon('chevron_down')}</button>
-        <button type="button" class="music-btn" onclick="Music.stop()" aria-label="Stop the music" title="Stop">${icon('close')}</button>
+        ${queue.length > 1 ? `<button type="button" class="music-btn music-full" onclick="Music.next()" aria-label="Next playlist" title="Next">${icon('skip-forward')}</button>` : ''}
+        <button type="button" class="music-btn music-full music-rep" onclick="Music.cycleRepeat()"></button>
+        ${queue.length > 1 ? `<button type="button" class="music-btn music-full" onclick="Music.toggleLib()" aria-label="Your music library" title="Library">${icon('list-music')}</button>` : ''}
+        <button type="button" class="music-btn music-minbtn" onclick="Music.toggleMin()" aria-label="Minimise the player" title="Minimise (keeps playing)">${icon('chevron_down')}</button>
+        <button type="button" class="music-btn music-full" onclick="Music.stop()" aria-label="Stop the music" title="Stop">${icon('close')}</button>
       </div>
       <div class="music-libpick">${queue.map((q, j) => `<button type="button" class="${j === i ? 'on' : ''}" onclick="Music.go(${j})">${icon(j === i ? 'volume' : 'play', 'tiny')}<span>${esc(q.label || 'Untitled')}</span></button>`).join('')}</div>
       <div class="music-frame" style="height:${e.height}px">
@@ -316,8 +317,64 @@ const Music = (() => {
       <a class="music-open" href="${esc(item.url)}" target="_blank" rel="noopener">${isPhone() ? `Keep playing in ${esc(e.service)} when you leave` : `Open in ${esc(e.service)}`} ${icon('external', 'tiny')}</a>`;
     current = { ...e, paused: false };
     spotify = null;
+    syncRepeat();
     if (e.control === 'spotify') attachSpotify(d.querySelector('.music-frame iframe'), e.uri);
+    else if (e.control === 'youtube' || e.control === 'soundcloud') {
+      // Ask the player to tell us when it finishes, for repeat.
+      d.querySelector('.music-frame iframe').addEventListener('load', () => {
+        if (e.control === 'youtube') { post({ event: 'listening', id: 1 }); if (repeat === 'one') post({ event: 'command', func: 'setLoop', args: [true] }); }
+        else post({ method: 'addEventListener', value: 'finish' });
+      });
+    }
   }
+
+  // ── Repeat: off, all (loop the library), one (replay this one) ──
+  // Spotify, YouTube and SoundCloud say when they finish; Apple Music and
+  // Deezer don't, so repeat can't follow them.
+  let repeat = (() => { try { return localStorage.getItem('wp-music-repeat') || 'off'; } catch { return 'off'; } })();
+  const REPEAT = { off: ['repeat', 'Repeat is off'], all: ['repeat', 'Repeating all your music'], one: ['repeat-1', 'Repeating this one'] };
+  function cycleRepeat() {
+    repeat = repeat === 'off' ? 'all' : repeat === 'all' ? 'one' : 'off';
+    try { localStorage.setItem('wp-music-repeat', repeat); } catch { /* private mode */ }
+    if (current && current.control === 'youtube') post({ event: 'command', func: 'setLoop', args: [repeat !== 'off'] });
+    syncRepeat();
+    const unsupported = current && !current.control;
+    showToast(unsupported && repeat !== 'off' ? `${REPEAT[repeat][1]}. ${current.service} can't tell Waypoint when it ends, so this works with Spotify, YouTube and SoundCloud` : REPEAT[repeat][1]);
+  }
+  function syncRepeat() {
+    const b = document.querySelector('#music-dock .music-rep');
+    if (!b) return;
+    b.innerHTML = icon(REPEAT[repeat][0]);
+    b.classList.toggle('on', repeat !== 'off');
+    b.setAttribute('aria-label', `${REPEAT[repeat][1]}. Change repeat`);
+    b.title = REPEAT[repeat][1];
+  }
+  // What to do when the current one finishes.
+  function ended() {
+    if (!current || current.endedAt > Date.now() - 3000) return; // one finish, one action
+    current.endedAt = Date.now();
+    if (repeat === 'one') restartCurrent();
+    else if (queue.length > 1 && (repeat === 'all' || at < queue.length - 1)) go(at + 1);
+    else if (repeat === 'all') restartCurrent();
+  }
+  function restartCurrent() {
+    if (!current) return;
+    if (current.control === 'spotify' && spotify) { spotify.seek(0); spotify.resume(); }
+    else if (current.control === 'youtube') { post({ event: 'command', func: 'seekTo', args: [0, true] }); post({ event: 'command', func: 'playVideo', args: [] }); }
+    else if (current.control === 'soundcloud') { post({ method: 'seekTo', value: 0 }); post({ method: 'play' }); }
+  }
+  window.addEventListener('message', ev => {
+    if (!current || !/youtube|soundcloud/.test(ev.origin)) return;
+    let msg = ev.data;
+    try { if (typeof msg === 'string') msg = JSON.parse(msg); } catch { return; }
+    if (!msg) return;
+    if (current.control === 'youtube' && msg.event === 'onStateChange') {
+      if (msg.info === 0) ended();
+      else if (msg.info === 1 || msg.info === 2) { current.paused = msg.info === 2; syncPP(); }
+    }
+    if (current.control === 'youtube' && msg.event === 'infoDelivery' && msg.info && msg.info.playerState === 0) ended();
+    if (current.control === 'soundcloud' && msg.method === 'finish') ended();
+  });
 
   // ── Pause and play ──
   // Spotify through its embed API, YouTube and SoundCloud by message; Apple
@@ -346,7 +403,12 @@ const Music = (() => {
       frame.replaceWith(holder);
       api.createController(holder, { uri, width: '100%', height: current ? current.height : 152 }, ctrl => {
         spotify = ctrl;
-        ctrl.addListener('playback_update', ev => { if (current) { current.paused = !!(ev.data && ev.data.isPaused); syncPP(); } });
+        ctrl.addListener('playback_update', ev => {
+          if (!current || !ev.data) return;
+          current.paused = !!ev.data.isPaused; syncPP();
+          const { position, duration } = ev.data;
+          if (duration && position >= duration - 800 && ev.data.isPaused) ended();
+        });
         try { ctrl.play(); } catch { /* they tap play */ }
       });
     }).catch(() => { /* the plain player still works */ });
@@ -398,6 +460,6 @@ const Music = (() => {
   }
   const isPlaying = () => !!dock();
 
-  return { embedFor, start, go, next, prev, toggleMin, toggleLib, togglePause, setPaused, stop, isPlaying, restore, isPaused: () => !!(current && current.paused) };
+  return { embedFor, start, go, next, prev, toggleMin, toggleLib, togglePause, setPaused, cycleRepeat, stop, isPlaying, restore, isPaused: () => !!(current && current.paused), repeatMode: () => repeat, _ended: ended };
 })();
 window.Music = Music;

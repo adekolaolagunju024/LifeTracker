@@ -296,7 +296,12 @@
     .music-libpick button:hover { background: rgba(255,255,255,.08); }
     .music-libpick button.on { color: #5EEAD4; font-weight: 700; }
     /* Minimised: the player stays loaded off screen so the music keeps going */
-    .music-dock.is-min { width: auto; }
+    .music-dock.is-min { width: auto; left: auto; }
+    .music-dock.is-min .music-full, .music-dock.is-min .music-bar-text small { display: none; }
+    .music-dock.is-min .music-bar-text { max-width: 120px; }
+    .music-btn.music-rep.on { color: #5EEAD4; }
+    .music-btn.music-rep.on::after { content: ''; position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #5EEAD4; transform: translateY(12px); }
+    .music-btn { position: relative; }
     .music-dock.is-min .music-frame { position: fixed; left: -10000px; top: 0; width: 320px; }
     .music-dock.is-min .music-open, .music-dock.is-min .music-libpick { display: none; }
     .music-dock.is-min .music-btn .ic { transform: none; }
