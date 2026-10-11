@@ -398,20 +398,19 @@ const Music = (() => {
       <div class="music-bar">
         <span class="music-bar-ic">${icon('music')}</span>
         <span class="music-bar-text"><b>${esc(label)}</b><small>${esc(e.service)}${queue.length > 1 ? ` · ${i + 1} of ${queue.length}` : ''}</small></span>
-        ${queue.length > 1 ? `<button type="button" class="music-btn music-full" onclick="Music.prev()" aria-label="Previous playlist" title="Previous">${icon('skip-back')}</button>` : ''}
-        <button type="button" class="music-btn music-pp" onclick="Music.togglePause()" aria-label="Pause or play (M)" title="Pause / play (M)">${icon('pause')}</button>
-        ${queue.length > 1 ? `<button type="button" class="music-btn music-full" onclick="Music.next()" aria-label="Next playlist" title="Next">${icon('skip-forward')}</button>` : ''}
+        <button type="button" class="music-btn music-pp music-minonly" onclick="Music.togglePause()" aria-label="Pause or play (M)" title="Pause / play (M)">${icon('pause')}</button>
         <button type="button" class="music-btn music-full music-rep" onclick="Music.cycleRepeat()"></button>
         ${queue.length > 1 ? `<button type="button" class="music-btn music-full" onclick="Music.toggleLib()" aria-label="Your music library" title="Library">${icon('list-music')}</button>` : ''}
         <button type="button" class="music-btn music-minbtn" onclick="Music.toggleMin()" aria-label="Minimise the player" title="Minimise (keeps playing)">${icon('chevron_down')}</button>
         <button type="button" class="music-btn music-full" onclick="Music.stop()" aria-label="Stop the music" title="Stop">${icon('close')}</button>
       </div>
+      ${transportHTML(e)}
       <div class="music-libpick">${queue.map((q, j) => `<button type="button" class="${j === i ? 'on' : ''}" onclick="Music.go(${j})">${icon(j === i ? 'volume' : 'play', 'tiny')}<span>${esc(q.label || 'Untitled')}</span></button>`).join('')}</div>
       <div class="music-frame" style="height:${e.height}px">
         <iframe src="${esc(e.src)}" title="${esc(label)} on ${esc(e.service)}" allow="autoplay; encrypted-media; clipboard-write; fullscreen; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe>
       </div>
       <a class="music-open" href="${esc(item.url)}" target="_blank" rel="noopener">${isPhone() ? `Keep playing in ${esc(e.service)} when you leave` : `Open in ${esc(e.service)}`} ${icon('external', 'tiny')}</a>`;
-    current = { ...e, paused: false };
+    current = { ...e, paused: false, pos: 0 };
     spotify = null;
     syncRepeat();
     if (e.control === 'spotify') attachSpotify(d.querySelector('.music-frame iframe'), e.uri);
@@ -419,9 +418,56 @@ const Music = (() => {
       // Ask the player to tell us when it finishes, for repeat.
       d.querySelector('.music-frame iframe').addEventListener('load', () => {
         if (e.control === 'youtube') { post({ event: 'listening', id: 1 }); if (repeat === 'one') post({ event: 'command', func: 'setLoop', args: [true] }); }
-        else post({ method: 'addEventListener', value: 'finish' });
+        else { post({ method: 'addEventListener', value: 'finish' }); post({ method: 'addEventListener', value: 'playProgress' }); }
       });
     }
+  }
+
+  // ── Back, forward and skipping ──
+  // Under the title: 10 seconds back, previous, play/pause, next, 10 seconds
+  // on. Previous and next move through the songs inside a YouTube or
+  // SoundCloud playlist; Spotify's player can't skip songs from outside, so
+  // there (and for Apple Music and Deezer) they move through your library.
+  // Apple Music and Deezer can't be told to jump, so they get no 10s buttons.
+  const canSeek = e => !!e.control;
+  const hasTracks = e => (e.control === 'youtube' && /[?&]list=/.test(e.src)) || (e.control === 'soundcloud' && /\/sets\//.test(decodeURIComponent(e.src)));
+  function transportHTML(e) {
+    const skips = hasTracks(e) || queue.length > 1;
+    const what = hasTracks(e) ? 'song' : 'playlist';
+    const btn = (cls, fn, ic, label, extra = '') => `<button type="button" class="music-tbtn ${cls}" onclick="Music.${fn}" aria-label="${label}" title="${label}">${icon(ic)}${extra}</button>`;
+    return `<div class="music-transport">
+      ${canSeek(e) ? btn('music-seek', 'seek(-10)', 'rewind', 'Back 10 seconds', '<span>10</span>') : ''}
+      ${skips ? btn('', 'prev()', 'skip-back', `Previous ${what}`) : ''}
+      ${btn('music-pp music-pp-big', 'togglePause()', 'pause', 'Pause or play (M)')}
+      ${skips ? btn('', 'next()', 'skip-forward', `Next ${what}`) : ''}
+      ${canSeek(e) ? btn('music-seek', 'seek(10)', 'fast-forward', 'Forward 10 seconds', '<span>10</span>') : ''}
+    </div>`;
+  }
+  // Jumps by a number of seconds from where it is now.
+  function seek(seconds) {
+    if (!current || !canSeek(current)) return;
+    const to = Math.max(0, (current.pos || 0) + seconds);
+    if (current.control === 'spotify' && spotify) spotify.seek(to);
+    else if (current.control === 'youtube') post({ event: 'command', func: 'seekTo', args: [to, true] });
+    else if (current.control === 'soundcloud') post({ method: 'seekTo', value: Math.round(to * 1000) });
+    current.pos = to;
+  }
+  function next() {
+    if (current && hasTracks(current)) {
+      if (current.control === 'youtube') post({ event: 'command', func: 'nextVideo', args: [] });
+      else post({ method: 'next' });
+      current.pos = 0;
+      if (current.paused) { current.paused = false; syncPP(); }
+    } else if (queue.length > 1) go(at + 1);
+  }
+  // Like any music app: a few seconds in, previous starts this one again.
+  function prev() {
+    if (current && current.control && (current.pos || 0) > 3) { seek(-current.pos); return; }
+    if (current && hasTracks(current)) {
+      if (current.control === 'youtube') post({ event: 'command', func: 'previousVideo', args: [] });
+      else post({ method: 'prev' });
+      current.pos = 0;
+    } else if (queue.length > 1) go(at - 1);
   }
 
   // ── Repeat: off, all (loop the library), one (replay this one) ──
@@ -468,8 +514,12 @@ const Music = (() => {
       if (msg.info === 0) ended();
       else if (msg.info === 1 || msg.info === 2) { current.paused = msg.info === 2; syncPP(); }
     }
-    if (current.control === 'youtube' && msg.event === 'infoDelivery' && msg.info && msg.info.playerState === 0) ended();
+    if (current.control === 'youtube' && msg.event === 'infoDelivery' && msg.info) {
+      if (typeof msg.info.currentTime === 'number') current.pos = msg.info.currentTime;
+      if (msg.info.playerState === 0) ended();
+    }
     if (current.control === 'soundcloud' && msg.method === 'finish') ended();
+    if (current.control === 'soundcloud' && msg.method === 'playProgress' && msg.value) current.pos = (msg.value.currentPosition || 0) / 1000;
   });
 
   // ── Pause and play ──
@@ -503,6 +553,7 @@ const Music = (() => {
           if (!current || !ev.data) return;
           current.paused = !!ev.data.isPaused; syncPP();
           const { position, duration } = ev.data;
+          if (typeof position === 'number') current.pos = position / 1000;
           if (duration && position >= duration - 800 && ev.data.isPaused) ended();
         });
         try { ctrl.play(); } catch { /* they tap play */ }
@@ -524,10 +575,13 @@ const Music = (() => {
   }
   function togglePause() { if (current) setPaused(!current.paused); }
   function syncPP() {
-    const b = document.querySelector('#music-dock .music-pp');
-    if (!b || !current) return;
-    b.innerHTML = icon(current.paused ? 'play' : 'pause');
-    b.setAttribute('aria-label', current.paused ? 'Play (M)' : 'Pause (M)');
+    const bs = document.querySelectorAll('#music-dock .music-pp');
+    if (!bs.length || !current) return;
+    bs.forEach(b => {
+      b.innerHTML = icon(current.paused ? 'play' : 'pause');
+      b.setAttribute('aria-label', current.paused ? 'Play (M)' : 'Pause (M)');
+      b.title = current.paused ? 'Play (M)' : 'Pause (M)';
+    });
     document.getElementById('music-dock').classList.toggle('is-paused', current.paused);
   }
   // M pauses or plays the music from anywhere in the app.
@@ -539,8 +593,6 @@ const Music = (() => {
     togglePause();
     showToast(current.paused ? '⏸ Music paused (M to play)' : '▶ Music playing');
   });
-  const next = () => go(at + 1);
-  const prev = () => go(at - 1);
   function toggleMin() { const d = dock(); if (!d) return; d.classList.toggle('is-min'); if (queue[at]) remember({ url: queue[at].url, min: d.classList.contains('is-min') }); }
   function toggleLib() { const d = dock(); if (d) d.classList.toggle('show-lib'); }
   function stop() { const d = dock(); if (d) d.remove(); at = -1; current = null; spotify = null; remember(null); }
@@ -556,6 +608,6 @@ const Music = (() => {
   }
   const isPlaying = () => !!dock();
 
-  return { embedFor, start, go, next, prev, toggleMin, toggleLib, togglePause, setPaused, cycleRepeat, stop, isPlaying, restore, isPaused: () => !!(current && current.paused), repeatMode: () => repeat, _ended: ended };
+  return { embedFor, start, go, next, prev, toggleMin, toggleLib, togglePause, setPaused, seek, cycleRepeat, stop, isPlaying, restore, isPaused: () => !!(current && current.paused), repeatMode: () => repeat, _ended: ended };
 })();
 window.Music = Music;
