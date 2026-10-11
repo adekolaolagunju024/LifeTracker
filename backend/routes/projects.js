@@ -1,6 +1,7 @@
 const express = require('express');
 const router  = express.Router();
 const { v4: uuid } = require('uuid');
+const templates = require('../templates');
 const db = require('../db/db');
 const { sendChatMessageEmail } = require('../email/chatMail');
 const { notifyMentioned, notifyInvited } = require('../email/activity');
@@ -35,6 +36,24 @@ router.get('/chats', (req, res) => {
 // GET /api/projects?parentId=<id>|null
 router.get('/', (req, res) => {
   res.json(db.listProjects(req.session.userId, req.query));
+});
+
+// GET /api/projects/templates — the ready-made plans (backend/templates.js)
+router.get('/templates', (req, res) => {
+  res.json(templates.listTemplates());
+});
+
+// POST /api/projects/from-template — { templateId, startDate?, title? }
+// creates the whole plan: the project, its phases, dated tasks, targets
+// and which tasks wait on which.
+router.post('/from-template', (req, res) => {
+  try {
+    const project = templates.createFromTemplate(req.session.userId, req.body.templateId, req.body);
+    db.logEvent(req.session.userId, 'project_from_template');
+    res.status(201).json(project);
+  } catch (e) {
+    res.status(/not found/i.test(e.message) ? 404 : 400).json({ error: e.message });
+  }
 });
 
 // GET /api/projects/:id

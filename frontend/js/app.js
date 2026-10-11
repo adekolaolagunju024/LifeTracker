@@ -18,6 +18,8 @@ const ONBOARDING_STEPS = 3;
 
 // ── UTILS ──────────────────────────────────────────────────────
 const fmt = (n, currency = '£') => currency + Math.round(n).toLocaleString();
+// A cost in the currency chosen in Settings (default £).
+const money = n => ((APP.profile && APP.profile.currency) || '£') + Number(n).toLocaleString();
 const pct = (a, b) => b > 0 ? Math.min(Math.round((a / b) * 100), 100) : 0;
 const esc = s => String(s).replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -46,6 +48,36 @@ function showToast(msg, type = 'success') {
   t.style.background = type === 'error' ? '#B03020' : '#0D1B2A';
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// A toast with an Undo button, for actions that are easy to take back
+// (deleting goes to Trash, so Undo just restores). Stays 8 seconds; a
+// newer one replaces it.
+let _undoTimer = null;
+function showUndoToast(msg, undo) {
+  let bar = document.getElementById('undo-toast');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'undo-toast';
+    bar.setAttribute('role', 'status');
+    bar.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 z-[1001] flex items-center gap-3 bg-navy text-white text-sm font-medium pl-4 pr-2 py-2 rounded-xl shadow-2xl max-w-[92vw]';
+    document.body.appendChild(bar);
+  }
+  bar.innerHTML = '<span class="min-w-0 truncate"></span><button type="button" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-teal-300 font-bold text-xs uppercase tracking-wide px-3 py-1.5 rounded-lg">Undo</button>';
+  bar.firstElementChild.textContent = msg;
+  const hide = () => { clearTimeout(_undoTimer); bar.remove(); };
+  bar.lastElementChild.onclick = async () => {
+    hide();
+    try { await undo(); showToast('↩️ Undone'); } catch (e) { showToast('❌ ' + (e.message || 'Could not undo'), 'error'); }
+  };
+  clearTimeout(_undoTimer);
+  _undoTimer = setTimeout(hide, 8000);
+}
+// Re-renders whatever is showing tasks, after a delete or an undo.
+function refreshTaskViews(projectId) {
+  if (APP.currentPage === 'project-detail' && (projectId || APP.currentProjectId)) renderTaskTable(projectId || APP.currentProjectId);
+  if (APP.currentPage === 'gantt') renderGantt();
+  updateSidebar();
 }
 
 let _confirmCallback = null;
@@ -130,7 +162,7 @@ function miniPriorityBadge(p) {
 }
 function miniCostBadge(cost) {
   if (!cost) return '';
-  return `<span class="text-[9px] font-mono font-semibold text-green-600 flex-shrink-0">£${Number(cost).toLocaleString()}</span>`;
+  return `<span class="text-[9px] font-mono font-semibold text-green-600 flex-shrink-0">${money(cost)}</span>`;
 }
 function miniChecklistBadge(t) {
   if (!t.checklistTotal) return '';
@@ -783,7 +815,7 @@ async function renderProjects() {
       const tagsHTML = `<span class="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pts.length} tasks</span>
         <span class="bg-green-50 text-green-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pdone} done</span>
         <span class="bg-orange-50 text-orange-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pinp} active</span>`;
-      const costLine = `<span>Est. £${cost.toLocaleString()}</span>`;
+      const costLine = `<span>Est. ${money(cost)}</span>`;
 
       return `
         <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-5 project-card"
@@ -848,7 +880,6 @@ async function renderProjectDetail(projectId) {
     // a sub-folder's plan lives in its top-level project; openAssistantFor
     // works on that one
     document.getElementById('btn-assistant-project').classList.toggle('hidden', !canEdit);
-    document.getElementById('btn-revise-tasks').classList.toggle('hidden', !canEdit);
 
     // Chat only makes sense once there's someone else to talk to.
     document.getElementById('btn-project-chat').classList.toggle('hidden', proj.role === 'owner' && !proj.collaboratorCount);
@@ -973,7 +1004,7 @@ async function renderTaskTable(projectId) {
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-4 flex-1">
         <p class="text-xs text-gray-400 font-semibold">Est. Cost</p>
-        <p class="text-2xl font-black font-mono text-yellow-600 mt-1">£${cost.toLocaleString()}</p>
+        <p class="text-2xl font-black font-mono text-yellow-600 mt-1">${money(cost)}</p>
       </div>`;
 
     document.getElementById('bulk-select-all').checked = false;
@@ -1015,7 +1046,7 @@ async function renderTaskTable(projectId) {
             </td>
             <td class="tt-due px-4 py-3 text-xs text-gray-400 whitespace-nowrap" data-label="Due">${formatDateShort(t.endDate)}</td>
             <td class="tt-cost px-4 py-3 text-xs font-mono font-semibold ${(t.cost || 0) > 0 ? 'text-green-600' : 'text-gray-300'}">
-              ${(t.cost || 0) > 0 ? '£' + t.cost.toLocaleString() : '—'}
+              ${(t.cost || 0) > 0 ? money(t.cost) : '—'}
             </td>
             <td class="tt-actions px-4 py-3">
               <div class="flex gap-1">
@@ -1090,17 +1121,16 @@ async function bulkSetPriority(priority) {
   } catch (e) { showToast('❌ ' + (e.message || 'Bulk update failed'), 'error'); }
 }
 
-function bulkDeleteConfirm() {
+async function bulkDeleteConfirm() {
   const ids = getSelectedTaskIds();
   if (!ids.length) return;
-  confirmAction(`Move ${ids.length} task${ids.length === 1 ? '' : 's'} to Trash? You can restore them from Settings within 30 days.`, async () => {
-    try {
-      await Promise.all(ids.map(id => API.deleteTask(id)));
-      showToast(`🗑️ Moved ${ids.length} task${ids.length === 1 ? '' : 's'} to Trash`);
-      renderTaskTable(APP.currentProjectId);
-      if (APP.currentPage === 'gantt') renderGantt();
-      updateSidebar();
-    } catch (e) { showToast('❌ ' + (e.message || 'Bulk delete failed'), 'error'); }
+  try {
+    await Promise.all(ids.map(id => API.deleteTask(id)));
+  } catch (e) { showToast('❌ ' + (e.message || 'Bulk delete failed'), 'error'); }
+  refreshTaskViews(APP.currentProjectId);
+  showUndoToast(`🗑️ Moved ${ids.length} task${ids.length === 1 ? '' : 's'} to Trash`, async () => {
+    await Promise.all(ids.map(id => API.restoreTask(id)));
+    refreshTaskViews(APP.currentProjectId);
   });
 }
 
@@ -1717,7 +1747,7 @@ async function renderGantt() {
           <div class="grid gantt-grid-row group border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px" data-task-id="${t.id}" data-group="${groupId}">
             <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-1 overflow-hidden">
               ${canEditGroup ? `<span class="flex-shrink-0 hidden group-hover:inline cursor-grab text-gray-300 hover:text-gray-500 px-0.5" onmousedown="ganttRowMouseDown(event, '${t.id}', '${t.projectId}', '${groupId}')" title="Drag to reorder">⠿</span>` : ''}
-              <span class="gantt-title-text flex-1 min-w-0 text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="${canEditGroup ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" title="${esc(t.title)} (click to ${canEditGroup ? 'edit' : 'view'})">${esc(t.title)}</span>
+              <span class="gantt-title-text flex-1 min-w-[6rem] text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="${canEditGroup ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" title="${esc(t.title)} (click to ${canEditGroup ? 'edit' : 'view'})">${esc(t.title)}</span>
               ${cardFields.priority ? miniPriorityBadge(t.priority) : ''}
               ${cardFields.tags ? miniTagBadges(t.tags) : ''}
               ${cardFields.checklist ? miniChecklistBadge(t) : ''}
@@ -2865,6 +2895,7 @@ async function renderSettings() {
   try {
     const p = await API.getProfile();
     document.getElementById('set-name').value     = profileName(p);
+    loadCalendarFeed();
     document.getElementById('set-tagline').value  = p.tagline;
     document.getElementById('set-currency').value = p.currency || '£';
     document.getElementById('set-target').value   = p.targetNetWorth;
@@ -3773,7 +3804,7 @@ async function openTaskDetail(id) {
     document.getElementById('td-badges').innerHTML   = statusBadge(t.status) + priorityBadge(t.priority);
     document.getElementById('td-progress').innerHTML = taskProgressPanelHTML(t);
     document.getElementById('td-progress').classList.toggle('hidden', !t.targetCount);
-    document.getElementById('td-cost').textContent      = (t.cost || 0) > 0 ? '£' + t.cost.toLocaleString() : '—';
+    document.getElementById('td-cost').textContent      = (t.cost || 0) > 0 ? money(t.cost) : '—';
     document.getElementById('td-start').textContent     = formatDateShort(t.startDate);
     document.getElementById('td-end').textContent       = formatDateShort(t.endDate);
     document.getElementById('td-notes').textContent     = t.notes && t.notes.trim() ? t.notes : 'No notes for this task yet.';
@@ -6067,12 +6098,74 @@ function openAddProject() {
   document.getElementById('proj-start').value  = '';
   document.getElementById('proj-type').value   = 'career';
   document.getElementById('proj-type-wrap').classList.remove('hidden');
+  renderProjectTemplates();
   openModal('modal-project');
+}
+
+// Settings → "Your tasks in your calendar": the private subscription link
+// (backend/routes/calendar.js), with one-tap adds for Google and for the
+// webcal: apps (Apple Calendar, Outlook).
+function showCalendarFeed(url) {
+  document.getElementById('calendar-feed-url').value = url;
+  const webcal = url.replace(/^https?:/, 'webcal:');
+  document.getElementById('calendar-feed-webcal').href = webcal;
+  document.getElementById('calendar-feed-google').href = 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(webcal);
+}
+async function loadCalendarFeed() {
+  try { showCalendarFeed((await API.getCalendarFeed()).url); } catch { /* the card just stays empty */ }
+}
+async function copyCalendarFeed() {
+  const url = document.getElementById('calendar-feed-url').value;
+  if (!url) return;
+  try { await navigator.clipboard.writeText(url); showToast('📋 Link copied. Paste it into your calendar app'); }
+  catch { document.getElementById('calendar-feed-url').select(); showToast('Select the link and copy it'); }
+}
+function resetCalendarFeed() {
+  confirmAction('Reset your calendar link? Calendars subscribed to the old link will stop updating until you add the new one.', async () => {
+    try { showCalendarFeed((await API.resetCalendarFeed()).url); showToast('🔄 New calendar link ready'); }
+    catch (e) { showToast('❌ ' + (e.message || 'Could not reset the link'), 'error'); }
+  });
+}
+
+// The template gallery at the top of New Project (backend/templates.js):
+// one tap creates the whole plan, dated from today, and opens it.
+let projectTemplatesCache = null;
+async function renderProjectTemplates() {
+  const wrap = document.getElementById('proj-templates');
+  wrap.classList.remove('hidden');
+  const list = document.getElementById('proj-template-list');
+  try {
+    projectTemplatesCache = projectTemplatesCache || await API.getProjectTemplates();
+  } catch { wrap.classList.add('hidden'); return; }
+  list.innerHTML = projectTemplatesCache.map(t => `
+    <button type="button" onclick="startProjectFromTemplate('${t.id}', this)" title="${esc(t.description)}"
+      class="text-left border border-gray-200 hover:border-teal hover:bg-teal/5 rounded-xl px-3 py-2.5 transition">
+      <span class="block text-sm font-bold text-navy truncate">${t.icon} ${esc(t.title)}</span>
+      <span class="block text-[11px] text-gray-500 mt-0.5">${t.phases} phases · ${t.tasks} tasks · ${Math.round(t.days / 7)} weeks</span>
+    </button>`).join('');
+}
+async function startProjectFromTemplate(templateId, btn) {
+  const buttons = document.querySelectorAll('#proj-template-list button');
+  buttons.forEach(b => { b.disabled = true; });
+  btn.classList.add('opacity-60');
+  try {
+    const project = await API.createFromTemplate({ templateId, startDate: localDateKey(new Date()) });
+    closeModal('modal-project');
+    await updateSidebar();
+    await showPage('project-detail', project.id);
+    showToast(`🎉 "${project.title}" is ready. Change anything you like.`);
+  } catch (e) {
+    showToast('❌ ' + (e.message || 'Could not create the project'), 'error');
+  } finally {
+    buttons.forEach(b => { b.disabled = false; });
+    btn.classList.remove('opacity-60');
+  }
 }
 
 function openAddSubfolder(parentId) {
   document.getElementById('modal-project-title').textContent = 'New Sub-folder';
   document.getElementById('project-ai-btn').classList.add('hidden');
+  document.getElementById('proj-templates').classList.add('hidden');
   document.getElementById('proj-id').value     = '';
   document.getElementById('proj-parent').value = parentId;
   document.getElementById('proj-title').value  = '';
@@ -6088,6 +6181,7 @@ function openAddSubfolder(parentId) {
 async function editProject(id) {
   const p = await API.getProject(id);
   document.getElementById('modal-project-title').textContent = p.parentId ? 'Edit Sub-folder' : 'Edit Project';
+  document.getElementById('proj-templates').classList.add('hidden');
   document.getElementById('project-ai-btn').classList.toggle('hidden', !(p.role === 'owner' || p.role === 'editor'));
   document.getElementById('proj-id').value     = id;
   document.getElementById('proj-parent').value = p.parentId || '';
@@ -6129,7 +6223,13 @@ async function deleteProjectConfirm(id) {
   const isSubfolder = !!p?.parentId;
   confirmAction(`Move "${p?.title}" to Trash? ${isSubfolder ? 'All its tasks' : 'All its sub-folders and tasks'} will go with it. You can restore it from Settings within 30 days.`, async () => {
     await API.deleteProject(id);
-    showToast('🗑️ ' + (isSubfolder ? 'Sub-folder' : 'Project') + ' moved to Trash');
+    showUndoToast(`🗑️ "${p?.title || 'Project'}" moved to Trash`, async () => {
+      await API.restoreProject(id);
+      if (APP.currentPage === 'projects') renderProjects();
+      else if (APP.currentProjectId) renderProjectDetail(APP.currentProjectId);
+      if (APP.currentPage === 'gantt') renderGantt();
+      updateSidebar();
+    });
     if (APP.currentProjectId === id) {
       // Was viewing the thing we just deleted — go up to its parent, or the flat list if it was top-level.
       if (isSubfolder) await showPage('project-detail', p.parentId);
@@ -6912,14 +7012,18 @@ async function saveTask() {
   } catch (e) { taskErrorToast(e, 'Failed to save task'); }
 }
 
+// Deleting a task is instant, with Undo in the toast (it goes to Trash, so
+// nothing is lost either way), instead of an "are you sure?" first.
 async function deleteTaskConfirm(id, projectId) {
-  const t = await API.getTask(id);
-  confirmAction(`Move "${t?.title}" to Trash? You can restore it from Settings within 30 days.`, async () => {
+  const t = await API.getTask(id).catch(() => null);
+  try {
     await API.deleteTask(id);
-    showToast('🗑️ Task moved to Trash');
-    renderTaskTable(projectId);
-    if (APP.currentPage === 'gantt') renderGantt();
-    updateSidebar();
+  } catch (e) { showToast('❌ ' + (e.message || 'Could not delete the task'), 'error'); return; }
+  if (APP_currentDetailTaskId === id) closeTaskDetail();
+  refreshTaskViews(projectId);
+  showUndoToast(`🗑️ "${t?.title || 'Task'}" moved to Trash`, async () => {
+    await API.restoreTask(id);
+    refreshTaskViews(projectId);
   });
 }
 

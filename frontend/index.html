@@ -160,7 +160,7 @@
        columns be dragged wider/narrower (Excel-style) without re-rendering
        every row, and the same variables drive grid-template-columns below
        so a widened "Task / Project" column also prints uncompressed. */
-    #page-gantt { --gc1: 200px; --gc2: 90px; --gc3: 100px; --gc4: 100px; --gc5: 70px; }
+    #page-gantt { --gc1: 240px; --gc2: 90px; --gc3: 100px; --gc4: 100px; --gc5: 70px; }
     .gantt-sticky { position: sticky; z-index: 6; background: inherit; }
     .gantt-sticky-1 { left: 0; }
     .gantt-sticky-2 { left: var(--gc1); }
@@ -1500,7 +1500,6 @@
       </div>
 
       <div class="flex justify-end mb-2">
-        <button onclick="openAssistantFor({ projectId: APP.currentProjectId })" id="btn-revise-tasks" class="hidden bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-4 py-2 rounded-lg">✨ Edit tasks with AI</button>
       </div>
 
       <!-- Task Table -->
@@ -1924,6 +1923,21 @@
           <button onclick="toggleAiCheckIns()" class="ios-switch" id="ai-checkins-btn" role="switch" aria-label="Toggle weekly AI goal check-ins"><span class="ios-switch-knob"></span></button>
         </div>
       </div>
+      <!-- Calendar feed: due dates in Google / Outlook / Apple Calendar -->
+      <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-4"><span class="icon-badge" style="background:#0A7E8C22">📅</span> Your tasks in your calendar</h3>
+        <p class="text-xs text-gray-500 mb-3">Subscribe once and every task with a due date shows up in Google Calendar, Outlook or Apple Calendar, and keeps itself up to date (calendar apps refresh every few hours). Keep the link private: anyone who has it can see your task names.</p>
+        <div class="flex gap-2 mb-3">
+          <input type="text" id="calendar-feed-url" readonly aria-label="Your calendar subscription link" placeholder="Loading your link…"
+            class="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono text-gray-600 bg-gray-50 focus:outline-none" onfocus="this.select()">
+          <button type="button" onclick="copyCalendarFeed()" class="flex-shrink-0 bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-2 rounded-lg">Copy</button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a id="calendar-feed-google" target="_blank" rel="noopener" class="text-xs font-semibold text-teal bg-teal/10 hover:bg-teal/20 px-3 py-1.5 rounded-lg" href="#">Add to Google Calendar</a>
+          <a id="calendar-feed-webcal" class="text-xs font-semibold text-teal bg-teal/10 hover:bg-teal/20 px-3 py-1.5 rounded-lg" href="#">Open in Apple Calendar or Outlook</a>
+          <button type="button" onclick="resetCalendarFeed()" class="text-xs font-semibold text-gray-500 hover:text-red-600 px-3 py-1.5 rounded-lg">Reset link</button>
+        </div>
+      </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
         <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#0A7E8C22">🎁</span> Invite friends, get AI credits</h3>
         <p class="text-xs text-gray-500 mb-3">Share your link or send a personal invite. When someone you invite creates their first goal, you both get 20 bonus AI credits.</p>
@@ -2052,6 +2066,12 @@
       </div>
     </div>
     <div class="p-6 overflow-y-auto flex-1">
+      <!-- New top-level projects only: start from a ready-made plan -->
+      <div id="proj-templates" class="hidden mb-5">
+        <p class="text-xs font-semibold text-gray-600 mb-2">Start from a template</p>
+        <div class="grid grid-cols-2 gap-2" id="proj-template-list"></div>
+        <div class="flex items-center gap-3 my-4 text-[11px] font-semibold text-gray-400 uppercase tracking-wide"><span class="flex-1 h-px bg-gray-200"></span>or start blank<span class="flex-1 h-px bg-gray-200"></span></div>
+      </div>
       <input type="hidden" id="proj-id">
       <input type="hidden" id="proj-parent">
       <div class="mb-4">
@@ -2282,7 +2302,7 @@
           </select>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Cost (£)</label>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Cost</label>
           <input type="number" id="task-cost" placeholder="0" min="0"
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         </div>
