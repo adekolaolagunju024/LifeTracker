@@ -746,27 +746,115 @@ function dismissJourneyAchievement() {
 // — it dismisses itself after a while too. Respects Celebration Effects
 // in Settings, same as the confetti/balloons it's shown alongside.
 let _pcDismissTimer = null;
-function showProjectCompleteOverlay(title, { message, heading, emoji } = {}) {
+let _pcData = null;
+// Finishing a whole goal is the biggest moment in the app, so this stays
+// until it's closed and says what was actually done: tasks, blockers
+// beaten, how long it took and how that compares with the deadline, and
+// the person's own why from Your why. Then share it, see the report, or
+// plan what's next with the assistant.
+async function showProjectCompleteOverlay(title, { projectId = null, message, heading, emoji } = {}) {
   if (!celebrationsEnabled()) return;
   const overlay = document.getElementById('project-complete-overlay');
   const sheet = document.getElementById('project-complete-sheet');
-  document.getElementById('project-complete-heading').textContent = heading || 'Project complete!';
+  _pcData = { title, projectId, stats: null };
+  document.getElementById('project-complete-heading').textContent = heading || 'You did it.';
+  document.getElementById('project-complete-title').textContent = title || '';
   document.getElementById('project-complete-emoji').innerHTML = emojiIcon(emoji || '🏆');
-  document.getElementById('project-complete-message').textContent = message || `You finished every task in "${title}". Incredible work.`;
+  document.getElementById('project-complete-message').textContent = message || 'Every task, done. Take a moment with this one.';
+  document.getElementById('project-complete-stats').innerHTML = '';
+  document.getElementById('project-complete-why').classList.add('hidden');
+  document.getElementById('project-complete-report').classList.toggle('hidden', !projectId);
   sheet.style.transition = 'none';
   sheet.style.transform = 'translateY(100%)';
   overlay.classList.remove('hidden');
   overlay.classList.add('flex');
-  // Paint the "below the fold" starting position first, then animate up on
-  // the next frame — without this the slide-up never plays, it just
-  // appears already in place.
   requestAnimationFrame(() => requestAnimationFrame(() => {
     sheet.style.transition = 'transform 0.35s cubic-bezier(0.16,1,0.3,1)';
     sheet.style.transform = 'translateY(0)';
   }));
   clearTimeout(_pcDismissTimer);
-  _pcDismissTimer = setTimeout(dismissProjectCompleteOverlay, 9000);
   document.addEventListener('keydown', _pcEscHandler);
+  setTimeout(() => overlay.querySelector('.pc-primary')?.focus(), 400);
+  fillProjectCompleteStats(projectId);
+}
+async function fillProjectCompleteStats(projectId) {
+  try {
+    const [allProjects, allTasks, why] = await Promise.all([API.getProjects(), API.getTasks(), window.Why ? Why.load().then(() => Why.get()).catch(() => null) : null]);
+    const stats = [];
+    if (projectId) {
+      const project = allProjects.find(p => p.id === projectId);
+      const tree = tasksInProjectTree(projectId, allProjects, allTasks);
+      const DAY = 86400000;
+      const beaten = tree.reduce((n, t) => n + (t.obstacles || []).filter(o => o.resolved).reduce((m, o) => m + (o.count || 1), 0), 0);
+      const starts = tree.map(t => t.startDate).filter(Boolean).sort();
+      const startMs = Date.parse((project && project.startDate) || starts[0] || (project && project.createdAt) || Date.now());
+      const days = Math.max(1, Math.ceil((Date.now() - startMs) / DAY));
+      const ends = tree.map(t => (t.endDate || '').slice(0, 10)).filter(Boolean).sort();
+      const due = ends[ends.length - 1];
+      const diff = due ? Math.round((Date.parse(`${due}T23:59:59`) - Date.now()) / DAY) : null;
+      stats.push({ n: tree.length, label: tree.length === 1 ? 'task done' : 'tasks done' });
+      if (beaten) stats.push({ n: beaten, label: beaten === 1 ? 'blocker beaten' : 'blockers beaten' });
+      stats.push({ n: days, label: days === 1 ? 'day' : 'days' });
+      if (diff !== null) stats.push(diff > 0 ? { n: diff, label: diff === 1 ? 'day early' : 'days early', good: true } : diff === 0 ? { n: '✓', label: 'right on time', good: true } : { n: -diff, label: -diff === 1 ? 'day over' : 'days over' });
+      _pcData.stats = stats;
+    }
+    if (!_pcData || _pcData.projectId !== projectId) return;
+    document.getElementById('project-complete-stats').innerHTML = stats.map(x => `<div class="${x.good ? 'good' : ''}"><b>${esc(String(x.n))}</b><span>${esc(x.label)}</span></div>`).join('');
+    const whyEl = document.getElementById('project-complete-why');
+    if (why && why.why) {
+      whyEl.innerHTML = `You said you were doing this <b>${esc(why.why.replace(/^(so |to |because )/i, m => m.toLowerCase()))}</b>. You just did.`;
+      whyEl.classList.remove('hidden');
+    } else if (why && why.becoming) {
+      whyEl.innerHTML = `You're becoming <b>${esc(why.becoming)}</b>. This is what that looks like.`;
+      whyEl.classList.remove('hidden');
+    }
+  } catch { /* the celebration still stands without the numbers */ }
+}
+function planNextAfterComplete() {
+  const title = _pcData && _pcData.title;
+  dismissProjectCompleteOverlay();
+  paletteAsk(title ? `I just finished "${title}". Help me plan what's next.` : 'I just finished a goal. Help me plan what is next.');
+}
+function reportFromComplete() {
+  const id = _pcData && _pcData.projectId;
+  dismissProjectCompleteOverlay();
+  if (id) openProgressReport(id);
+}
+// A picture of the moment for WhatsApp, Instagram and friends.
+async function shareProjectComplete() {
+  if (!_pcData) return;
+  const c = document.createElement('canvas');
+  c.width = 1080; c.height = 1350;
+  const g = c.getContext('2d');
+  const bg = g.createLinearGradient(0, 0, 0, 1350);
+  bg.addColorStop(0, '#12485A'); bg.addColorStop(0.55, '#0D1B2A'); bg.addColorStop(1, '#0B1220');
+  g.fillStyle = bg; g.fillRect(0, 0, 1080, 1350);
+  const font = (w, sz) => `${w} ${sz}px Inter, system-ui, -apple-system, Segoe UI, sans-serif`;
+  const glow = g.createRadialGradient(540, 330, 20, 540, 330, 170);
+  glow.addColorStop(0, '#FDE68A'); glow.addColorStop(0.6, '#F59E0B'); glow.addColorStop(1, 'rgba(245,158,11,0)');
+  g.fillStyle = glow; g.beginPath(); g.arc(540, 330, 170, 0, Math.PI * 2); g.fill();
+  g.textAlign = 'center';
+  g.fillStyle = '#FCD34D'; g.font = font(800, 34); g.fillText('GOAL COMPLETE', 540, 600);
+  g.fillStyle = '#fff'; g.font = font(900, 96); g.fillText('I did it.', 540, 710);
+  g.fillStyle = '#C9D6E2'; g.font = font(700, 46);
+  const t = _pcData.title || '';
+  g.fillText(t.length > 34 ? t.slice(0, 33) + '…' : t, 540, 790);
+  (_pcData.stats || []).slice(0, 4).forEach((x, i, arr) => {
+    const w = 900 / arr.length, cx = 90 + w * i + w / 2;
+    g.fillStyle = 'rgba(255,255,255,.08)'; g.beginPath(); g.roundRect(cx - w / 2 + 10, 880, w - 20, 200, 28); g.fill();
+    g.fillStyle = x.good ? '#5EEAD4' : '#fff'; g.font = font(900, 80); g.fillText(String(x.n), cx, 985);
+    g.fillStyle = '#9FB3C8'; g.font = font(600, 30); g.fillText(x.label, cx, 1040);
+  });
+  g.fillStyle = 'rgba(255,255,255,.6)'; g.font = font(700, 32); g.fillText('waypointapp.com', 540, 1270);
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  const file = new File([blob], 'goal-complete.png', { type: 'image/png' });
+  const text = `I just finished "${_pcData.title}" with Waypoint.`;
+  try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  showToast('🖼️ Saved the picture. Share it anywhere');
 }
 function _pcEscHandler(e) {
   if (e.key === 'Escape') dismissProjectCompleteOverlay();
@@ -844,7 +932,7 @@ async function celebrateTaskCompletion(task) {
         if (celebrationsEnabled()) {
           fireBigScreenConfetti();
           fireBalloons(14);
-          showProjectCompleteOverlay(top.title);
+          showProjectCompleteOverlay(top.title, { projectId: top.id });
         }
         showToast(`🏆 Project complete: "${top.title}"! Incredible work.`);
       }, 400);
