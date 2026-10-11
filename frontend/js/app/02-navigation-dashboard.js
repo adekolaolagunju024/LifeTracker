@@ -298,6 +298,7 @@ async function renderDashboard() {
     renderDashboardBento(tasks, allProjects);
     if (typeof renderDashboardRecap === 'function') renderDashboardRecap();
     if (window.Why) Why.renderDashboard();
+    if (window.Jarvis) Jarvis.renderBriefing();
 
     // Goals Progress hero — overall task completion across every project,
     // regardless of type; goals are goals, whether Career, Health, etc.

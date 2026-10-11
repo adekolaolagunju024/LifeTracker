@@ -3,6 +3,7 @@ const router  = express.Router();
 const ExcelJS = require('exceljs');
 const db = require('../db/db');
 const motivation = require('../motivation');
+const { buildDayContext, APP_TOOL, validateActions } = require('../ai/day');
 const { callAI, isAIConfigured } = require('../ai/provider');
 const { EDIT_TOOL, buildEditContext, validateOperations } = require('../ai/edit');
 
@@ -342,7 +343,9 @@ router.post('/edit-project', aiQuota(), async (req, res) => {
 // proposed edits to a project the user can edit. Like the other AI routes it
 // only proposes: nothing is written here, and every proposal is shown for
 // review before anything changes.
-const ASSISTANT_SYSTEM = today => `You are Waypoint's assistant. You help the user set up goals and keep them on track. Today's date is ${today}.
+const ASSISTANT_SYSTEM = today => `You are Waypoint's assistant: a calm, capable personal assistant in the spirit of a great chief of staff. You know the user's goals, plans and day (below), you help them decide what to do next, and you act in the app for them. You are warm and direct, never preachy, and you keep replies short because they are often spoken aloud. Today's date is ${today}.
+
+When the user wants something done in the app (open a page, project or task; start focusing on a task, optionally with their music; finish a task; set a reminder; add a task), call take_actions with the ids from the context. When they ask what to do next, pick one task from their day, say why in a sentence, and offer to start a focus session on it.
 
 If the user describes a new goal and you have enough to plan it, call propose_project. If the user asks for changes to the project they have open, and that project's plan is included below, call propose_edits. That includes deleting a task the user wants gone (it goes to Trash and can be restored), and a task's blockers (the obstacles in its way, listed under each task): adding one, renaming it, changing its count, ticking it off as cleared, or removing it. It also covers a task's progress target (a count such as 20 pages, set through updateTask's targetCount and targetUnit, or cleared with 0) and its predecessors (the tasks it waits on, shown as "waits on" in the plan): addPredecessor and removePredecessor. If the user asks for their music (play my music, put my workout playlist on, I need focus music) call focus_music with action play, naming the playlist if they did; if they paste a music link to keep, call focus_music with action save. Otherwise reply in one or two short sentences, asking a question if you need one. Never say you have made a change: you only propose changes, and the user approves them.`;
 
@@ -376,12 +379,14 @@ router.post('/assistant', aiQuota('assistant'), async (req, res) => {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const tools = [IMPORT_TOOL, MUSIC_TOOL];
+  const tools = [IMPORT_TOOL, MUSIC_TOOL, APP_TOOL];
+  const day = buildDayContext(userId, typeof req.body.today === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.body.today) ? req.body.today : new Date().toISOString().slice(0, 10));
   let system = ASSISTANT_SYSTEM(today);
   // Their own "Your why" (if they allow it), so encouragement speaks to
   // what actually moves them. Never invented quotes or words for real people.
   const why = motivation.forAssistant(motivation.get(req.session.userId));
   if (why) system += `\n\nWhat keeps this user going, in their own words. When they're stuck or low, encourage them briefly with these (their reason, who they're becoming, their mentor's routine, a quote they chose). Quote only what is listed here, exactly, and never make up a quote or put words in a real person's mouth:\n${why}`;
+  system += `\n\nThe user's day, across all their projects:\n${day.text}`;
   if (context) {
     tools.push(EDIT_TOOL);
     system += `\n\nThe project the user has open:\n${context.text}`;
@@ -397,6 +402,10 @@ router.post('/assistant', aiQuota('assistant'), async (req, res) => {
     const response = await callAI({ system, messages, tools, maxTokens: 4000 });
     if (response.type === 'tool_use' && response.name === 'propose_project') {
       return res.json({ type: 'proposal', proposal: response.input });
+    }
+    if (response.type === 'tool_use' && response.name === 'take_actions') {
+      const actions = validateActions(userId, response.input && response.input.actions, day);
+      return res.json({ type: 'actions', text: (response.input && response.input.reply) || 'On it.', actions });
     }
     if (response.type === 'tool_use' && response.name === 'focus_music') {
       const { action, reply } = response.input || {};

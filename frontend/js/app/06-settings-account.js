@@ -576,6 +576,7 @@ async function afterAuth() {
   if (window.Reminders) Reminders.boot();
   if (window.Metrics) Metrics.initNav();
   if (window.Why) Why.load().catch(() => {}); // ready for the alarm screen
+  if (window.Jarvis) Jarvis.resumeFocus(); // a focus session survives a reload
 }
 
 // Pending project-share invites — checked once per login (not re-dismissed
