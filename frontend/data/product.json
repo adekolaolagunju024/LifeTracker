@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "A friendlier New project window",
+      "text": "Start a project three ways: blank, from a ready-made template, or by describing your goal in a sentence for the assistant to plan. Pick an icon and colour with a tap, choose the area of life, and invite people if you like. New projects open straight away, ready for the first task."
+    },
+    {
+      "date": "2026-10-11",
       "title": "Your week, playing on the dashboard",
       "text": "Open the app and your week plays as a short story right on the dashboard: tasks finished, your best day, blockers beaten, your streak, the project that moved most and what's coming up. Hover to pause, tap to skip, or open it full screen to share. The app also has a cleaner look, with one matching set of line icons in place of emoji."
     },

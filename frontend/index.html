@@ -369,6 +369,40 @@
     .task-more summary { cursor: pointer; font-size: 13px; font-weight: 800; color: #0D1B2A; }
     .task-more summary span { font-weight: 600; color: #8A93A0; margin-left: 4px; }
     .dark .seg { background: #0F1726; }
+    /* New project window */
+    .proj-mode button { gap: 6px; }
+    .proj-mode .ic { width: 15px; height: 15px; }
+    .seg.pick { background: none; padding: 0; flex-wrap: wrap; gap: 6px; }
+    .seg.pick button { flex: 0 0 auto; min-height: 34px; }
+    .proj-types button { padding: 0 12px; border-radius: 999px; border: 1px solid #E3E6EA; background: #fff; font-size: 13px; font-weight: 600; color: #3F4A57; }
+    .proj-types button[aria-checked="true"] { background: #E6F4F5; border-color: #0A7E8C; color: #075E68; box-shadow: none; font-weight: 800; }
+    .proj-icons button { width: 38px; min-height: 38px; font-size: 19px; border-radius: 10px; }
+    .proj-icons button:hover { background: #F1F3F5; }
+    .proj-icons button[aria-checked="true"] { background: #E6F4F5; box-shadow: inset 0 0 0 2px #0A7E8C; }
+    .proj-colors button { width: 28px; min-height: 28px; border-radius: 50%; background: var(--sw) !important; }
+    .proj-colors button[aria-checked="true"] { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--sw); }
+    .proj-color-custom { position: relative; width: 28px; height: 28px; border-radius: 50%; border: 1px dashed #9AA3AE; display: inline-flex; align-items: center; justify-content: center; color: #5B6472; cursor: pointer; }
+    .proj-color-custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .proj-color-custom .ic { width: 14px; height: 14px; }
+    .proj-look-btn { width: 48px; height: 48px; flex-shrink: 0; border-radius: 12px; font-size: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid transparent; }
+    .proj-look-btn:hover { border-color: currentColor; }
+    .proj-example { font-size: 12px; font-weight: 600; color: #075E68; background: #E6F4F5; border-radius: 999px; padding: 5px 11px; }
+    .proj-example:hover { background: #D3EDEF; }
+    .proj-tpl { text-align: left; border: 1px solid #E3E6EA; border-radius: 14px; padding: 12px; display: flex; gap: 10px; align-items: flex-start; background: #fff; }
+    .proj-tpl:hover { border-color: #0A7E8C; background: #F4FAFB; }
+    .proj-tpl-ic { width: 38px; height: 38px; border-radius: 10px; background: #F1F3F5; display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0; }
+    .proj-invite summary { list-style: none; } .proj-invite summary::-webkit-details-marker { display: none; }
+    .proj-invite summary .ic { width: 16px; height: 16px; color: #5B6472; }
+    .dark .seg.pick { background: none; }
+    .dark .seg.proj-types button { background: #0F1726; border-color: #263449; color: #CBD5E1; }
+    .dark .seg.proj-types button[aria-checked="true"] { background: rgba(94,234,212,.12); border-color: #5EEAD4; color: #5EEAD4; }
+    .dark .seg.proj-icons button:hover { background: #1A2436; }
+    .dark .seg.proj-icons button[aria-checked="true"] { background: rgba(94,234,212,.12); box-shadow: inset 0 0 0 2px #5EEAD4; }
+    .dark .seg.proj-colors button[aria-checked="true"] { box-shadow: 0 0 0 2px #111A2B, 0 0 0 4px var(--sw); }
+    .dark .proj-example { background: rgba(94,234,212,.12); color: #5EEAD4; }
+    .dark .proj-tpl { background: #0F1726; border-color: #263449; }
+    .dark .proj-tpl:hover { border-color: #5EEAD4; }
+    .dark .proj-tpl-ic { background: #1A2436; }
     .dark .seg button { color: #94A3B8; }
     .dark .seg button[aria-checked="true"] { background: #1A2436; color: #F1F5F9; }
     .dark .task-more { border-color: #1F2A3D; } .dark .task-more summary { color: #F1F5F9; }
@@ -2628,85 +2662,100 @@
 
 <!-- PROJECT MODAL -->
 <div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-project">
-  <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
-    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-      <h3 class="text-base font-bold text-navy" id="modal-project-title">New Project</h3>
-      <div class="flex items-center gap-2">
-        <button onclick="askAIAboutProject()" id="project-ai-btn" class="hidden bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-xs font-semibold px-3 py-1.5 rounded-lg" title="Ask the assistant to add, change or delete this project's tasks">✨ Ask AI</button>
-        <button onclick="closeModal('modal-project')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+  <!-- New / edit project and sub-folder. A new project can start blank, from
+       a template or from a sentence to the assistant (js/app/10-account-tools.js). -->
+  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[92vh] flex flex-col shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="modal-project-title">
+    <div class="flex items-start justify-between gap-3 px-6 pt-5 pb-3">
+      <div class="min-w-0">
+        <h3 class="text-lg font-extrabold text-navy" id="modal-project-title">New project</h3>
+        <p class="text-sm text-gray-500" id="modal-project-sub">A home for one goal: its phases, tasks and people.</p>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button onclick="askAIAboutProject()" id="project-ai-btn" class="hidden bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-xs font-semibold px-3 py-1.5 rounded-lg inline-flex items-center gap-1" title="Ask the assistant to add, change or delete this project's tasks" data-icon="sparkles">Ask AI</button>
+        <button onclick="closeModal('modal-project')" class="text-gray-400 hover:text-gray-700 hover:bg-gray-100 w-8 h-8 rounded-lg flex items-center justify-center" aria-label="Close" data-icon="close"></button>
       </div>
     </div>
-    <div class="p-6 overflow-y-auto flex-1">
-      <!-- New top-level projects only: start from a ready-made plan -->
-      <div id="proj-templates" class="hidden mb-5">
-        <p class="text-xs font-semibold text-gray-600 mb-2">Start from a template</p>
-        <div class="grid grid-cols-2 gap-2" id="proj-template-list"></div>
-        <div class="flex items-center gap-3 my-4 text-[11px] font-semibold text-gray-400 uppercase tracking-wide"><span class="flex-1 h-px bg-gray-200"></span>or start blank<span class="flex-1 h-px bg-gray-200"></span></div>
-      </div>
-      <input type="hidden" id="proj-id">
-      <input type="hidden" id="proj-parent">
-      <div class="mb-4">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Project Title *</label>
-        <input type="text" id="proj-title" placeholder="e.g. UK Career Goals"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-      </div>
-      <div class="mb-4">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Description</label>
-        <textarea id="proj-desc" rows="3" placeholder="What is this project about?"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
-      </div>
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Icon (emoji)</label>
-          <input type="text" id="proj-icon" placeholder="🎓" maxlength="4"
-            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Colour</label>
-          <input type="color" id="proj-color" value="#0A7E8C"
-            class="w-full h-10 border border-gray-200 rounded-lg px-2 py-1 cursor-pointer">
-        </div>
-      </div>
-      <div class="mt-4">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Start Date</label>
-        <input type="date" id="proj-start"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-        <p class="text-xs text-gray-400 mt-1">Optional. If set, tasks in this project can't start before this date.</p>
-      </div>
-      <div class="mt-4" id="proj-type-wrap">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Project Type</label>
-        <select id="proj-type" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-          <option value="career">🎯 Career</option>
-          <option value="health">💪 Health & Fitness</option>
-          <option value="learning">📚 Learning & Education</option>
-          <option value="business">💼 Business / Side Hustle</option>
-          <option value="home">🏠 Home & Family</option>
-          <option value="relationships">❤️ Relationships</option>
-          <option value="personal">🧘 Personal Growth</option>
-          <option value="creative">🎨 Hobbies & Creative</option>
-          <option value="travel">✈️ Travel</option>
-        </select>
-        <p class="text-xs text-gray-400 mt-1">Not sure? Pick whichever fits closest — every type gets the same full task list either way, purely for your own organization.</p>
-      </div>
-      <!-- New top-level projects: invite people straight away (also used
-           when starting from a template above). -->
-      <div class="mt-4" id="proj-invite-wrap">
-        <label for="proj-invite-emails" class="block text-xs font-semibold text-gray-600 mb-1">Invite people <span class="font-normal text-gray-400">(optional)</span></label>
-        <div class="flex gap-2">
-          <input type="text" id="proj-invite-emails" placeholder="name@example.com, another@example.com" autocomplete="off"
-            class="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-          <select id="proj-invite-role" aria-label="Their role" class="flex-shrink-0 border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-teal">
-            <option value="editor">Editor</option>
-            <option value="commenter">Commenter</option>
-            <option value="viewer">Viewer</option>
-          </select>
-        </div>
-        <p class="text-xs text-gray-400 mt-1">Separate emails with commas. People without an account get an email to join.</p>
+    <!-- How to start (new top-level projects only) -->
+    <div class="px-6 pb-1" id="proj-mode-wrap">
+      <div class="seg proj-mode" role="radiogroup" aria-label="How to start">
+        <button type="button" role="radio" data-mode="blank" aria-checked="true" onclick="setProjectStartMode('blank')"><span data-icon="edit"></span>Blank</button>
+        <button type="button" role="radio" data-mode="template" aria-checked="false" onclick="setProjectStartMode('template')"><span data-icon="clipboard"></span>Template</button>
+        <button type="button" role="radio" data-mode="ai" aria-checked="false" onclick="setProjectStartMode('ai')"><span data-icon="sparkles"></span>Describe it</button>
       </div>
     </div>
-    <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
-      <button onclick="closeModal('modal-project')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
-      <button onclick="saveProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Save Project</button>
+    <div class="px-6 py-4 overflow-y-auto flex-1">
+      <!-- Template: one tap creates the whole plan, dated from today -->
+      <div id="proj-templates" class="hidden">
+        <p class="text-sm text-gray-500 mb-3">A ready-made plan with phases and tasks, dated from today. You can change anything after.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" id="proj-template-list"></div>
+      </div>
+      <!-- Describe it: the assistant drafts the plan for you to review -->
+      <div id="proj-ai-pane" class="hidden">
+        <label for="proj-ai-text" class="block text-sm font-semibold text-navy mb-1.5">What do you want to achieve?</label>
+        <textarea id="proj-ai-text" rows="3" placeholder="e.g. Run a half marathon in March, I can train four days a week" class="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
+        <div class="flex flex-wrap gap-1.5 mt-2" id="proj-ai-examples">
+          <button type="button" class="proj-example" onclick="useProjectExample(this)">Pass my driving test by summer</button>
+          <button type="button" class="proj-example" onclick="useProjectExample(this)">Launch an online shop in 8 weeks</button>
+          <button type="button" class="proj-example" onclick="useProjectExample(this)">Get an NHS band 5 job by January</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-3">The assistant drafts phases, tasks and dates. Nothing is created until you approve it.</p>
+      </div>
+      <!-- Blank (and edit, and sub-folder) -->
+      <div id="proj-form">
+        <input type="hidden" id="proj-id">
+        <input type="hidden" id="proj-parent">
+        <input type="hidden" id="proj-icon" value="📁">
+        <input type="hidden" id="proj-color" value="#0A7E8C">
+        <input type="hidden" id="proj-type" value="career">
+        <label for="proj-title" class="block text-sm font-semibold text-navy mb-1.5">Name</label>
+        <div class="flex items-center gap-2">
+          <button type="button" id="proj-look-btn" onclick="toggleProjectLook()" class="proj-look-btn" aria-expanded="false" aria-controls="proj-look" title="Icon and colour"><span id="proj-look-icon">📁</span></button>
+          <input type="text" id="proj-title" placeholder="e.g. Pass my driving test" autocomplete="off" maxlength="120"
+            class="flex-1 min-w-0 border border-gray-200 rounded-xl px-3.5 h-12 text-base font-semibold text-navy focus:outline-none focus:border-teal"
+            onkeydown="if (event.key === 'Enter') { event.preventDefault(); saveProject(); }">
+        </div>
+        <div id="proj-look" class="hidden mt-2 border border-gray-200 rounded-xl p-3">
+          <p class="text-xs font-semibold text-gray-500 mb-1.5">Icon</p>
+          <div class="seg pick proj-icons" data-seg-for="proj-icon" role="radiogroup" aria-label="Icon"><button type="button" data-value="📁" aria-label="Icon 📁">📁</button><button type="button" data-value="🎓" aria-label="Icon 🎓">🎓</button><button type="button" data-value="💼" aria-label="Icon 💼">💼</button><button type="button" data-value="💪" aria-label="Icon 💪">💪</button><button type="button" data-value="🏃" aria-label="Icon 🏃">🏃</button><button type="button" data-value="📚" aria-label="Icon 📚">📚</button><button type="button" data-value="🏠" aria-label="Icon 🏠">🏠</button><button type="button" data-value="❤️" aria-label="Icon ❤️">❤️</button><button type="button" data-value="✈️" aria-label="Icon ✈️">✈️</button><button type="button" data-value="🎨" aria-label="Icon 🎨">🎨</button><button type="button" data-value="💰" aria-label="Icon 💰">💰</button><button type="button" data-value="🧠" aria-label="Icon 🧠">🧠</button><button type="button" data-value="🌱" aria-label="Icon 🌱">🌱</button><button type="button" data-value="🚀" aria-label="Icon 🚀">🚀</button><button type="button" data-value="🏆" aria-label="Icon 🏆">🏆</button><button type="button" data-value="🎵" aria-label="Icon 🎵">🎵</button><button type="button" data-value="🍳" aria-label="Icon 🍳">🍳</button><button type="button" data-value="🛠️" aria-label="Icon 🛠️">🛠️</button><button type="button" data-value="💻" aria-label="Icon 💻">💻</button><button type="button" data-value="📈" aria-label="Icon 📈">📈</button><button type="button" data-value="🧘" aria-label="Icon 🧘">🧘</button><button type="button" data-value="👶" aria-label="Icon 👶">👶</button><button type="button" data-value="🐾" aria-label="Icon 🐾">🐾</button><button type="button" data-value="⚽" aria-label="Icon ⚽">⚽</button></div>
+          <input type="text" id="proj-icon-own" maxlength="4" placeholder="Or type your own" aria-label="Type your own icon" oninput="if (this.value.trim()) { document.getElementById('proj-icon').value = this.value.trim(); syncProjectLook(); }" class="mt-2 w-40 border border-gray-200 rounded-lg px-2.5 h-9 text-sm focus:outline-none focus:border-teal">
+          <p class="text-xs font-semibold text-gray-500 mt-3 mb-1.5">Colour</p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <div class="seg pick proj-colors" data-seg-for="proj-color" role="radiogroup" aria-label="Colour"><button type="button" data-value="#0A7E8C" aria-label="Teal" title="Teal" style="--sw:#0A7E8C"></button><button type="button" data-value="#2563EB" aria-label="Blue" title="Blue" style="--sw:#2563EB"></button><button type="button" data-value="#7C3AED" aria-label="Violet" title="Violet" style="--sw:#7C3AED"></button><button type="button" data-value="#DB2777" aria-label="Pink" title="Pink" style="--sw:#DB2777"></button><button type="button" data-value="#DC2626" aria-label="Red" title="Red" style="--sw:#DC2626"></button><button type="button" data-value="#EA580C" aria-label="Orange" title="Orange" style="--sw:#EA580C"></button><button type="button" data-value="#CA8A04" aria-label="Gold" title="Gold" style="--sw:#CA8A04"></button><button type="button" data-value="#16A34A" aria-label="Green" title="Green" style="--sw:#16A34A"></button><button type="button" data-value="#475569" aria-label="Slate" title="Slate" style="--sw:#475569"></button></div>
+            <label class="proj-color-custom" title="Any colour"><input type="color" id="proj-color-custom" aria-label="Pick any colour" oninput="setProjectColor(this.value)"><span data-icon="palette"></span></label>
+          </div>
+        </div>
+        <label for="proj-desc" class="block text-sm font-semibold text-navy mt-4 mb-1.5">Description <span class="font-normal text-gray-400">(optional)</span></label>
+        <textarea id="proj-desc" rows="2" placeholder="What does done look like?"
+          class="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
+        <div class="mt-4" id="proj-type-wrap">
+          <p class="block text-sm font-semibold text-navy mb-1.5">Area of life</p>
+          <div class="seg pick proj-types" data-seg-for="proj-type" role="radiogroup" aria-label="Area of life"><button type="button" data-value="career">Career</button><button type="button" data-value="health">Health & fitness</button><button type="button" data-value="learning">Learning</button><button type="button" data-value="business">Business</button><button type="button" data-value="home">Home & family</button><button type="button" data-value="relationships">Relationships</button><button type="button" data-value="personal">Personal growth</button><button type="button" data-value="creative">Creative</button><button type="button" data-value="travel">Travel</button></div>
+        </div>
+        <div class="mt-4">
+          <label for="proj-start" class="block text-sm font-semibold text-navy mb-1.5">Starts <span class="font-normal text-gray-400">(optional)</span></label>
+          <input type="date" id="proj-start" class="w-full sm:w-56 border border-gray-200 rounded-xl px-3.5 h-11 text-sm focus:outline-none focus:border-teal">
+          <p class="text-xs text-gray-400 mt-1">Tasks in this project can't start before this date.</p>
+        </div>
+        <!-- New top-level projects: invite people straight away (also used
+             when starting from a template). -->
+        <details class="mt-4 proj-invite" id="proj-invite-wrap">
+          <summary class="text-sm font-semibold text-navy cursor-pointer select-none inline-flex items-center gap-2"><span data-icon="users"></span>Invite people <span class="font-normal text-gray-400">(optional)</span></summary>
+          <div class="flex gap-2 mt-2">
+            <input type="text" id="proj-invite-emails" placeholder="name@example.com, another@example.com" autocomplete="off" aria-label="Email addresses"
+              class="flex-1 min-w-0 border border-gray-200 rounded-xl px-3.5 h-11 text-sm focus:outline-none focus:border-teal">
+            <select id="proj-invite-role" aria-label="Their role" class="flex-shrink-0 border border-gray-200 rounded-xl px-2 h-11 text-sm focus:outline-none focus:border-teal">
+              <option value="editor">Editor</option>
+              <option value="commenter">Commenter</option>
+              <option value="viewer">Viewer</option>
+            </select>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">Separate emails with commas. People without an account get an email to join.</p>
+        </details>
+      </div>
+    </div>
+    <div class="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
+      <button onclick="closeModal('modal-project')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold px-4 h-11 rounded-xl">Cancel</button>
+      <button onclick="submitProjectModal()" id="proj-save-btn" class="bg-teal hover:bg-teal/90 text-white text-sm font-bold px-5 h-11 rounded-xl inline-flex items-center gap-2">Create project</button>
     </div>
   </div>
 </div>

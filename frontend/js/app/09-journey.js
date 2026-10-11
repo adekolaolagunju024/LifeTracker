@@ -926,21 +926,12 @@ API.updateTask = async function (id, patch) {
 };
 
 function openAddProject() {
-  document.getElementById('modal-project-title').textContent = 'New Project';
-  document.getElementById('project-ai-btn').classList.add('hidden');
-  document.getElementById('proj-id').value     = '';
-  document.getElementById('proj-parent').value = '';
-  document.getElementById('proj-title').value  = '';
-  document.getElementById('proj-desc').value   = '';
-  document.getElementById('proj-icon').value   = '📁';
-  document.getElementById('proj-color').value  = '#0A7E8C';
-  document.getElementById('proj-start').value  = '';
-  document.getElementById('proj-type').value   = 'career';
-  document.getElementById('proj-type-wrap').classList.remove('hidden');
-  document.getElementById('proj-invite-wrap').classList.remove('hidden');
+  fillProjectForm({}, 'new');
   document.getElementById('proj-invite-emails').value = '';
+  document.getElementById('proj-ai-text').value = '';
   renderProjectTemplates();
   openModal('modal-project');
+  setProjectStartMode('blank');
 }
 
 // Settings → "Your tasks in your calendar": the private subscription link
