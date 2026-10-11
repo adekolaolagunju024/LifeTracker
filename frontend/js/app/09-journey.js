@@ -82,7 +82,7 @@ async function renderJourneyView() {
   const competitorSel = document.getElementById('journey-competitor-select');
   const resetBtn = document.getElementById('journey-reset-btn');
   if (!projectId) {
-    titleEl.textContent = '🎯 Journey';
+    titleEl.textContent = 'Journey';
     statusEl.textContent = 'Pick a specific project from the filter above — a Journey is one project at a time.';
     JourneyGame.destroy(document.getElementById('mountain-scene'));
     document.getElementById('mountain-tasklist').innerHTML = '';
@@ -116,12 +116,12 @@ async function renderJourneyView() {
     try { competitor = localStorage.getItem('journeyCompetitor:' + projectId) || 'schedule'; } catch { /* private mode etc */ }
     if (competitor !== 'schedule' && !racers.some(r => r.userId === competitor)) competitor = 'schedule';
     mountainState = { projectId, project, tasks, canEdit: project.role === 'owner' || project.role === 'editor', racers, competitor };
-    titleEl.textContent = `🎯 ${project.icon || ''} ${project.title}`;
+    titleEl.innerHTML = `${emojiIcon(project.icon || '')} ${esc(project.title)}`;
     if (resetBtn) resetBtn.classList.toggle('hidden', !mountainState.canEdit);
     if (competitorSel) {
       if (racers.length) {
         competitorSel.classList.remove('hidden');
-        competitorSel.innerHTML = `<option value="schedule">🖥️ The Schedule</option>` + racers.map(r => `<option value="${r.userId}">🏁 ${esc(r.name)}</option>`).join('');
+        competitorSel.innerHTML = `<option value="schedule">The Schedule</option>` + racers.map(r => `<option value="${r.userId}">${esc(r.name)}</option>`).join('');
         competitorSel.value = competitor;
       } else {
         competitorSel.classList.add('hidden');
@@ -133,7 +133,7 @@ async function renderJourneyView() {
     renderMountainTaskList();
     loadDailyQuests().then(g => g && updateJourneyLevelBadge(g));
   } catch (e) {
-    statusEl.textContent = '⚠️ ' + (e.message || 'Could not load this project');
+    statusEl.textContent = '' + (e.message || 'Could not load this project');
   }
 }
 
@@ -266,7 +266,7 @@ function isJourneyFullscreen() { return document.body.classList.contains('journe
 function setJourneyFullscreen(on) {
   document.body.classList.toggle('journey-fs', on);
   const btn = document.getElementById('journey-fullscreen-btn');
-  if (btn) btn.textContent = on ? '✕ Exit Fullscreen' : '⛶ Fullscreen';
+  if (btn) btn.innerHTML = on ? `${icon('close')} Exit full screen` : `${icon('expand')} Full screen`;
   const root = document.documentElement;
   const native = document.fullscreenElement || document.webkitFullscreenElement;
   try {
@@ -340,9 +340,9 @@ function renderJourneyStats(done, total, youFrac, expectedFrac, competitor) {
     else { paceIcon = '🤝'; paceValue = 'Even'; paceLabel = competitor ? competitor.label : 'Pace'; }
   }
   wrap.innerHTML = `
-    <div class="journey-stat"><span class="journey-stat-value">🎯 ${pct}%</span><span class="journey-stat-label">Complete</span></div>
-    <div class="journey-stat"><span class="journey-stat-value">${streak ? `🔥 ${streak}` : '—'}</span><span class="journey-stat-label">Day streak</span></div>
-    <div class="journey-stat"><span class="journey-stat-value">${paceIcon} ${paceValue}</span><span class="journey-stat-label">${esc(paceLabel)}</span></div>
+    <div class="journey-stat"><span class="journey-stat-value">${icon('goal')} ${pct}%</span><span class="journey-stat-label">Complete</span></div>
+    <div class="journey-stat"><span class="journey-stat-value">${streak ? `${icon('flame')} ${streak}` : '—'}</span><span class="journey-stat-label">Day streak</span></div>
+    <div class="journey-stat"><span class="journey-stat-value">${emojiIcon(paceIcon)} ${paceValue}</span><span class="journey-stat-label">${esc(paceLabel)}</span></div>
   `;
 }
 
@@ -389,15 +389,15 @@ function renderMountainScene() {
   if (!total) {
     statusEl.textContent = 'Add tasks to this project to start the journey.';
   } else if (summitLit) {
-    statusEl.textContent = `${JOURNEY_META.doneEmoji} ${JOURNEY_META.doneLabel} — every task done!`;
+    statusEl.textContent = `${JOURNEY_META.doneLabel}: every task done!`;
   } else if (expectedFrac === null) {
     statusEl.textContent = `${done} of ${total} ${noun} · ${phase} · no deadlines set, so just go at your own pace.`;
   } else if (youFrac > expectedFrac + 0.03) {
-    statusEl.textContent = `${done} of ${total} ${noun} · ${phase} · 🏆 you're ahead of ${competitor.label}!`;
+    statusEl.textContent = `${done} of ${total} ${noun} · ${phase} · you're ahead of ${competitor.label}!`;
   } else if (youFrac < expectedFrac - 0.03) {
-    statusEl.textContent = `${done} of ${total} ${noun} · ${phase} · ⏳ ${competitor.label} is a little ahead — keep going.`;
+    statusEl.textContent = `${done} of ${total} ${noun} · ${phase} · ${competitor.label} is a little ahead — keep going.`;
   } else {
-    statusEl.textContent = `${done} of ${total} ${noun} · ${phase} · 🤝 neck and neck with ${competitor.label}.`;
+    statusEl.textContent = `${done} of ${total} ${noun} · ${phase} · neck and neck with ${competitor.label}.`;
   }
 }
 
@@ -429,11 +429,11 @@ function renderMountainTaskList() {
     <label class="journey-quest-row ${isDone ? 'is-done' : ''} ${canEdit ? 'is-editable' : ''}">
       <input type="checkbox" class="journey-quest-checkbox" data-task-id="${t.id}" onchange="toggleMountainTask(this)" ${isDone ? 'checked' : ''} ${canEdit ? '' : 'disabled'}>
       <span class="journey-quest-badge ${badgeClass}">${isDone ? '✓' : i + 1}</span>
-      <span class="journey-quest-title">${!isDone && waitingOn(t).length ? '<span title="Waiting on another task" aria-hidden="true">🔒 </span>' : ''}${esc(t.title)}</span>
-      ${!isDone && foeCount(t) ? `<span class="journey-quest-foes" title="${esc(obstacleNames(t) || 'Blocked')}">⚔️${foeCount(t)}</span>` : ''}
+      <span class="journey-quest-title">${!isDone && waitingOn(t).length ? '<span title="Waiting on another task" aria-hidden="true">' + icon('lock') + ' </span>' : ''}${esc(t.title)}</span>
+      ${!isDone && foeCount(t) ? `<span class="journey-quest-foes" title="${esc(obstacleNames(t) || 'Blocked')}">${icon('blocker')}${foeCount(t)}</span>` : ''}
       ${t.endDate ? `<span class="journey-quest-date">${esc(formatDateShort(t.endDate.slice(0, 10)))}</span>` : ''}
-      <button type="button" class="journey-quest-foe-btn" onclick="event.preventDefault(); event.stopPropagation(); openTaskDetail('${t.id}')" title="Obstacles and details" aria-label="Obstacles and details for ${esc(t.title)}">⚔️</button>
-    </label>${!isDone && waitingOn(t).length ? `<div class="journey-waiting">🔗 Waiting on ${waitingOn(t).map(p => esc(p.title)).join(', ')}</div>` : ''}${blockerChecklist(t, canEdit, 'quest')}`;
+      <button type="button" class="journey-quest-foe-btn" onclick="event.preventDefault(); event.stopPropagation(); openTaskDetail('${t.id}')" title="Obstacles and details" aria-label="Obstacles and details for ${esc(t.title)}">${icon('blocker')}</button>
+    </label>${!isDone && waitingOn(t).length ? `<div class="journey-waiting">${icon('link')} Waiting on ${waitingOn(t).map(p => esc(p.title)).join(', ')}</div>` : ''}${blockerChecklist(t, canEdit, 'quest')}`;
   }).join('');
 }
 
@@ -726,7 +726,7 @@ function showJourneyAchievement(title, { message, heading, emoji } = {}) {
   if (!celebrationsEnabled()) return;
   const banner = document.getElementById('journey-achieve-banner');
   if (!banner) return;
-  document.getElementById('journey-achieve-emoji').textContent = emoji || '🏆';
+  document.getElementById('journey-achieve-emoji').innerHTML = emojiIcon(emoji || '🏆');
   document.getElementById('journey-achieve-heading').textContent = heading || 'Project Complete!';
   document.getElementById('journey-achieve-message').textContent = message || `You finished every task in "${title}". Incredible work.`;
   banner.classList.add('show');
@@ -750,8 +750,8 @@ function showProjectCompleteOverlay(title, { message, heading, emoji } = {}) {
   if (!celebrationsEnabled()) return;
   const overlay = document.getElementById('project-complete-overlay');
   const sheet = document.getElementById('project-complete-sheet');
-  document.getElementById('project-complete-heading').textContent = heading || '🏆 Project Complete!';
-  document.getElementById('project-complete-emoji').textContent = emoji || '🏆';
+  document.getElementById('project-complete-heading').textContent = heading || 'Project complete!';
+  document.getElementById('project-complete-emoji').innerHTML = emojiIcon(emoji || '🏆');
   document.getElementById('project-complete-message').textContent = message || `You finished every task in "${title}". Incredible work.`;
   sheet.style.transition = 'none';
   sheet.style.transform = 'translateY(100%)';
@@ -869,7 +869,7 @@ function announceJourneyReward(reward) {
   }
   if (reward.leveledUp) { setTimeout(() => showLevelUp(reward), delay); delay += 1600; }
   (reward.newAchievements || []).forEach((a, i) => {
-    setTimeout(() => { Sfx.play('achievement'); showToast(`🏆 Achievement unlocked: ${a.icon} ${a.name}`); }, delay + i * 1100);
+    setTimeout(() => { Sfx.play('achievement'); showToast(`🏆 Achievement unlocked: ${a.name}`); }, delay + i * 1100);
   });
   updateJourneyLevelBadge({ level: reward.level, rank: reward.rank });
   if (reward.quests) renderDailyQuests(reward.quests);
@@ -878,7 +878,7 @@ function announceJourneyReward(reward) {
 function updateJourneyLevelBadge(g) {
   const badge = document.getElementById('journey-level-badge');
   if (!badge || !g) return;
-  badge.textContent = `${g.rank ? g.rank.icon : '⭐'} Lv.${g.level}`;
+  badge.innerHTML = `${emojiIcon(g.rank ? g.rank.icon : '⭐')} Lv.${g.level}`;
   if (g.rank) badge.title = `${g.rank.name}, level ${g.level}. Open the Trophy Case`;
   badge.classList.remove('hidden');
   badge.classList.add('flex');
@@ -888,10 +888,10 @@ async function openJourneyTrophyCase() {
   openModal('modal-journey-trophy');
   try {
     const g = await API.getJourneyGaming();
-    document.getElementById('trophy-level-text').textContent = `${g.rank.icon} ${g.rank.name} · Level ${g.level}`;
+    document.getElementById('trophy-level-text').innerHTML = `${emojiIcon(g.rank.icon)} ${esc(g.rank.name)} · Level ${g.level}`;
     document.getElementById('trophy-stats').textContent = `${g.tasksCompleted} task${g.tasksCompleted === 1 ? '' : 's'} done · ${g.blockersBeaten} blocker${g.blockersBeaten === 1 ? '' : 's'} beaten · ${g.questDays} quest day${g.questDays === 1 ? '' : 's'} · ${g.achievements.filter(a => a.unlocked).length}/${g.achievements.length} achievements`;
     document.getElementById('trophy-quests').innerHTML = g.daily.quests.map(q => `
-      <div class="quest-chip ${q.done ? 'is-done' : ''}"><span class="quest-icon">${q.done ? '✅' : q.icon}</span>
+      <div class="quest-chip ${q.done ? 'is-done' : ''}"><span class="quest-icon">${emojiIcon(q.done ? '✅' : q.icon)}</span>
         <span class="min-w-0"><span class="block truncate font-semibold">${esc(q.text)}</span><span class="quest-bar"><i style="width:${Math.round(q.progress / q.target * 100)}%"></i></span></span>
         <span class="quest-count">${q.progress}/${q.target}</span></div>`).join('') + `<p class="text-[11px] text-gray-400 mt-1">${g.daily.allDone ? `Done for today. +${g.daily.bonusXp} XP earned.` : `Finish all three today for +${g.daily.bonusXp} XP. New quests every day.`}</p>`;
     renderDailyQuests(g.daily.quests, g.daily);
@@ -904,7 +904,7 @@ async function openJourneyTrophyCase() {
       <p class="col-span-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2">${esc(group)}</p>
       ${g.achievements.filter(a => (a.group || 'More') === group).map(a => `
       <div class="flex flex-col items-center text-center p-3 rounded-xl border ${a.unlocked ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-gray-50 opacity-50'}">
-        <span class="text-2xl mb-1">${a.unlocked ? a.icon : '🔒'}</span>
+        <span class="text-2xl mb-1">${emojiIcon(a.unlocked ? a.icon : '🔒')}</span>
         <span class="text-xs font-bold text-navy">${esc(a.name)}</span>
         <span class="text-[10px] text-gray-400 mt-0.5">${esc(a.desc)}</span>
       </div>`).join('')}`).join('');

@@ -28,7 +28,7 @@ async function sendChatMessageEmail(senderId, projectId, message, ccEmails = [])
   try {
     await transporter.sendMail({
       to: [...recipients],
-      subject: `💬 ${sender.name} in ${project.title}`,
+      subject: `${sender.name} in ${project.title}`,
       html: `<!doctype html><html><body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,Segoe UI,Arial,sans-serif;">
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#F3F4F6;padding:24px 0;">
           <tr><td align="center">
@@ -38,7 +38,7 @@ async function sendChatMessageEmail(senderId, projectId, message, ccEmails = [])
               </td></tr>
               <tr><td style="padding:24px;">
                 <p style="margin:0 0 12px;font-size:14px;color:#0D1B2A;"><strong>${esc(sender.name)}</strong> posted in the project chat:</p>
-                <p style="margin:0;font-size:15px;line-height:1.5;color:#1B3A5C;background:#F3F4F6;border-radius:10px;padding:14px 16px;white-space:pre-wrap;">${esc(message.text) || '📎 Sent a photo/file'}</p>
+                <p style="margin:0;font-size:15px;line-height:1.5;color:#1B3A5C;background:#F3F4F6;border-radius:10px;padding:14px 16px;white-space:pre-wrap;">${esc(message.text) || 'Sent a photo or file'}</p>
                 <p style="margin:20px 0 0;font-size:12px;color:#9CA3AF;">Reply from inside Waypoint — <a href="${APP_URL}" style="color:#0A7E8C;">open the app</a></p>
               </td></tr>
             </table>

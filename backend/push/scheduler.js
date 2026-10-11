@@ -39,7 +39,7 @@ async function checkOverdueAlerts() {
       const { overdue } = getAttentionTasks(u.userId, todayKey);
       for (const t of overdue) {
         if (t.overdueNotifiedAt) continue;
-        await sendPushToUser(u.userId, { title: '🔴 Overdue: ' + t.title, body: `Was due ${t.endDate.slice(0, 10)}`, urgent: true });
+        await sendPushToUser(u.userId, { title: 'Overdue: ' + t.title, body: `Was due ${t.endDate.slice(0, 10)}`, urgent: true });
         db.markTaskOverdueNotified(t.id, nowIso);
       }
     } catch (e) { console.error(`Overdue push check failed for ${u.userId}:`, e.message); }
@@ -56,7 +56,7 @@ async function checkDueTodayDigest() {
     try {
       const { dueToday } = getAttentionTasks(u.userId, todayKey);
       if (dueToday.length) {
-        const title = dueToday.length === 1 ? `📌 Due today: ${dueToday[0].title}` : `📌 ${dueToday.length} tasks due today`;
+        const title = dueToday.length === 1 ? `Due today: ${dueToday[0].title}` : `${dueToday.length} tasks due today`;
         const body = dueToday.slice(0, 3).map(t => t.title).join(', ') + (dueToday.length > 3 ? '…' : '');
         await sendPushToUser(u.userId, { title, body });
       }
@@ -110,7 +110,7 @@ async function checkStreakNudge() {
     try {
       if (db.hasCompletedTaskToday(u.userId, todayKey)) continue; // streak already safe today
       await sendPushToUser(u.userId, {
-        title: '🔥 Don’t lose your streak!',
+        title: 'Don’t lose your streak!',
         body: `${u.currentStreak}-day streak — complete one task today before it resets.`,
         urgent: true,
       });
@@ -130,14 +130,14 @@ async function checkTaskReminders(now = new Date()) {
   for (const r of db.listRemindersToRing(now)) {
     try {
       const again = r.fireCount > 0;
-      const blockers = r.pendingBlockers.length ? ` · ⚔️ Clear first: ${r.pendingBlockers.slice(0, 2).join(', ')}` : '';
+      const blockers = r.pendingBlockers.length ? ` · Clear first: ${r.pendingBlockers.slice(0, 2).join(', ')}` : '';
       await sendPushToUser(r.userId, {
         title: `${again ? '⏰ Still waiting: ' : '⏰ Time for: '}${r.taskTitle}`,
         body: (r.taskStatus === 'In Progress' ? 'Pick up where you left off.' : 'Two minutes is enough to start.') + blockers,
         url: `${APP_URL}/app?reminder=${r.id}`,
         urgent: true,
         tag: `reminder-${r.taskId}`,
-        actions: [{ action: 'start', title: '▶ Start now' }, { action: 'snooze', title: '😴 Snooze 10 min' }],
+        actions: [{ action: 'start', title: '▶ Start now' }, { action: 'snooze', title: 'Snooze 10 min' }],
         data: { reminderId: r.id, taskId: r.taskId },
       });
       db.markReminderRung(r.id, now.toISOString());

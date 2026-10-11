@@ -72,7 +72,7 @@ function recapSlides(r) {
   if (r.bestDay) slides.push({ bg: 'linear-gradient(160deg,#4C1D95,#BE185D)', html: `<p class="recap-kicker">Your best day</p><p class="recap-big">${esc(r.bestDay[0])}</p><p class="recap-sub">${r.bestDay[1]} task${r.bestDay[1] === 1 ? '' : 's'} done in one day.</p>` });
   if (r.foes) slides.push({ bg: 'linear-gradient(160deg,#7F1D1D,#C2410C)', html: `<p class="recap-kicker">Blockers beaten</p><p class="recap-huge">${icon('blocker', 'recap-ic')}${r.foes}</p><p class="recap-sub">${r.foeNames.map(n => `“${esc(n)}”`).join(', ')}${r.foeNames.length ? ' and more, cleared out of your way.' : ''}</p>` });
   slides.push({ bg: 'linear-gradient(160deg,#9A3412,#F59E0B)', html: `<p class="recap-kicker">Your streak</p><p class="recap-huge">${icon('flame', 'recap-ic')}${r.streak}</p><p class="recap-sub">${r.streak ? `day${r.streak === 1 ? '' : 's'} in a row${r.longest > r.streak ? `. Your best is ${r.longest}.` : '. Your best yet!'}` : 'Finish one task today to start a new one.'}</p>` });
-  if (r.top) slides.push({ bg: 'linear-gradient(160deg,#064E3B,#0A7E8C)', html: `<p class="recap-kicker">Most progress</p><p class="recap-big">${esc(r.top.icon)} ${esc(r.top.title)}</p><p class="recap-sub">${r.top.count} task${r.top.count === 1 ? '' : 's'} this week. Now ${r.top.pct}% complete.</p><div class="recap-bar"><span style="width:${r.top.pct}%"></span></div>` });
+  if (r.top) slides.push({ bg: 'linear-gradient(160deg,#064E3B,#0A7E8C)', html: `<p class="recap-kicker">Most progress</p><p class="recap-big">${emojiIcon(r.top.icon)} ${esc(r.top.title)}</p><p class="recap-sub">${r.top.count} task${r.top.count === 1 ? '' : 's'} this week. Now ${r.top.pct}% complete.</p><div class="recap-bar"><span style="width:${r.top.pct}%"></span></div>` });
   slides.push({ bg: 'linear-gradient(160deg,#0D1B2A,#1B3A5C)', html: `<p class="recap-kicker">Coming up</p>${r.next.length ? `<ul class="recap-list">${r.next.slice(0, 4).map(t => `<li><span>${esc(t.title)}</span><b>${esc(new Date(t.endDate + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' }))}</b></li>`).join('')}</ul>` : '<p class="recap-big">A clear week</p><p class="recap-sub">Nothing due in the next seven days. A good time to plan the next goal.</p>'}` });
   slides.push({ bg: 'linear-gradient(160deg,#0A7E8C,#0D1B2A)', final: true, html: `<p class="recap-kicker">This week you were</p><p class="recap-big">${icon(r.titleIcon, 'recap-ic')}${esc(r.title)}</p><div class="recap-stats"><div><b>${r.done}</b><span>tasks</span></div><div><b>${r.foes}</b><span>blockers</span></div><div><b>${r.streak}</b><span>day streak</span></div>${r.level ? `<div><b>${r.level}</b><span>level</span></div>` : ''}</div><div class="recap-actions"><button type="button" data-recap="share">Share my week</button><button type="button" data-recap="close">Done</button></div>` });
   return slides;
@@ -157,7 +157,7 @@ function drawRecapImage(r) {
   });
   if (r.top) {
     g.fillStyle = 'rgba(255,255,255,.75)'; g.font = font(600, 36); g.fillText('Most progress', 80, 1060);
-    g.fillStyle = '#fff'; g.font = font(800, 52); g.fillText(`${r.top.icon} ${r.top.title}`.slice(0, 34), 80, 1130);
+    g.fillStyle = '#fff'; g.font = font(800, 52); g.fillText(r.top.title.slice(0, 34), 80, 1130);
     g.fillStyle = 'rgba(255,255,255,.2)'; g.fillRect(80, 1160, 920, 18);
     g.fillStyle = '#5EEAD4'; g.fillRect(80, 1160, 920 * r.top.pct / 100, 18);
   }

@@ -111,7 +111,7 @@ function applyThemeIcon() {
   const isDark = document.documentElement.classList.contains('dark');
   const iconEl = document.getElementById('theme-toggle-icon');
   const switchEl = document.getElementById('theme-switch');
-  if (iconEl) iconEl.textContent = isDark ? '☀️' : '🌙';
+  if (iconEl) iconEl.innerHTML = icon(isDark ? 'sun' : 'moon');
   if (switchEl) switchEl.classList.toggle('on', isDark);
 }
 
@@ -175,7 +175,7 @@ function miniCostBadge(cost) {
 }
 function miniChecklistBadge(t) {
   if (!t.checklistTotal) return '';
-  return `<span class="text-[9px] text-gray-400 flex-shrink-0">☑️ ${t.checklistDone}/${t.checklistTotal}</span>`;
+  return `<span class="text-[9px] text-gray-400 flex-shrink-0">${icon('square-check')} ${t.checklistDone}/${t.checklistTotal}</span>`;
 }
 // The only signal that a task has any discussion on it at all was opening
 // its detail panel — nothing on the row/card itself hinted a commenter had
@@ -183,7 +183,7 @@ function miniChecklistBadge(t) {
 // gated behind the optional card-fields checkboxes), fixes that.
 function commentCountBadge(t) {
   if (!t.commentCount) return '';
-  return `<span class="text-[9px] text-gray-400 flex-shrink-0" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">💬 ${t.commentCount}</span>`;
+  return `<span class="text-[9px] text-gray-400 flex-shrink-0" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">${icon('chat')} ${t.commentCount}</span>`;
 }
 // Same idea as the comment-count badge, but for the status-update log —
 // shows the latest "why it's stuck" note as a tooltip right on the Table
@@ -370,12 +370,12 @@ function taskProgressPanelHTML(t) {
 // Delayed / On Track / Done — derived from status + due date, not a stored
 // field, so it's always consistent with the task/project's real data.
 function miniScheduleBadge(t) {
-  if (t.status === 'Completed') return `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-green-100 text-green-700">✅ Done</span>`;
+  if (t.status === 'Completed') return `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-green-100 text-green-700">${icon('done')} Done</span>`;
   if (!t.endDate) return '';
   const delayed = t.endDate.slice(0, 10) < localDateKey(new Date());
   return delayed
-    ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-red-100 text-red-700">🔴 Delayed</span>`
-    : `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-green-100 text-green-700">🟢 On Track</span>`;
+    ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-red-100 text-red-700">${icon('overdue')} Delayed</span>`
+    : `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-green-100 text-green-700">${icon('circle')} On Track</span>`;
 }
 // Same idea at the project level, for the Gantt group header row — a
 // project is "delayed" if it has any incomplete task past its due date.
@@ -385,8 +385,8 @@ function miniProjectScheduleBadge(projectTasks) {
   if (!dated.length) return '';
   const delayed = dated.some(t => t.status !== 'Completed' && t.endDate.slice(0, 10) < todayKey);
   return delayed
-    ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-red-100 text-red-700">🔴 Delayed</span>`
-    : `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-green-100 text-green-700">🟢 On Track</span>`;
+    ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-red-100 text-red-700">${icon('overdue')} Delayed</span>`
+    : `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-green-100 text-green-700">${icon('circle')} On Track</span>`;
 }
 function miniTagBadges(tags) {
   if (!tags || !tags.length) return '';
@@ -505,11 +505,11 @@ async function runGlobalSearch(q) {
     }
     const projHTML = projects.map(p => `
       <button onclick="closeGlobalSearch(); showPage('project-detail','${p.id}')" class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left">
-        <span class="flex-shrink-0">${esc(p.icon || '📁')}</span><span class="truncate flex-1">${esc(p.title)}</span><span class="text-[10px] text-gray-400 uppercase flex-shrink-0">Project</span>
+        <span class="flex-shrink-0">${emojiIcon(p.icon || '📁')}</span><span class="truncate flex-1">${esc(p.title)}</span><span class="text-[10px] text-gray-400 uppercase flex-shrink-0">Project</span>
       </button>`).join('');
     const taskHTML = tasks.map(t => `
       <button onclick="closeGlobalSearch(); openTaskDetail('${t.id}')" class="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left">
-        <span class="flex-shrink-0">📄</span><span class="truncate flex-1">${esc(t.title)}</span><span class="text-[10px] text-gray-400 uppercase flex-shrink-0">Task</span>
+        <span class="flex-shrink-0">${icon('file')}</span><span class="truncate flex-1">${esc(t.title)}</span><span class="text-[10px] text-gray-400 uppercase flex-shrink-0">Task</span>
       </button>`).join('');
     resultsEl.innerHTML = projHTML + taskHTML;
     resultsEl.classList.remove('hidden');

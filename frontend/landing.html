@@ -65,6 +65,8 @@
     .feat-ic { width: 44px; height: 44px; border-radius: 12px; background: #E6F4F5; color: #0A7E8C; display: flex; align-items: center; justify-content: center; }
     .feat-ic .ic { width: 22px; height: 22px; }
     .demo-blocker .ic { width: 15px; height: 15px; }
+    .demo-walker .ic { color: #0A7E8C; } .demo-flag .ic { color: #5B6472; } .demo-foe .ic { color: #B91C1C; }
+    .stage-ic { color: #0A7E8C; display: inline-flex; } .stage-ic .ic { width: 18px; height: 18px; }
   </style>
 </head>
 <body class="bg-[#F4F5F7] font-sans text-gray-700 antialiased">
@@ -343,11 +345,11 @@
         ${typed ? `<p class="demo-note">A sample plan close to <strong>"${esc(typed)}"</strong>. Signed in, the assistant writes one just for your goal.</p>` : ''}
         <div class="demo-road" role="img" aria-label="${doneN} of ${tasks.length} tasks done">
           <div class="demo-fill" style="width:calc((100% - 48px) * ${doneN / tasks.length})"></div>
-          ${tasks.map((t, i) => `<span class="demo-flag" style="left:${at(i + 1)}">${i === tasks.length - 1 ? '🏁' : '🚩'}</span>`).join('')}
-          ${!beaten && foeIndex >= 0 ? `<span class="demo-foe" style="left:${at(foeIndex + 0.6)}" aria-hidden="true">👾</span>` : ''}
-          <span class="demo-walker" style="left:${at(doneN)}" aria-hidden="true">${finished ? '🥳' : '🚶'}</span>
+          ${tasks.map((t, i) => `<span class="demo-flag" style="left:${at(i + 1)}">${icon(i === tasks.length - 1 ? 'flag_done' : 'goal')}</span>`).join('')}
+          ${!beaten && foeIndex >= 0 ? `<span class="demo-foe" style="left:${at(foeIndex + 0.6)}" aria-hidden="true">${icon('ghost')}</span>` : ''}
+          <span class="demo-walker" style="left:${at(doneN)}" aria-hidden="true">${icon(finished ? 'party' : 'footprints')}</span>
         </div>
-        <div class="demo-stats"><span>${pct}% <small>complete, weighted by task size</small></span><span>${esc(plan.icon)} ${esc(plan.title)}</span></div>
+        <div class="demo-stats"><span>${pct}% <small>complete, weighted by task size</small></span><span>${emojiIcon(plan.icon)} ${esc(plan.title)}</span></div>
         <div class="demo-phases">${plan.phases.map((p, pi) => `
           <div class="demo-phase"><h3>${esc(p.title)}</h3>${tasks.map((t, i) => t.phase !== pi ? '' : `
             <label class="demo-task ${t.done ? 'is-done' : ''} ${t.blocked && !beaten ? 'is-locked' : ''}">
@@ -361,7 +363,7 @@
     }
     board.addEventListener('change', e => { const i = e.target.dataset.i; if (i === undefined) return; tasks[+i].done = e.target.checked; render(); });
     board.addEventListener('click', e => { if (e.target.closest('[data-beat]')) { beaten = true; render(); } });
-    picks.innerHTML = data.map(t => `<button type="button" data-id="${t.id}" aria-pressed="false">${esc(t.icon)} ${esc(t.title)}</button>`).join('');
+    picks.innerHTML = data.map(t => `<button type="button" data-id="${t.id}" aria-pressed="false">${emojiIcon(t.icon)} ${esc(t.title)}</button>`).join('');
     picks.addEventListener('click', e => { const b = e.target.closest('button'); if (b) pick(b.dataset.id); });
     document.getElementById('demo-ask').addEventListener('submit', e => {
       e.preventDefault();

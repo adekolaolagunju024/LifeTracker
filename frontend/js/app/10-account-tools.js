@@ -100,7 +100,6 @@ function fillProjectForm(p, kind) {
   document.getElementById('proj-color').value  = p.color || '#0A7E8C';
   document.getElementById('proj-start').value  = p.startDate || '';
   document.getElementById('proj-type').value   = p.type || 'career';
-  document.getElementById('proj-icon-own').value = '';
   document.getElementById('proj-look').classList.add('hidden');
   document.getElementById('proj-look-btn').setAttribute('aria-expanded', 'false');
   if (kind !== 'new') setProjectStartMode('blank');
@@ -128,7 +127,7 @@ function syncProjectLook() {
   const iconVal = document.getElementById('proj-icon').value || '📁';
   const color = document.getElementById('proj-color').value || '#0A7E8C';
   const tile = document.getElementById('proj-look-btn');
-  document.getElementById('proj-look-icon').textContent = iconVal;
+  document.getElementById('proj-look-icon').innerHTML = emojiIcon(iconVal);
   tile.style.background = color + '22';
   tile.style.color = color;
   document.getElementById('proj-color-custom').value = /^#[0-9a-f]{6}$/i.test(color) ? color : '#0A7E8C';
@@ -176,7 +175,7 @@ async function renderProjectTemplates() {
   }
   list.innerHTML = projectTemplatesCache.map(t => `
     <button type="button" onclick="startProjectFromTemplate('${t.id}', this)" class="proj-tpl">
-      <span class="proj-tpl-ic" aria-hidden="true">${esc(t.icon)}</span>
+      <span class="proj-tpl-ic" aria-hidden="true">${emojiIcon(t.icon)}</span>
       <span class="min-w-0">
         <span class="block text-sm font-bold text-navy">${esc(t.title)}</span>
         <span class="block text-xs text-gray-500 mt-0.5 line-clamp-2">${esc(t.description || '')}</span>

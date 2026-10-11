@@ -40,7 +40,7 @@ function buildCalendar(userId, baseUrl) {
     const details = [`${where}`, `Status: ${t.status}`, `Priority: ${t.priority}`, t.notes ? `\n${t.notes}` : '', baseUrl ? `\nOpen in Waypoint: ${baseUrl}/app` : ''].filter(Boolean).join('\n');
     lines.push('BEGIN:VEVENT', `UID:${t.id}@waypoint`, `DTSTAMP:${now}`,
       `DTSTART;VALUE=DATE:${ymd(t.endDate)}`, `DTEND;VALUE=DATE:${ymd(nextDay(t.endDate))}`,
-      fold(`SUMMARY:${icsText(`${done ? '✅' : '⏳'} ${t.title}`)}`),
+      fold(`SUMMARY:${icsText(`${done ? '✓ ' : ''}${t.title}`)}`),
       fold(`DESCRIPTION:${icsText(details)}`),
       `STATUS:${done ? 'CONFIRMED' : 'TENTATIVE'}`, 'TRANSP:TRANSPARENT', 'END:VEVENT');
   }

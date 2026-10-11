@@ -22,7 +22,7 @@ const Reports = (() => {
       list.innerHTML = projects.length ? projects.map(p => `
         <label class="flex items-center gap-3 py-2 border-b border-gray-100 cursor-pointer">
           <input type="checkbox" class="w-4 h-4 accent-teal" value="${p.id}" checked>
-          <span class="text-lg" aria-hidden="true">${esc(p.icon || '📁')}</span>
+          <span class="text-lg" aria-hidden="true">${emojiIcon(p.icon || '📁')}</span>
           <span class="flex-1 min-w-0 text-sm font-semibold text-navy truncate">${esc(p.title)}</span>
           ${p.role && p.role !== 'owner' ? '<span class="text-[11px] font-bold text-gray-400">Shared</span>' : ''}
         </label>`).join('') : '<p class="text-sm text-gray-500">No projects yet.</p>';
@@ -82,7 +82,7 @@ const Reports = (() => {
       const items = await API.getReportMedia(mediaProjectId);
       box.innerHTML = items.length ? items.map(m => `
         <div class="media-item">
-          ${isImage(m) ? `<img src="${API.attachmentUrl(m.attachmentId)}" alt="" loading="lazy">` : '<span class="media-file-icon" aria-hidden="true">📎</span>'}
+          ${isImage(m) ? `<img src="${API.attachmentUrl(m.attachmentId)}" alt="" loading="lazy">` : '<span class="media-file-icon" aria-hidden="true">' + icon('paperclip') + '</span>'}
           <div class="min-w-0 flex-1">
             <p class="text-sm font-semibold text-navy truncate">${esc(m.caption || m.originalName)}</p>
             <p class="text-xs text-gray-500 truncate"><span class="media-kind k-${m.kind}">${KIND[m.kind] || 'Info'}</span>${m.taskTitle ? ' ' + esc(m.taskTitle) : ''}</p>
@@ -97,7 +97,7 @@ const Reports = (() => {
       const files = await API.getProjectAttachments(mediaProjectId);
       box.innerHTML = files.length ? files.slice(0, 24).map(f => `
         <button type="button" class="media-pick" onclick="Reports.pickExisting('${f.id}', this)" title="${esc(f.originalName)}" data-name="${esc(f.originalName)}">
-          ${isImage(f) ? `<img src="${API.attachmentUrl(f.id)}" alt="${esc(f.originalName)}" loading="lazy">` : `<span>📎<small>${esc(f.originalName)}</small></span>`}
+          ${isImage(f) ? `<img src="${API.attachmentUrl(f.id)}" alt="${esc(f.originalName)}" loading="lazy">` : `<span>${icon('paperclip')}<small>${esc(f.originalName)}</small></span>`}
         </button>`).join('') : '<p class="text-xs text-gray-400" style="grid-column:1/-1">No files shared in this project yet.</p>';
     } catch { box.innerHTML = ''; }
   }

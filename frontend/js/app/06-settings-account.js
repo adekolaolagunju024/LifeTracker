@@ -14,7 +14,7 @@ async function renderSettings() {
     if (p.currency && ![...cur.options].some(o => o.value === p.currency)) cur.add(new Option(p.currency, p.currency));
     cur.value = p.currency || '£';
     const longest = p.longestStreak || 0;
-    document.getElementById('set-display-stats').textContent = p.currentStreak ? `🔥 ${p.currentStreak}-day streak${longest > p.currentStreak ? ` · best ${longest}` : ''}` : (longest ? `Best streak: ${longest} days` : 'Finish a task today to start a streak');
+    document.getElementById('set-display-stats').textContent = p.currentStreak ? `${p.currentStreak}-day streak${longest > p.currentStreak ? ` · best ${longest}` : ''}` : (longest ? `Best streak: ${longest} days` : 'Finish a task today to start a streak');
     previewProfile();
     showSettingsTab(APP.settingsTab || (() => { try { return localStorage.getItem('settingsTab'); } catch { return null; } })() || 'profile');
     setEmailDigestButton(p.emailDigestEnabled);
@@ -60,8 +60,8 @@ document.addEventListener('keydown', e => {
 // The avatar and name at the top of Profile follow the name as it's typed.
 function previewProfile() {
   const name = document.getElementById('set-name').value.trim();
-  const initials = name ? name.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() : '👤';
-  document.getElementById('set-avatar').textContent = initials;
+  const initials = name ? name.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() : '';
+  document.getElementById('set-avatar').innerHTML = initials ? esc(initials) : icon('user');
   document.getElementById('set-display-name').textContent = name || 'Add your name';
 }
 
@@ -114,11 +114,11 @@ async function renderTrash() {
         ? iconBtn('Restore all', `event.preventDefault(); restoreProjectFromTrash('${p.id}')`) + iconBtn('Delete forever', `event.preventDefault(); purgeProjectFromTrash('${p.id}','${esc(p.title).replace(/'/g, '&#39;')}')`, true)
         : iconBtn('Restore all', `event.preventDefault(); restoreTasksFromTrash('${ids}')`);
       const items = [
-        ...g.folders.map(f => `<div class="flex items-center gap-2 py-2"><span>📁</span><div class="flex-1 min-w-0"><p class="text-sm font-semibold text-navy truncate">${esc(f.title)}</p><p class="text-[11px] text-gray-400">Folder · ${purgeText(f.deletedAt)}</p></div>${iconBtn('Restore', `restoreProjectFromTrash('${f.id}')`)}</div>`),
+        ...g.folders.map(f => `<div class="flex items-center gap-2 py-2"><span>${icon('folder')}</span><div class="flex-1 min-w-0"><p class="text-sm font-semibold text-navy truncate">${esc(f.title)}</p><p class="text-[11px] text-gray-400">Folder · ${purgeText(f.deletedAt)}</p></div>${iconBtn('Restore', `restoreProjectFromTrash('${f.id}')`)}</div>`),
         ...g.tasks.map(t => `<div class="flex items-center gap-2 py-2"><span class="text-gray-300">•</span><div class="flex-1 min-w-0"><p class="text-sm text-navy truncate">${esc(t.title)}</p><p class="text-[11px] text-gray-400">${t.folder ? esc(t.folder) + ' · ' : ''}${purgeText(t.deletedAt)}</p></div>${iconBtn('Restore', `restoreTaskFromTrash('${t.id}')`)}${iconBtn('Delete', `purgeTaskFromTrash('${t.id}','${esc(t.title).replace(/'/g, '&#39;')}')`, true)}</div>`),
       ].join('');
       return `<details class="trash-group">
-        <summary><span class="chev" aria-hidden="true">▶</span><span class="text-lg flex-shrink-0">${esc(p.icon || '📁')}</span>
+        <summary><span class="chev" aria-hidden="true">▶</span><span class="text-lg flex-shrink-0">${emojiIcon(p.icon || '📁')}</span>
           <span class="flex-1 min-w-0"><span class="block text-sm font-bold text-navy truncate">${esc(p.title)}</span><span class="block text-xs text-gray-400 truncate">${sub}</span></span>
           <span class="flex flex-wrap justify-end gap-1">${actions}</span></summary>
         ${items ? `<div class="trash-items">${items}</div>` : ''}
@@ -393,7 +393,7 @@ async function sendTestPush() {
     await API.testPush();
     statusEl.textContent = 'Sent — check your notifications.';
   } catch (e) {
-    statusEl.textContent = '❌ ' + (e.message || 'Failed to send');
+    statusEl.textContent = '' + (e.message || 'Failed to send');
   }
 }
 
@@ -639,29 +639,29 @@ function renderNotificationsList(data) {
 
   data.invites.forEach(inv => rows.push(`
     <button onclick="closeNotifications(); openInvitesModal();" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
-      <span class="text-lg leading-none flex-shrink-0">📨</span>
+      <span class="text-lg leading-none flex-shrink-0">${icon('send')}</span>
       <span class="text-sm text-navy min-w-0"><strong>${esc(inv.ownerName || 'Someone')}</strong> invited you to <strong>${esc(inv.projectTitle)}</strong></span>
     </button>`));
 
   data.assignedTasks.forEach(t => rows.push(`
     <button onclick="closeNotifications(); openTaskDetail('${t.id}');" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
-      <span class="text-lg leading-none flex-shrink-0">✅</span>
+      <span class="text-lg leading-none flex-shrink-0">${icon('done')}</span>
       <span class="text-sm text-navy min-w-0">You were assigned <strong>${esc(t.title)}</strong> in ${esc(t.projectIcon || '')} ${esc(t.projectTitle)}</span>
     </button>`));
 
   data.chatActivity.forEach(c => rows.push(`
     <button onclick="closeNotifications(); showPage('project-detail','${c.projectId}'); openProjectChat('${c.projectId}');" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
-      <span class="text-lg leading-none flex-shrink-0">💬</span>
+      <span class="text-lg leading-none flex-shrink-0">${icon('chat')}</span>
       <span class="text-sm text-navy min-w-0">${c.count} new message${c.count === 1 ? '' : 's'} in ${esc(c.projectIcon || '')} <strong>${esc(c.projectTitle)}</strong> chat</span>
     </button>`));
 
   data.commentActivity.forEach(c => rows.push(`
     <button onclick="closeNotifications(); showPage('project-detail','${c.projectId}'); openTaskDetail('${c.taskId}');" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
-      <span class="text-lg leading-none flex-shrink-0">🗨️</span>
+      <span class="text-lg leading-none flex-shrink-0">${icon('message-square')}</span>
       <span class="text-sm text-navy min-w-0">${c.count} new comment${c.count === 1 ? '' : 's'} on <strong>${esc(c.taskTitle)}</strong></span>
     </button>`));
 
-  wrap.innerHTML = rows.length ? rows.join('') : `<p class="text-sm text-gray-400 text-center py-8">You're all caught up 🎉</p>`;
+  wrap.innerHTML = rows.length ? rows.join('') : `<p class="text-sm text-gray-400 text-center py-8">You're all caught up ${icon('party')}</p>`;
 }
 
 document.addEventListener('click', (e) => {
@@ -888,7 +888,7 @@ async function renderOnboardingDriveStatus() {
       textEl.textContent = 'Google Drive backup isn’t configured on this server yet. You can set it up later in Settings.';
       btnEl.style.display = 'none';
     } else if (status.connected) {
-      textEl.textContent = '✅ Connected — your data can now be backed up to Drive any time.';
+      textEl.textContent = 'Connected — your data can now be backed up to Drive any time.';
       btnEl.style.display = 'none';
     } else {
       textEl.textContent = 'Not connected yet.';
@@ -914,12 +914,12 @@ async function renderSettingsDrive() {
     }
 
     if (status.connected) {
-      textEl.textContent = '✅ Connected to Google Drive';
+      textEl.textContent = 'Connected to Google Drive';
       subEl.textContent  = status.lastBackupAt
         ? `Last backup: ${new Date(status.lastBackupAt).toLocaleString()}`
         : 'No backups yet — click "Backup Now" to create your first one.';
       actionsEl.innerHTML = `
-        <button onclick="backupAs('json')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">☁️ Backup Now (JSON)</button>
+        <button onclick="backupAs('json')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">${icon('cloud')} Backup Now (JSON)</button>
         <button onclick="disconnectDriveConfirm()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">Disconnect</button>`;
       formatsEl.classList.remove('hidden');
     } else {
@@ -947,12 +947,12 @@ async function renderSettingsOneDrive() {
       return;
     }
     if (s.connected) {
-      textEl.textContent = `✅ Connected${s.account ? ' as ' + s.account : ''}`;
+      textEl.textContent = `Connected${s.account ? ' as ' + s.account : ''}`;
       subEl.textContent = (s.lastBackupAt ? `Last backup: ${new Date(s.lastBackupAt).toLocaleString()}. ` : '') + 'Saved to OneDrive → Apps → Waypoint.';
       actionsEl.innerHTML = `
-        <button onclick="backupToOneDrive('json')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">☁️ Back up now</button>
-        <button onclick="backupToOneDrive('excel')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📗 Excel (.xlsx)</button>
-        <button onclick="backupToOneDrive('pdf')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📄 PDF report</button>
+        <button onclick="backupToOneDrive('json')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">${icon('cloud')} Back up now</button>
+        <button onclick="backupToOneDrive('excel')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">${icon('book')} Excel (.xlsx)</button>
+        <button onclick="backupToOneDrive('pdf')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">${icon('file')} PDF report</button>
         <button onclick="disconnectOneDriveConfirm()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">Disconnect</button>`;
     } else {
       textEl.textContent = 'Not connected';

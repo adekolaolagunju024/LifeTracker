@@ -44,7 +44,7 @@ function showLevelUp(reward) {
   el.innerHTML = `<div class="levelup-card">
       <p class="levelup-kicker">Level up!</p>
       <p class="levelup-level">${reward.level}</p>
-      <p class="levelup-rank">${esc(reward.rank.icon)} ${esc(reward.rank.name)}</p>
+      <p class="levelup-rank">${emojiIcon(reward.rank.icon)} ${esc(reward.rank.name)}</p>
       ${reward.rankChanged ? '<p class="levelup-new">New rank unlocked</p>' : ''}
       <p class="levelup-hint">Tap to keep going</p>
     </div>`;
@@ -54,7 +54,7 @@ function showLevelUp(reward) {
   const journeyOnScreen = APP.currentPage === 'gantt' && !document.getElementById('gantt-journey-view')?.classList.contains('hidden');
   if (journeyOnScreen) {
     el.classList.add('is-compact');
-    el.querySelector('.levelup-card').innerHTML = `<p class="levelup-level">${reward.level}</p><div><p class="levelup-kicker">Level up!</p><p class="levelup-rank">${esc(reward.rank.icon)} ${esc(reward.rank.name)}${reward.rankChanged ? ' · new rank' : ''}</p></div>`;
+    el.querySelector('.levelup-card').innerHTML = `<p class="levelup-level">${reward.level}</p><div><p class="levelup-kicker">Level up!</p><p class="levelup-rank">${emojiIcon(reward.rank.icon)} ${esc(reward.rank.name)}${reward.rankChanged ? ' · new rank' : ''}</p></div>`;
   }
   document.body.appendChild(el);
   if (celebrationsEnabled() && !journeyOnScreen) fireBigScreenConfetti();
@@ -69,7 +69,7 @@ function renderDailyQuests(quests, opts = {}) {
   const done = quests.filter(q => q.done).length;
   const badge = document.getElementById('journey-quest-badge');
   if (badge) {
-    badge.textContent = `🎯 ${done}/${quests.length}`;
+    badge.textContent = `${done}/${quests.length}`;
     badge.classList.remove('hidden'); badge.classList.add('flex');
     badge.title = done === quests.length ? "All of today's quests are done!" : "Today's quests";
   }
@@ -79,7 +79,7 @@ function renderDailyQuests(quests, opts = {}) {
     document.getElementById('dashboard-quests-count').textContent = done === quests.length ? `All done! +${opts.bonusXp || 30} XP earned` : `${done} of ${quests.length} done · finish all for +${opts.bonusXp || 30} XP`;
     document.getElementById('dashboard-quests-list').innerHTML = quests.map(q => `
       <div class="quest-chip ${q.done ? 'is-done' : ''}">
-        <span class="quest-icon">${q.done ? '✅' : q.icon}</span>
+        <span class="quest-icon">${emojiIcon(q.done ? '✅' : q.icon)}</span>
         <span class="min-w-0"><span class="block truncate font-semibold">${esc(q.text)}</span>
         <span class="quest-bar"><i style="width:${Math.round(q.progress / q.target * 100)}%"></i></span></span>
         <span class="quest-count">${q.progress}/${q.target}</span>
@@ -98,7 +98,7 @@ async function loadDailyQuests() {
 function syncSoundButtons() {
   const on = Sfx.enabled();
   const btn = document.getElementById('journey-sound-btn');
-  if (btn) { btn.textContent = on ? '🔊' : '🔇'; btn.setAttribute('aria-label', on ? 'Turn game sounds off' : 'Turn game sounds on'); btn.setAttribute('aria-pressed', String(on)); }
+  if (btn) { btn.innerHTML = icon(on ? 'volume' : 'volume-x'); btn.setAttribute('aria-label', on ? 'Turn game sounds off' : 'Turn game sounds on'); btn.setAttribute('aria-pressed', String(on)); }
   const sw = document.getElementById('game-sounds-btn');
   if (sw) { sw.classList.toggle('on', on); sw.setAttribute('aria-checked', String(on)); }
 }
