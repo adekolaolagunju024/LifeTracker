@@ -7,6 +7,8 @@ const { v4: uuid } = require('uuid');
 const { google } = require('googleapis');
 const db = require('../db/db');
 const { sendPasswordResetEmail } = require('../email/account');
+const twofactor = require('../twofactor');
+const QRCode = require('qrcode');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -88,12 +90,99 @@ router.post('/login', loginLimit, async (req, res) => {
   const ok = user ? await bcrypt.compare(req.body.password || '', user.passwordHash) : false;
   if (!ok) return res.status(401).json({ error: 'Incorrect email or password' });
 
+  // Two-step sign-in on: hold the sign-in until the code is checked.
+  if (user.totpEnabledAt) {
+    req.session.pending2fa = { userId: user.id, remember: req.body.remember !== false, until: Date.now() + 5 * 60 * 1000 };
+    return res.json({ twoFactorRequired: true });
+  }
   await signIn(req, user.id);
   // Unchecking "Keep me signed in" drops the Max-Age/Expires attribute
   // entirely, so the browser clears the cookie when it closes instead of
   // keeping the usual 30-day persistent session.
   if (req.body.remember === false) req.session.cookie.expires = false;
   res.json({ email: user.email });
+});
+
+// ── TWO-STEP SIGN-IN (backend/twofactor.js) ──
+const twoFactorLimit = rateLimit({ windowMs: FIFTEEN_MIN, max: 8, key: req => `${req.ip}|${(req.session && req.session.pending2fa && req.session.pending2fa.userId) || ''}`, message: 'Too many codes tried. Please wait 15 minutes and try again.' });
+const signedInUser = req => (req.session && req.session.userId ? db.getUserById(req.session.userId) : null);
+// A six-digit app code (not reused) or an unused recovery code.
+function checkSecondFactor(user, code) {
+  const clean = String(code || '').trim();
+  const step = twofactor.verifyCode(user.totpSecret, clean, user.totpLastStep);
+  if (step !== null) return db.claimTotpStep(user.id, step);
+  if (/[a-z]/i.test(clean)) return db.useTotpRecoveryCode(user.id, twofactor.hashRecovery(clean));
+  return false;
+}
+
+// POST /api/auth/2fa/verify — { code } finishes a sign-in held for a code
+router.post('/2fa/verify', twoFactorLimit, async (req, res) => {
+  const pending = req.session && req.session.pending2fa;
+  if (!pending || pending.until < Date.now()) return res.status(401).json({ error: 'Your sign-in timed out. Please enter your password again.' });
+  const user = db.getUserById(pending.userId);
+  if (!user || !user.totpEnabledAt || !checkSecondFactor(user, req.body.code)) return res.status(401).json({ error: "That code didn't work. Check your authenticator app and try again." });
+  await signIn(req, user.id);
+  if (!pending.remember) req.session.cookie.expires = false;
+  res.json({ email: user.email });
+});
+
+// GET /api/auth/2fa/status
+router.get('/2fa/status', (req, res) => {
+  const user = signedInUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  const left = user.totpRecoveryHashes ? JSON.parse(user.totpRecoveryHashes).length : 0;
+  res.json({ enabled: !!user.totpEnabledAt, enabledAt: user.totpEnabledAt || null, recoveryCodesLeft: left });
+});
+
+// POST /api/auth/2fa/setup — a new secret to scan (not active until /enable)
+router.post('/2fa/setup', async (req, res) => {
+  const user = signedInUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  if (user.totpEnabledAt) return res.status(400).json({ error: 'Two-step sign-in is already on' });
+  const secret = twofactor.newSecret();
+  db.setTotpPendingSecret(user.id, secret);
+  const url = twofactor.otpauthUrl(secret, user.email);
+  const qrSvg = await QRCode.toString(url, { type: 'svg', margin: 1, color: { dark: '#0D1B2A', light: '#FFFFFF' } });
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ secret, otpauthUrl: url, qrSvg });
+});
+
+// POST /api/auth/2fa/enable — { code } from the app proves it's set up;
+// returns the recovery codes, shown this once.
+router.post('/2fa/enable', twoFactorLimit, (req, res) => {
+  const user = signedInUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  if (!user.totpPendingSecret) return res.status(400).json({ error: 'Start the set-up again' });
+  const step = twofactor.verifyCode(user.totpPendingSecret, req.body.code);
+  if (step === null) return res.status(400).json({ error: "That code didn't match. Make sure your phone's clock is right and try the newest code." });
+  const codes = twofactor.newRecoveryCodes();
+  db.enableTotp(user.id, user.totpPendingSecret, step, codes.map(twofactor.hashRecovery));
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ enabled: true, recoveryCodes: codes });
+});
+
+// POST /api/auth/2fa/disable — { password, code }
+router.post('/2fa/disable', twoFactorLimit, async (req, res) => {
+  const user = signedInUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  if (!user.totpEnabledAt) return res.json({ enabled: false });
+  const ok = await bcrypt.compare(req.body.password || '', user.passwordHash);
+  if (!ok) return res.status(401).json({ error: 'Incorrect password' });
+  if (!checkSecondFactor(user, req.body.code)) return res.status(401).json({ error: "That code didn't work" });
+  db.disableTotp(user.id);
+  res.json({ enabled: false });
+});
+
+// POST /api/auth/2fa/recovery-codes — { code } replaces the recovery codes
+router.post('/2fa/recovery-codes', twoFactorLimit, (req, res) => {
+  const user = signedInUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  if (!user.totpEnabledAt) return res.status(400).json({ error: 'Two-step sign-in is off' });
+  if (!checkSecondFactor(user, req.body.code)) return res.status(401).json({ error: "That code didn't work" });
+  const codes = twofactor.newRecoveryCodes();
+  db.setTotpRecoveryHashes(user.id, codes.map(twofactor.hashRecovery));
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ recoveryCodes: codes });
 });
 
 // GET /api/auth/google/status — lets the frontend hide the button cleanly
@@ -139,6 +228,10 @@ router.get('/google/callback', async (req, res) => {
         acceptedTermsAt: new Date().toISOString(),
       });
       db.logEvent(user.id, 'user_registered');
+    }
+    if (user.totpEnabledAt) {
+      req.session.pending2fa = { userId: user.id, remember: true, until: Date.now() + 5 * 60 * 1000 };
+      return res.redirect('/app?twofactor=1');
     }
     await signIn(req, user.id);
     res.redirect('/');
