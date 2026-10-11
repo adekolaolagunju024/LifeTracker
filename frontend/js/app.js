@@ -4809,38 +4809,101 @@ function resumeAssistantListening() {
 // While the mic is on, a listening panel (a pulsing orb and moving sound
 // bars, like Shazam's) shows above the box with the words as they're
 // heard, and the mic button glows red; tap either to stop.
-function setAssistantListeningUI(on) {
+//
+// Wireless earbuds (AirPods and the like) only switch their microphone on
+// when a page opens it, which takes a second or two; speech recognition
+// started straight away hears nothing in that gap and gives up. So the
+// mic is opened first ("Connecting your microphone…"), given a moment,
+// and on most browsers held open while listening so the earbuds stay on
+// their mic (iPhone and iPad only allow one at a time, so there it's
+// released before listening starts). Listening carries on through short
+// pauses and stops after you've finished talking; if nothing at all was
+// heard at the start, it quietly tries once more before giving up.
+const ASSISTANT_IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const ASSISTANT_MIC_ERRORS = {
+  'not-allowed': 'Microphone access is blocked for this site. Allow it in your browser (the 🔒 or ⓘ next to the address), then tap the mic again.',
+  'service-not-allowed': 'Speech recognition isn\'t allowed in this browser. Try Chrome, Edge or Safari, or type instead.',
+  'audio-capture': 'I couldn\'t find a microphone. Check your earbuds or headset are connected and chosen as the input, then try again.',
+  'no-speech': 'I didn\'t hear anything. With wireless earbuds, wait a second after tapping the mic, then speak. You can always type instead.',
+  'network': 'Speech recognition needs an internet connection. Check you\'re online, or type instead.',
+};
+let assistantMicStream = null;
+function releaseAssistantMic() {
+  if (assistantMicStream) { assistantMicStream.getTracks().forEach(t => t.stop()); assistantMicStream = null; }
+}
+function setAssistantListeningUI(on, status = 'Speak now') {
   document.getElementById('assistant-mic').classList.toggle('is-listening', on);
   document.getElementById('assistant-mic').setAttribute('aria-label', on ? 'Stop listening' : 'Speak');
   document.getElementById('assistant-listening').classList.toggle('is-on', on);
   document.getElementById('assistant-suggestions').classList.toggle('hidden', on);
-  if (on) document.getElementById('assistant-listening-text').textContent = 'Speak now';
+  if (on) document.getElementById('assistant-listening-text').textContent = status;
 }
-function toggleAssistantListening() {
+async function toggleAssistantListening() {
   if (!ASSISTANT_SpeechRecognition) return;
   if (assistantRecognition) { assistantRecognition.stop(); return; }
+  if (APP.assistantMicStarting) return;
+  APP.assistantMicStarting = true;
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  setAssistantListeningUI(true, 'Connecting your microphone…');
+  if (navigator.vibrate) navigator.vibrate(30);
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      if (ASSISTANT_IS_IOS) stream.getTracks().forEach(t => t.stop()); else assistantMicStream = stream;
+      await new Promise(r => setTimeout(r, 700)); // earbuds switching to their mic
+    } catch (e) {
+      APP.assistantMicStarting = false;
+      setAssistantListeningUI(false);
+      const key = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? 'not-allowed' : e && (e.name === 'NotFoundError' || e.name === 'NotReadableError') ? 'audio-capture' : null;
+      assistantBubble('assistant', key ? ASSISTANT_MIC_ERRORS[key] : 'I couldn\'t open the microphone. You can type instead.');
+      return;
+    }
+  }
+  APP.assistantMicStarting = false;
+  // closed while the mic was waking up
+  if (!document.getElementById('modal-assistant').classList.contains('open')) { releaseAssistantMic(); setAssistantListeningUI(false); return; }
   const input = document.getElementById('assistant-input');
+  listenForAssistant(input, input.value ? input.value + ' ' : '', 1);
+}
+function listenForAssistant(input, base, retriesLeft) {
   const rec = new ASSISTANT_SpeechRecognition();
   rec.lang = navigator.language || 'en-US';
   rec.interimResults = true;
-  rec.continuous = false;
-  const base = input.value ? input.value + ' ' : '';
+  rec.continuous = true;
+  let heard = '', errorCode = null, retrying = false, silence = null;
+  const rawStop = rec.stop.bind(rec);
+  // stop once there's been a pause after some words, or if nothing comes at all
+  const armSilence = ms => { clearTimeout(silence); silence = setTimeout(() => { try { rawStop(); } catch { /* already stopped */ } }, ms); };
+  rec.onstart = () => { setAssistantListeningUI(true, 'Speak now'); armSilence(9000); };
   rec.onresult = e => {
-    const heard = Array.from(e.results).map(r => r[0].transcript).join('');
+    heard = Array.from(e.results).map(r => r[0].transcript).join('');
     input.value = base + heard;
     document.getElementById('assistant-listening-text').textContent = heard || 'Speak now';
+    armSilence(1800);
   };
+  rec.onerror = e => { errorCode = e && e.error; };
   rec.onend = () => {
-    assistantRecognition = null;
-    setAssistantListeningUI(false);
-    if (document.getElementById('assistant-autosend').checked && input.value.trim()) sendAssistantMessage(true);
+    clearTimeout(silence);
+    // nothing heard at the very start (earbuds still waking up): one quiet retry
+    if (!heard.trim() && (errorCode === 'no-speech' || !errorCode) && retriesLeft > 0 && assistantRecognition === rec && !rec.stoppedByUser) {
+      retrying = true;
+      assistantRecognition = null;
+      setAssistantListeningUI(true, 'Still listening… speak now');
+      listenForAssistant(input, base, retriesLeft - 1);
+      return;
+    }
+    if (!retrying) {
+      assistantRecognition = null;
+      releaseAssistantMic();
+      setAssistantListeningUI(false);
+      if (errorCode && errorCode !== 'aborted' && !heard.trim()) assistantBubble('assistant', ASSISTANT_MIC_ERRORS[errorCode] || 'I could not hear that. You can type instead.');
+      else if (!heard.trim() && !rec.stoppedByUser) assistantBubble('assistant', ASSISTANT_MIC_ERRORS['no-speech']);
+      if (document.getElementById('assistant-autosend').checked && input.value.trim()) sendAssistantMessage(true);
+    }
   };
-  rec.onerror = () => { assistantRecognition = null; setAssistantListeningUI(false); assistantBubble('assistant', 'I could not hear that. You can type instead.'); };
+  rec.stop = () => { rec.stoppedByUser = true; rawStop(); }; // a tap on Stop (or closing the window)
   assistantRecognition = rec;
-  setAssistantListeningUI(true);
-  if ('speechSynthesis' in window) speechSynthesis.cancel();
-  if (navigator.vibrate) navigator.vibrate(30);
-  rec.start();
+  try { rec.start(); } catch { assistantRecognition = null; releaseAssistantMic(); setAssistantListeningUI(false); assistantBubble('assistant', 'I couldn\'t start listening. Try again, or type instead.'); }
 }
 
 // Reads an attached plan, spreadsheet, or photo into the message, the same way
