@@ -1891,7 +1891,80 @@ function getUserIdByCalendarFeedToken(token) {
   return row ? row.userId : null;
 }
 
+
+// ── TASK REMINDERS (alarms) ─────────────────────────────────────
+const REMINDER_NAG_EVERY_MIN = 5;
+const REMINDER_MAX_RINGS = 4; // the first ring plus three repeats
+function reminderRow(r) {
+  return r && { id: r.id, taskId: r.taskId, remindAt: r.remindAt, nag: !!r.nag, fireCount: r.fireCount, lastFiredAt: r.lastFiredAt || null, ackAt: r.ackAt || null, taskTitle: r.taskTitle, taskStatus: r.taskStatus, projectId: r.projectId };
+}
+// Your reminders that are still to ring or still ringing (not answered).
+function listReminders(userId) {
+  return db.prepare(`
+    SELECT r.*, t.title AS taskTitle, t.status AS taskStatus, t.projectId
+    FROM task_reminders r JOIN tasks t ON t.id = r.taskId
+    WHERE r.userId = ? AND r.ackAt IS NULL AND t.deletedAt IS NULL AND t.status != 'Completed'
+    ORDER BY r.remindAt ASC
+  `).all(userId).map(reminderRow);
+}
+function getReminder(userId, id) {
+  return reminderRow(db.prepare(`
+    SELECT r.*, t.title AS taskTitle, t.status AS taskStatus, t.projectId
+    FROM task_reminders r JOIN tasks t ON t.id = r.taskId WHERE r.id = ? AND r.userId = ?
+  `).get(id, userId));
+}
+// One reminder per person per task: setting a new time replaces the old.
+function setTaskReminder(userId, taskId, { remindAt, nag = true }) {
+  if (!getTaskById(userId, taskId)) return null;
+  const when = new Date(remindAt);
+  if (!remindAt || Number.isNaN(when.getTime())) throw new Error('Pick a valid date and time for the reminder');
+  if (when.getTime() < Date.now() - 60000) throw new Error('That time has already passed');
+  const iso = when.toISOString();
+  const existing = db.prepare('SELECT id FROM task_reminders WHERE userId = ? AND taskId = ?').get(userId, taskId);
+  if (existing) {
+    db.prepare('UPDATE task_reminders SET remindAt = ?, nag = ?, fireCount = 0, lastFiredAt = NULL, ackAt = NULL WHERE id = ?').run(iso, nag ? 1 : 0, existing.id);
+    return getReminder(userId, existing.id);
+  }
+  const id = uuid();
+  db.prepare('INSERT INTO task_reminders (id, userId, taskId, remindAt, nag, createdAt) VALUES (?,?,?,?,?,?)')
+    .run(id, userId, taskId, iso, nag ? 1 : 0, new Date().toISOString());
+  return getReminder(userId, id);
+}
+function deleteTaskReminder(userId, taskId) {
+  return db.prepare('DELETE FROM task_reminders WHERE userId = ? AND taskId = ?').run(userId, taskId).changes > 0;
+}
+function snoozeReminder(userId, id, minutes) {
+  const mins = Math.min(24 * 60, Math.max(1, Number(minutes) || 10));
+  const at = new Date(Date.now() + mins * 60000).toISOString();
+  const r = db.prepare('UPDATE task_reminders SET remindAt = ?, fireCount = 0, lastFiredAt = NULL, ackAt = NULL WHERE id = ? AND userId = ?').run(at, id, userId);
+  return r.changes ? getReminder(userId, id) : null;
+}
+function ackReminder(userId, id) {
+  return db.prepare('UPDATE task_reminders SET ackAt = ? WHERE id = ? AND userId = ?').run(new Date().toISOString(), id, userId).changes > 0;
+}
+// Reminders that should ring now: due and never rung, or (with nag) rung
+// at least REMINDER_NAG_EVERY_MIN ago and fewer than REMINDER_MAX_RINGS
+// times. A finished or deleted task never rings.
+function listRemindersToRing(now = new Date()) {
+  const nowIso = now.toISOString();
+  const nagBefore = new Date(now.getTime() - REMINDER_NAG_EVERY_MIN * 60000 + 5000).toISOString();
+  return db.prepare(`
+    SELECT r.*, t.title AS taskTitle, t.status AS taskStatus, t.projectId, t.endDate AS taskEndDate
+    FROM task_reminders r JOIN tasks t ON t.id = r.taskId
+    WHERE r.ackAt IS NULL AND r.remindAt <= ? AND t.deletedAt IS NULL AND t.status != 'Completed'
+      AND (r.fireCount = 0 OR (r.nag = 1 AND r.fireCount < ? AND r.lastFiredAt <= ?))
+  `).all(nowIso, REMINDER_MAX_RINGS, nagBefore).map(r => {
+    const task = { id: r.taskId };
+    attachObstaclesToTasks([task]);
+    return { ...reminderRow(r), userId: r.userId, taskEndDate: r.taskEndDate, pendingBlockers: task.obstacles.filter(o => !o.resolved).map(o => o.name) };
+  });
+}
+function markReminderRung(id, iso = new Date().toISOString()) {
+  db.prepare('UPDATE task_reminders SET fireCount = fireCount + 1, lastFiredAt = ? WHERE id = ?').run(iso, id);
+}
+
 module.exports = {
+  listReminders, getReminder, setTaskReminder, deleteTaskReminder, snoozeReminder, ackReminder, listRemindersToRing, markReminderRung,
   setTotpPendingSecret, enableTotp, disableTotp, claimTotpStep, setTotpRecoveryHashes, useTotpRecoveryCode,
   getCalendarFeedToken, getUserIdByCalendarFeedToken, bumpJourneyCounter, markObstacleRewarded, lastCompletionBefore, questActivityToday, claimQuestBonus, projectTreeTaskCount, localDateKeyFromDate, getReportLink, createReportLink, deleteReportLink, getReportLinkTarget,
   listAssistantConversations, getAssistantConversation, saveAssistantConversation, deleteAssistantConversation,

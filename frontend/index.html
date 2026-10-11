@@ -147,6 +147,37 @@
     .dark .palette-item[aria-selected="true"] { background: rgba(94,234,212,.12); color: #fff; }
     .dark .palette-panel kbd { color: #9ca3af; border-color: #4b5563; background: #1f2937; }
 
+    /* Task alarms (js/reminders.js): the picker, "⏰ 18:30" chips, and the
+       full-screen alarm that takes over like an alarm clock. */
+    .reminder-btn { font-size: 12px; font-weight: 700; color: #075E68; background: #E6F4F5; border: 0; border-radius: 999px; padding: 4px 10px; cursor: pointer; }
+    .reminder-btn:hover { background: #CDEDEF; }
+    .reminder-chip { flex-shrink: 0; font-size: 10px; font-weight: 800; color: #075E68; background: #E6F4F5; border: 0; border-radius: 999px; padding: 1px 7px; line-height: 16px; cursor: pointer; white-space: nowrap; }
+    .reminder-preset { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; background: #F4F5F7; border: 1px solid #E3E6EA; border-radius: 14px; padding: 10px 12px; font-size: 13px; font-weight: 700; color: #0D1B2A; cursor: pointer; }
+    .reminder-preset:hover { border-color: #0A7E8C; background: #F3FAFB; }
+    .reminder-preset small { font-size: 11px; font-weight: 600; color: #5B6472; }
+    #alarm-overlay { position: fixed; inset: 0; z-index: 1000; background: radial-gradient(circle at 50% 30%, rgba(10,126,140,.97), rgba(13,27,42,.99) 70%); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 20px; animation: alarmin .25s ease-out both; }
+    @keyframes alarmin { from { opacity: 0; } to { opacity: 1; } }
+    .alarm-card { width: min(400px, 100%); text-align: center; color: #fff; }
+    .alarm-bell { font-size: 64px; line-height: 1; display: inline-block; animation: alarmshake 1s ease-in-out infinite; }
+    @keyframes alarmshake { 0%, 50%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(-14deg); } 20%, 40% { transform: rotate(14deg); } }
+    .alarm-kicker { margin: 16px 0 6px; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #5EEAD4; }
+    .alarm-title { margin: 0; font-size: 28px; line-height: 1.15; font-weight: 800; overflow-wrap: anywhere; }
+    .alarm-sub { margin: 10px 0 18px; font-size: 14px; color: #C9D6E2; }
+    .alarm-blockers { text-align: left; background: rgba(239,68,68,.16); border: 1px solid rgba(252,165,165,.45); border-radius: 16px; padding: 12px 14px; margin-bottom: 14px; font-size: 14px; }
+    .alarm-blockers p { margin: 0; font-weight: 700; color: #FECACA; }
+    .alarm-blockers ul { margin: 6px 0 0; padding-left: 18px; color: #fff; }
+    .alarm-blockers.is-waiting { background: rgba(245,158,11,.16); border-color: rgba(252,211,77,.45); }
+    .alarm-blockers.is-waiting p { color: #FDE68A; }
+    .alarm-start { width: 100%; min-height: 56px; border: 0; border-radius: 18px; background: #5EEAD4; color: #0D1B2A; font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 30px rgba(94,234,212,.35); }
+    .alarm-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+    .alarm-row button { min-height: 48px; border: 1px solid rgba(255,255,255,.25); border-radius: 14px; background: rgba(255,255,255,.08); color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; }
+    .alarm-row button:hover { background: rgba(255,255,255,.16); }
+    .alarm-dismiss { margin-top: 14px; background: none; border: 0; color: #9FB3C8; font-weight: 600; font-size: 14px; text-decoration: underline; cursor: pointer; padding: 8px; }
+    @media (prefers-reduced-motion: reduce) { .alarm-bell, #alarm-overlay { animation: none; } }
+    .dark .reminder-btn, .dark .reminder-chip { background: rgba(94,234,212,.12); color: #5EEAD4; }
+    .dark .reminder-preset { background: #0F1726; border-color: #263449; color: #F1F5F9; }
+    .dark .reminder-preset small { color: #94A3B8; }
+
     /* Assistant panel: a right-hand side panel on desktop, a full-height
        sheet on phones; Calm Bento surfaces with the quest-style chips. */
     #modal-assistant.open { justify-content: flex-end; align-items: stretch; }
@@ -1947,7 +1978,7 @@
         <h2 class="text-2xl font-black text-navy">Actions</h2>
         <p class="text-gray-500 text-sm mt-1">A live view of what needs attention right now, across every project — nothing to maintain by hand.</p>
       </div>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div class="bg-white rounded-xl p-5 border border-gray-200">
           <p class="text-xs font-semibold text-gray-400">🔴 Overdue</p>
           <p class="text-3xl font-black font-mono text-red-600 mt-1" id="act-overdue">0</p>
@@ -1963,6 +1994,10 @@
         <div class="bg-white rounded-xl p-5 border border-gray-200">
           <p class="text-xs font-semibold text-gray-400">⭐ High Priority</p>
           <p class="text-3xl font-black font-mono text-teal mt-1" id="act-high">0</p>
+        </div>
+        <div class="bg-white rounded-xl p-5 border border-gray-200 col-span-2 sm:col-span-1">
+          <p class="text-xs font-semibold text-gray-400">⚔️ Blocked</p>
+          <p class="text-3xl font-black font-mono text-red-700 mt-1" id="act-blocked">0</p>
         </div>
       </div>
 
@@ -2499,6 +2534,36 @@
 
 <!-- The assistant: a side panel on desktop, a full-height sheet on phones
      (styles: "Assistant panel" in the <style> block) -->
+<!-- Task alarm: pick when it rings (js/reminders.js). -->
+<div class="modal-overlay fixed inset-0 bg-black/40 items-center justify-center p-4" style="z-index:60" id="modal-reminder">
+  <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-5" role="dialog" aria-modal="true" aria-labelledby="reminder-heading">
+    <div class="flex items-start gap-3 mb-4">
+      <span class="text-2xl" aria-hidden="true">⏰</span>
+      <div class="min-w-0 flex-1">
+        <h3 class="text-lg font-extrabold text-navy" id="reminder-heading">Remind me</h3>
+        <p class="text-sm text-gray-500 truncate" id="reminder-task-title"></p>
+        <p class="text-xs font-semibold text-teal mt-0.5" id="reminder-current"></p>
+      </div>
+      <button type="button" onclick="closeModal('modal-reminder')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close">✕</button>
+    </div>
+    <div class="grid grid-cols-2 gap-2 mb-4" id="reminder-presets"></div>
+    <label class="block text-xs font-bold text-gray-500 mb-1" for="reminder-custom">Or pick a time</label>
+    <div class="flex gap-2 mb-3">
+      <input type="datetime-local" id="reminder-custom" class="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-teal">
+      <button type="button" onclick="Reminders.save()" class="bg-teal hover:bg-teal/90 text-white text-sm font-bold px-4 rounded-xl">Set</button>
+    </div>
+    <label class="flex items-start gap-2 text-sm text-navy mb-3 cursor-pointer">
+      <input type="checkbox" id="reminder-nag" class="mt-0.5 w-4 h-4 accent-teal" checked>
+      <span>Keep ringing until I respond<br><small class="text-gray-500">Every 5 minutes, up to 3 more times</small></span>
+    </label>
+    <div class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3" id="reminder-push-note">
+      <p class="text-xs text-amber-900 mb-2">To ring while Waypoint is closed or you're in another app, turn on alerts for this device.</p>
+      <button type="button" onclick="Reminders.turnOnAlerts()" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Turn on phone alerts</button>
+    </div>
+    <button type="button" id="reminder-remove" onclick="Reminders.remove()" class="hidden text-sm font-semibold text-red-600 hover:underline">Remove reminder</button>
+  </div>
+</div>
+
 <div class="modal-overlay fixed inset-0 bg-black/40 z-50 items-center justify-center" id="modal-assistant">
   <div class="asst-panel bg-white flex flex-col" role="dialog" aria-modal="true" aria-labelledby="assistant-title">
     <div class="asst-head">
@@ -2709,7 +2774,8 @@
       <span id="td-project-title" class="text-xs font-semibold text-gray-400"></span>
     </div>
     <h2 class="text-xl font-black text-navy mb-3" id="td-title">Task</h2>
-    <div class="flex flex-wrap gap-2 mb-5" id="td-badges"></div>
+    <div class="flex flex-wrap items-center gap-2 mb-5"><div class="flex flex-wrap gap-2" id="td-badges"></div>
+      <button type="button" id="td-reminder-btn" onclick="Reminders.openSheet(APP_currentDetailTaskId, document.getElementById('td-title').textContent)" class="reminder-btn" title="Ring me about this task at a set time">⏰ Remind me</button></div>
     <div id="td-progress" class="hidden mb-5"></div>
 
     <!-- "Just start" affordance — only for a Not Started task someone can
@@ -3071,6 +3137,7 @@
 <script src="js/gameui.js"></script>
 <script src="js/palette.js"></script>
 <script src="js/recap.js"></script>
+<script src="js/reminders.js"></script>
 
 </body>
 </html>

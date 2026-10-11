@@ -33,14 +33,14 @@ function getVapidPublicKey() {
 // the spot rather than retried forever. Logged on every outcome (not just
 // failure) — a silent success and "never had a subscription to send to in
 // the first place" used to look identical from the server logs alone.
-async function sendPushToUser(userId, { title, body, url, urgent, tag }) {
+async function sendPushToUser(userId, { title, body, url, urgent, tag, actions, data }) {
   ensureVapidKeys();
   const subs = db.listPushSubscriptionsForUser(userId);
   if (!subs.length) {
     console.log(`Push skipped for user ${userId}: no subscriptions registered (device never finished enabling it).`);
-    return;
+    return 0;
   }
-  const payload = JSON.stringify({ title, body, url: url || APP_URL, urgent: !!urgent, tag });
+  const payload = JSON.stringify({ title, body, url: url || APP_URL, urgent: !!urgent, tag, actions, data });
   let sent = 0;
   await Promise.all(subs.map(async sub => {
     try {
@@ -59,6 +59,7 @@ async function sendPushToUser(userId, { title, body, url, urgent, tag }) {
     }
   }));
   if (sent) console.log(`Push sent to ${sent}/${subs.length} device(s) for user ${userId}: ${title}`);
+  return sent;
 }
 
 module.exports = { getVapidPublicKey, sendPushToUser };

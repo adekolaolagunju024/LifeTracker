@@ -497,6 +497,7 @@ async function afterAuth() {
   checkPendingInvites();
   refreshNotificationBadge();
   setInterval(refreshNotificationBadge, 60000); // a periodic check, not a live socket — same pattern as presence
+  if (window.Reminders) Reminders.boot();
 }
 
 // Pending project-share invites — checked once per login (not re-dismissed

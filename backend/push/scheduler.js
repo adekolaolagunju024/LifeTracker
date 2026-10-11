@@ -119,12 +119,41 @@ async function checkStreakNudge() {
   }
 }
 
+// 5. Task alarms — the ones a person set on a task ("ring me at 18:30").
+// Checked every minute so they land on time; an urgent push that stays
+// on screen with Start / Snooze buttons, re-ringing every few minutes
+// (when nag is on) until it's answered or the task is done. Rings even
+// with the general push reminders switched off: the person asked for
+// this one specifically.
+async function checkTaskReminders(now = new Date()) {
+  const APP_URL = process.env.APP_URL || '';
+  for (const r of db.listRemindersToRing(now)) {
+    try {
+      const again = r.fireCount > 0;
+      const blockers = r.pendingBlockers.length ? ` · ⚔️ Clear first: ${r.pendingBlockers.slice(0, 2).join(', ')}` : '';
+      await sendPushToUser(r.userId, {
+        title: `${again ? '⏰ Still waiting: ' : '⏰ Time for: '}${r.taskTitle}`,
+        body: (r.taskStatus === 'In Progress' ? 'Pick up where you left off.' : 'Two minutes is enough to start.') + blockers,
+        url: `${APP_URL}/app?reminder=${r.id}`,
+        urgent: true,
+        tag: `reminder-${r.taskId}`,
+        actions: [{ action: 'start', title: '▶ Start now' }, { action: 'snooze', title: '😴 Snooze 10 min' }],
+        data: { reminderId: r.id, taskId: r.taskId },
+      });
+      db.markReminderRung(r.id, now.toISOString());
+    } catch (e) { console.error(`Task reminder ${r.id} failed:`, e.message); }
+  }
+}
+
 // Overdue alerts and focus nudges both want a frequent check (every 15
 // min); the due-today summary and streak nudge only want to fire once, near
 // the start/end of the day respectively. All four are no-ops for a user
 // with push reminders off, and the whole scheduler is harmless with zero
 // subscriptions — sendPushToUser just has nothing to send to.
 function startPushReminderScheduler() {
+  cron.schedule('* * * * *', () => {
+    checkTaskReminders().catch(e => console.error('Task reminder check failed:', e.message));
+  });
   cron.schedule('*/15 * * * *', () => {
     checkOverdueAlerts().catch(e => console.error('Overdue check failed:', e.message));
     checkFocusNudges().catch(e => console.error('Focus nudge check failed:', e.message));
@@ -137,4 +166,4 @@ function startPushReminderScheduler() {
   });
 }
 
-module.exports = { startPushReminderScheduler, checkOverdueAlerts, checkDueTodayDigest, checkFocusNudges, checkStreakNudge };
+module.exports = { startPushReminderScheduler, checkTaskReminders, checkOverdueAlerts, checkDueTodayDigest, checkFocusNudges, checkStreakNudge };
