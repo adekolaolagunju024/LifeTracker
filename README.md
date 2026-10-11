@@ -19,6 +19,15 @@ A general-purpose personal goal tracker — Career is just one of the built-in p
   - what's recently done and coming up, what's overdue, open and cleared blockers, and tasks waiting on others
 
   It downloads as a PDF (headless Chromium), prints, goes by email, or shares as a **live read-only link** (`/r/<token>`, not indexed) that its owner or an editor can turn off at any time. Anyone who can see the project can view the report (`backend/reports/progress.js`; `GET /api/reports/projects/:id/progress`, `.html` and `.pdf`; `GET`/`POST`/`DELETE /api/reports/projects/:id/share`)
+- **The game layer** (`backend/journey.js`, `frontend/js/gameui.js`, `frontend/js/sfx.js`):
+  - **XP:** finishing a task pays XP by priority, plus a bonus for finishing before the due date. Beating a blocker pays 5 XP per enemy (up to 20), only the first time it's beaten.
+  - **Ranks:** levels carry a rank title, from 🌱 Rookie through 🧭 Explorer, 🔥 Trailblazer, 🏅 Champion and 👑 Legend to 🐉 Mythic. Levelling up plays a full-screen moment with a fanfare (and a "new rank" ribbon when the title changes).
+  - **Daily quests:** three a day. "Finish a task" is always one, and two more rotate by date (finish 3 tasks, a High priority task, beat a blocker, finish early). Progress is read from what really happened today, and finishing all three pays +30 XP once a day. They show on the dashboard, as a 🎯 badge on the Journey, and in the Trophy Case.
+  - **Achievements:** 21 in groups (tasks, blockers, projects, habits, quests, levels), such as Early Bird, Chain Reaction, Comeback Kid, Master Builder and Habit Hero.
+  - **Feedback:** "+XP" chips float up when something pays.
+  - **Sound:** short synthesised sounds (Web Audio, no files) and phone vibrations for finishing, knockouts, level-ups, achievements and quests, switched off with 🔊 on the Journey or Settings → Game sounds.
+
+  Everything is awarded on the server from real events only, so none of it can be farmed by tapping.
 - **Command palette** — ⌘K / Ctrl+K (or the ⌘ button in the top bar, for phones) opens one box to do anything, like Linear or Raycast: jump to any page, project or task, run an action (new task, new project or template, assistant, week in review, dark mode, switch Journey stage), or type anything and add it as a task ("call the bank tomorrow" sets the due date) or hand it to the assistant. Arrow keys and Enter (`frontend/js/palette.js`)
 - **My week in review** — 🎬 My week on the dashboard (or the palette) plays a Wrapped-style story of the last seven days: tasks finished against the week before, the best day, blockers beaten, the streak, the project that moved most and what's coming up, ending on a summary ("On a roll 🔥") that shares as a 1080×1350 image (the phone's share sheet, or a download). Tap or arrow keys to move, Esc to close (`frontend/js/recap.js`)
 - **Keyboard shortcuts** — `/` search, `n` new task (in the open project), `a` assistant, `?` lists them, `Esc` closes

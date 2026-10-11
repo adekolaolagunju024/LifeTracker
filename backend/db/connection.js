@@ -429,6 +429,14 @@ db.exec(`
 // reward real work, not to reset progress per project.
 addColumnIfMissing('profile', "journeyXp INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing('profile', "journeyTasksCompleted INTEGER NOT NULL DEFAULT 0");
+// Game counters and the once-a-day quest bonus (backend/journey.js), and a
+// stamp so beating a blocker pays XP only once even if it's unticked and
+// ticked again.
+addColumnIfMissing('profile', "journeyBlockersBeaten INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('profile', "journeyEarlyFinishes INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('profile', "journeyQuestDays INTEGER NOT NULL DEFAULT 0");
+addColumnIfMissing('profile', "lastQuestBonusDate TEXT");
+addColumnIfMissing('task_obstacles', "xpAwardedAt TEXT");
 
 // Unlocked achievements — a small, fixed set of codes (see JOURNEY_ACHIEVEMENTS
 // in backend/journey.js); one row per account per code, granted once.

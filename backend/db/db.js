@@ -200,6 +200,44 @@ function grantJourneyAchievement(userId, code) {
 function listJourneyAchievements(userId) {
   return db.prepare('SELECT code, unlockedAt FROM journey_achievements WHERE userId = ? ORDER BY unlockedAt ASC').all(userId);
 }
+// ── GAME COUNTERS AND DAILY QUESTS (backend/journey.js) ──
+const JOURNEY_COUNTERS = new Set(['journeyBlockersBeaten', 'journeyEarlyFinishes', 'journeyQuestDays']);
+function bumpJourneyCounter(userId, column) {
+  if (!JOURNEY_COUNTERS.has(column)) throw new Error('Unknown counter');
+  db.prepare(`UPDATE profile SET ${column} = ${column} + 1 WHERE userId = ?`).run(userId);
+  return db.prepare(`SELECT ${column} AS n FROM profile WHERE userId = ?`).get(userId).n;
+}
+// True only the first time a blocker is beaten, so ticking it off, then
+// unticking and ticking again, can't farm XP.
+function markObstacleRewarded(obstacleId) {
+  return db.prepare('UPDATE task_obstacles SET xpAwardedAt = ? WHERE id = ? AND xpAwardedAt IS NULL').run(new Date().toISOString(), obstacleId).changes === 1;
+}
+// When this user last finished any other task (for the comeback badge).
+function lastCompletionBefore(userId, excludeTaskId) {
+  const row = db.prepare('SELECT MAX(completedAt) AS at FROM tasks WHERE userId = ? AND id != ? AND completedAt IS NOT NULL AND deletedAt IS NULL').get(userId, excludeTaskId);
+  return row ? row.at : null;
+}
+// What the user did today, for the daily quests: tasks finished (all, High
+// priority, before their due date) and blockers beaten.
+function questActivityToday(userId, todayKey) {
+  const t = db.prepare(`SELECT COUNT(*) AS done,
+      SUM(CASE WHEN priority = 'High' THEN 1 ELSE 0 END) AS high,
+      SUM(CASE WHEN endDate != '' AND substr(completedAt, 1, 10) < endDate THEN 1 ELSE 0 END) AS early
+    FROM tasks WHERE userId = ? AND deletedAt IS NULL AND status = 'Completed' AND substr(completedAt, 1, 10) = ?`).get(userId, todayKey);
+  const b = db.prepare(`SELECT COUNT(*) AS n FROM task_obstacles o JOIN tasks t ON t.id = o.taskId
+    WHERE t.userId = ? AND t.deletedAt IS NULL AND o.resolvedAt IS NOT NULL AND substr(o.resolvedAt, 1, 10) = ?`).get(userId, todayKey);
+  return { done: t.done || 0, high: t.high || 0, early: t.early || 0, blockers: b.n || 0 };
+}
+// Claims today's quest bonus; true only the first time today.
+function claimQuestBonus(userId, todayKey) {
+  return db.prepare('UPDATE profile SET lastQuestBonusDate = ? WHERE userId = ? AND (lastQuestBonusDate IS NULL OR lastQuestBonusDate != ?)').run(todayKey, userId, todayKey).changes === 1;
+}
+function projectTreeTaskCount(projectId) {
+  const childIds = db.prepare('SELECT id FROM projects WHERE parentId = ? AND deletedAt IS NULL').all(projectId).map(r => r.id);
+  const ids = [projectId, ...childIds];
+  return db.prepare(`SELECT COUNT(*) AS n FROM tasks WHERE deletedAt IS NULL AND projectId IN (${ids.map(() => '?').join(',')})`).get(...ids).n;
+}
+
 // Every task in a project's tree (itself + direct sub-projects), regardless
 // of who created or is assigned it — true only once there's at least one
 // task and every one of them is Completed.
@@ -1793,7 +1831,7 @@ function getUserIdByCalendarFeedToken(token) {
 }
 
 module.exports = {
-  getCalendarFeedToken, getUserIdByCalendarFeedToken, getReportLink, createReportLink, deleteReportLink, getReportLinkTarget,
+  getCalendarFeedToken, getUserIdByCalendarFeedToken, bumpJourneyCounter, markObstacleRewarded, lastCompletionBefore, questActivityToday, claimQuestBonus, projectTreeTaskCount, localDateKeyFromDate, getReportLink, createReportLink, deleteReportLink, getReportLinkTarget,
   listAssistantConversations, getAssistantConversation, saveAssistantConversation, deleteAssistantConversation,
   listObstacles, addObstacle, updateObstacle, deleteObstacle, setTaskPredecessors,
   createUser, getUserByEmail, getUserById, setUserPasswordHash, deleteUser,

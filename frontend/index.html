@@ -100,6 +100,31 @@
     .dark .journey-view-bar button[aria-pressed="true"] { background: #0f172a; color: #5eead4; }
     #mountain-scene [role="group"][aria-label="View"] { display: none !important; }
 
+    /* Game layer (js/gameui.js): +XP chips, level-up moment, quest chips. */
+    .xp-float { position: fixed; left: 50%; bottom: 90px; z-index: 1002; transform: translateX(-50%); background: linear-gradient(135deg,#F59E0B,#F97316); color: #fff; font-weight: 900; font-size: 18px; padding: 8px 16px; border-radius: 999px; box-shadow: 0 10px 30px rgba(249,115,22,.4); pointer-events: none; animation: xpfloat 1.8s cubic-bezier(.2,.8,.2,1) forwards; text-align: center; line-height: 1.1; }
+    .xp-float small { display: block; font-size: 11px; font-weight: 700; opacity: .9; }
+    @keyframes xpfloat { 0% { opacity: 0; transform: translate(-50%, 20px) scale(.8); } 15% { opacity: 1; transform: translate(-50%, 0) scale(1.08); } 30% { transform: translate(-50%, -6px) scale(1); } 100% { opacity: 0; transform: translate(-50%, -90px) scale(1); } }
+    #levelup-overlay { position: fixed; inset: 0; z-index: 1003; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at center, rgba(245,158,11,.35), rgba(13,27,42,.85) 70%); cursor: pointer; animation: lvfade .3s ease both; }
+    .levelup-card { text-align: center; color: #fff; animation: lvpop .7s cubic-bezier(.2,1.4,.3,1) both; }
+    .levelup-kicker { font-size: 18px; font-weight: 900; letter-spacing: .3em; text-transform: uppercase; color: #FCD34D; }
+    .levelup-level { font-size: 140px; line-height: 1; font-weight: 900; text-shadow: 0 10px 40px rgba(245,158,11,.6); }
+    .levelup-rank { font-size: 30px; font-weight: 900; margin-top: 4px; }
+    .levelup-new { display: inline-block; margin-top: 14px; background: #FCD34D; color: #78350F; font-weight: 900; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; padding: 6px 14px; border-radius: 999px; }
+    .levelup-hint { margin-top: 22px; font-size: 13px; color: rgba(255,255,255,.6); }
+    @keyframes lvfade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes lvpop { from { opacity: 0; transform: scale(.4) rotate(-6deg); } to { opacity: 1; transform: none; } }
+    .quest-chip { display: flex; align-items: center; gap: 10px; border: 1px solid #E5E7EB; border-radius: 12px; padding: 8px 10px; font-size: 12px; color: #1F2937; background: #fff; }
+    .quest-chip.is-done { border-color: #A7F3D0; background: #ECFDF5; }
+    .quest-icon { font-size: 18px; flex-shrink: 0; }
+    .quest-chip > .min-w-0 { flex: 1; }
+    .quest-bar { display: block; height: 5px; margin-top: 4px; border-radius: 5px; background: #E5E7EB; overflow: hidden; }
+    .quest-bar i { display: block; height: 100%; background: #0A7E8C; border-radius: 5px; }
+    .quest-chip.is-done .quest-bar i { background: #10B981; }
+    .quest-count { font-weight: 800; color: #6B7280; flex-shrink: 0; }
+    .dark .quest-chip { background: #111827; border-color: #374151; color: #E5E7EB; }
+    .dark .quest-chip.is-done { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.4); }
+    @media (prefers-reduced-motion: reduce) { .xp-float, #levelup-overlay, .levelup-card { animation: none; } }
+
     /* Command palette (js/palette.js): a solid panel, never see-through. */
     .palette-panel { background: #fff; color: #111827; border: 1px solid #e5e7eb; }
     .palette-panel input { color: #111827; }
@@ -1360,6 +1385,15 @@
         </div>
       </div>
 
+      <!-- Today's quests (js/gameui.js): three small goals, new each day -->
+      <div id="dashboard-quests" class="hidden bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <div><p class="text-sm font-bold text-navy">🎯 Today's quests</p><p class="text-xs text-gray-500 mt-0.5" id="dashboard-quests-count"></p></div>
+          <button onclick="openJourneyTrophyCase()" class="text-xs font-semibold text-teal hover:underline">Trophy Case →</button>
+        </div>
+        <div class="grid gap-2 sm:grid-cols-3" id="dashboard-quests-list"></div>
+      </div>
+
       <!-- One combined stats hero (counts + overall progress) instead of 3
            small KPI cards plus a separate progress card doing overlapping
            jobs — same numbers, one visual anchor instead of four. -->
@@ -1739,6 +1773,8 @@
             <p class="text-xs text-gray-500" id="mountain-status">Loading…</p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="openJourneyTrophyCase()" id="journey-quest-badge" class="hidden items-center gap-1 bg-teal/10 hover:bg-teal/20 border border-teal/20 text-teal text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap">🎯 0/3</button>
+            <button onclick="toggleGameSounds()" id="journey-sound-btn" class="bg-white hover:bg-gray-50 border border-gray-200 text-sm px-2.5 py-1 rounded-lg" aria-label="Turn game sounds off" aria-pressed="true" title="Game sounds">🔊</button>
             <button onclick="openJourneyTrophyCase()" id="journey-level-badge" class="hidden items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap">⭐ Lv.1</button>
             <select id="journey-competitor-select" onchange="setJourneyCompetitor(this.value)" class="hidden border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
               <option value="schedule">🖥️ The Schedule</option>
@@ -1966,6 +2002,16 @@
             </div>
           </div>
           <button onclick="toggleCelebrationEffects()" class="ios-switch" id="celebration-effects-btn" role="switch" aria-label="Toggle celebration effects"><span class="ios-switch-knob"></span></button>
+        </div>
+        <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="icon-badge" style="background:#6D28D922">🔊</span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-navy">Game sounds</p>
+              <p class="text-xs text-gray-400 mt-0.5">Short sounds and phone buzzes when you finish a task, beat a blocker, level up or complete a quest. Saved on this device.</p>
+            </div>
+          </div>
+          <button onclick="toggleGameSounds()" class="ios-switch" id="game-sounds-btn" role="switch" aria-label="Toggle game sounds"><span class="ios-switch-knob"></span></button>
         </div>
         <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
           <div class="flex items-center gap-3 min-w-0">
@@ -2334,12 +2380,15 @@
     </div>
     <div class="p-6">
       <div class="text-center mb-5">
-        <p class="text-3xl font-black text-navy" id="trophy-level-text">Level 1</p>
+        <p class="text-2xl font-black text-navy" id="trophy-level-text">Level 1</p>
         <div class="w-full bg-gray-100 rounded-full h-2.5 mt-2 overflow-hidden">
           <div class="bg-amber-400 h-full rounded-full transition-all duration-500" id="trophy-xp-bar" style="width:0%"></div>
         </div>
         <p class="text-xs text-gray-400 mt-1" id="trophy-xp-text">0 / 80 XP</p>
+        <p class="text-[11px] text-gray-500 mt-2" id="trophy-stats"></p>
       </div>
+      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Today's quests</p>
+      <div class="flex flex-col gap-2 mb-5" id="trophy-quests"></div>
       <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Achievements</p>
       <div class="grid grid-cols-2 gap-3" id="trophy-achievements"></div>
     </div>
@@ -2818,7 +2867,9 @@
 <!-- SCRIPTS -->
 <script src="js/api.js"></script>
 <script src="js/journeyGame.js"></script>
+<script src="js/sfx.js"></script>
 <script src="js/app.js"></script>
+<script src="js/gameui.js"></script>
 <script src="js/palette.js"></script>
 <script src="js/recap.js"></script>
 
