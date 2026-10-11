@@ -1,4 +1,4 @@
-/* global API, esc, icon, showToast, showPage, APP */
+/* global API, esc, icon, showToast, showPage, Music */
 // ── YOUR WHY ────────────────────────────────────────────────────
 // What gets this particular person moving when they'd rather not
 // (backend/motivation.js): why the goal matters, who they're becoming, a
@@ -13,11 +13,11 @@ const Why = (() => {
 
   async function load(force) {
     if (data && !force) return data;
-    if (!loading) loading = API.getMotivation().then(d => { data = d; return d; }).finally(() => { loading = null; });
+    if (!loading) loading = API.getMotivation().then(d => { data = d; if (window.Music) Music.restore(d.motivation.playlists); return d; }).finally(() => { loading = null; });
     return loading;
   }
   const m = () => (data && data.motivation) || null;
-  const isEmpty = x => !x || (!x.why && !x.becoming && !x.mentor.name && !x.quotes.length && !x.playlist.url);
+  const isEmpty = x => !x || (!x.why && !x.becoming && !x.mentor.name && !x.quotes.length && !x.playlists.length);
   const dayIndex = () => Math.floor(Date.now() / 86400000);
   const todaysQuote = x => (x && x.quotes.length ? x.quotes[dayIndex() % x.quotes.length] : null);
   const mentorOf = x => {
@@ -25,17 +25,19 @@ const Why = (() => {
     const preset = data.mentors.find(p => p.id === x.mentor.preset);
     return { name: x.mentor.name, routine: x.mentor.routine || (preset && preset.routine) || '', says: x.mentor.says || (preset && preset.says) || '' };
   };
-  const musicLabel = x => x.playlist.label || (/spotify/i.test(x.playlist.url) ? 'Spotify' : /music\.apple/i.test(x.playlist.url) ? 'Apple Music' : /youtu/i.test(x.playlist.url) ? 'YouTube' : 'my playlist');
 
-  // Opens their playlist (the music app on a phone, a new tab on a computer).
-  function playMusic() {
+  // Plays from their music library in the app's player (see Music below):
+  // the default one, or the one at `index`.
+  async function playMusic(index = 0) {
+    try { await load(); } catch { /* offline: fall through */ }
     const x = m();
-    if (!x || !x.playlist.url) { showPage('why'); return; }
-    window.open(x.playlist.url, '_blank', 'noopener');
+    const list = draft && document.getElementById('why-body')?.offsetParent ? draft.playlists : x ? x.playlists : [];
+    if (!list.length) { showToast('Add your music in Your why first'); showPage('why'); return; }
+    Music.start(list, Math.min(index, list.length - 1));
   }
   const musicButton = (cls = 'why-music') => {
     const x = m();
-    return x && x.playlist.url ? `<button type="button" class="${cls}" onclick="Why.playMusic()">${icon('music')}Play ${esc(musicLabel(x))}</button>` : '';
+    return x && x.playlists.length ? `<button type="button" class="${cls}" onclick="Why.playMusic()">${icon('music')}Play ${esc(x.playlists[0].label || 'my music')}</button>` : '';
   };
 
   // ── Dashboard card ──
@@ -146,13 +148,19 @@ const Why = (() => {
       </section>
 
       <section class="why-sec">
-        <h3>${icon('music')}Your focus music</h3>
-        <p class="why-help">A Spotify, Apple Music or YouTube playlist link. One tap plays it when you start a task or an alarm rings.</p>
-        <div class="why-grid">
-          <div><label class="why-label" for="why-music-url">Playlist link</label>
-          <input id="why-music-url" type="url" maxlength="500" placeholder="https://open.spotify.com/playlist/…" value="${esc(draft.playlist.url)}" oninput="Why.setMusic('url', this.value)"></div>
-          <div><label class="why-label" for="why-music-label">Name it (optional)</label>
-          <input id="why-music-label" maxlength="60" placeholder="e.g. Deep work" value="${esc(draft.playlist.label)}" oninput="Why.setMusic('label', this.value)"></div>
+        <h3>${icon('music')}Your music</h3>
+        <p class="why-help">Save the playlists and songs that get you going: focus, workout, worship, anything. Paste a Spotify, YouTube, Apple Music, SoundCloud or Deezer link. They play right here in Waypoint and keep playing while you work and on your Journey.</p>
+        <div class="music-lib">${draft.playlists.length ? draft.playlists.map((p, i) => `
+          <div class="music-row ${i === 0 ? 'is-default' : ''}">
+            <button type="button" class="music-row-play" onclick="Why.playMusic(${i})" aria-label="Play ${esc(p.label || 'this')}">${icon('play')}</button>
+            <div class="min-w-0 flex-1"><p>${esc(p.label || 'Untitled')}</p><span>${esc(serviceOf(p.url))}${i === 0 ? ' · plays by default' : ''}</span></div>
+            ${i === 0 ? '' : `<button type="button" class="music-row-btn" onclick="Why.makeDefault(${i})" title="Play this one by default" aria-label="Make default">${icon('star')}</button>`}
+            <button type="button" class="music-row-btn" onclick="Why.removePlaylist(${i})" aria-label="Remove">${icon('trash')}</button>
+          </div>`).join('') : '<p class="why-none">No music yet.</p>'}</div>
+        <div class="why-add">
+          <input id="why-music-url" type="url" maxlength="500" placeholder="https://open.spotify.com/playlist/…">
+          <input id="why-music-label" maxlength="60" placeholder="Name it, e.g. Deep focus">
+          <button type="button" onclick="Why.addPlaylistFromForm()">${icon('plus')}Add</button>
         </div>
       </section>
 
@@ -171,7 +179,26 @@ const Why = (() => {
 
   const set = (k, v) => { draft[k] = v; };
   const setMentor = (k, v) => { draft.mentor[k] = v; if (k === 'name' && draft.mentor.preset) { const p = data.mentors.find(x => x.id === draft.mentor.preset); if (!p || p.name !== v) draft.mentor.preset = null; } };
-  const setMusic = (k, v) => { draft.playlist[k] = v; };
+  const serviceOf = url => { const e = Music.embedFor(url); return e ? e.service : 'Opens in a new tab'; };
+  function addPlaylistFromForm() {
+    const url = document.getElementById('why-music-url').value.trim();
+    const label = document.getElementById('why-music-label').value.trim();
+    if (!/^https?:\/\//i.test(url)) { showToast('Paste a link that starts with https://', 'error'); document.getElementById('why-music-url').focus(); return; }
+    if (draft.playlists.length >= 12) { showToast('That is 12 already. Remove one to add another', 'error'); return; }
+    if (!draft.playlists.some(p => p.url === url)) draft.playlists.push({ url, label: label || serviceOf(url) });
+    paint();
+  }
+  function makeDefault(i) { const [p] = draft.playlists.splice(i, 1); draft.playlists.unshift(p); paint(); }
+  function removePlaylist(i) { draft.playlists.splice(i, 1); paint(); }
+  // From the assistant ("add this to my music"): saves straight away.
+  async function addPlaylist(url, label) {
+    await load();
+    const cur = JSON.parse(JSON.stringify(m()));
+    if (!cur.playlists.some(p => p.url === url)) cur.playlists.push({ url, label: label || serviceOf(url) });
+    const r = await API.saveMotivation({ ...cur, playlist: null });
+    data.motivation = r.motivation;
+    return r.motivation.playlists.findIndex(p => p.url === url);
+  }
   const setShow = (k, v) => { draft.show[k] = v; };
   function pickMentor(id) {
     const p = data.mentors.find(x => x.id === id);
@@ -198,10 +225,9 @@ const Why = (() => {
   function removeQuote(i) { draft.quotes.splice(i, 1); paint(); }
   async function save() {
     const btn = document.getElementById('why-save-btn');
-    if (draft.playlist.url && !/^https?:\/\//i.test(draft.playlist.url)) { showToast('The playlist link should start with https://', 'error'); return; }
     btn.disabled = true;
     try {
-      const r = await API.saveMotivation(draft);
+      const r = await API.saveMotivation({ ...draft, playlist: null });
       data.motivation = r.motivation; draft = JSON.parse(JSON.stringify(r.motivation));
       showToast('✅ Saved. Waypoint will remind you of this when it counts');
       paint();
@@ -209,10 +235,101 @@ const Why = (() => {
     btn.disabled = false;
   }
   function clearAll() {
-    draft = { why: '', becoming: '', mentor: { preset: null, name: '', routine: '', says: '' }, quotes: [], playlist: { url: '', label: '' }, show: draft.show };
+    draft = { why: '', becoming: '', mentor: { preset: null, name: '', routine: '', says: '' }, quotes: [], playlists: [], playlist: { url: '', label: '' }, show: draft.show };
     paint();
   }
 
-  return { load, renderDashboard, alarmHTML, fillStuck, renderPage, playMusic, set, setMentor, setMusic, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
+  return { load, renderDashboard, alarmHTML, fillStuck, renderPage, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
 })();
 window.Why = Why;
+
+// ── FOCUS MUSIC, IN THE APP ──
+// Their playlist plays in a small dock inside Waypoint (the services' own
+// embed players), so it keeps going while they move between pages and
+// play the Journey. Minimising tucks the player away without stopping it;
+// closing stops it. Links we can't embed open in a new tab instead.
+const Music = (() => {
+  // Turns a sharing link into the service's embed address, or null.
+  function embedFor(raw) {
+    let u;
+    try { u = new URL(raw); } catch { return null; }
+    const host = u.hostname.replace(/^www\.|^m\./, '');
+    if (host === 'open.spotify.com') {
+      const m = u.pathname.match(/^\/(?:intl-[a-z-]+\/)?(playlist|album|track|artist|episode|show)\/([A-Za-z0-9]+)/);
+      return m ? { src: `https://open.spotify.com/embed/${m[1]}/${m[2]}?utm_source=waypoint`, height: 152, service: 'Spotify', open: raw } : null;
+    }
+    if (host === 'youtube.com' || host === 'music.youtube.com' || host === 'youtu.be') {
+      const list = u.searchParams.get('list');
+      const video = host === 'youtu.be' ? u.pathname.slice(1) : u.searchParams.get('v');
+      const base = 'https://www.youtube-nocookie.com/embed/';
+      if (video && /^[\w-]{6,}$/.test(video)) return { src: `${base}${video}?autoplay=1${list ? `&list=${encodeURIComponent(list)}` : ''}`, height: 170, service: 'YouTube', open: raw };
+      if (list) return { src: `${base}videoseries?autoplay=1&list=${encodeURIComponent(list)}`, height: 170, service: 'YouTube', open: raw };
+      return null;
+    }
+    if (host === 'music.apple.com') return { src: `https://embed.music.apple.com${u.pathname}${u.search}`, height: 175, service: 'Apple Music', open: raw };
+    if (host === 'soundcloud.com') return { src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(raw)}&auto_play=true&visual=false`, height: 166, service: 'SoundCloud', open: raw };
+    if (host === 'deezer.com') {
+      const m = u.pathname.match(/\/(playlist|album|track)\/(\d+)/);
+      return m ? { src: `https://widget.deezer.com/widget/dark/${m[1]}/${m[2]}?autoplay=true`, height: 150, service: 'Deezer', open: raw } : null;
+    }
+    return null;
+  }
+
+  let queue = [];   // the library being played
+  let at = -1;      // which one is playing
+  const dock = () => document.getElementById('music-dock');
+
+  // Plays queue[index] in the dock; links we can't embed open in a tab.
+  function start(list, index = 0) {
+    queue = list.slice(); at = -1;
+    go(index);
+  }
+  function go(index) {
+    if (!queue.length) return;
+    const i = ((index % queue.length) + queue.length) % queue.length;
+    const item = queue[i];
+    const e = embedFor(item.url);
+    if (!e) { window.open(item.url, '_blank', 'noopener'); return; }
+    let d = dock();
+    if (d && at === i) { d.classList.remove('is-min'); return; } // already playing: just show it
+    if (!d) { d = document.createElement('div'); d.id = 'music-dock'; d.className = 'music-dock'; d.setAttribute('role', 'region'); d.setAttribute('aria-label', 'Your music'); document.body.appendChild(d); }
+    at = i;
+    remember({ url: item.url, min: false });
+    const label = item.label || e.service;
+    d.classList.remove('is-min', 'show-lib');
+    d.innerHTML = `
+      <div class="music-bar">
+        <span class="music-bar-ic">${icon('music')}</span>
+        <span class="music-bar-text"><b>${esc(label)}</b><small>${esc(e.service)}${queue.length > 1 ? ` · ${i + 1} of ${queue.length}` : ''}</small></span>
+        ${queue.length > 1 ? `<button type="button" class="music-btn" onclick="Music.prev()" aria-label="Previous playlist" title="Previous">${icon('skip-back')}</button>
+        <button type="button" class="music-btn" onclick="Music.next()" aria-label="Next playlist" title="Next">${icon('skip-forward')}</button>
+        <button type="button" class="music-btn" onclick="Music.toggleLib()" aria-label="Your music library" title="Library">${icon('list-music')}</button>` : ''}
+        <button type="button" class="music-btn" onclick="Music.toggleMin()" aria-label="Minimise or show the player" title="Minimise (keeps playing)">${icon('chevron_down')}</button>
+        <button type="button" class="music-btn" onclick="Music.stop()" aria-label="Stop the music" title="Stop">${icon('close')}</button>
+      </div>
+      <div class="music-libpick">${queue.map((q, j) => `<button type="button" class="${j === i ? 'on' : ''}" onclick="Music.go(${j})">${icon(j === i ? 'volume' : 'play', 'tiny')}<span>${esc(q.label || 'Untitled')}</span></button>`).join('')}</div>
+      <div class="music-frame" style="height:${e.height}px">
+        <iframe src="${esc(e.src)}" title="${esc(label)} on ${esc(e.service)}" allow="autoplay; encrypted-media; clipboard-write; fullscreen; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      </div>
+      <a class="music-open" href="${esc(item.url)}" target="_blank" rel="noopener">Open in ${esc(e.service)} ${icon('external', 'tiny')}</a>`;
+  }
+  const next = () => go(at + 1);
+  const prev = () => go(at - 1);
+  function toggleMin() { const d = dock(); if (!d) return; d.classList.toggle('is-min'); if (queue[at]) remember({ url: queue[at].url, min: d.classList.contains('is-min') }); }
+  function toggleLib() { const d = dock(); if (d) d.classList.toggle('show-lib'); }
+  function stop() { const d = dock(); if (d) d.remove(); at = -1; remember(null); }
+  // Music keeps going while they use the app, until they stop it. After a
+  // reload the player comes back ready (browsers need one tap to play).
+  function remember(state) { try { if (state) localStorage.setItem('wp-music', JSON.stringify(state)); else localStorage.removeItem('wp-music'); } catch { /* private mode */ } }
+  function restore(list) {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem('wp-music') || 'null'); } catch { saved = null; }
+    if (!saved || dock() || !list.length) return;
+    const i = list.findIndex(p => p.url === saved.url);
+    if (i >= 0) { start(list, i); dock()?.classList.toggle('is-min', !!saved.min); }
+  }
+  const isPlaying = () => !!dock();
+
+  return { embedFor, start, go, next, prev, toggleMin, toggleLib, stop, isPlaying, restore };
+})();
+window.Music = Music;

@@ -59,12 +59,21 @@ function clean(input = {}) {
     .filter(q => q.text)
     .slice(0, 12);
   const show = input.show || {};
+  // Their music library, like a music app's: up to 12 saved playlists or
+  // tracks, the first being the one that plays by default. An older single
+  // playlist (before the library) joins the list.
+  const seen = new Set();
+  const playlists = [...(Array.isArray(input.playlists) ? input.playlists : []), input.playlist || {}]
+    .map(p => ({ url: safeUrl(p && p.url), label: str(p && p.label, 60) }))
+    .filter(p => p.url && !seen.has(p.url) && seen.add(p.url))
+    .slice(0, 12);
   return {
     why: str(input.why, 300),
     becoming: str(input.becoming, 200),
     mentor: { preset: preset ? preset.id : null, name: str(m.name, 80), routine: str(m.routine, 400), says: str(m.says, 200) },
     quotes,
-    playlist: { url: safeUrl(input.playlist && input.playlist.url), label: str(input.playlist && input.playlist.label, 60) },
+    playlists,
+    playlist: playlists[0] || { url: '', label: '' }, // the default one
     show: {
       dashboard: show.dashboard !== false,
       alarms: show.alarms !== false,
@@ -117,6 +126,7 @@ function forAssistant(m) {
   if (m.why) lines.push(`Why their goals matter to them: ${m.why}`);
   if (m.becoming) lines.push(`Who they are becoming: ${m.becoming}`);
   if (m.mentor.name) lines.push(`Someone they look up to: ${m.mentor.name}${m.mentor.routine ? `, whose routine is: ${m.mentor.routine}` : ''}`);
+  if (m.playlists.length) lines.push(`Their saved music (they can ask you to play any of it by name): ${m.playlists.map((p, i) => `${p.label || 'Untitled'}${i === 0 ? ' (default)' : ''}`).join(', ')}`);
   if (m.quotes.length) lines.push(`Quotes they chose to be reminded of: ${m.quotes.slice(0, 5).map(q => `"${q.text}"${q.source ? ` (${q.source})` : ''}`).join('; ')}`);
   return lines.join('\n');
 }

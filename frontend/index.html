@@ -272,6 +272,52 @@
     .recap-prev { left: 0; width: 35%; } .recap-next { right: 0; width: 65%; }
     /* Phones and tablets: the week story straight after the goal card, so it plays on opening */
     @media (max-width: 1023px) { #dash-focus { order: 0; } #dash-week-card { order: 1; } #dash-upnext-card { order: 2; } #dashboard-quests { order: 3; } }
+    /* The music player dock (js/motivation.js, Music): stays while you move around the app */
+    .music-dock { position: fixed; right: 16px; bottom: 16px; z-index: 75; width: min(360px, calc(100vw - 32px)); background: #0D1B2A; color: #fff; border-radius: 18px; box-shadow: 0 18px 50px rgba(5,10,20,.35); overflow: hidden; }
+    @media (max-width: 767px) { .music-dock { right: 8px; left: 8px; width: auto; bottom: calc(92px + env(safe-area-inset-bottom)); } }
+    .music-bar { display: flex; align-items: center; gap: 4px; padding: 8px 8px 8px 12px; }
+    .music-bar-ic { width: 32px; height: 32px; border-radius: 10px; background: rgba(94,234,212,.15); color: #5EEAD4; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 6px; }
+    .music-bar-ic .ic { width: 17px; height: 17px; }
+    .music-bar-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+    .music-bar-text b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .music-bar-text small { font-size: 11px; color: #9FB3C8; }
+    .music-btn { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; color: #C9D6E2; flex-shrink: 0; }
+    .music-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
+    .music-btn .ic { width: 17px; height: 17px; }
+    .music-frame { padding: 0 8px; }
+    .music-frame iframe { width: 100%; height: 100%; border: 0; border-radius: 12px; background: #000; }
+    .music-open { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #9FB3C8; padding: 6px 12px 10px; }
+    .music-open:hover { color: #5EEAD4; }
+    .music-libpick { display: none; padding: 0 8px 8px; max-height: 180px; overflow-y: auto; }
+    .music-dock.show-lib .music-libpick { display: grid; gap: 2px; }
+    .music-libpick button { display: flex; align-items: center; gap: 8px; text-align: left; font-size: 13px; color: #E2E8F0; padding: 7px 10px; border-radius: 9px; }
+    .music-libpick button:hover { background: rgba(255,255,255,.08); }
+    .music-libpick button.on { color: #5EEAD4; font-weight: 700; }
+    /* Minimised: the player stays loaded off screen so the music keeps going */
+    .music-dock.is-min { width: auto; }
+    .music-dock.is-min .music-frame { position: fixed; left: -10000px; top: 0; width: 320px; }
+    .music-dock.is-min .music-open, .music-dock.is-min .music-libpick { display: none; }
+    .music-dock.is-min .music-btn .ic { transform: none; }
+    .music-dock:not(.is-min) [onclick="Music.toggleMin()"] .ic { transform: rotate(0deg); }
+    .music-dock.is-min [onclick="Music.toggleMin()"] .ic { transform: rotate(180deg); }
+    .music-lib { display: grid; gap: 8px; margin-bottom: 10px; }
+    .music-row { display: flex; align-items: center; gap: 10px; border: 1px solid #E3E6EA; border-radius: 12px; padding: 8px 10px; }
+    .music-row.is-default { border-color: #9ACBD1; background: #F4FAFB; }
+    .music-row p { font-size: 14px; font-weight: 700; color: #0D1B2A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .music-row span { font-size: 12px; color: #6B7480; }
+    .music-row-play { width: 38px; height: 38px; border-radius: 50%; background: #0A7E8C; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .music-row-play .ic { width: 16px; height: 16px; margin-left: 2px; }
+    .music-row-btn { width: 32px; height: 32px; border-radius: 9px; color: #6B7480; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .music-row-btn:hover { background: #F1F3F5; color: #0A7E8C; }
+    .dark .music-row { border-color: #263449; background: #0F1726; }
+    .dark .music-row.is-default { border-color: #2B4A55; background: #10202A; }
+    .dark .music-row p { color: #E8EEF5; }
+    .asst-music-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .asst-music-actions button { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; border-radius: 10px; padding: 7px 11px; }
+    .asst-music-yes { background: #0A7E8C; color: #fff; }
+    .asst-music-no { background: #F1F3F5; color: #3F4A57; }
+    .asst-music-done { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #0A7E8C; }
+    #journey-music-btn .ic { width: 15px; height: 15px; }
     /* Your why (js/motivation.js) */
     .why-card { display: flex; gap: 14px; align-items: center; background: linear-gradient(135deg, #0D1B2A, #12384A); color: #fff; border-radius: 18px; padding: 16px 18px; }
     .why-card.is-empty { background: #fff; color: #0D1B2A; border: 1px dashed #9ACBD1; }
@@ -2288,6 +2334,7 @@
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <button onclick="openJourneyTrophyCase()" id="journey-quest-badge" class="hidden items-center gap-1 bg-teal/10 hover:bg-teal/20 border border-teal/20 text-teal text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap"><span class="ei" data-icon="goal"></span> 0/3</button>
+            <button onclick="Why.playMusic()" id="journey-music-btn" class="bg-white hover:bg-gray-50 border border-gray-200 text-xs font-semibold px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5" title="Play your music while you play" aria-label="Play your music" data-icon="music">Music</button>
             <button onclick="toggleGameSounds()" id="journey-sound-btn" class="bg-white hover:bg-gray-50 border border-gray-200 text-sm px-2.5 py-1 rounded-lg" aria-label="Turn game sounds off" aria-pressed="true" title="Game sounds"><span class="ei" data-icon="volume"></span></button>
             <button onclick="openJourneyTrophyCase()" id="journey-level-badge" class="hidden items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap"><span class="ei" data-icon="star"></span> Lv.1</button>
             <select id="journey-competitor-select" onchange="setJourneyCompetitor(this.value)" class="hidden border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">

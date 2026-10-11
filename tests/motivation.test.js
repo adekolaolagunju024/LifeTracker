@@ -76,3 +76,17 @@ test('deleting the account deletes their why', () => {
   db.deleteUser(u.id);
   assert.ok(motivation.isEmpty(motivation.get(u.id)));
 });
+
+test('music is a library of up to 12 playlists, the first plays by default', () => {
+  const u = user();
+  // An older single playlist joins the library.
+  let m = motivation.save(u.id, { playlist: { url: 'https://open.spotify.com/playlist/old', label: 'Old focus' } });
+  assert.deepEqual(m.playlists, [{ url: 'https://open.spotify.com/playlist/old', label: 'Old focus' }]);
+  const many = Array.from({ length: 15 }, (_, i) => ({ url: `https://youtu.be/vid${i}abc`, label: `Mix ${i}` }));
+  m = motivation.save(u.id, { playlists: [many[0], many[0], { url: 'javascript:x' }, ...many] });
+  assert.equal(m.playlists.length, 12);
+  assert.equal(m.playlists[0].label, 'Mix 0');
+  assert.equal(new Set(m.playlists.map(p => p.url)).size, 12);
+  assert.equal(m.playlist.url, m.playlists[0].url);
+  assert.match(motivation.forAssistant(m), /Mix 0 \(default\)/);
+});
