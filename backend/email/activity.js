@@ -67,7 +67,7 @@ async function sendActivityEmail(userId, { subject, heading, bodyHtml }) {
 
 async function notifyAssigned(userId, task, projectTitle, assignedByName) {
   await sendActivityEmail(userId, {
-    subject: `📌 You were assigned: ${task.title}`,
+    subject: `You were assigned: ${task.title}`,
     heading: `${esc(assignedByName)} assigned you a task`,
     bodyHtml: taskCardHtml(task, projectTitle),
   });
@@ -76,7 +76,7 @@ async function notifyAssigned(userId, task, projectTitle, assignedByName) {
 async function notifyMentioned(userId, mentionerName, text, { taskTitle, projectTitle }) {
   const where = taskTitle ? `on "${esc(taskTitle)}"` : `in the ${esc(projectTitle)} chat`;
   await sendActivityEmail(userId, {
-    subject: `💬 ${mentionerName} mentioned you`,
+    subject: `${mentionerName} mentioned you`,
     heading: `${esc(mentionerName)} mentioned you ${where}`,
     bodyHtml: `<div style="margin-top:4px;padding:12px 14px;background:#F8FAFC;border-radius:10px;font-size:13px;color:#374151;white-space:pre-wrap;">${esc(text)}</div>`,
   });
@@ -84,7 +84,7 @@ async function notifyMentioned(userId, mentionerName, text, { taskTitle, project
 
 async function notifyTaskComment(userId, commenterName, task, projectTitle, text) {
   await sendActivityEmail(userId, {
-    subject: `💬 New comment on "${task.title}"`,
+    subject: `New comment on "${task.title}"`,
     heading: `${esc(commenterName)} commented on a task you're on`,
     bodyHtml: taskCardHtml(task, projectTitle) + `<div style="margin-top:8px;font-size:13px;color:#374151;white-space:pre-wrap;">${esc(text)}</div>`,
   });
@@ -92,7 +92,7 @@ async function notifyTaskComment(userId, commenterName, task, projectTitle, text
 
 async function notifyStatusUpdate(userId, authorName, task, projectTitle, text) {
   await sendActivityEmail(userId, {
-    subject: `📝 Update on "${task.title}"`,
+    subject: `Update on "${task.title}"`,
     heading: `${esc(authorName)} posted an update on a task you're on`,
     bodyHtml: taskCardHtml(task, projectTitle) + `<div style="margin-top:8px;font-size:13px;color:#374151;white-space:pre-wrap;">${esc(text)}</div>`,
   });
@@ -100,7 +100,7 @@ async function notifyStatusUpdate(userId, authorName, task, projectTitle, text) 
 
 async function notifyInvited(userId, inviterName, projectTitle) {
   await sendActivityEmail(userId, {
-    subject: `👥 ${inviterName} invited you to "${projectTitle}"`,
+    subject: `${inviterName} invited you to "${projectTitle}"`,
     heading: `${esc(inviterName)} invited you to a project`,
     bodyHtml: `<div style="margin-top:4px;padding:12px 14px;background:#F8FAFC;border-radius:10px;font-size:13px;font-weight:600;color:#0D1B2A;">${esc(projectTitle)}</div>`,
   });
@@ -108,7 +108,7 @@ async function notifyInvited(userId, inviterName, projectTitle) {
 
 async function notifyCheckIn(userId, { projectTitle, message }) {
   await sendActivityEmail(userId, {
-    subject: `🎯 Check-in: ${projectTitle}`,
+    subject: `Check-in: ${projectTitle}`,
     heading: `Your weekly check-in on "${esc(projectTitle)}"`,
     bodyHtml: `<div style="margin-top:4px;padding:12px 14px;background:#F8FAFC;border-radius:10px;font-size:13px;color:#374151;white-space:pre-wrap;">${esc(message)}</div>`,
   });

@@ -11,7 +11,7 @@ async function renderProjectDetail(projectId) {
       API.getTasks(),
     ]);
 
-    document.getElementById('detail-icon').textContent      = proj.icon;
+    document.getElementById('detail-icon').innerHTML        = emojiIcon(proj.icon);
     document.getElementById('detail-title').textContent     = proj.title;
     document.getElementById('detail-desc').textContent      = proj.description || '';
     document.getElementById('detail-color').style.background = proj.color;
@@ -44,7 +44,7 @@ async function renderProjectDetail(projectId) {
     // right next to its name.
     const sharedBadge = document.getElementById('detail-shared-badge');
     if (proj.role !== 'owner' && proj.ownerName) {
-      sharedBadge.textContent = '👤 Shared by ' + proj.ownerName;
+      sharedBadge.textContent = 'Shared by ' + proj.ownerName;
       sharedBadge.classList.remove('hidden');
     } else {
       sharedBadge.classList.add('hidden');
@@ -67,7 +67,7 @@ async function renderProjectDetail(projectId) {
       crumb.classList.remove('hidden');
       crumb.classList.add('flex');
       crumb.innerHTML = parent
-        ? `<button class="hover:text-teal font-semibold" onclick="showPage('project-detail','${parent.id}')">${parent.icon} ${esc(parent.title)}</button><span>/</span><span class="text-gray-600 font-semibold">${esc(proj.title)}</span>`
+        ? `<button class="hover:text-teal font-semibold" onclick="showPage('project-detail','${parent.id}')">${emojiIcon(parent.icon)} ${esc(parent.title)}</button><span>/</span><span class="text-gray-600 font-semibold">${esc(proj.title)}</span>`
         : '';
     } else {
       crumb.classList.add('hidden');
@@ -86,10 +86,10 @@ async function renderProjectDetail(projectId) {
           <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-4 cursor-pointer project-card"
             style="border-top: 3px solid ${sub.color}" onclick="showPage('project-detail','${sub.id}')">
             <div class="flex items-center justify-between mb-2">
-              <span class="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style="background:${sub.color}1A">${sub.icon}</span>
+              <span class="w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style="background:${sub.color}1A">${emojiIcon(sub.icon)}</span>
               <div class="project-card-actions flex gap-1 opacity-0 transition-opacity">
-                <button onclick="event.stopPropagation();editProject('${sub.id}')" class="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 text-xs">✏️</button>
-                <button onclick="event.stopPropagation();deleteProjectConfirm('${sub.id}')" class="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 text-xs">🗑️</button>
+                <button onclick="event.stopPropagation();editProject('${sub.id}')" class="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 text-xs">${icon('edit')}</button>
+                <button onclick="event.stopPropagation();deleteProjectConfirm('${sub.id}')" class="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 text-xs">${icon('trash')}</button>
               </div>
             </div>
             <p class="font-bold text-sm text-navy mb-1">${esc(sub.title)}</p>
@@ -166,7 +166,7 @@ async function renderTaskTable(projectId) {
           <tr class="border-b border-gray-100 hover:bg-gray-50">
             ${canEdit ? `<td class="tt-sel px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()" aria-label="Select ${esc(t.title)}"></td>` : ''}
             <td class="tt-title px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">
-              <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">🔁</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">☑️ ${t.checklistDone}/${t.checklistTotal}</span>` : ''}${t.commentCount ? ` <span class="text-gray-400 font-normal text-xs" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">💬 ${t.commentCount}</span>` : ''}${statusUpdateBadge(t)} ${obstacleBadge(t)} ${waitingBadge(t)}</div>
+              <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">${icon('repeat')}</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">${icon('square-check')} ${t.checklistDone}/${t.checklistTotal}</span>` : ''}${t.commentCount ? ` <span class="text-gray-400 font-normal text-xs" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">${icon('chat')} ${t.commentCount}</span>` : ''}${statusUpdateBadge(t)} ${obstacleBadge(t)} ${waitingBadge(t)}</div>
               ${blockerChecklist(t, canEdit, 'board')}
               ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
               ${taskProgressBarHTML(t)}
@@ -189,14 +189,14 @@ async function renderTaskTable(projectId) {
             <td class="tt-actions px-4 py-3">
               <div class="flex gap-1">
                 <button onclick="addTaskToGoogleCalendar('${t.id}')" title="Add to Google Calendar" aria-label="Add ${esc(t.title)} to Google Calendar"
-                  class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">📅</button>
+                  class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">${icon('calendar')}</button>
                 ${canEdit ? `
                 <button onclick="editTask('${t.id}')" title="Edit" aria-label="Edit ${esc(t.title)}"
-                  class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">✏️</button>
+                  class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">${icon('edit')}</button>
                 <button onclick="duplicateTaskAction('${t.id}','${projectId}')" title="Duplicate" aria-label="Duplicate ${esc(t.title)}"
                   class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">⧉</button>
                 <button onclick="deleteTaskConfirm('${t.id}','${projectId}')" title="Delete" aria-label="Delete ${esc(t.title)}"
-                  class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm opacity-60 hover:opacity-100">🗑️</button>` : ''}
+                  class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm opacity-60 hover:opacity-100">${icon('trash')}</button>` : ''}
               </div>
             </td>
           </tr>`).join('')

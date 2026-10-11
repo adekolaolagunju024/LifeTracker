@@ -57,7 +57,7 @@ async function runWeeklyCheckIns() {
       const message = await generateCheckInMessage(profile.name, goal.title, stats);
       if (!message) continue;
 
-      await sendPushToUser(goal.userId, { title: `🎯 Check-in: ${goal.title}`, body: message, url: undefined });
+      await sendPushToUser(goal.userId, { title: `Check-in: ${goal.title}`, body: message, url: undefined });
       await notifyCheckIn(goal.userId, { projectTitle: goal.title, message });
       db.setProjectLastCheckInAt(goal.projectId, now.toISOString());
     } catch (e) {

@@ -19,7 +19,7 @@ function renderAttachmentHTML(item) {
     return `<video src="${url}" controls class="max-w-full max-h-48 rounded-lg mt-1.5 border border-gray-200"></video>`;
   }
   return `<a href="${url}" target="_blank" rel="noopener" class="flex items-center gap-2 mt-1.5 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs text-navy hover:bg-gray-100 w-fit max-w-full">
-    <span>📎</span><span class="truncate">${name}</span>
+    <span>${icon('paperclip')}</span><span class="truncate">${name}</span>
   </a>`;
 }
 
@@ -30,14 +30,14 @@ async function openTaskDetail(id) {
     APP_currentDetailTaskId = id;
     APP.detailTaskProjectId = t.projectId;
 
-    document.getElementById('td-project-icon').textContent  = proj ? proj.icon : '';
+    document.getElementById('td-project-icon').innerHTML    = proj ? emojiIcon(proj.icon) : '';
     document.getElementById('td-project-title').textContent = proj ? proj.title : '';
     document.getElementById('td-title').textContent = t.title;
     APP.detailTask = t;
     APP.detailProject = proj;
     const reminder = window.Reminders && Reminders.forTask(id);
     const remindBtn = document.getElementById('td-reminder-btn');
-    remindBtn.textContent = reminder ? `⏰ ${Reminders.fmt(reminder.remindAt)}` : '⏰ Remind me';
+    remindBtn.innerHTML = `${icon('alarm')} ${reminder ? esc(Reminders.fmt(reminder.remindAt)) : 'Remind me'}`;
     remindBtn.classList.toggle('hidden', t.status === 'Completed');
     document.getElementById('td-progress').innerHTML = taskProgressPanelHTML(t);
     document.getElementById('td-progress').classList.toggle('hidden', !t.targetCount);
@@ -176,7 +176,7 @@ async function renderPredecessors(t) {
   wrap.innerHTML = preds.length ? preds.map(p => {
     const done = p.status === 'Completed';
     return `<span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2.5 py-1 ${done ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-amber-50 text-amber-800 border border-amber-100'}" title="${done ? 'Done' : 'Not done yet'}">
-      ${done ? '✓' : '⏳'} ${esc(p.title)}
+      ${done ? '✓' : icon('waiting')} ${esc(p.title)}
       ${canEdit ? `<button onclick="removePredecessor('${p.id}')" class="ml-0.5 opacity-60 hover:opacity-100" aria-label="Remove ${esc(p.title)} as a predecessor">×</button>` : ''}
     </span>`;
   }).join('') : `<p class="text-xs text-gray-400">None. This task can start any time.</p>`;
@@ -233,10 +233,10 @@ function renderObstacles(taskId, obstacles) {
             <button onclick="changeObstacleCount('${o.id}', ${o.count - 1})" ${o.count <= 1 ? 'disabled' : ''} class="w-6 h-6 rounded-md text-gray-600 hover:bg-white disabled:opacity-30" aria-label="Smaller blocker" title="Smaller (fewer enemies on the Journey)">−</button>
             <span class="text-xs font-bold text-red-700 w-6 text-center" aria-label="Size ${o.count}">×${o.count}</span>
             <button onclick="changeObstacleCount('${o.id}', ${o.count + 1})" ${o.count >= 5 ? 'disabled' : ''} class="w-6 h-6 rounded-md text-gray-600 hover:bg-white disabled:opacity-30" aria-label="Bigger blocker" title="Bigger (more enemies on the Journey)">+</button>
-            <button onclick="Reports.openMedia(topProjectIdOf(APP.detailTaskProjectId), { kind: 'blocker', taskId: '${taskId}', caption: ${esc(JSON.stringify(o.name))} })" class="text-gray-400 hover:text-teal text-sm px-1" title="Add a photo of this blocker to the project report" aria-label="Add a photo of this blocker to the report">📷</button>
-            <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove blocker">🗑️</button>`
+            <button onclick="Reports.openMedia(topProjectIdOf(APP.detailTaskProjectId), { kind: 'blocker', taskId: '${taskId}', caption: ${esc(JSON.stringify(o.name))} })" class="text-gray-400 hover:text-teal text-sm px-1" title="Add a photo of this blocker to the project report" aria-label="Add a photo of this blocker to the report">${icon('camera')}</button>
+            <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove blocker">${icon('trash')}</button>`
           : `<span class="text-xs font-bold ${o.resolved ? 'text-green-700' : 'text-red-700'}">×${o.count}</span>${canEdit ? `
-            <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove blocker">🗑️</button>` : ''}`}
+            <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove blocker">${icon('trash')}</button>` : ''}`}
         </div>`).join('')
     : `<p class="text-xs text-gray-400">Nothing in the way. Add a blocker if something is stopping you.</p>`;
   syncObstaclesToJourney(taskId, obstacles);
@@ -313,11 +313,11 @@ async function renderStatusUpdates(taskId) {
               <span class="flex items-center gap-1.5 flex-wrap">
                 <p class="text-xs font-semibold text-navy">${esc(u.authorName)}</p>
                 ${statusBadge(u.status)}
-                ${u.isBlocker ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">🚧 Blocker</span>` : ''}
+                ${u.isBlocker ? `<span class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">${icon('construction')} Blocker</span>` : ''}
               </span>
               <div class="flex items-center gap-2 flex-shrink-0">
                 <span class="text-[10px] text-gray-400">${new Date(u.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
-                ${u.userId === APP.currentUserId ? `<button onclick="deleteStatusUpdateConfirm('${u.id}','${taskId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">🗑️</button>` : ''}
+                ${u.userId === APP.currentUserId ? `<button onclick="deleteStatusUpdateConfirm('${u.id}','${taskId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">${icon('trash')}</button>` : ''}
               </div>
             </div>
             <p class="text-sm text-gray-700 whitespace-pre-wrap mt-0.5">${renderMentionText(u.text, names)}</p>
@@ -362,7 +362,7 @@ async function renderTaskComments(taskId) {
               <div class="flex items-center gap-2 flex-shrink-0">
                 <span class="text-[10px] text-gray-400">${new Date(c.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
                 ${APP.taskCommentCanReply ? `<button onclick="replyToComment('${c.id}','${esc(c.authorName).replace(/'/g, "\\'")}','${esc(c.text).replace(/'/g, "\\'")}')" class="text-gray-300 hover:text-teal text-xs opacity-0 group-hover:opacity-100" title="Reply">↩</button>` : ''}
-                ${c.userId === APP.currentUserId ? `<button onclick="deleteCommentConfirm('${c.id}','${taskId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">🗑️</button>` : ''}
+                ${c.userId === APP.currentUserId ? `<button onclick="deleteCommentConfirm('${c.id}','${taskId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100">${icon('trash')}</button>` : ''}
               </div>
             </div>
             ${c.replyToId ? `<div class="border-l-2 border-gray-200 pl-2 mb-1 text-xs text-gray-400 truncate">↩ ${esc(c.replyToAuthorName || 'a deleted comment')}${c.replyToText ? ': ' + esc(c.replyToText.length > 60 ? c.replyToText.slice(0, 60) + '…' : c.replyToText) : ''}</div>` : ''}
@@ -516,13 +516,13 @@ function startTwoMinuteTimer() {
   const display = document.getElementById('td-timer-display');
   display.classList.remove('hidden');
   let secondsLeft = 120;
-  const render = () => { display.textContent = `⏱ ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`; };
+  const render = () => { display.textContent = `${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`; };
   render();
   APP.tinyStepTimerHandle = setInterval(() => {
     secondsLeft--;
     if (secondsLeft <= 0) {
       stopTinyStepTimer();
-      display.textContent = '✅ Nice — you started.';
+      display.textContent = 'Nice — you started.';
       document.getElementById('td-timer-done-btn').classList.remove('hidden');
       return;
     }

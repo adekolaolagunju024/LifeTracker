@@ -6,6 +6,7 @@ const path = require('path');
 // screenshots, see backend/showcase.js) and the "What's new" log. Both are
 // read once per process, so a deploy that changes them changes the page.
 const FRONTEND = path.join(__dirname, '../frontend');
+const { emojiIcon } = require('../frontend/js/icons.js');
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const longDate = iso => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 
@@ -29,7 +30,7 @@ function sections(product) {
         <figure class="reveal group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
           <img src="/showcase/stage-${esc(s.id)}.webp" alt="The ${esc(s.name)} stage of the Journey" width="640" height="400" loading="lazy" class="aspect-[16/10] w-full bg-gray-100 object-cover">
           <figcaption class="p-5">
-            <p class="font-bold text-navy">${esc(s.emoji)} ${esc(s.name)}</p>
+            <p class="font-bold text-navy flex items-center gap-2"><span class="stage-ic">${emojiIcon(s.emoji)}</span>${esc(s.name)}</p>
             <p class="mt-1 text-sm leading-relaxed text-gray-600">${esc(s.line)}</p>
           </figcaption>
         </figure>`).join('');

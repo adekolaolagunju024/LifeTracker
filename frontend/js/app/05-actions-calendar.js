@@ -69,7 +69,7 @@ async function renderActions() {
             onclick="markActionDone('${t.id}')" title="${stuck ? 'Clear its blockers first' : 'Mark as completed'}" aria-label="${stuck ? 'Blocked: clear its blockers first' : 'Mark ' + esc(t.title) + ' as completed'}">${stuck ? icon('lock', 'tiny text-red-500') : ''}</button>
           <div class="flex-1 min-w-0">
             <h5 class="text-sm font-semibold text-navy cursor-pointer hover:text-teal truncate" onclick="openTaskDetail('${t.id}')">${esc(t.title)}</h5>
-            <p class="text-xs text-gray-400 mt-0.5 truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${reason ? ' · ' + reason : ''}</p>
+            <p class="text-xs text-gray-400 mt-0.5 truncate">${proj ? emojiIcon(proj.icon) + ' ' + esc(proj.title) : ''}${reason ? ' · ' + reason : ''}</p>
             ${waiting.length ? `<p class="text-xs font-semibold text-amber-700 mt-1">${icon('link', 'tiny mr-1')}Waiting on ${waiting.map(p => `"${esc(p.title)}"`).join(', ')}</p>` : ''}
             ${stuck ? `<p class="text-xs font-bold text-red-700 mt-1.5">${icon('blocker', 'tiny mr-1')}Blocked by:</p>${blockerChecklist(t, canEdit, 'board')}` : ''}
           </div>
@@ -432,9 +432,9 @@ async function loadCalendarData() {
   const childrenOf = pid => projects.filter(p => p.parentId === pid);
   filterSel.innerHTML = '<option value="">All Projects</option>' + topLevel.map(top => {
     const kids = childrenOf(top.id);
-    const topOption = `<option value="${top.id}" ${APP.calendarProjectFilter === top.id ? 'selected' : ''}>${top.icon} ${esc(top.title)}</option>`;
+    const topOption = `<option value="${top.id}" ${APP.calendarProjectFilter === top.id ? 'selected' : ''}>${esc(top.title)}</option>`;
     if (!kids.length) return topOption;
-    const kidOptions = kids.map(k => `<option value="${k.id}" ${APP.calendarProjectFilter === k.id ? 'selected' : ''}>${k.icon} ${esc(k.title)}</option>`).join('');
+    const kidOptions = kids.map(k => `<option value="${k.id}" ${APP.calendarProjectFilter === k.id ? 'selected' : ''}>${esc(k.title)}</option>`).join('');
     return `<optgroup label="${esc(top.title)}">${topOption}${kidOptions}</optgroup>`;
   }).join('');
 

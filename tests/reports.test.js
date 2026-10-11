@@ -97,5 +97,5 @@ test('reports show pinned photos through the given source, files by name', () =>
   const html = renderProgressReportHtml(r, { mediaSrc: m => (m.mimetype.startsWith('image/') ? 'data:image/png;base64,AAAA' : null) });
   assert.match(html, /Photos and files/);
   assert.match(html, /<img src="data:image\/png;base64,AAAA" alt="Front of shop"/);
-  assert.match(html, /📎 site\.png · Quote/);
+  assert.match(html, /<\/svg>site\.png · Quote/);
 });

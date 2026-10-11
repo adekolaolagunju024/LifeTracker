@@ -148,7 +148,7 @@
     .dark .palette-item[aria-selected="true"] { background: rgba(94,234,212,.12); color: #fff; }
     .dark .palette-panel kbd { color: #9ca3af; border-color: #4b5563; background: #1f2937; }
 
-    /* Task alarms (js/reminders.js): the picker, "⏰ 18:30" chips, and the
+    /* Task alarms (js/reminders.js): the picker, "18:30" chips, and the
        full-screen alarm that takes over like an alarm clock. */
     .reminder-btn { font-size: 12px; font-weight: 700; color: #075E68; background: #E6F4F5; border: 0; border-radius: 999px; padding: 4px 10px; cursor: pointer; }
     .reminder-btn:hover { background: #CDEDEF; }
@@ -579,7 +579,7 @@
     .dark .gantt-sticky-5 { box-shadow: 3px 0 6px -2px rgba(0,0,0,.4); }
     .gantt-col-resize-handle { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 8; }
     .gantt-col-resize-handle:hover, .gantt-col-resizing { background: rgba(10,126,140,.35); }
-    /* Off by default (rows stay compact) — "🔤 Wrap Task Text" in the
+    /* Off by default (rows stay compact) — "Wrap Task Text" in the
        Gantt "⋯ More" menu turns this on so a long title already at its
        column's full width shows in full across two lines instead of an
        ellipsis; rows grow to fit since only min-height is set below. */
@@ -1591,7 +1591,7 @@
 
       <!-- STEP 1 — WELCOME -->
       <div class="onb-step" id="onb-step-1">
-        <h2 class="text-2xl font-black text-navy mb-1">Welcome to Waypoint 👋</h2>
+        <h2 class="text-2xl font-black text-navy mb-1">Welcome to Waypoint <span class="ei" data-icon="hand"></span></h2>
         <p class="text-gray-500 text-sm mb-6">Let's set a few things up so your dashboard feels like yours. This takes about a minute.</p>
         <div class="mb-4">
           <label class="block text-xs font-semibold text-gray-600 mb-1">Your Name</label>
@@ -1607,7 +1607,7 @@
 
       <!-- STEP 2 — FIRST PROJECT -->
       <div class="onb-step" id="onb-step-2">
-        <h2 class="text-2xl font-black text-navy mb-1">Create your first project 📁</h2>
+        <h2 class="text-2xl font-black text-navy mb-1">Create your first project <span class="ei" data-icon="folder"></span></h2>
         <p class="text-gray-500 text-sm mb-6">Optional — you can always add projects later. Leave the title blank to skip this.</p>
         <div class="mb-4">
           <label class="block text-xs font-semibold text-gray-600 mb-1">Project Title</label>
@@ -1617,7 +1617,7 @@
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-semibold text-gray-600 mb-1">Icon (emoji)</label>
-            <input type="text" id="onb-proj-icon" placeholder="🎓" maxlength="4"
+            <input type="text" id="onb-proj-icon" placeholder="" maxlength="4"
               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
           </div>
           <div>
@@ -1630,7 +1630,7 @@
 
       <!-- STEP 3 — GOOGLE DRIVE -->
       <div class="onb-step" id="onb-step-3">
-        <h2 class="text-2xl font-black text-navy mb-1">Back up to Google Drive ☁️</h2>
+        <h2 class="text-2xl font-black text-navy mb-1">Back up to Google Drive <span class="ei" data-icon="cloud"></span></h2>
         <p class="text-gray-500 text-sm mb-6">Optional — connect your Google Drive so you can save a backup of your data with one click, any time. You can also do this later in Settings.</p>
         <div class="bg-gray-50 border border-gray-200 rounded-xl p-4" id="onb-drive-box">
           <p class="text-sm text-gray-500" id="onb-drive-text">Checking connection…</p>
@@ -1779,7 +1779,7 @@
             <div id="notif-list" class="divide-y divide-gray-50"></div>
           </div>
         </div>
-        <button onclick="toggleTheme()" aria-label="Toggle dark mode" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="theme-toggle-btn"><span id="theme-toggle-icon">🌙</span></button>
+        <button onclick="toggleTheme()" aria-label="Toggle dark mode" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="theme-toggle-btn"><span id="theme-toggle-icon"><span class="ei" data-icon="moon"></span></span></button>
       </div>
     </div>
 
@@ -1787,22 +1787,22 @@
     <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3" id="digest-banner">
       <span class="text-amber-600 flex pt-0.5" data-icon="overdue"></span>
       <div class="flex-1 min-w-0 text-sm text-amber-900" id="digest-banner-text"></div>
-      <button onclick="dismissDigestBanner()" class="text-amber-500 hover:text-amber-700 text-lg leading-none px-1 flex-shrink-0" aria-label="Dismiss">&times;</button>
+      <button onclick="dismissDigestBanner()" class="text-amber-500 hover:text-amber-700 text-lg leading-none px-1 flex-shrink-0" aria-label="Dismiss" data-icon="close"></button>
     </div>
 
     <!-- One-time nudge after creating a goal via AI chat, if this device
          hasn't got Push Reminders on — otherwise the new goal's tasks get
          zero follow-through until the user finds Settings on their own. -->
     <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-teal/10 border border-teal/30 rounded-xl px-4 py-3 flex items-start gap-3" id="push-nudge-banner">
-      <span class="text-lg leading-none">🔔</span>
+      <span class="text-lg leading-none"><span class="ei" data-icon="bell"></span></span>
       <div class="flex-1 min-w-0 text-sm text-navy">Want reminders so this goal doesn't stall? <button onclick="enablePushRemindersFromNudge()" class="font-semibold underline">Turn on Push Reminders</button></div>
-      <button onclick="dismissPushNudgeBanner()" class="text-teal hover:text-teal/70 text-lg leading-none px-1 flex-shrink-0" aria-label="Dismiss">&times;</button>
+      <button onclick="dismissPushNudgeBanner()" class="text-teal hover:text-teal/70 text-lg leading-none px-1 flex-shrink-0" aria-label="Dismiss" data-icon="close"></button>
     </div>
 
     <!-- Pending project invites — checked on load, not dismissible (an
          invite needs an actual accept/decline, not just "hide this") -->
     <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-teal/10 border border-teal/30 rounded-xl px-4 py-3 flex items-center gap-3" id="invites-banner">
-      <span class="text-lg leading-none">📨</span>
+      <span class="text-lg leading-none"><span class="ei" data-icon="send"></span></span>
       <div class="flex-1 min-w-0 text-sm text-navy" id="invites-banner-text"></div>
       <button onclick="openInvitesModal()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex-shrink-0">Review</button>
     </div>
@@ -1910,17 +1910,17 @@
           <p class="text-gray-500 text-sm mt-1">Each project is a collection of related goals and tasks.</p>
         </div>
         <div class="flex gap-3 flex-shrink-0">
-          <button onclick="openAssistant()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all">🎙️ Assistant</button>
-          <button onclick="Reports.openPortfolioPicker()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all" title="A report on all your projects at once, for a board or team meeting">📊 Portfolio report</button>
+          <button onclick="openAssistant()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all"><span class="ei" data-icon="mic"></span> Assistant</button>
+          <button onclick="Reports.openPortfolioPicker()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all" title="A report on all your projects at once, for a board or team meeting"><span class="ei" data-icon="chart-column"></span> Portfolio report</button>
           <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
         </div>
       </div>
       <!-- Ownership filter — so it's obvious at a glance which projects are yours, shared with you, or shared by you -->
       <div class="flex sm:inline-flex max-w-full gap-1 bg-gray-100 rounded-lg p-1 mb-5 overflow-x-auto ui-noscrollbar" id="projects-filter-tabs">
         <button onclick="setProjectsFilter('all')" data-filter="all" class="projects-filter-tab whitespace-nowrap flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">All</button>
-        <button onclick="setProjectsFilter('mine')" data-filter="mine" class="projects-filter-tab whitespace-nowrap flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">🔒 My Projects</button>
-        <button onclick="setProjectsFilter('shared-with-me')" data-filter="shared-with-me" class="projects-filter-tab whitespace-nowrap flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">👤 Shared with Me</button>
-        <button onclick="setProjectsFilter('shared-by-me')" data-filter="shared-by-me" class="projects-filter-tab whitespace-nowrap flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">👥 Shared by Me</button>
+        <button onclick="setProjectsFilter('mine')" data-filter="mine" class="projects-filter-tab whitespace-nowrap flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"><span class="ei" data-icon="lock"></span> My Projects</button>
+        <button onclick="setProjectsFilter('shared-with-me')" data-filter="shared-with-me" class="projects-filter-tab whitespace-nowrap flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"><span class="ei" data-icon="user"></span> Shared with Me</button>
+        <button onclick="setProjectsFilter('shared-by-me')" data-filter="shared-by-me" class="projects-filter-tab whitespace-nowrap flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"><span class="ei" data-icon="users"></span> Shared by Me</button>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5" id="projects-grid"></div>
     </div>
@@ -1932,7 +1932,7 @@
 
       <!-- Header -->
       <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 mb-5 flex items-center gap-3 sm:gap-4 relative z-20 flex-wrap sm:flex-nowrap">
-        <span class="text-3xl sm:text-4xl" id="detail-icon">📁</span>
+        <span class="text-3xl sm:text-4xl" id="detail-icon"><span class="ei" data-icon="folder"></span></span>
         <div class="w-1.5 h-10 rounded-full flex-shrink-0" id="detail-color"></div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
@@ -1944,26 +1944,26 @@
         </div>
         <div class="flex gap-2 ml-auto items-center w-full sm:w-auto">
           <button onclick="openAddTask(APP.currentProjectId)" id="btn-add-task-header" class="flex-1 sm:flex-none bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-2 sm:px-4 py-2 rounded-lg whitespace-nowrap">+ Add Task</button>
-          <button onclick="openPlannerFromProject(APP.currentProjectId)" id="btn-planner-view" title="Open this project in the Planner (Gantt, Kanban or Journey)" class="flex-1 sm:flex-none whitespace-nowrap bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-xs font-semibold px-2 sm:px-4 py-2 rounded-lg">📊 Planner</button>
-          <button onclick="openAssistantFor({ projectId: APP.currentProjectId })" id="btn-assistant-project" title="Ask the assistant about this project" aria-label="Assistant" class="hidden flex-shrink-0 bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap">✨<span class="hidden sm:inline"> Assistant</span></button>
-          <button onclick="openProgressReport(APP.currentProjectId)" class="ui-desktop-only bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg" title="A progress report you can download, print or share">📄 Report</button>
-          <button onclick="openShareProject(APP.currentProjectId)" id="btn-share-project" class="ui-desktop-only bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">👥 <span id="btn-share-label">Share</span></button>
+          <button onclick="openPlannerFromProject(APP.currentProjectId)" id="btn-planner-view" title="Open this project in the Planner (Gantt, Kanban or Journey)" class="flex-1 sm:flex-none whitespace-nowrap bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-xs font-semibold px-2 sm:px-4 py-2 rounded-lg"><span class="ei" data-icon="chart-column"></span> Planner</button>
+          <button onclick="openAssistantFor({ projectId: APP.currentProjectId })" id="btn-assistant-project" title="Ask the assistant about this project" aria-label="Assistant" class="hidden flex-shrink-0 bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap"><span class="ei" data-icon="sparkles"></span><span class="hidden sm:inline"> Assistant</span></button>
+          <button onclick="openProgressReport(APP.currentProjectId)" class="ui-desktop-only bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg" title="A progress report you can download, print or share"><span class="ei" data-icon="file"></span> Report</button>
+          <button onclick="openShareProject(APP.currentProjectId)" id="btn-share-project" class="ui-desktop-only bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="users"></span> <span id="btn-share-label">Share</span></button>
           <div class="relative">
             <button onclick="toggleProjectDetailMenu(event)" id="detail-more-btn" class="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg">⋯</button>
             <div class="hidden absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50 whitespace-nowrap" id="detail-more-menu">
-              <button onclick="closeProjectDetailMenu();openShareProject(APP.currentProjectId)" class="sm:hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">👥 Share</button>
+              <button onclick="closeProjectDetailMenu();openShareProject(APP.currentProjectId)" class="sm:hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="users"></span> Share</button>
               <div class="sm:hidden border-t border-gray-100 my-1"></div>
-              <button onclick="closeProjectDetailMenu();openAddSubfolder(APP.currentProjectId)" id="btn-new-subfolder" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">📁 New Sub-folder</button>
-              <button onclick="closeProjectDetailMenu();openProjectChat(APP.currentProjectId)" id="btn-project-chat" class="hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">💬 Chat</button>
-              <button onclick="closeProjectDetailMenu();openProgressReport(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">📄 Progress report</button>
-              <button onclick="closeProjectDetailMenu();editProject(APP.currentProjectId)" id="btn-edit-project" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">✏️ Edit</button>
+              <button onclick="closeProjectDetailMenu();openAddSubfolder(APP.currentProjectId)" id="btn-new-subfolder" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="folder"></span> New Sub-folder</button>
+              <button onclick="closeProjectDetailMenu();openProjectChat(APP.currentProjectId)" id="btn-project-chat" class="hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="chat"></span> Chat</button>
+              <button onclick="closeProjectDetailMenu();openProgressReport(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="file"></span> Progress report</button>
+              <button onclick="closeProjectDetailMenu();editProject(APP.currentProjectId)" id="btn-edit-project" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="edit"></span> Edit</button>
               <button onclick="duplicateProjectAction(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">⧉ Duplicate Project</button>
               <div class="border-t border-gray-100 my-1"></div>
-              <button onclick="exportProjectData(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">⬇️ Export This Project</button>
-              <button onclick="saveProjectToDrive(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">☁️ Save to Google Drive</button>
+              <button onclick="exportProjectData(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="download"></span> Export This Project</button>
+              <button onclick="saveProjectToDrive(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="cloud"></span> Save to Google Drive</button>
               <div class="border-t border-gray-100 my-1"></div>
-              <button onclick="closeProjectDetailMenu();leaveProjectConfirm(APP.currentProjectId)" id="btn-leave-project" class="hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-red-600 hover:bg-red-50 text-left">🚪 Leave Project</button>
-              <button onclick="closeProjectDetailMenu();deleteProjectConfirm(APP.currentProjectId)" id="btn-delete-project" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-red-600 hover:bg-red-50 text-left">🗑️ Delete</button>
+              <button onclick="closeProjectDetailMenu();leaveProjectConfirm(APP.currentProjectId)" id="btn-leave-project" class="hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-red-600 hover:bg-red-50 text-left"><span class="ei" data-icon="logout"></span> Leave Project</button>
+              <button onclick="closeProjectDetailMenu();deleteProjectConfirm(APP.currentProjectId)" id="btn-delete-project" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-red-600 hover:bg-red-50 text-left"><span class="ei" data-icon="trash"></span> Delete</button>
             </div>
           </div>
         </div>
@@ -1983,7 +1983,7 @@
 
       <!-- Filters -->
       <div class="flex gap-2 sm:gap-3 mb-4 flex-wrap sm:flex-nowrap">
-        <input type="text" id="filter-search" aria-label="Search tasks" placeholder="🔍 Search tasks..."
+        <input type="text" id="filter-search" aria-label="Search tasks" placeholder="Search tasks..."
           class="w-full sm:w-auto sm:flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal"
           oninput="applyFilters(APP.currentProjectId)">
         <div class="flex gap-2 sm:gap-3 w-full sm:w-auto overflow-x-auto ui-noscrollbar">
@@ -2021,7 +2021,7 @@
           <option value="Medium">Medium</option>
           <option value="Low">Low</option>
         </select>
-        <button onclick="bulkDeleteConfirm()" class="bg-red-500/20 hover:bg-red-500/30 text-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg">🗑️ Delete Selected</button>
+        <button onclick="bulkDeleteConfirm()" class="bg-red-500/20 hover:bg-red-500/30 text-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg"><span class="ei" data-icon="trash"></span> Delete Selected</button>
         <button onclick="clearBulkSelection()" class="ml-auto text-white/60 hover:text-white text-xs font-semibold px-3 py-1.5">Clear selection</button>
       </div>
 
@@ -2063,9 +2063,9 @@
       <div class="ui-toolbar mb-3" id="gantt-toolbar">
         <div class="relative flex bg-gray-100 rounded-full p-1 w-full sm:w-auto sm:min-w-[300px]" id="gantt-page-view-toggle">
           <div id="gantt-switch-thumb" class="absolute top-1 bottom-1 left-1 rounded-full bg-white shadow" style="width:calc(33.333% - 4px); transition:transform .2s ease-out"></div>
-          <button onclick="setGanttPageView('timeline')" data-pageview="timeline" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">📊 Gantt</button>
-          <button onclick="setGanttPageView('kanban')" data-pageview="kanban" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">📋 Kanban</button>
-          <button onclick="setGanttPageView('journey')" data-pageview="journey" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors">🧭 Journey</button>
+          <button onclick="setGanttPageView('timeline')" data-pageview="timeline" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors"><span class="ei" data-icon="chart-column"></span> Gantt</button>
+          <button onclick="setGanttPageView('kanban')" data-pageview="kanban" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors"><span class="ei" data-icon="clipboard"></span> Kanban</button>
+          <button onclick="setGanttPageView('journey')" data-pageview="journey" class="gantt-switch-btn relative z-10 flex-1 text-center whitespace-nowrap text-xs font-semibold py-1.5 rounded-full transition-colors"><span class="ei" data-icon="compass"></span> Journey</button>
         </div>
         <div class="flex items-center gap-2 w-full sm:w-auto sm:ml-auto min-w-0">
           <select id="gantt-project-filter" onchange="setGanttProjectFilter(this.value)" aria-label="Project"
@@ -2108,7 +2108,7 @@
                    know about Kanban yet), and the frozen-column toggles
                    below (Kanban has no such columns at all) are
                    Timeline-only. -->
-              <button onclick="closeGanttFieldsMenu(); printGanttChart()" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">🖨️ Print / PDF</button>
+              <button onclick="closeGanttFieldsMenu(); printGanttChart()" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded"><span class="ei" data-icon="printer"></span> Print / PDF</button>
               <div id="gantt-export-actions">
                 <button onclick="toggleGanttLegend()" id="gantt-legend-btn" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">ⓘ Toggle Legend</button>
                 <!-- Which frozen table columns actually appear in Print/PDF —
@@ -2121,7 +2121,7 @@
                 <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="print-col-toggle-start" onchange="toggleGanttPrintColumn('start')"> Start</label>
                 <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="print-col-toggle-due" onchange="toggleGanttPrintColumn('due')"> Due</label>
                 <label class="flex items-center gap-2 px-1 py-1 text-sm text-gray-700 cursor-pointer"><input type="checkbox" id="print-col-toggle-duration" onchange="toggleGanttPrintColumn('duration')"> Duration</label>
-                <button onclick="closeGanttFieldsMenu(); exportGanttImage()" id="gantt-export-img-btn" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">🖼️ Export Image</button>
+                <button onclick="closeGanttFieldsMenu(); exportGanttImage()" id="gantt-export-img-btn" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded"><span class="ei" data-icon="image"></span> Export Image</button>
                 <button onclick="closeGanttFieldsMenu(); resetGanttColWidths()" title="Drag a column's right edge to resize it — handy before printing so a long task title isn't cut off" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">↔️ Reset Column Widths</button>
               </div>
             </div>
@@ -2140,7 +2140,7 @@
 
       <!-- ═══ TIMELINE (Gantt) VIEW ═══ -->
       <div id="gantt-timeline-view">
-      <!-- Project-start badges (🚩) and the color/priority legend are
+      <!-- Project-start badges and the color/priority legend are
            reference info, not controls — collapsed by default so they
            don't compete with the chart itself; "ⓘ Legend" above expands
            this. -->
@@ -2206,33 +2206,33 @@
       <div class="hidden" id="gantt-journey-view">
         <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <div class="min-w-0">
-            <h3 class="text-sm font-black text-navy truncate" id="mountain-title">🎯 Journey</h3>
+            <h3 class="text-sm font-black text-navy truncate" id="mountain-title"><span class="ei" data-icon="goal"></span> Journey</h3>
             <p class="text-xs text-gray-500" id="mountain-status">Loading…</p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
-            <button onclick="openJourneyTrophyCase()" id="journey-quest-badge" class="hidden items-center gap-1 bg-teal/10 hover:bg-teal/20 border border-teal/20 text-teal text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap">🎯 0/3</button>
-            <button onclick="toggleGameSounds()" id="journey-sound-btn" class="bg-white hover:bg-gray-50 border border-gray-200 text-sm px-2.5 py-1 rounded-lg" aria-label="Turn game sounds off" aria-pressed="true" title="Game sounds">🔊</button>
-            <button onclick="openJourneyTrophyCase()" id="journey-level-badge" class="hidden items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap">⭐ Lv.1</button>
+            <button onclick="openJourneyTrophyCase()" id="journey-quest-badge" class="hidden items-center gap-1 bg-teal/10 hover:bg-teal/20 border border-teal/20 text-teal text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap"><span class="ei" data-icon="goal"></span> 0/3</button>
+            <button onclick="toggleGameSounds()" id="journey-sound-btn" class="bg-white hover:bg-gray-50 border border-gray-200 text-sm px-2.5 py-1 rounded-lg" aria-label="Turn game sounds off" aria-pressed="true" title="Game sounds"><span class="ei" data-icon="volume"></span></button>
+            <button onclick="openJourneyTrophyCase()" id="journey-level-badge" class="hidden items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap"><span class="ei" data-icon="star"></span> Lv.1</button>
             <select id="journey-competitor-select" onchange="setJourneyCompetitor(this.value)" class="hidden border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
-              <option value="schedule">🖥️ The Schedule</option>
+              <option value="schedule"> The Schedule</option>
             </select>
             <select id="journey-theme-select" onchange="setJourneyTheme(this.value)" title="Pick the Journey stage (2D or 3D is chosen with the toggle beside it)" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
               <optgroup label="Sport &amp; adventure">
-                <option value="football">⚽ Football</option>
-                <option value="castle">🏰 Castle</option>
-                <option value="ocean">🌊 Ocean</option>
-                <option value="space">🚀 Space</option>
+                <option value="football"> Football</option>
+                <option value="castle"> Castle</option>
+                <option value="ocean"> Ocean</option>
+                <option value="space"> Space</option>
               </optgroup>
               <optgroup label="Work &amp; life">
-                <option value="corporate">🏢 Corporate</option>
-                <option value="construction">🏗️ Construction</option>
-                <option value="life">🌱 Life Path</option>
-                <option value="launch">💡 Product Launch</option>
+                <option value="corporate"> Corporate</option>
+                <option value="construction"> Construction</option>
+                <option value="life"> Life Path</option>
+                <option value="launch"> Product Launch</option>
               </optgroup>
             </select>
             <div id="journey-view-bar" class="journey-view-bar hidden" role="group" aria-label="View"></div>
             <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started and untick its cleared blockers" aria-label="Reset">↺<span class="hidden sm:inline"> Reset</span></button>
-            <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" aria-label="Fullscreen">⛶ Fullscreen</button>
+            <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" aria-label="Fullscreen" data-icon="expand"> Full screen</button>
           </div>
         </div>
         <div class="rounded-2xl overflow-hidden journey-scene-frame" id="journey-hud">
@@ -2365,12 +2365,12 @@
         <p class="text-gray-500 text-sm mt-1">Your profile, alerts, connected apps and data.</p>
       </div>
       <div class="settings-tabs" role="tablist" aria-label="Settings sections">
-        <button type="button" role="tab" id="settings-tab-profile" aria-controls="settings-panel-profile" data-tab="profile" onclick="showSettingsTab('profile')"><span aria-hidden="true">👤</span>Profile</button>
-        <button type="button" role="tab" id="settings-tab-notifications" aria-controls="settings-panel-notifications" data-tab="notifications" onclick="showSettingsTab('notifications')"><span aria-hidden="true">🔔</span>Notifications</button>
-        <button type="button" role="tab" id="settings-tab-appearance" aria-controls="settings-panel-appearance" data-tab="appearance" onclick="showSettingsTab('appearance')"><span aria-hidden="true">🎨</span>Appearance</button>
-        <button type="button" role="tab" id="settings-tab-apps" aria-controls="settings-panel-apps" data-tab="apps" onclick="showSettingsTab('apps')"><span aria-hidden="true">🔗</span>Connected apps</button>
-        <button type="button" role="tab" id="settings-tab-data" aria-controls="settings-panel-data" data-tab="data" onclick="showSettingsTab('data')"><span aria-hidden="true">🗂️</span>Data and Trash</button>
-        <button type="button" role="tab" id="settings-tab-security" aria-controls="settings-panel-security" data-tab="security" onclick="showSettingsTab('security')"><span aria-hidden="true">🔒</span>Security</button>
+        <button type="button" role="tab" id="settings-tab-profile" aria-controls="settings-panel-profile" data-tab="profile" onclick="showSettingsTab('profile')"><span aria-hidden="true"><span class="ei" data-icon="user"></span></span>Profile</button>
+        <button type="button" role="tab" id="settings-tab-notifications" aria-controls="settings-panel-notifications" data-tab="notifications" onclick="showSettingsTab('notifications')"><span aria-hidden="true"><span class="ei" data-icon="bell"></span></span>Notifications</button>
+        <button type="button" role="tab" id="settings-tab-appearance" aria-controls="settings-panel-appearance" data-tab="appearance" onclick="showSettingsTab('appearance')"><span aria-hidden="true"><span class="ei" data-icon="palette"></span></span>Appearance</button>
+        <button type="button" role="tab" id="settings-tab-apps" aria-controls="settings-panel-apps" data-tab="apps" onclick="showSettingsTab('apps')"><span aria-hidden="true"><span class="ei" data-icon="link"></span></span>Connected apps</button>
+        <button type="button" role="tab" id="settings-tab-data" aria-controls="settings-panel-data" data-tab="data" onclick="showSettingsTab('data')"><span aria-hidden="true"><span class="ei" data-icon="folder-open"></span></span>Data and Trash</button>
+        <button type="button" role="tab" id="settings-tab-security" aria-controls="settings-panel-security" data-tab="security" onclick="showSettingsTab('security')"><span aria-hidden="true"><span class="ei" data-icon="lock"></span></span>Security</button>
       </div>
       <section class="settings-panel" role="tabpanel" id="settings-panel-profile" aria-labelledby="settings-tab-profile" data-settings-panel="profile">
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
@@ -2437,19 +2437,19 @@
                subscribed, so hidden until the master toggle above is on. -->
           <div class="hidden mt-3 ml-[52px] space-y-2.5" id="push-type-settings">
             <div class="flex items-center justify-between gap-2">
-              <span class="text-xs text-gray-600">🔴 Overdue alerts — the instant a task goes overdue</span>
+              <span class="text-xs text-gray-600"><span class="ei" data-icon="overdue"></span> Overdue alerts — the instant a task goes overdue</span>
               <button onclick="togglePushType('pushOverdueEnabled')" class="ios-switch" id="push-type-overdue-btn" role="switch" aria-label="Toggle overdue alerts"><span class="ios-switch-knob"></span></button>
             </div>
             <div class="flex items-center justify-between gap-2">
-              <span class="text-xs text-gray-600">📌 Due-today ping — once each morning</span>
+              <span class="text-xs text-gray-600"><span class="ei" data-icon="pin"></span> Due-today ping — once each morning</span>
               <button onclick="togglePushType('pushDueTodayEnabled')" class="ios-switch" id="push-type-duetoday-btn" role="switch" aria-label="Toggle due-today ping"><span class="ios-switch-knob"></span></button>
             </div>
             <div class="flex items-center justify-between gap-2">
-              <span class="text-xs text-gray-600">⏰ Focus nudges — recurring while something's outstanding</span>
+              <span class="text-xs text-gray-600"><span class="ei" data-icon="alarm"></span> Focus nudges — recurring while something's outstanding</span>
               <button onclick="togglePushType('pushFocusNudgeEnabled')" class="ios-switch" id="push-type-focusnudge-btn" role="switch" aria-label="Toggle focus nudges"><span class="ios-switch-knob"></span></button>
             </div>
             <div class="flex items-center justify-between gap-2">
-              <span class="text-xs text-gray-600">🔥 Streak alerts — an evening nudge if your streak is about to break</span>
+              <span class="text-xs text-gray-600"><span class="ei" data-icon="flame"></span> Streak alerts — an evening nudge if your streak is about to break</span>
               <button onclick="togglePushType('pushStreakEnabled')" class="ios-switch" id="push-type-streak-btn" role="switch" aria-label="Toggle streak alerts"><span class="ios-switch-knob"></span></button>
             </div>
             <div class="hidden flex items-center gap-1.5 text-xs text-gray-500 flex-wrap" id="focus-nudge-timing-row">
@@ -2488,7 +2488,7 @@
           </div>
           <button onclick="toggleAiCheckIns()" class="ios-switch" id="ai-checkins-btn" role="switch" aria-label="Toggle weekly AI goal check-ins"><span class="ios-switch-knob"></span></button>
         </div>
-        <p class="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mt-4">⏰ Alarms for a single task are set on the task itself: open it and tap <strong>Remind me</strong>.</p>
+        <p class="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mt-4"><span class="ei" data-icon="alarm"></span> Alarms for a single task are set on the task itself: open it and tap <strong>Remind me</strong>.</p>
       </div>
       </section>
       <section class="settings-panel" role="tabpanel" id="settings-panel-appearance" aria-labelledby="settings-tab-appearance" data-settings-panel="appearance">
@@ -2538,7 +2538,7 @@
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
         <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#7C3AED22;color:#7C3AED" data-icon="compass"></span> First-Time Setup</h3>
         <p class="text-xs text-gray-400 mb-3">Re-run the welcome wizard (name, targets, first project, Google Drive).</p>
-        <button onclick="rerunOnboarding()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🧭 Re-run Setup Wizard</button>
+        <button onclick="rerunOnboarding()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="compass"></span> Re-run Setup Wizard</button>
       </div>
       </section>
       <section class="settings-panel" role="tabpanel" id="settings-panel-apps" aria-labelledby="settings-tab-apps" data-settings-panel="apps">
@@ -2566,10 +2566,10 @@
         <div class="hidden" id="settings-drive-formats">
           <p class="text-xs font-semibold text-gray-500 mt-5 mb-2 border-t border-gray-100 pt-4">Export a copy as…</p>
           <div class="flex gap-3 flex-wrap">
-            <button onclick="backupAs('sheets')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📊 Google Sheet</button>
-            <button onclick="backupAs('excel')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📗 Excel (.xlsx)</button>
-            <button onclick="backupAs('pdf')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">📄 PDF Report</button>
-            <button onclick="backupAs('image')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🖼️ Image Report</button>
+            <button onclick="backupAs('sheets')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="chart-column"></span> Google Sheet</button>
+            <button onclick="backupAs('excel')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="book"></span> Excel (.xlsx)</button>
+            <button onclick="backupAs('pdf')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="file"></span> PDF Report</button>
+            <button onclick="backupAs('image')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="image"></span> Image Report</button>
           </div>
         </div>
         <div class="border-t border-gray-100 mt-5 pt-5">
@@ -2599,8 +2599,8 @@
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
         <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#C0642A22;color:#C0642A" data-icon="database"></span> Your data</h3>
         <div class="flex gap-3 flex-wrap">
-          <button onclick="exportData()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">⬇ Download everything (JSON)</button>
-          <button onclick="importData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">⬆ Import a download</button>
+          <button onclick="exportData()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="download"></span> Download everything (JSON)</button>
+          <button onclick="importData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="upload"></span> Import a download</button>
         </div>
         <p class="text-xs text-gray-400 mt-3">A full copy of your projects and tasks. Import it to restore, or to move to another account.</p>
       </div>
@@ -2628,8 +2628,8 @@
           </div>
         </div>
         <div class="flex gap-3 flex-wrap items-center">
-          <button onclick="submitChangePassword()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">🔒 Change Password</button>
-          <button onclick="logout()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🚪 Log Out</button>
+          <button onclick="submitChangePassword()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="lock"></span> Change Password</button>
+          <button onclick="logout()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="logout"></span> Log Out</button>
         </div>
         <div class="flex items-center justify-between gap-3 flex-wrap border-t border-gray-100 mt-5 pt-4">
           <div class="min-w-0">
@@ -2650,7 +2650,7 @@
           <label class="block text-xs font-semibold text-gray-600 mb-1">Enter your password to confirm</label>
           <input type="password" id="delete-account-password" autocomplete="current-password" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-400">
         </div>
-        <button onclick="deleteAccountConfirm()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">🗑️ Delete My Account</button>
+        <button onclick="deleteAccountConfirm()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="trash"></span> Delete My Account</button>
       </div>
       </section>
     </div>
@@ -2709,15 +2709,14 @@
         <input type="hidden" id="proj-type" value="career">
         <label for="proj-title" class="block text-sm font-semibold text-navy mb-1.5">Name</label>
         <div class="flex items-center gap-2">
-          <button type="button" id="proj-look-btn" onclick="toggleProjectLook()" class="proj-look-btn" aria-expanded="false" aria-controls="proj-look" title="Icon and colour"><span id="proj-look-icon">📁</span></button>
+          <button type="button" id="proj-look-btn" onclick="toggleProjectLook()" class="proj-look-btn" aria-expanded="false" aria-controls="proj-look" title="Icon and colour"><span id="proj-look-icon"><span class="ei" data-icon="folder"></span></span></button>
           <input type="text" id="proj-title" placeholder="e.g. Pass my driving test" autocomplete="off" maxlength="120"
             class="flex-1 min-w-0 border border-gray-200 rounded-xl px-3.5 h-12 text-base font-semibold text-navy focus:outline-none focus:border-teal"
             onkeydown="if (event.key === 'Enter') { event.preventDefault(); saveProject(); }">
         </div>
         <div id="proj-look" class="hidden mt-2 border border-gray-200 rounded-xl p-3">
           <p class="text-xs font-semibold text-gray-500 mb-1.5">Icon</p>
-          <div class="seg pick proj-icons" data-seg-for="proj-icon" role="radiogroup" aria-label="Icon"><button type="button" data-value="📁" aria-label="Icon 📁">📁</button><button type="button" data-value="🎓" aria-label="Icon 🎓">🎓</button><button type="button" data-value="💼" aria-label="Icon 💼">💼</button><button type="button" data-value="💪" aria-label="Icon 💪">💪</button><button type="button" data-value="🏃" aria-label="Icon 🏃">🏃</button><button type="button" data-value="📚" aria-label="Icon 📚">📚</button><button type="button" data-value="🏠" aria-label="Icon 🏠">🏠</button><button type="button" data-value="❤️" aria-label="Icon ❤️">❤️</button><button type="button" data-value="✈️" aria-label="Icon ✈️">✈️</button><button type="button" data-value="🎨" aria-label="Icon 🎨">🎨</button><button type="button" data-value="💰" aria-label="Icon 💰">💰</button><button type="button" data-value="🧠" aria-label="Icon 🧠">🧠</button><button type="button" data-value="🌱" aria-label="Icon 🌱">🌱</button><button type="button" data-value="🚀" aria-label="Icon 🚀">🚀</button><button type="button" data-value="🏆" aria-label="Icon 🏆">🏆</button><button type="button" data-value="🎵" aria-label="Icon 🎵">🎵</button><button type="button" data-value="🍳" aria-label="Icon 🍳">🍳</button><button type="button" data-value="🛠️" aria-label="Icon 🛠️">🛠️</button><button type="button" data-value="💻" aria-label="Icon 💻">💻</button><button type="button" data-value="📈" aria-label="Icon 📈">📈</button><button type="button" data-value="🧘" aria-label="Icon 🧘">🧘</button><button type="button" data-value="👶" aria-label="Icon 👶">👶</button><button type="button" data-value="🐾" aria-label="Icon 🐾">🐾</button><button type="button" data-value="⚽" aria-label="Icon ⚽">⚽</button></div>
-          <input type="text" id="proj-icon-own" maxlength="4" placeholder="Or type your own" aria-label="Type your own icon" oninput="if (this.value.trim()) { document.getElementById('proj-icon').value = this.value.trim(); syncProjectLook(); }" class="mt-2 w-40 border border-gray-200 rounded-lg px-2.5 h-9 text-sm focus:outline-none focus:border-teal">
+          <div class="seg pick proj-icons" data-seg-for="proj-icon" role="radiogroup" aria-label="Icon"><button type="button" data-value="📁" aria-label="folder" title="folder"><span class="ei" data-icon="folder"></span></button><button type="button" data-value="🎓" aria-label="graduation" title="graduation"><span class="ei" data-icon="graduation"></span></button><button type="button" data-value="💼" aria-label="briefcase" title="briefcase"><span class="ei" data-icon="briefcase"></span></button><button type="button" data-value="💪" aria-label="dumbbell" title="dumbbell"><span class="ei" data-icon="dumbbell"></span></button><button type="button" data-value="🏃" aria-label="footprints" title="footprints"><span class="ei" data-icon="footprints"></span></button><button type="button" data-value="📚" aria-label="book" title="book"><span class="ei" data-icon="book"></span></button><button type="button" data-value="🏠" aria-label="home" title="home"><span class="ei" data-icon="home"></span></button><button type="button" data-value="❤️" aria-label="heart" title="heart"><span class="ei" data-icon="heart"></span></button><button type="button" data-value="✈️" aria-label="plane" title="plane"><span class="ei" data-icon="plane"></span></button><button type="button" data-value="🎨" aria-label="palette" title="palette"><span class="ei" data-icon="palette"></span></button><button type="button" data-value="💰" aria-label="wallet" title="wallet"><span class="ei" data-icon="wallet"></span></button><button type="button" data-value="🧠" aria-label="brain" title="brain"><span class="ei" data-icon="brain"></span></button><button type="button" data-value="🌱" aria-label="sprout" title="sprout"><span class="ei" data-icon="sprout"></span></button><button type="button" data-value="🚀" aria-label="rocket" title="rocket"><span class="ei" data-icon="rocket"></span></button><button type="button" data-value="🏆" aria-label="trophy" title="trophy"><span class="ei" data-icon="trophy"></span></button><button type="button" data-value="🎵" aria-label="music" title="music"><span class="ei" data-icon="music"></span></button><button type="button" data-value="🍳" aria-label="chef hat" title="chef hat"><span class="ei" data-icon="chef-hat"></span></button><button type="button" data-value="🛠️" aria-label="wrench" title="wrench"><span class="ei" data-icon="wrench"></span></button><button type="button" data-value="💻" aria-label="laptop" title="laptop"><span class="ei" data-icon="laptop"></span></button><button type="button" data-value="📈" aria-label="trending up" title="trending up"><span class="ei" data-icon="trending-up"></span></button><button type="button" data-value="🧘" aria-label="flower 2" title="flower 2"><span class="ei" data-icon="flower-2"></span></button><button type="button" data-value="👶" aria-label="baby" title="baby"><span class="ei" data-icon="baby"></span></button><button type="button" data-value="🐾" aria-label="paw print" title="paw print"><span class="ei" data-icon="paw-print"></span></button><button type="button" data-value="⚽" aria-label="volleyball" title="volleyball"><span class="ei" data-icon="volleyball"></span></button></div>
           <p class="text-xs font-semibold text-gray-500 mt-3 mb-1.5">Colour</p>
           <div class="flex items-center gap-2 flex-wrap">
             <div class="seg pick proj-colors" data-seg-for="proj-color" role="radiogroup" aria-label="Colour"><button type="button" data-value="#0A7E8C" aria-label="Teal" title="Teal" style="--sw:#0A7E8C"></button><button type="button" data-value="#2563EB" aria-label="Blue" title="Blue" style="--sw:#2563EB"></button><button type="button" data-value="#7C3AED" aria-label="Violet" title="Violet" style="--sw:#7C3AED"></button><button type="button" data-value="#DB2777" aria-label="Pink" title="Pink" style="--sw:#DB2777"></button><button type="button" data-value="#DC2626" aria-label="Red" title="Red" style="--sw:#DC2626"></button><button type="button" data-value="#EA580C" aria-label="Orange" title="Orange" style="--sw:#EA580C"></button><button type="button" data-value="#CA8A04" aria-label="Gold" title="Gold" style="--sw:#CA8A04"></button><button type="button" data-value="#16A34A" aria-label="Green" title="Green" style="--sw:#16A34A"></button><button type="button" data-value="#475569" aria-label="Slate" title="Slate" style="--sw:#475569"></button></div>
@@ -2764,25 +2763,25 @@
 <div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-import">
   <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-      <h3 class="text-base font-bold text-navy">✨ Create a Project with AI</h3>
-      <button onclick="closeModal('modal-import')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+      <h3 class="text-base font-bold text-navy"><span class="ei" data-icon="sparkles"></span> Create a Project with AI</h3>
+      <button onclick="closeModal('modal-import')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
     </div>
 
     <!-- Step 1: chat, with an optional file attached to any message —
          one merged flow (like Claude's own chat) instead of a separate
          "upload a file" tab that skipped the conversation entirely. -->
     <div id="import-step-upload" class="p-6 overflow-y-auto flex-1">
-      <p class="text-sm text-gray-500 mb-3">Describe your goal, or attach a plan/checklist/spreadsheet/image (📎) and ask about it. Claude asks a question or two if it needs to, then proposes a project with tasks — nothing is created until you review and confirm.</p>
+      <p class="text-sm text-gray-500 mb-3">Describe your goal, or attach a plan/checklist/spreadsheet/image (<span class="ei" data-icon="paperclip"></span>) and ask about it. Claude asks a question or two if it needs to, then proposes a project with tasks — nothing is created until you review and confirm.</p>
       <div id="chat-messages" class="border border-gray-200 rounded-lg p-3 mb-3 space-y-2 overflow-y-auto flex flex-col" style="max-height:320px; min-height:200px;"></div>
       <div class="hidden items-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2" id="chat-attachment-chip">
-        <span class="text-base flex-shrink-0">📎</span>
+        <span class="text-base flex-shrink-0"><span class="ei" data-icon="paperclip"></span></span>
         <span class="text-xs text-gray-600 truncate flex-1" id="chat-attachment-name"></span>
-        <button onclick="clearChatAttachment()" class="text-gray-400 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Remove attachment">✕</button>
+        <button onclick="clearChatAttachment()" class="text-gray-400 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Remove attachment" aria-label="Close" data-icon="close"></button>
       </div>
       <div class="flex gap-2 items-center">
         <input type="file" id="chat-file-input" accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg" class="hidden" onchange="onChatFileSelected(this.files[0])">
         <button onclick="document.getElementById('chat-file-input').click()" title="Attach a file"
-          class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-9 h-9 flex-shrink-0 rounded-lg flex items-center justify-center text-base">📎</button>
+          class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-9 h-9 flex-shrink-0 rounded-lg flex items-center justify-center text-base"><span class="ei" data-icon="paperclip"></span></button>
         <input type="text" id="chat-input" placeholder="Type a message…" onkeydown="if(event.key==='Enter'){event.preventDefault(); sendProjectChatMessage();}"
           class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         <button onclick="sendProjectChatMessage()" id="chat-send-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">Send</button>
@@ -2825,8 +2824,8 @@
 <div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-2fa">
   <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl">
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-      <h3 class="text-base font-bold text-navy">🔐 Two-step sign-in</h3>
-      <button onclick="closeModal('modal-2fa')" class="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">✕</button>
+      <h3 class="text-base font-bold text-navy"><span class="ei" data-icon="lock"></span> Two-step sign-in</h3>
+      <button onclick="closeModal('modal-2fa')" class="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close" data-icon="close"></button>
     </div>
     <div class="p-6" id="twofa-step-scan">
       <p class="text-sm text-gray-600 mb-4"><b>1.</b> Scan this with your authenticator app, or type the key into it.</p>
@@ -2840,7 +2839,7 @@
       <p class="text-xs text-red-500 mt-2 hidden" id="twofa-error"></p>
     </div>
     <div class="p-6 hidden" id="twofa-step-codes">
-      <p class="text-sm text-gray-600 mb-3">✅ Two-step sign-in is on. <b>Save these recovery codes</b> somewhere safe. Each works once if you lose your phone, and they won't be shown again.</p>
+      <p class="text-sm text-gray-600 mb-3"><span class="ei" data-icon="done"></span> Two-step sign-in is on. <b>Save these recovery codes</b> somewhere safe. Each works once if you lose your phone, and they won't be shown again.</p>
       <div class="grid grid-cols-2 gap-2 bg-gray-50 border border-gray-200 rounded-xl p-4 font-mono text-sm text-navy" id="twofa-codes"></div>
       <div class="flex gap-2 mt-4">
         <button onclick="copyRecoveryCodes()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg">Copy</button>
@@ -2856,14 +2855,14 @@
 <div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-3 sm:p-5" id="modal-report">
   <div class="bg-white rounded-2xl w-full max-w-4xl h-[92vh] flex flex-col shadow-2xl overflow-hidden">
     <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100 flex-wrap">
-      <h3 class="text-base font-bold text-navy" id="report-heading">📄 Progress report</h3>
+      <h3 class="text-base font-bold text-navy" id="report-heading"><span class="ei" data-icon="file"></span> Progress report</h3>
       <div class="flex items-center gap-2 flex-wrap">
-        <button type="button" onclick="Reports.openMedia()" id="report-media-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg" title="Add photos or files to this report">📎 Photos &amp; files</button>
-        <a id="report-pdf" href="#" class="bg-navy hover:bg-navy/90 text-white text-xs font-semibold px-3 py-2 rounded-lg">⬇️ PDF</a>
-        <button type="button" onclick="printProgressReport()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg">🖨️ Print</button>
-        <button type="button" onclick="emailProgressReport()" id="report-email-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg">✉️ Email</button>
-        <button type="button" onclick="shareProgressReport()" id="report-share-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-2 rounded-lg">🔗 Share link</button>
-        <button type="button" onclick="closeModal('modal-report')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close">✕</button>
+        <button type="button" onclick="Reports.openMedia()" id="report-media-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg" title="Add photos or files to this report"><span class="ei" data-icon="paperclip"></span> Photos &amp; files</button>
+        <a id="report-pdf" href="#" class="bg-navy hover:bg-navy/90 text-white text-xs font-semibold px-3 py-2 rounded-lg"><span class="ei" data-icon="download"></span> PDF</a>
+        <button type="button" onclick="printProgressReport()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg"><span class="ei" data-icon="printer"></span> Print</button>
+        <button type="button" onclick="emailProgressReport()" id="report-email-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg"><span class="ei" data-icon="mail"></span> Email</button>
+        <button type="button" onclick="shareProgressReport()" id="report-share-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-2 rounded-lg"><span class="ei" data-icon="link"></span> Share link</button>
+        <button type="button" onclick="closeModal('modal-report')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
       </div>
     </div>
     <div id="report-share-bar" class="hidden px-5 py-3 bg-teal/5 border-b border-teal/20 flex items-center gap-2 flex-wrap text-xs">
@@ -2883,10 +2882,10 @@
   <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="portfolio-heading">
     <div class="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
       <div>
-        <h3 class="text-lg font-extrabold text-navy" id="portfolio-heading">📊 Portfolio report</h3>
+        <h3 class="text-lg font-extrabold text-navy" id="portfolio-heading"><span class="ei" data-icon="chart-column"></span> Portfolio report</h3>
         <p class="text-sm text-gray-500">All your projects on one page, for a board or team meeting.</p>
       </div>
-      <button type="button" onclick="closeModal('modal-portfolio')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close">✕</button>
+      <button type="button" onclick="closeModal('modal-portfolio')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
     </div>
     <div class="px-5">
       <label class="block text-xs font-bold text-gray-600 mb-1.5" for="portfolio-title">Title (optional)</label>
@@ -2909,17 +2908,17 @@
   <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="media-heading">
     <div class="flex items-start justify-between gap-3 px-5 pt-5 pb-3 border-b border-gray-100">
       <div>
-        <h3 class="text-lg font-extrabold text-navy" id="media-heading">📎 Photos and files</h3>
+        <h3 class="text-lg font-extrabold text-navy" id="media-heading"><span class="ei" data-icon="paperclip"></span> Photos and files</h3>
         <p class="text-sm text-gray-500">Show progress, a blocker, or anything that helps the report make sense.</p>
       </div>
-      <button type="button" onclick="closeModal('modal-report-media')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close">✕</button>
+      <button type="button" onclick="closeModal('modal-report-media')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
     </div>
     <div class="px-5 py-4 overflow-y-auto flex-1 space-y-4">
       <div class="media-add">
         <p class="text-xs font-bold text-gray-600 mb-2">Add a photo or file</p>
         <label class="media-drop">
           <input type="file" id="media-file" class="sr-only" accept="image/*,video/*,.pdf,.xlsx,.xls,.docx,.doc,.txt,.csv" onchange="Reports.onFileChosen(this)">
-          <span>📷 Take or choose a photo, or a file</span>
+          <span><span class="ei" data-icon="camera"></span> Take or choose a photo, or a file</span>
         </label>
         <p class="text-xs font-semibold text-teal mt-1" id="media-chosen"></p>
         <div id="media-existing-wrap" class="mt-2">
@@ -2930,9 +2929,9 @@
         <input type="text" id="media-caption" maxlength="200" placeholder="e.g. Kitchen fitted, ready for inspection" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-teal">
         <p class="text-xs font-bold text-gray-600 mt-3 mb-1" id="media-kind-label">What it shows</p>
         <div class="seg" id="media-kind" role="radiogroup" aria-labelledby="media-kind-label" data-value="progress">
-          <button type="button" role="radio" data-value="progress">✅ Progress</button>
-          <button type="button" role="radio" data-value="blocker">⚔️ Blocker</button>
-          <button type="button" role="radio" data-value="info">ℹ️ Info</button>
+          <button type="button" role="radio" data-value="progress"><span class="ei" data-icon="done"></span> Progress</button>
+          <button type="button" role="radio" data-value="blocker"><span class="ei" data-icon="blocker"></span> Blocker</button>
+          <button type="button" role="radio" data-value="info"><span class="ei" data-icon="info"></span> Info</button>
         </div>
         <label class="block text-xs font-bold text-gray-600 mt-3 mb-1" for="media-task">About a task (optional)</label>
         <select id="media-task" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:border-teal"></select>
@@ -2950,13 +2949,13 @@
 <div class="modal-overlay fixed inset-0 bg-black/40 items-center justify-center p-4" style="z-index:60" id="modal-reminder">
   <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-5" role="dialog" aria-modal="true" aria-labelledby="reminder-heading">
     <div class="flex items-start gap-3 mb-4">
-      <span class="text-2xl" aria-hidden="true">⏰</span>
+      <span class="text-2xl" aria-hidden="true"><span class="ei" data-icon="alarm"></span></span>
       <div class="min-w-0 flex-1">
         <h3 class="text-lg font-extrabold text-navy" id="reminder-heading">Remind me</h3>
         <p class="text-sm text-gray-500 truncate" id="reminder-task-title"></p>
         <p class="text-xs font-semibold text-teal mt-0.5" id="reminder-current"></p>
       </div>
-      <button type="button" onclick="closeModal('modal-reminder')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close">✕</button>
+      <button type="button" onclick="closeModal('modal-reminder')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
     </div>
     <div class="grid grid-cols-2 gap-2 mb-4" id="reminder-presets"></div>
     <label class="block text-xs font-bold text-gray-500 mb-1" for="reminder-custom">Or pick a time</label>
@@ -2989,8 +2988,8 @@
       <button onclick="closeAssistant()" aria-label="Close" class="asst-icon-btn"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <div class="hidden items-center gap-2 mx-4 mt-3 bg-[#E6F4F5] text-[#075E68] rounded-xl px-3 py-2 text-xs font-semibold" id="assistant-focus">
-      <span class="flex-shrink-0">🎯</span><span class="flex-1 min-w-0 truncate" id="assistant-focus-text"></span>
-      <button onclick="clearAssistantFocus()" class="opacity-60 hover:opacity-100 px-1 flex-shrink-0" aria-label="Stop focusing on this task">✕</button>
+      <span class="flex-shrink-0"><span class="ei" data-icon="goal"></span></span><span class="flex-1 min-w-0 truncate" id="assistant-focus-text"></span>
+      <button onclick="clearAssistantFocus()" class="opacity-60 hover:opacity-100 px-1 flex-shrink-0" aria-label="Stop focusing on this task" data-icon="close"></button>
     </div>
     <div id="assistant-chat" class="asst-chat flex-1 overflow-y-auto" aria-live="polite"></div>
     <div id="assistant-history" class="hidden flex-1 overflow-y-auto px-4 py-3"></div>
@@ -3001,7 +3000,7 @@
       <div class="hidden items-center gap-3 rounded-2xl px-3 py-2 ai-listening" id="assistant-listening" role="status" aria-live="polite">
         <button onclick="toggleAssistantListening()" class="ai-orb" aria-label="Stop listening">
           <span class="ai-orb-ring"></span><span class="ai-orb-ring ai-orb-ring-2"></span><span class="ai-orb-ring ai-orb-ring-3"></span>
-          <span class="ai-orb-core">🎤</span>
+          <span class="ai-orb-core"><span class="ei" data-icon="mic"></span></span>
         </button>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2"><span class="text-sm font-bold">Listening…</span><span class="ai-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
@@ -3010,9 +3009,9 @@
         <button onclick="toggleAssistantListening()" class="text-xs font-bold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg flex-shrink-0">Stop</button>
       </div>
       <div class="hidden items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2" id="assistant-attachment-chip">
-        <span class="text-base flex-shrink-0">📎</span>
+        <span class="text-base flex-shrink-0"><span class="ei" data-icon="paperclip"></span></span>
         <span class="text-xs text-gray-600 truncate flex-1" id="assistant-attachment-name"></span>
-        <button onclick="clearAssistantAttachment()" class="text-gray-400 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Remove attachment" aria-label="Remove attachment">✕</button>
+        <button onclick="clearAssistantAttachment()" class="text-gray-400 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Remove attachment" aria-label="Remove attachment" data-icon="close"></button>
       </div>
       <div class="asst-inputbar">
         <input type="file" id="assistant-file-input" accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg" class="hidden" onchange="onAssistantFileSelected(this.files[0])">
@@ -3039,8 +3038,8 @@
 <div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-journey-trophy">
   <div class="bg-white rounded-2xl w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl">
     <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-      <h3 class="text-sm font-black text-navy">🏆 Trophy Case</h3>
-      <button onclick="closeModal('modal-journey-trophy')" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+      <h3 class="text-sm font-black text-navy"><span class="ei" data-icon="trophy"></span> Trophy Case</h3>
+      <button onclick="closeModal('modal-journey-trophy')" class="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close" data-icon="close"></button>
     </div>
     <div class="p-6">
       <div class="text-center mb-5">
@@ -3065,8 +3064,8 @@
     <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
       <h3 class="text-base font-bold text-navy" id="modal-task-title">New Task</h3>
       <div class="flex items-center gap-2">
-        <button onclick="askAIAboutTask()" id="task-ai-btn" class="hidden bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-xs font-semibold px-3 py-1.5 rounded-lg" title="Ask the assistant to change, split or delete this task">✨ Ask AI</button>
-        <button onclick="closeModal('modal-task')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+        <button onclick="askAIAboutTask()" id="task-ai-btn" class="hidden bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-xs font-semibold px-3 py-1.5 rounded-lg" title="Ask the assistant to change, split or delete this task"><span class="ei" data-icon="sparkles"></span> Ask AI</button>
+        <button onclick="closeModal('modal-task')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
       </div>
     </div>
     <!-- Task form: the essentials first (what, where, status, when, who),
@@ -3200,7 +3199,7 @@
       <span id="td-project-icon" class="text-lg flex-shrink-0"></span>
       <span id="td-project-title" class="text-sm font-bold text-gray-500 truncate"></span>
     </button>
-    <button onclick="closeTaskDetail()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1 flex-shrink-0" aria-label="Close task details">✕</button>
+    <button onclick="closeTaskDetail()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1 flex-shrink-0" aria-label="Close task details" data-icon="close"></button>
   </div>
   <div class="p-6 overflow-y-auto flex-1">
     <h2 class="text-2xl font-black text-navy leading-tight mb-3" id="td-title">Task</h2>
@@ -3210,7 +3209,7 @@
       <button type="button" role="radio" data-value="Completed" onclick="setDetailStatus('Completed')">✓ Done</button>
     </div>
     <div class="flex flex-wrap items-center gap-2 mb-4"><div class="flex flex-wrap gap-2" id="td-badges"></div>
-      <button type="button" id="td-reminder-btn" onclick="Reminders.openSheet(APP_currentDetailTaskId, document.getElementById('td-title').textContent)" class="reminder-btn" title="Ring me about this task at a set time">⏰ Remind me</button></div>
+      <button type="button" id="td-reminder-btn" onclick="Reminders.openSheet(APP_currentDetailTaskId, document.getElementById('td-title').textContent)" class="reminder-btn" title="Ring me about this task at a set time"><span class="ei" data-icon="alarm"></span> Remind me</button></div>
     <div class="td-facts mb-5" id="td-facts"></div>
     <div id="td-progress" class="hidden mb-5"></div>
 
@@ -3219,10 +3218,10 @@
          suggestion is a bonus on top of it, never the only option, since an
          AI provider outage should never block the core "just start" flow. -->
     <div class="hidden bg-orange-50 border border-orange-100 rounded-xl p-4 mb-5" id="td-tiny-step">
-      <p class="text-xs font-semibold text-orange-700 mb-2">⚡ Stuck on this? Just start.</p>
+      <p class="text-xs font-semibold text-orange-700 mb-2"><span class="ei" data-icon="zap"></span> Stuck on this? Just start.</p>
       <p class="hidden text-sm text-navy mb-3" id="td-tiny-step-suggestion"></p>
       <div class="flex items-center gap-2 flex-wrap">
-        <button onclick="suggestTinyStep()" id="td-tiny-step-suggest-btn" class="bg-white hover:bg-gray-50 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-lg">✨ Suggest a tiny first step</button>
+        <button onclick="suggestTinyStep()" id="td-tiny-step-suggest-btn" class="bg-white hover:bg-gray-50 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-lg"><span class="ei" data-icon="sparkles"></span> Suggest a tiny first step</button>
         <button onclick="startTwoMinuteTimer()" id="td-timer-start-btn" class="bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Just start — 2 minutes</button>
         <span class="hidden text-sm font-bold text-orange-700" id="td-timer-display"></span>
         <button onclick="markStartedFromTimer()" id="td-timer-done-btn" class="hidden bg-navy hover:bg-navy-2 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Mark In Progress</button>
@@ -3235,7 +3234,7 @@
     </div>
 
     <div class="border-t border-gray-100 pt-4 mb-5">
-      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">⚔️ Blockers</p>
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1"><span class="ei" data-icon="blocker"></span> Blockers</p>
       <p class="text-xs text-gray-400 mb-2">What's in the way. Tick each one off when it's cleared; the task can't be finished until they all are.</p>
       <div id="td-obstacles" class="space-y-1.5 mb-2"></div>
       <div id="td-obstacle-box" class="flex gap-2 items-center">
@@ -3250,7 +3249,7 @@
     </div>
 
     <div class="border-t border-gray-100 pt-4 mb-5">
-      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">🔗 Predecessors</p>
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1"><span class="ei" data-icon="link"></span> Predecessors</p>
       <p class="text-xs text-gray-400 mb-2">Tasks that must be finished before this one can start.</p>
       <div id="td-predecessors" class="flex flex-wrap gap-1.5 mb-2"></div>
       <div id="td-predecessor-box" class="flex gap-2 items-center">
@@ -3276,10 +3275,10 @@
         </div>
         <label class="flex items-center gap-1.5 mt-1.5 text-xs text-gray-500 cursor-pointer select-none">
           <input type="checkbox" id="td-status-update-blocker" class="accent-red-500 w-3.5 h-3.5">
-          🚧 This is a blocker — needs help or a tool to move
+          <span class="ei" data-icon="construction"></span> This is a blocker — needs help or a tool to move
         </label>
       </div>
-      <p class="hidden text-xs text-gray-400" id="td-status-update-viewonly">👁 View-only access — you can't post updates on this project.</p>
+      <p class="hidden text-xs text-gray-400" id="td-status-update-viewonly"><span class="ei" data-icon="eye"></span> View-only access — you can't post updates on this project.</p>
     </div>
 
     <div class="border-t border-gray-100 pt-4">
@@ -3287,16 +3286,16 @@
       <div id="td-comments" class="space-y-3 mb-3"></div>
       <div class="hidden items-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2" id="td-comment-reply-chip">
         <span class="text-xs text-gray-600 truncate flex-1">↩ Replying to <strong id="td-comment-reply-author"></strong>: <span id="td-comment-reply-snippet" class="text-gray-400"></span></span>
-        <button onclick="cancelCommentReply()" class="text-gray-400 hover:text-red-500 text-xs flex-shrink-0" title="Cancel reply">✕</button>
+        <button onclick="cancelCommentReply()" class="text-gray-400 hover:text-red-500 text-xs flex-shrink-0" title="Cancel reply" aria-label="Close" data-icon="close"></button>
       </div>
       <div class="hidden items-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2" id="td-comment-attachment-chip">
-        <span class="text-sm flex-shrink-0">📎</span>
+        <span class="text-sm flex-shrink-0"><span class="ei" data-icon="paperclip"></span></span>
         <span class="text-xs text-gray-600 truncate flex-1" id="td-comment-attachment-name"></span>
-        <button onclick="clearCommentAttachment()" class="text-gray-400 hover:text-red-500 text-xs flex-shrink-0" title="Remove">✕</button>
+        <button onclick="clearCommentAttachment()" class="text-gray-400 hover:text-red-500 text-xs flex-shrink-0" title="Remove" aria-label="Close" data-icon="close"></button>
       </div>
       <div class="flex gap-2" id="td-comment-box">
         <input type="file" id="td-comment-file-input" accept="image/*,video/*,.pdf,.xlsx,.xls,.docx,.doc,.txt,.csv" class="hidden" onchange="onCommentFileSelected(this.files[0])">
-        <button onclick="document.getElementById('td-comment-file-input').click()" class="text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 flex-shrink-0" title="Attach a file or photo">📎</button>
+        <button onclick="document.getElementById('td-comment-file-input').click()" class="text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 flex-shrink-0" title="Attach a file or photo"><span class="ei" data-icon="paperclip"></span></button>
         <div class="relative flex-1">
           <div class="hidden absolute bottom-full left-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-20 w-56" id="td-comment-mention-list"></div>
           <input type="text" id="td-comment-input" placeholder="Add a comment… (@ to mention)" oninput="onMentionInput('td-comment-input','td-comment-mention-list')" onblur="hideMentionListDelayed('td-comment-mention-list')" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitTaskComment();}"
@@ -3304,16 +3303,16 @@
         </div>
         <button onclick="submitTaskComment()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0">Post</button>
       </div>
-      <p class="hidden text-xs text-gray-400" id="td-comment-viewonly">👁 View-only access — you can't comment on this project.</p>
+      <p class="hidden text-xs text-gray-400" id="td-comment-viewonly"><span class="ei" data-icon="eye"></span> View-only access — you can't comment on this project.</p>
     </div>
   </div>
   <!-- One row: icon buttons for the secondary actions (the ✕ at the top
        closes the panel), then the main action, full width. -->
   <div class="flex items-center gap-2 px-4 sm:px-6 py-3 border-t border-gray-100">
-    <button onclick="addTaskToGoogleCalendar(APP_currentDetailTaskId)" title="Add to Google Calendar" aria-label="Add to Google Calendar" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-sm w-10 h-9 rounded-lg flex-shrink-0">📅</button>
+    <button onclick="addTaskToGoogleCalendar(APP_currentDetailTaskId)" title="Add to Google Calendar" aria-label="Add to Google Calendar" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-sm w-10 h-9 rounded-lg flex-shrink-0"><span class="ei" data-icon="calendar"></span></button>
     <button onclick="duplicateTaskFromDetail()" title="Duplicate this task" aria-label="Duplicate this task" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-sm w-10 h-9 rounded-lg flex-shrink-0">⧉</button>
-    <button onclick="askAIAboutTask(APP_currentDetailTaskId)" id="td-ai-btn" title="Ask AI about this task" aria-label="Ask AI about this task" class="bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-sm w-10 h-9 rounded-lg flex-shrink-0">✨</button>
-    <button onclick="editTaskFromDetail()" id="btn-edit-task-detail" class="bg-white hover:bg-gray-50 text-navy border border-gray-200 text-sm font-semibold px-3 h-9 rounded-lg flex-shrink-0">✏️ Edit</button>
+    <button onclick="askAIAboutTask(APP_currentDetailTaskId)" id="td-ai-btn" title="Ask AI about this task" aria-label="Ask AI about this task" class="bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-sm w-10 h-9 rounded-lg flex-shrink-0"><span class="ei" data-icon="sparkles"></span></button>
+    <button onclick="editTaskFromDetail()" id="btn-edit-task-detail" class="bg-white hover:bg-gray-50 text-navy border border-gray-200 text-sm font-semibold px-3 h-9 rounded-lg flex-shrink-0"><span class="ei" data-icon="edit"></span> Edit</button>
     <button onclick="detailPrimaryAction()" id="td-primary-btn" class="flex-1 bg-teal hover:bg-teal/90 text-white text-sm font-bold px-4 h-9 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">▶ Start</button>
   </div>
 </div>
@@ -3329,9 +3328,9 @@
       <p class="font-bold text-navy truncate" id="team-chat-project-title"></p>
     </div>
     <div class="flex items-center gap-1 flex-shrink-0">
-      <button onclick="startGoLive()" id="btn-go-live" class="hidden text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-gray-100 text-base" title="Start a live video walkthrough">🔴</button>
-      <button onclick="openShareProject(APP.chatProjectId)" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-base" title="Add members / manage access">👥</button>
-      <button onclick="closeProjectChat()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+      <button onclick="startGoLive()" id="btn-go-live" class="hidden text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-gray-100 text-base" title="Start a live video walkthrough"><span class="ei" data-icon="overdue"></span></button>
+      <button onclick="openShareProject(APP.chatProjectId)" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-base" title="Add members / manage access"><span class="ei" data-icon="users"></span></button>
+      <button onclick="closeProjectChat()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
     </div>
   </div>
   <!-- Go Live — an embedded Jitsi Meet room so a site rep can broadcast a
@@ -3354,16 +3353,16 @@
   <div class="px-6 py-4 border-t border-gray-100">
     <div class="hidden items-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2" id="team-chat-reply-chip">
       <span class="text-xs text-gray-600 truncate flex-1">↩ Replying to <strong id="team-chat-reply-author"></strong>: <span id="team-chat-reply-snippet" class="text-gray-400"></span></span>
-      <button onclick="cancelChatReply()" class="text-gray-400 hover:text-red-500 text-xs flex-shrink-0" title="Cancel reply">✕</button>
+      <button onclick="cancelChatReply()" class="text-gray-400 hover:text-red-500 text-xs flex-shrink-0" title="Cancel reply" aria-label="Close" data-icon="close"></button>
     </div>
     <div class="hidden items-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2" id="team-chat-attachment-chip">
-      <span class="text-sm flex-shrink-0">📎</span>
+      <span class="text-sm flex-shrink-0"><span class="ei" data-icon="paperclip"></span></span>
       <span class="text-xs text-gray-600 truncate flex-1" id="team-chat-attachment-name"></span>
-      <button onclick="clearTeamChatAttachment()" class="text-gray-400 hover:text-red-500 text-xs flex-shrink-0" title="Remove">✕</button>
+      <button onclick="clearTeamChatAttachment()" class="text-gray-400 hover:text-red-500 text-xs flex-shrink-0" title="Remove" aria-label="Close" data-icon="close"></button>
     </div>
     <div id="team-chat-input-box">
       <label class="flex items-center gap-1.5 mb-1.5 text-xs text-gray-500 cursor-pointer select-none">
-        <input type="checkbox" id="chat-also-email" onchange="toggleChatEmailOptions()"> ✉️ Also email this to the team
+        <input type="checkbox" id="chat-also-email" onchange="toggleChatEmailOptions()"> <span class="ei" data-icon="mail"></span> Also email this to the team
       </label>
       <div class="hidden mb-1.5" id="chat-cc-row">
         <input type="text" id="chat-cc-input" placeholder="CC anyone else (comma-separated emails, optional)"
@@ -3371,7 +3370,7 @@
       </div>
       <div class="flex gap-2">
         <input type="file" id="team-chat-file-input" accept="image/*,video/*,.pdf,.xlsx,.xls,.docx,.doc,.txt,.csv" class="hidden" onchange="onTeamChatFileSelected(this.files[0])">
-        <button onclick="document.getElementById('team-chat-file-input').click()" class="text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 flex-shrink-0" title="Attach a file or photo">📎</button>
+        <button onclick="document.getElementById('team-chat-file-input').click()" class="text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 flex-shrink-0" title="Attach a file or photo"><span class="ei" data-icon="paperclip"></span></button>
         <div class="relative flex-1">
           <div class="hidden absolute bottom-full left-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-20 w-56" id="team-chat-mention-list"></div>
           <input type="text" id="team-chat-input" placeholder="Message the team… (@ to mention)" oninput="onMentionInput('team-chat-input','team-chat-mention-list')" onblur="hideMentionListDelayed('team-chat-mention-list')" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitProjectChatMessage();}"
@@ -3380,7 +3379,7 @@
         <button onclick="submitProjectChatMessage()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg flex-shrink-0">Send</button>
       </div>
     </div>
-    <p class="hidden text-xs text-gray-400" id="team-chat-viewonly">👁 View-only access — you can't post in this chat.</p>
+    <p class="hidden text-xs text-gray-400" id="team-chat-viewonly"><span class="ei" data-icon="eye"></span> View-only access — you can't post in this chat.</p>
   </div>
 </div>
 
@@ -3389,15 +3388,15 @@
   <div class="bg-white rounded-2xl w-full max-w-sm max-h-[90vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
       <h3 class="text-base font-bold text-navy">Add Status</h3>
-      <button onclick="closeModal('modal-status-composer')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+      <button onclick="closeModal('modal-status-composer')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
     </div>
     <div class="p-6 space-y-3">
       <input type="file" id="status-file-input" accept="image/*,video/*" class="hidden" onchange="onStatusFileSelected(this.files[0])">
-      <button onclick="document.getElementById('status-file-input').click()" id="status-file-picker-btn" class="w-full border-2 border-dashed border-gray-200 rounded-xl py-8 text-center text-gray-400 hover:border-teal hover:text-teal text-sm">📷 Add a photo or video (optional)</button>
+      <button onclick="document.getElementById('status-file-input').click()" id="status-file-picker-btn" class="w-full border-2 border-dashed border-gray-200 rounded-xl py-8 text-center text-gray-400 hover:border-teal hover:text-teal text-sm"><span class="ei" data-icon="camera"></span> Add a photo or video (optional)</button>
       <div class="hidden relative" id="status-file-preview-wrap">
         <img id="status-file-preview-img" class="hidden w-full rounded-xl max-h-64 object-cover">
         <video id="status-file-preview-video" class="hidden w-full rounded-xl max-h-64" controls></video>
-        <button onclick="clearStatusAttachment()" class="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">✕</button>
+        <button onclick="clearStatusAttachment()" class="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center" aria-label="Close" data-icon="close"></button>
       </div>
       <textarea id="status-text-input" rows="2" placeholder="Say something… (optional if you added a photo)"
         class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
@@ -3420,22 +3419,22 @@
       <p class="text-xs text-white/60" id="status-viewer-time"></p>
     </div>
   </div>
-  <button onclick="closeStatusViewer()" class="absolute top-4 right-4 z-10 text-white/80 hover:text-white text-2xl leading-none">✕</button>
+  <button onclick="closeStatusViewer()" class="absolute top-4 right-4 z-10 text-white/80 hover:text-white text-2xl leading-none" aria-label="Close" data-icon="close"></button>
   <button onclick="statusViewerPrev()" class="absolute left-0 top-0 bottom-0 w-1/3 z-[5]" aria-label="Previous"></button>
   <button onclick="statusViewerNext()" class="absolute right-0 top-0 bottom-0 w-1/3 z-[5]" aria-label="Next"></button>
   <div class="w-full h-full flex items-center justify-center p-4" id="status-viewer-content"></div>
   <div class="absolute bottom-6 left-0 right-0 flex justify-center px-6">
     <p class="text-white text-sm text-center bg-black/40 rounded-lg px-4 py-2 max-w-md" id="status-viewer-caption"></p>
   </div>
-  <button onclick="deleteStatusFromViewer()" id="status-viewer-delete-btn" class="hidden absolute bottom-6 right-6 z-10 text-white/70 hover:text-red-400 text-lg">🗑️</button>
+  <button onclick="deleteStatusFromViewer()" id="status-viewer-delete-btn" class="hidden absolute bottom-6 right-6 z-10 text-white/70 hover:text-red-400 text-lg"><span class="ei" data-icon="trash"></span></button>
 </div>
 
 <!-- SHARE PROJECT MODAL -->
 <div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-share">
   <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-      <h3 class="text-base font-bold text-navy">👥 Share <span id="share-project-title" class="text-gray-400 font-normal"></span></h3>
-      <button onclick="closeModal('modal-share')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+      <h3 class="text-base font-bold text-navy"><span class="ei" data-icon="users"></span> Share <span id="share-project-title" class="text-gray-400 font-normal"></span></h3>
+      <button onclick="closeModal('modal-share')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
     </div>
     <div class="p-6 overflow-y-auto flex-1">
       <div class="mb-5" id="share-invite-section">
@@ -3467,8 +3466,8 @@
 <div class="modal-overlay fixed inset-0 bg-black/50 z-50 items-center justify-center p-5" id="modal-invites">
   <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl">
     <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-      <h3 class="text-base font-bold text-navy">📨 Project Invitations</h3>
-      <button onclick="closeModal('modal-invites')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+      <h3 class="text-base font-bold text-navy"><span class="ei" data-icon="send"></span> Project Invitations</h3>
+      <button onclick="closeModal('modal-invites')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
     </div>
     <div class="p-6 overflow-y-auto flex-1">
       <div id="invites-list" class="space-y-3"></div>
@@ -3501,12 +3500,12 @@
      dismissible by its own × or a wait, never captures clicks outside its
      own small box. -->
 <div class="journey-achieve bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 flex items-start gap-3" id="journey-achieve-banner">
-  <div class="text-3xl leading-none flex-shrink-0" id="journey-achieve-emoji">🎯</div>
+  <div class="text-3xl leading-none flex-shrink-0" id="journey-achieve-emoji"><span class="ei" data-icon="goal"></span></div>
   <div class="min-w-0 flex-1">
     <h4 class="text-sm font-black text-navy" id="journey-achieve-heading">Reached the target!</h4>
     <p class="text-xs text-gray-600 mt-0.5 leading-snug" id="journey-achieve-message"></p>
   </div>
-  <button onclick="dismissJourneyAchievement()" class="text-gray-400 hover:text-gray-600 text-lg leading-none flex-shrink-0" title="Dismiss">✕</button>
+  <button onclick="dismissJourneyAchievement()" class="text-gray-400 hover:text-gray-600 text-lg leading-none flex-shrink-0" title="Dismiss" aria-label="Close" data-icon="close"></button>
 </div>
 
 <!-- Screen-wide celebration layers — fire from anywhere a task (or a whole
@@ -3527,10 +3526,10 @@
   <div class="absolute inset-0 bg-navy/15" id="project-complete-backdrop" onclick="dismissProjectCompleteOverlay()"></div>
   <div class="relative bg-white w-full sm:max-w-md sm:rounded-3xl rounded-t-3xl shadow-2xl px-6 pt-3 pb-8 text-center" id="project-complete-sheet" style="touch-action:none;">
     <div class="w-10 h-1.5 bg-gray-300 rounded-full mx-auto mb-4"></div>
-    <div class="text-6xl mb-3 animate-bounce" id="project-complete-emoji">🏆</div>
+    <div class="text-6xl mb-3 animate-bounce" id="project-complete-emoji"><span class="ei" data-icon="trophy"></span></div>
     <h2 class="text-xl font-black text-navy mb-1" id="project-complete-heading">Project Complete!</h2>
     <p class="text-sm text-gray-600 mb-6 leading-relaxed" id="project-complete-message"></p>
-    <button onclick="dismissProjectCompleteOverlay()" class="bg-teal hover:bg-teal/90 text-white text-sm font-semibold px-6 py-2.5 rounded-xl">Nice! 🎉</button>
+    <button onclick="dismissProjectCompleteOverlay()" class="bg-teal hover:bg-teal/90 text-white text-sm font-semibold px-6 py-2.5 rounded-xl">Nice! <span class="ei" data-icon="party"></span></button>
     <p class="text-[11px] text-gray-300 mt-3">⌄ Swipe down to dismiss</p>
   </div>
 </div>

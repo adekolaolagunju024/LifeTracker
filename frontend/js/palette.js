@@ -106,7 +106,7 @@ function renderPalette() {
     const head = it.group !== group ? `<p class="px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">${esc((group = it.group))}</p>` : '';
     return `${head}<button type="button" role="option" id="palette-opt-${i}" aria-selected="${i === paletteIndex}" data-i="${i}"
       class="palette-item w-full flex items-center gap-3 px-4 py-2 text-left text-sm">
-      <span class="w-5 text-center flex-shrink-0">${it.icon}</span>
+      <span class="w-5 flex justify-center flex-shrink-0">${emojiIcon(it.icon)}</span>
       <span class="min-w-0 flex-1"><span class="block truncate font-medium">${esc(it.label)}</span>${it.sub ? `<span class="block truncate text-[11px] text-gray-400">${esc(it.sub)}</span>` : ''}</span>
       ${it.hint ? `<kbd class="text-[10px] font-mono text-gray-400 border border-gray-200 rounded px-1.5">${esc(it.hint)}</kbd>` : ''}
     </button>`;

@@ -107,6 +107,8 @@ function buildProgressReport(viewerId, projectId, now = new Date()) {
 // a source), other files listed by name. Shared by the project and the
 // portfolio report.
 const MEDIA_KIND = { progress: ['Progress', '#0A7E8C'], blocker: ['Blocker', '#B03020'], info: ['Info', '#6B7280'] };
+const { icon, emojiIcon } = require('../../frontend/js/icons.js');
+
 const MEDIA_CSS = `.media{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
   .media figure{margin:0;border:1px solid #E5E7EB;border-radius:14px;overflow:hidden;background:#fff;break-inside:avoid}
   .media img{display:block;width:100%;height:170px;object-fit:cover;background:#F3F4F6}
@@ -122,7 +124,7 @@ function renderMediaSection(media, mediaSrc, { showProject = false } = {}) {
   media.forEach(m => {
     const src = mediaSrc ? mediaSrc(m) : null;
     if (src && /^image\//.test(m.mimetype)) images.push(`<figure><img src="${esc(src)}" alt="${esc(m.caption || m.originalName)}" loading="lazy"><figcaption>${label(m)}${esc(m.caption || m.originalName)}<span class="sub">${sub(m)}</span></figcaption></figure>`);
-    else files.push(`<li><span>${label(m)}📎 ${src ? `<a href="${esc(src)}" target="_blank" rel="noopener">${esc(m.originalName)}</a>` : esc(m.originalName)}${m.caption ? ` · ${esc(m.caption)}` : ''}</span><em>${sub(m)}</em></li>`);
+    else files.push(`<li><span>${label(m)}${icon('paperclip')}${src ? `<a href="${esc(src)}" target="_blank" rel="noopener">${esc(m.originalName)}</a>` : esc(m.originalName)}${m.caption ? ` · ${esc(m.caption)}` : ''}</span><em>${sub(m)}</em></li>`);
   });
   return `<section><h2>Photos and files</h2>${images.length ? `<div class="media">${images.join('')}</div>` : ''}${files.length ? `<ul class="files" style="margin-top:${images.length ? 14 : 0}px">${files.join('')}</ul>` : ''}</section>`;
 }
@@ -146,13 +148,14 @@ function renderProgressReportHtml(r, { live = false, appUrl = '', mediaSrc = nul
     const at = iso => Math.max(0, Math.min(100, ((atNoon(iso) - atNoon(start)) / span) * 100));
     const todayAt = at(r.today);
     timeline = `<section><h2>Timeline</h2><div class="timeline"><div class="tl-scale"><span>${shortDate(start)}</span><span>${shortDate(end)}</span></div>
-      ${r.phases.filter(p => p.start && p.end).map(p => `<div class="tl-row"><span class="tl-name">${esc(p.icon)} ${esc(p.title)}</span><div class="tl-track"><div class="tl-bar" style="left:${at(p.start)}%;width:${Math.max(1.5, at(p.end) - at(p.start))}%"><i style="width:${p.pct}%"></i></div></div></div>`).join('')}
+      ${r.phases.filter(p => p.start && p.end).map(p => `<div class="tl-row"><span class="tl-name">${emojiIcon(p.icon)} ${esc(p.title)}</span><div class="tl-track"><div class="tl-bar" style="left:${at(p.start)}%;width:${Math.max(1.5, at(p.end) - at(p.start))}%"><i style="width:${p.pct}%"></i></div></div></div>`).join('')}
       <div class="tl-today" style="left:calc(160px + (100% - 160px) * ${todayAt / 100})"><span>Today</span></div></div></section>`;
   }
 
   return `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>${esc(r.project.title)} · Progress report</title>
 <style>
+.ic{width:1em;height:1em;display:inline-block;vertical-align:-.14em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;margin-right:.2em}
   *{box-sizing:border-box} body{margin:0;background:#F3F4F6;font-family:Inter,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1F2937;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .page{max-width:880px;margin:24px auto;background:#fff;border-radius:20px;box-shadow:0 10px 40px rgba(13,27,42,.08);overflow:hidden}
   header{background:linear-gradient(135deg,#0D1B2A,#0A7E8C);color:#fff;padding:28px 36px}
@@ -181,7 +184,7 @@ function renderProgressReportHtml(r, { live = false, appUrl = '', mediaSrc = nul
   ${MEDIA_CSS}
   @media print{body{background:#fff}.page{box-shadow:none;margin:0;max-width:none;border-radius:0} section{break-inside:avoid}}
 </style></head><body><div class="page">
-<header><div class="brand">Waypoint · Progress report</div><h1>${esc(r.project.icon)} ${esc(r.project.title)}</h1>
+<header><div class="brand">Waypoint · Progress report</div><h1>${emojiIcon(r.project.icon)} ${esc(r.project.title)}</h1>
 <div class="meta">${r.project.ownerName ? `Owner: ${esc(r.project.ownerName)} · ` : ''}${live ? 'Live report, updated' : 'Generated'} ${esc(longDate(r.today))}${r.schedule.start && r.schedule.end ? ` · Plan: ${esc(shortDate(r.schedule.start))} – ${esc(longDate(r.schedule.end))}` : ''}</div>
 <span class="pill">${esc(r.status.label)}${r.status.gap !== undefined && r.status.key !== 'ontrack' ? ` (${r.status.gap > 0 ? '+' : ''}${r.status.gap} pts)` : ''}</span></header>
 <main>
@@ -189,16 +192,16 @@ function renderProgressReportHtml(r, { live = false, appUrl = '', mediaSrc = nul
 ${r.project.description ? `<p class="meta" style="color:#6B7280;margin-top:16px">${esc(r.project.description)}</p>` : ''}
 <p class="summary">${esc(r.summary)}</p>
 ${r.phases.length ? `<section><h2>Phases</h2><table><thead><tr><th>Phase</th><th>Done</th><th style="width:30%">Progress</th><th>Dates</th><th>Status</th></tr></thead><tbody>
-${r.phases.map(p => `<tr><td><b>${esc(p.icon)} ${esc(p.title)}</b></td><td>${p.done}/${p.total}</td><td><div class="bar"><i style="width:${p.pct}%"></i></div></td><td style="white-space:nowrap;color:#6B7280">${p.start && p.end ? `${esc(shortDate(p.start))} – ${esc(shortDate(p.end))}` : '—'}</td><td class="st" style="color:${STATUS_COLOURS[p.status.key]}">${esc(p.status.label)}</td></tr>`).join('')}
+${r.phases.map(p => `<tr><td><b>${emojiIcon(p.icon)} ${esc(p.title)}</b></td><td>${p.done}/${p.total}</td><td><div class="bar"><i style="width:${p.pct}%"></i></div></td><td style="white-space:nowrap;color:#6B7280">${p.start && p.end ? `${esc(shortDate(p.start))} – ${esc(shortDate(p.end))}` : '—'}</td><td class="st" style="color:${STATUS_COLOURS[p.status.key]}">${esc(p.status.label)}</td></tr>`).join('')}
 </tbody></table></section>` : ''}
 ${timeline}
 <div class="grid2">
-<section><h2>Recently completed</h2>${list(r.recent, 'Nothing finished in the last two weeks.', t => `<li><span>✅ ${esc(t.title)}</span><em>${esc(shortDate(t.date))}</em></li>`)}</section>
-<section><h2>Coming up (next 2 weeks)</h2>${list(r.upcoming, 'Nothing due in the next two weeks.', t => `<li><span>${t.status === 'In Progress' ? '🔵' : '⚪'} ${esc(t.title)}</span><em>${esc(shortDate(t.date))}</em></li>`)}</section>
-<section><h2>Overdue</h2>${list(r.overdue, 'Nothing overdue. 🎉', t => `<li><span>🔴 ${esc(t.title)}</span><em>due ${esc(shortDate(t.date))}</em></li>`)}</section>
-<section><h2>Blockers (${r.blockers.length} open, ${r.blockersCleared} cleared)</h2>${list(r.blockers, 'Nothing in the way.', o => `<li><span>⚔️ ${esc(o.name)}${o.count > 1 ? ` ×${o.count}` : ''}</span><em>${esc(o.taskTitle)}</em></li>`)}</section>
+<section><h2>Recently completed</h2>${list(r.recent, 'Nothing finished in the last two weeks.', t => `<li><span>${icon('done')}${esc(t.title)}</span><em>${esc(shortDate(t.date))}</em></li>`)}</section>
+<section><h2>Coming up (next 2 weeks)</h2>${list(r.upcoming, 'Nothing due in the next two weeks.', t => `<li><span>${icon(t.status === 'In Progress' ? 'circle-dot' : 'circle')}${esc(t.title)}</span><em>${esc(shortDate(t.date))}</em></li>`)}</section>
+<section><h2>Overdue</h2>${list(r.overdue, 'Nothing overdue.', t => `<li><span>${icon('overdue')}${esc(t.title)}</span><em>due ${esc(shortDate(t.date))}</em></li>`)}</section>
+<section><h2>Blockers (${r.blockers.length} open, ${r.blockersCleared} cleared)</h2>${list(r.blockers, 'Nothing in the way.', o => `<li><span>${icon('blocker')}${esc(o.name)}${o.count > 1 ? ` ×${o.count}` : ''}</span><em>${esc(o.taskTitle)}</em></li>`)}</section>
 </div>
-${r.waiting.length ? `<section><h2>Waiting on other tasks</h2><ul>${r.waiting.map(w => `<li><span>🔗 ${esc(w.title)}</span><em>after ${esc(w.on.join(', '))}</em></li>`).join('')}</ul></section>` : ''}
+${r.waiting.length ? `<section><h2>Waiting on other tasks</h2><ul>${r.waiting.map(w => `<li><span>${icon('link')}${esc(w.title)}</span><em>after ${esc(w.on.join(', '))}</em></li>`).join('')}</ul></section>` : ''}
 ${renderMediaSection(r.media, mediaSrc)}
 </main>
 <footer><span>${live ? 'This page updates itself whenever the plan changes.' : `Generated ${esc(new Date(r.generatedAt).toUTCString())}`}</span><span>Made with ${appUrl ? `<a href="${esc(appUrl)}">Waypoint</a>` : 'Waypoint'}</span></footer>

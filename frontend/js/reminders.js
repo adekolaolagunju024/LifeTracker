@@ -123,10 +123,10 @@ const Reminders = (() => {
     // A Waypoint tab in the background still gets a system notification,
     // even without push turned on.
     if (document.hidden && 'Notification' in window && Notification.permission === 'granted' && navigator.serviceWorker) {
-      navigator.serviceWorker.getRegistration().then(reg => reg && reg.showNotification(`⏰ Time for: ${r.taskTitle}`, {
+      navigator.serviceWorker.getRegistration().then(reg => reg && reg.showNotification(`Time for: ${r.taskTitle}`, {
         body: 'Two minutes is enough to start.', tag: `reminder-${r.taskId}`, renotify: true, requireInteraction: true,
         icon: '/icons/icon-192.png', data: { url: `/app?reminder=${r.id}`, reminderId: r.id, taskId: r.taskId },
-        actions: [{ action: 'start', title: '▶ Start now' }, { action: 'snooze', title: '😴 Snooze 10 min' }],
+        actions: [{ action: 'start', title: '▶ Start now' }, { action: 'snooze', title: 'Snooze 10 min' }],
       })).catch(() => {});
     }
   }
@@ -186,7 +186,7 @@ const Reminders = (() => {
       if (perm.display !== 'granted') await LN.requestPermissions();
       await LN.cancel({ notifications: [{ id: nativeId(r.taskId) }] }).catch(() => {});
       await LN.schedule({ notifications: [{
-        id: nativeId(r.taskId), title: `⏰ Time for: ${r.taskTitle}`, body: 'Two minutes is enough to start.',
+        id: nativeId(r.taskId), title: `Time for: ${r.taskTitle}`, body: 'Two minutes is enough to start.',
         schedule: { at: new Date(r.remindAt), allowWhileIdle: true }, extra: { url: `/app?reminder=${r.id}` },
       }] });
     } catch (e) { console.warn('Native reminder failed:', e && e.message); }

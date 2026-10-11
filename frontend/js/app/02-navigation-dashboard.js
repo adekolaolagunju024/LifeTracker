@@ -149,7 +149,7 @@ function renderDashboardBento(tasks, allProjects) {
         <p class="text-[11px] font-bold tracking-widest uppercase text-[#9FB3C8]">${esc(STAGE_NAMES[getJourneyStage()] || 'Journey')} stage</p>
         ${status ? `<p class="text-xs font-bold" style="color:${gap < -5 ? '#FDBA74' : '#5EEAD4'}">${status}</p>` : ''}
       </div>
-      <button type="button" onclick="showPage('project-detail','${f.p.id}')" class="block text-left mt-2 text-xl font-extrabold text-white hover:underline">${esc(f.p.icon || '')} ${esc(f.p.title)}</button>
+      <button type="button" onclick="showPage('project-detail','${f.p.id}')" class="block text-left mt-2 text-xl font-extrabold text-white hover:underline">${emojiIcon(f.p.icon || '')} ${esc(f.p.title)}</button>
       <div class="focus-segs mt-3" style="grid-template-columns:repeat(${segCount},minmax(0,1fr))">${segs}</div>
       <div class="flex items-center justify-between gap-3 mt-3 flex-wrap">
         <p class="text-sm text-[#C9D6E2] min-w-0">${pctDone}% · Next stop: ${esc(next.title)}${foes ? ` · ${icon('blocker')} ${foes} ${foes === 1 ? 'blocker' : 'blockers'}` : ''}</p>
@@ -246,7 +246,7 @@ async function updateSidebar() {
     document.getElementById('project-nav').innerHTML = projects.map(proj => `
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all ${APP.currentProjectId === proj.id ? 'active' : ''}"
         onclick="showPage('project-detail','${proj.id}')">
-        <span class="icon-badge" style="background:${proj.color}33">${proj.icon}</span>
+        <span class="icon-badge" style="background:${proj.color}33">${emojiIcon(proj.icon)}</span>
         <span class="flex-1 text-left truncate">${esc(proj.title)}</span>
       </button>`).join('');
 
@@ -267,7 +267,7 @@ function tasksInProjectTree(projectId, allProjects, allTasks) {
 async function renderDashboard() {
   loadDailyQuests().then(g => {
     const pill = document.getElementById('dash-level-pill');
-    if (g && pill) pill.textContent = `${g.rank.icon} Lv ${g.level} · ${g.rank.name}`;
+    if (g && pill) pill.innerHTML = `${emojiIcon(g.rank.icon)} Lv ${g.level} · ${esc(g.rank.name)}`;
   });
   try {
     const [tasks, allProjects, profile] = await Promise.all([
@@ -333,7 +333,7 @@ async function renderDashboard() {
         <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-4 cursor-pointer"
           onclick="showPage('project-detail','${proj.id}')">
           <div class="flex items-center gap-3 mb-3">
-            <span class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background:${proj.color}1A">${proj.icon}</span>
+            <span class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background:${proj.color}1A">${emojiIcon(proj.icon)}</span>
             <div class="flex-1 min-w-0">
               <p class="font-bold text-sm text-navy truncate">${esc(proj.title)}</p>
               <p class="text-xs text-gray-400">${gdone} of ${gts.length} tasks done${daysLine ? ' · ' + daysLine : ''}</p>
@@ -362,7 +362,7 @@ async function renderDashboard() {
         <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-4 cursor-pointer"
           onclick="showPage('project-detail','${proj.id}')">
           <div class="flex items-center gap-3 mb-3">
-            <span class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background:${proj.color}1A">${proj.icon}</span>
+            <span class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background:${proj.color}1A">${emojiIcon(proj.icon)}</span>
             <div class="flex-1 min-w-0">
               <p class="font-bold text-sm text-navy truncate">${esc(proj.title)}</p>
               <p class="text-xs text-gray-400">${subLine}</p>
@@ -432,7 +432,7 @@ async function renderProjects() {
         <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-5 project-card"
           style="border-top: 4px solid ${proj.color}">
           <div class="flex justify-between items-start mb-3">
-            <span class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style="background:${proj.color}1A">${proj.icon}</span>
+            <span class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style="background:${proj.color}1A">${emojiIcon(proj.icon)}</span>
             <div class="project-card-actions flex gap-1 opacity-0 transition-opacity">
               <button onclick="event.stopPropagation();editProject('${proj.id}')"
                 class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm" aria-label="Edit project">${icon('edit')}</button>

@@ -29,11 +29,11 @@ function taskRowHtml(t, breadcrumb) {
     </tr>`;
 }
 
-function sectionHtml(title, emoji, rows) {
+function sectionHtml(title, rows) {
   if (!rows.length) return '';
   return `
     <tr><td style="padding:20px 0 4px;">
-      <div style="font-size:13px;font-weight:700;color:#1B3A5C;">${emoji} ${title} (${rows.length})</div>
+      <div style="font-size:13px;font-weight:700;color:#1B3A5C;">${title} (${rows.length})</div>
       <table width="100%" cellpadding="0" cellspacing="0">${rows.join('')}</table>
     </td></tr>`;
 }
@@ -41,9 +41,9 @@ function sectionHtml(title, emoji, rows) {
 function buildDigestHtml({ name, overdueRows, todayRows, tomorrowRows }) {
   const firstName = esc((name || 'there').split(' ')[0]);
   const body = [
-    sectionHtml('Overdue', '🔴', overdueRows),
-    sectionHtml('Due Today', '🟡', todayRows),
-    sectionHtml('Due Tomorrow', '🔵', tomorrowRows),
+    sectionHtml('Overdue', overdueRows),
+    sectionHtml('Due Today', todayRows),
+    sectionHtml('Due Tomorrow', tomorrowRows),
   ].join('');
 
   return `<!doctype html><html><body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,Segoe UI,Arial,sans-serif;">
@@ -73,11 +73,10 @@ function buildDigestHtml({ name, overdueRows, todayRows, tomorrowRows }) {
 function breadcrumbFor(task, projectById) {
   const proj = projectById[task.projectId];
   if (!proj) return '';
-  const icon = esc(proj.icon || '📁');
   if (proj.parentId && projectById[proj.parentId]) {
-    return `${icon} ${esc(projectById[proj.parentId].title)} › ${esc(proj.title)}`;
+    return `${esc(projectById[proj.parentId].title)} › ${esc(proj.title)}`;
   }
-  return `${icon} ${esc(proj.title)}`;
+  return esc(proj.title);
 }
 
 function buildDigestForUser(userId, name) {
@@ -120,7 +119,7 @@ async function runDailyDigest() {
       if (html) {
         await transporter.sendMail({
           to: u.email,
-          subject: '📋 Your Waypoint digest',
+          subject: 'Your Waypoint digest',
           html,
         });
         console.log(`Digest email sent to user ${u.userId}`); // ids, not addresses, in logs

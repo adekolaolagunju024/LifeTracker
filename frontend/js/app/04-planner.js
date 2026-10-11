@@ -279,9 +279,9 @@ function renderGanttStats(tasks, project) {
       <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide whitespace-nowrap">${esc(label)}</span>
     </div>`;
   wrap.innerHTML = [
-    stat(`🎯 ${pct}%`, 'Complete'),
-    stat(streak ? `🔥 ${streak}` : '—', 'Day streak'),
-    stat(`${paceIcon} ${paceValue}`, paceLabel),
+    stat(`${icon('goal')} ${pct}%`, 'Complete'),
+    stat(streak ? `${icon('flame')} ${streak}` : '—', 'Day streak'),
+    stat(`${emojiIcon(paceIcon)} ${paceValue}`, paceLabel),
   ].join('<div class="w-px self-stretch bg-gray-100"></div>');
 }
 
@@ -312,9 +312,9 @@ async function renderGantt() {
     const filterSel = document.getElementById('gantt-project-filter');
     filterSel.innerHTML = '<option value="">All Projects</option>' + filterTopLevel.map(top => {
       const kids = filterChildrenOf(top.id);
-      const topOption = `<option value="${top.id}">${top.icon} ${esc(top.title)}</option>`;
+      const topOption = `<option value="${top.id}">${esc(top.title)}</option>`;
       if (!kids.length) return topOption;
-      const kidOptions = kids.map(k => `<option value="${k.id}">${k.icon} ${esc(k.title)}</option>`).join('');
+      const kidOptions = kids.map(k => `<option value="${k.id}">${esc(k.title)}</option>`).join('');
       return `<optgroup label="${esc(top.title)}">${topOption}${kidOptions}</optgroup>`;
     }).join('');
     filterSel.value = APP.ganttProjectFilter;
@@ -437,7 +437,7 @@ async function renderGantt() {
 
     document.getElementById('gantt-project-badges').innerHTML = projectsWithStart.map(p => `
       <span class="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1 cursor-pointer" onclick="editProject('${p.id}')" title="Edit project">
-        🚩 ${esc(p.title)} starts ${formatDateShort(p.startDate)}
+        ${icon('goal')} ${esc(p.title)} starts ${formatDateShort(p.startDate)}
       </span>`).join('');
 
     // Group rows by the task's actual project (which may be a top-level
@@ -516,12 +516,12 @@ async function renderGantt() {
           <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-2 font-bold text-xs overflow-hidden">
             <span class="gantt-keep text-gray-400 text-[10px] flex-shrink-0 transition-transform cursor-pointer" style="${isCollapsed ? '' : 'transform:rotate(90deg)'}" onclick="toggleGanttGroup('${groupId}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">▶</span>
             <span class="gantt-keep w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${color}"></span>
-            <span class="gantt-title-text truncate cursor-pointer hover:underline flex-1 min-w-0" style="color:${color}" onclick="showPage('project-detail','${groupId}')" title="Open this project">${esc(groupProject?.icon || '')} ${esc(groupTitle)}</span>
+            <span class="gantt-title-text truncate cursor-pointer hover:underline flex-1 min-w-0" style="color:${color}" onclick="showPage('project-detail','${groupId}')" title="Open this project">${emojiIcon(groupProject?.icon || '')} ${esc(groupTitle)}</span>
             ${cardFields.schedule ? miniProjectScheduleBadge(pts) : ''}
             ${canEditGroup ? `
-            <button onclick="event.stopPropagation();editProject('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Edit project details">✏️</button>
-            <button onclick="openAddTask('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-teal px-1" title="Add task to this project">➕</button>
-            <button onclick="deleteProjectConfirm('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete this project">🗑️</button>` : ''}
+            <button onclick="event.stopPropagation();editProject('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Edit project details">${icon('edit')}</button>
+            <button onclick="openAddTask('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-teal px-1" title="Add task to this project">${icon('plus')}</button>
+            <button onclick="deleteProjectConfirm('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete this project">${icon('trash')}</button>` : ''}
           </div>
           <div class="gantt-sticky gantt-sticky-2 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 font-semibold">${done}/${pts.length}</div>
           <div class="gantt-sticky gantt-sticky-3 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDateShort(catStart)}</div>
@@ -577,9 +577,9 @@ async function renderGantt() {
               ${addObstacleButton(t, canEditGroup)}
               ${miniProgressBadge(t)}
               ${t.targetCount && t.status !== 'Completed' && canEditGroup ? `<button onclick="event.stopPropagation();bumpTaskProgressAction('${t.id}',1,'${t.projectId}')" class="flex-shrink-0 text-[10px] font-bold bg-teal/10 hover:bg-teal/20 text-teal px-1 rounded" title="Log one">+1</button>` : ''}
-              <button onclick="addTaskToGoogleCalendar('${t.id}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Add to Google Calendar">📅</button>
+              <button onclick="addTaskToGoogleCalendar('${t.id}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Add to Google Calendar">${icon('calendar')}</button>
               ${canEditGroup ? `<button onclick="duplicateTaskAction('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Duplicate">⧉</button>
-              <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">🗑️</button>` : ''}
+              <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-red-500 px-1" title="Delete task">${icon('trash')}</button>` : ''}
             </div>
             <div class="gantt-sticky gantt-sticky-2 px-1.5 py-1.5 border-r border-gray-200 flex items-center overflow-hidden">
               ${statusChipHTML(t, canEditGroup)}
@@ -780,7 +780,7 @@ function renderKanbanBoard(tasks, projectById) {
           </div>
           ${cardFields.tags && (t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1.5">${miniTagBadges(t.tags)}</div>` : ''}
           <div class="kanban-card-foot">
-            <span class="truncate flex items-center gap-1.5 min-w-0">${proj ? `<span class="truncate">${esc(proj.icon)} ${esc(proj.title)}</span>` : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}${statusUpdateBadge(t)}${obstacleBadge(t)}${waitingBadge(t)}<span data-reminder-slot="${t.id}">${window.Reminders ? Reminders.chip(t.id) : ''}</span></span>
+            <span class="truncate flex items-center gap-1.5 min-w-0">${proj ? `<span class="truncate">${emojiIcon(proj.icon)} ${esc(proj.title)}</span>` : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}${statusUpdateBadge(t)}${obstacleBadge(t)}${waitingBadge(t)}<span data-reminder-slot="${t.id}">${window.Reminders ? Reminders.chip(t.id) : ''}</span></span>
             ${t.endDate ? `<span class="kanban-due ${isOverdue ? 'is-overdue' : ''}" title="${isOverdue ? 'Overdue' : 'Due'}">${formatDateShort(t.endDate)}</span>` : ''}
           </div>
           ${blockerChecklist(t, canEdit, 'board')}
@@ -979,7 +979,7 @@ function chipHTML(kind, t, canEdit, ctx = '') {
   const c = CHIP_SETS[kind][current] || Object.values(CHIP_SETS[kind])[0];
   const word = kind === 'status' ? 'Status' : 'Priority';
   return `<button type="button" class="status-chip ${c.cls}" ${canEdit ? `onclick="event.stopPropagation(); openChipMenu(this, '${kind}', '${t.id}', '${current}', '${ctx}')" aria-haspopup="menu"` : 'disabled'}
-    title="${current}${canEdit ? ' (tap to change)' : ''}" aria-label="${word}: ${current}${canEdit ? '. Change ' + word.toLowerCase() : ''}"><span aria-hidden="true">${c.icon}</span>${c.label}</button>`;
+    title="${current}${canEdit ? ' (tap to change)' : ''}" aria-label="${word}: ${current}${canEdit ? '. Change ' + word.toLowerCase() : ''}"><span aria-hidden="true">${emojiIcon(c.icon)}</span>${c.label}</button>`;
 }
 function statusChipHTML(t, canEdit, ctx = '') { return chipHTML('status', t, canEdit, ctx); }
 function priorityChipHTML(t, canEdit, ctx = '') { return chipHTML('priority', t, canEdit, ctx); }
@@ -992,7 +992,7 @@ function openChipMenu(btn, kind, taskId, current, ctx = '') {
   menu.setAttribute('role', 'menu');
   menu.setAttribute('aria-label', kind === 'status' ? 'Change status' : 'Change priority');
   menu.innerHTML = Object.entries(CHIP_SETS[kind]).map(([value, c]) =>
-    `<button type="button" role="menuitemradio" aria-checked="${value === current}" class="status-chip ${c.cls} ${value === current ? 'is-current' : ''}" data-value="${value}"><span aria-hidden="true">${c.icon}</span>${value}</button>`).join('');
+    `<button type="button" role="menuitemradio" aria-checked="${value === current}" class="status-chip ${c.cls} ${value === current ? 'is-current' : ''}" data-value="${value}"><span aria-hidden="true">${emojiIcon(c.icon)}</span>${value}</button>`).join('');
   document.body.appendChild(menu);
   const r = btn.getBoundingClientRect();
   const top = r.bottom + menu.offsetHeight + 8 > innerHeight ? r.top - menu.offsetHeight - 4 : r.bottom + 4;

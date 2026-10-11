@@ -23,7 +23,7 @@ function presenceDot(lastActiveAt) {
   return `<span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${active ? '#22C55E' : '#D1D5DB'}" title="${active ? 'Active now' : 'Away'}"></span>`;
 }
 
-const ROLE_LABEL = { viewer: '👁 Viewer', commenter: '💬 Commenter', editor: '✏️ Editor', owner: '👑 Owner' };
+const ROLE_LABEL = { viewer: 'Viewer', commenter: 'Commenter', editor: 'Editor', owner: 'Owner' };
 
 async function renderShareCollaborators(projectId) {
   const wrap = document.getElementById('share-collaborators-list');
@@ -43,7 +43,7 @@ async function renderShareCollaborators(projectId) {
             <p class="text-xs text-gray-400 truncate">Invited · waiting for them to join Waypoint</p>
           </div>
           <span class="text-xs font-semibold text-gray-500 flex-shrink-0">${ROLE_LABEL[person.role] || person.role}</span>
-          ${isOwner ? `<button onclick="cancelEmailInviteConfirm('${projectId}','${esc(person.email)}')" class="text-gray-300 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Cancel invite" aria-label="Cancel the invite to ${esc(person.email)}">✕</button>` : ''}
+          ${isOwner ? `<button onclick="cancelEmailInviteConfirm('${projectId}','${esc(person.email)}')" class="text-gray-300 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Cancel invite" aria-label="Cancel the invite to ${esc(person.email)}">${icon('close')}</button>` : ''}
         </div>`;
       }
       const roleControl = canManage
@@ -61,7 +61,7 @@ async function renderShareCollaborators(projectId) {
             <p class="text-xs text-gray-400 truncate">${esc(person.email)}${pending ? ' · Invited — pending' : ''}</p>
           </div>
           ${roleControl}
-          ${canManage ? `<button onclick="removeCollaboratorConfirm('${projectId}','${person.userId}','${esc(person.name)}')" class="text-gray-300 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Remove">🗑️</button>` : ''}
+          ${canManage ? `<button onclick="removeCollaboratorConfirm('${projectId}','${person.userId}','${esc(person.name)}')" class="text-gray-300 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Remove">${icon('trash')}</button>` : ''}
         </div>`;
     }).join('');
   } catch (e) { console.error('Collaborators error:', e); }
@@ -131,11 +131,11 @@ async function renderChats() {
       ? chats.map(c => {
           const last = c.lastMessage;
           const preview = last
-            ? `${last.isMe ? 'You: ' : ''}${esc(last.text || '📎 Attachment')}`
-            : `<span class="text-gray-400">No messages yet — say hi 👋</span>`;
+            ? `${last.isMe ? 'You: ' : ''}${esc(last.text || 'Attachment')}`
+            : `<span class="text-gray-400">No messages yet — say hi ${icon('hand')}</span>`;
           return `
             <button onclick="openProjectChat('${c.projectId}')" class="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 text-left">
-              <span class="w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0" style="background:${c.color}1A">${esc(c.icon)}</span>
+              <span class="w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0" style="background:${c.color}1A">${emojiIcon(c.icon)}</span>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between gap-2">
                   <p class="font-bold text-sm text-navy truncate">${esc(c.title)}</p>
@@ -145,7 +145,7 @@ async function renderChats() {
               </div>
             </button>`;
         }).join('')
-      : `<p class="text-center text-gray-400 text-sm py-10">No shared projects yet — share a project (👥 Share) or accept an invite to start chatting with your team.</p>`;
+      : `<p class="text-center text-gray-400 text-sm py-10">No shared projects yet — share a project (${icon('users')} Share) or accept an invite to start chatting with your team.</p>`;
     // Visiting the inbox is "reading your mail" — clears the unread badge,
     // same as opening the notification bell does.
     await API.markNotificationsRead();
@@ -294,10 +294,10 @@ async function renderProjectChat(projectId) {
                 <p class="text-[9px] text-gray-400 mt-0.5 ${isMe ? 'mr-1' : 'ml-1'}">${isMe ? 'You · ' : ''}${time}</p>
               </div>
               ${APP.chatCanComment ? `<button onclick="replyToChatMessage('${m.id}','${esc(m.authorName).replace(/'/g, "\\'")}','${esc(m.text).replace(/'/g, "\\'")}')" class="text-gray-300 hover:text-teal text-xs opacity-0 group-hover:opacity-100 self-center flex-shrink-0" title="Reply">↩</button>` : ''}
-              ${canDelete ? `<button onclick="deleteProjectChatMessageConfirm('${m.id}','${projectId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100 self-center flex-shrink-0">🗑️</button>` : ''}
+              ${canDelete ? `<button onclick="deleteProjectChatMessageConfirm('${m.id}','${projectId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100 self-center flex-shrink-0">${icon('trash')}</button>` : ''}
             </div>`;
         }).join('')
-      : `<p class="text-xs text-gray-400 text-center py-6">No messages yet — say hi 👋</p>`;
+      : `<p class="text-xs text-gray-400 text-center py-6">No messages yet — say hi ${icon('hand')}</p>`;
     if (wasAtBottom) wrap.scrollTop = wrap.scrollHeight;
   } catch (e) { console.error('Chat load error:', e); }
 }
@@ -388,7 +388,7 @@ async function renderStatusTray(projectId) {
     APP.statusTrayProjectId = projectId;
     const myRing = APP.chatCanComment
       ? `<button onclick="openStatusComposer()" class="flex flex-col items-center gap-1 flex-shrink-0 w-14" title="Add status">
-           <span class="w-12 h-12 rounded-full border-2 border-dashed border-teal text-teal flex items-center justify-center text-lg">➕</span>
+           <span class="w-12 h-12 rounded-full border-2 border-dashed border-teal text-teal flex items-center justify-center text-lg">${icon('plus')}</span>
            <span class="text-[10px] text-gray-500 truncate w-full text-center">You</span>
          </button>`
       : '';
@@ -625,7 +625,7 @@ async function renderTaskChecklist(taskId) {
       <div class="flex items-center gap-2 group">
         <input type="checkbox" ${i.completed ? 'checked' : ''} onchange="toggleTaskChecklistItem('${i.id}', this.checked, '${taskId}')">
         <span class="flex-1 text-sm ${i.completed ? 'line-through text-gray-400' : 'text-navy'}">${esc(i.title)}</span>
-        <button onclick="removeTaskChecklistItem('${i.id}', '${taskId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100 px-1">🗑️</button>
+        <button onclick="removeTaskChecklistItem('${i.id}', '${taskId}')" class="text-gray-300 hover:text-red-500 text-xs opacity-0 group-hover:opacity-100 px-1">${icon('trash')}</button>
       </div>`).join('');
     refreshTaskListsAfterChecklistChange();
   } catch (e) { console.error('Checklist error:', e); }
@@ -710,10 +710,10 @@ async function populateProjectSelect(selectedId) {
 
   document.getElementById('task-project').innerHTML = topLevel.map(top => {
     const kids = childrenOf(top.id);
-    const topOption = `<option value="${top.id}" ${top.id === selectedId ? 'selected' : ''}>${top.icon} ${esc(top.title)}</option>`;
+    const topOption = `<option value="${top.id}" ${top.id === selectedId ? 'selected' : ''}>${esc(top.title)}</option>`;
     if (!kids.length) return topOption;
     const kidOptions = kids.map(k =>
-      `<option value="${k.id}" ${k.id === selectedId ? 'selected' : ''}>${k.icon} ${esc(k.title)}</option>`
+      `<option value="${k.id}" ${k.id === selectedId ? 'selected' : ''}>${esc(k.title)}</option>`
     ).join('');
     return `<optgroup label="${esc(top.title)}">${topOption}${kidOptions}</optgroup>`;
   }).join('');

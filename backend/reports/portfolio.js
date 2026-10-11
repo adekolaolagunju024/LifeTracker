@@ -1,5 +1,6 @@
 const db = require('../db/db');
 const ProgressMath = require('../../frontend/js/progressMath');
+const { icon, emojiIcon } = require('../../frontend/js/icons.js');
 const { buildProgressReport, renderMediaSection, MEDIA_CSS, STATUS_COLOURS, esc, shortDate, longDate } = require('./progress');
 
 // A portfolio report for a board or team meeting: every project the viewer
@@ -68,6 +69,7 @@ function renderPortfolioHtml(r, { appUrl = '', mediaSrc = null, title = '' } = {
   return `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>${esc(heading)} · Portfolio report</title>
 <style>
+.ic{width:1em;height:1em;display:inline-block;vertical-align:-.14em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;margin-right:.2em}
   *{box-sizing:border-box} body{margin:0;background:#F3F4F6;font-family:Inter,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:#1F2937;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .page{max-width:960px;margin:24px auto;background:#fff;border-radius:20px;box-shadow:0 10px 40px rgba(13,27,42,.08);overflow:hidden}
   header{background:linear-gradient(135deg,#0D1B2A,#0A7E8C);color:#fff;padding:28px 36px}
@@ -97,18 +99,18 @@ function renderPortfolioHtml(r, { appUrl = '', mediaSrc = null, title = '' } = {
 <div class="tiles">${tile(`${r.pct}%`, 'overall complete')}${tile(`${r.done}/${r.total}`, 'tasks done')}${tile(r.inProgress, 'in progress')}${tile(r.counts.behind + r.counts.slightly, 'projects behind')}${tile(r.overdue, 'tasks overdue')}${tile(r.blockers, 'open blockers')}</div>
 ${mix ? `<div class="mix" role="img" aria-label="Project status mix">${mix}</div><div class="legend">${legend}</div>` : ''}
 <section><h2>Projects</h2>${r.projects.length ? `<table><thead><tr><th>Project</th><th style="width:22%">Progress</th><th>Status</th><th class="wide">Plan end</th><th class="wide">Forecast</th><th>Overdue</th><th>Blockers</th></tr></thead><tbody>
-${r.projects.map(p => `<tr><td><b>${esc(p.icon)} ${esc(p.title)}</b>${p.ownerName ? `<div style="font-size:12px;color:#6B7280">${esc(p.ownerName)}</div>` : ''}</td>
+${r.projects.map(p => `<tr><td><b>${emojiIcon(p.icon)} ${esc(p.title)}</b>${p.ownerName ? `<div style="font-size:12px;color:#6B7280">${esc(p.ownerName)}</div>` : ''}</td>
 <td><div style="display:flex;align-items:center;gap:8px"><div class="bar" style="flex:1"><i style="width:${p.pct}%"></i></div><b style="font-size:13px">${p.pct}%</b></div><div style="font-size:12px;color:#6B7280">${p.done}/${p.total} tasks</div></td>
 <td class="st" style="color:${STATUS_COLOURS[p.status.key]}">${esc(p.status.label)}</td>
 <td class="wide" style="white-space:nowrap;color:#6B7280">${p.end ? esc(shortDate(p.end)) : '—'}</td>
 <td class="wide" style="white-space:nowrap;color:#6B7280">${p.forecast ? (p.forecast.kind === 'done' ? 'Done' : esc(shortDate(p.forecast.date))) : '—'}</td>
 <td style="font-weight:700;color:${p.overdue ? '#B03020' : '#6B7280'}">${p.overdue}</td><td style="font-weight:700;color:${p.blockers ? '#B03020' : '#6B7280'}">${p.blockers}</td></tr>`).join('')}
 </tbody></table>` : '<p class="empty">No projects to report on yet.</p>'}</section>
-<section><h2>Needs a decision</h2>${r.attention.length ? r.attention.map(a => `<div class="card"><b>${esc(a.icon)} ${esc(a.title)}</b> <span class="why">· ${esc(a.reasons.join(' · '))}</span>
-${a.blockers.length || a.overdueItems.length ? `<ul>${a.blockers.map(o => `<li><span>⚔️ ${esc(o.name)}</span><em>${esc(o.taskTitle)}</em></li>`).join('')}${a.overdueItems.map(t => `<li><span>🔴 ${esc(t.title)}</span><em>due ${esc(shortDate(t.date))}</em></li>`).join('')}</ul>` : ''}</div>`).join('') : '<p class="empty">Nothing needs a decision: every project is on track and unblocked. 🎉</p>'}</section>
+<section><h2>Needs a decision</h2>${r.attention.length ? r.attention.map(a => `<div class="card"><b>${emojiIcon(a.icon)} ${esc(a.title)}</b> <span class="why">· ${esc(a.reasons.join(' · '))}</span>
+${a.blockers.length || a.overdueItems.length ? `<ul>${a.blockers.map(o => `<li><span>${icon('blocker')}${esc(o.name)}</span><em>${esc(o.taskTitle)}</em></li>`).join('')}${a.overdueItems.map(t => `<li><span>${icon('overdue')}${esc(t.title)}</span><em>due ${esc(shortDate(t.date))}</em></li>`).join('')}</ul>` : ''}</div>`).join('') : '<p class="empty">Nothing needs a decision: every project is on track and unblocked. 🎉</p>'}</section>
 <div class="grid2">
-<section><h2>Coming up (next 2 weeks)</h2>${list(r.upcoming, 'Nothing due in the next two weeks.', t => `<li><span>${t.status === 'In Progress' ? '🔵' : '⚪'} ${esc(t.title)}<br><small style="color:#6B7280">${esc(t.projectTitle)}</small></span><em>${esc(shortDate(t.date))}</em></li>`)}</section>
-<section><h2>Recent wins</h2>${list(r.recent, 'Nothing finished in the last two weeks.', t => `<li><span>✅ ${esc(t.title)}<br><small style="color:#6B7280">${esc(t.projectTitle)}</small></span><em>${esc(shortDate(t.date))}</em></li>`)}</section>
+<section><h2>Coming up (next 2 weeks)</h2>${list(r.upcoming, 'Nothing due in the next two weeks.', t => `<li><span>${icon(t.status === 'In Progress' ? 'circle-dot' : 'circle')}${esc(t.title)}<br><small style="color:#6B7280">${esc(t.projectTitle)}</small></span><em>${esc(shortDate(t.date))}</em></li>`)}</section>
+<section><h2>Recent wins</h2>${list(r.recent, 'Nothing finished in the last two weeks.', t => `<li><span>${icon('done')}${esc(t.title)}<br><small style="color:#6B7280">${esc(t.projectTitle)}</small></span><em>${esc(shortDate(t.date))}</em></li>`)}</section>
 </div>
 ${renderMediaSection(r.media, mediaSrc, { showProject: true })}
 </main>

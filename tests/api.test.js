@@ -432,7 +432,7 @@ test('the calendar feed lists due tasks for its token only, and resetting the li
   const ics = await feed.text();
   assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
   assert.match(ics, /DTSTART;VALUE=DATE:20270305\r\n/);
-  assert.match(ics, /SUMMARY:⏳ Book the venue\\, then confirm/);
+  assert.match(ics, /SUMMARY:Book the venue\\, then confirm/);
   assert.doesNotMatch(ics, /No date yet/);
   assert.ok(ics.split('\r\n').every(line => Buffer.byteLength(line) <= 75));
 

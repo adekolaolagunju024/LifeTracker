@@ -35,7 +35,7 @@ router.post('/unsubscribe', (req, res) => {
 router.post('/test', async (req, res) => {
   try {
     await sendPushToUser(req.session.userId, {
-      title: '✅ Push reminders are working',
+      title: 'Push reminders are working',
       body: "This is what an overdue/focus-nudge alert feels like — stays put until you dismiss it.",
       urgent: true,
     });

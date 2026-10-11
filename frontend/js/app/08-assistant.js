@@ -17,7 +17,7 @@ function resetProjectChat() {
   const wrap = document.getElementById('chat-messages');
   wrap.innerHTML = '';
   document.getElementById('chat-input').value = '';
-  addChatBubble('assistant', "Hi! What goal are you working towards? Tell me a bit about it, or attach a plan/checklist/spreadsheet/image (📎) — I'll help shape it into a project.");
+  addChatBubble('assistant', "Hi! What goal are you working towards? Tell me a bit about it, or attach a plan, checklist, spreadsheet or image — I'll help shape it into a project.");
 }
 
 function addChatBubble(role, text, pending) {
@@ -92,7 +92,7 @@ async function sendProjectChatMessage() {
   const userMsg = { role: 'user', content: text };
   if (attachment) userMsg.attachment = attachment;
   APP.projectChat.push(userMsg);
-  addChatBubble('user', (attachment ? '📎 ' + attachment.name + (text ? '\n' : '') : '') + text);
+  addChatBubble('user', (attachment ? 'Attached: ' + attachment.name + (text ? '\n' : '') : '') + text);
   input.value = '';
   clearChatAttachment();
   input.disabled = true;
@@ -110,7 +110,7 @@ async function sendProjectChatMessage() {
     if (!res.ok) throw new Error(body.error || 'Chat failed');
 
     if (body.type === 'proposal') {
-      addChatBubble('assistant', "Here's a plan I've put together — review and edit it below ⬇");
+      addChatBubble('assistant', "Here's a plan I've put together — review and edit it below.");
       showImportPreview(body.proposal);
     } else {
       APP.projectChat.push({ role: 'assistant', content: body.message });
@@ -118,7 +118,7 @@ async function sendProjectChatMessage() {
     }
   } catch (e) {
     typingEl.remove();
-    addChatBubble('assistant', '⚠️ ' + (e.message || 'Something went wrong — try again'));
+    addChatBubble('assistant', (e.message || 'Something went wrong — try again'));
   } finally {
     input.disabled = false;
     sendBtn.disabled = false;
@@ -152,7 +152,7 @@ function importTaskRowHtml(t, globalIndex) {
     <div class="border border-gray-200 rounded-lg p-3" data-task-index="${globalIndex}">
       <div class="flex items-start gap-2 mb-2">
         <input type="text" class="import-task-title flex-1 border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-teal" value="${esc(t.title || '')}">
-        <button onclick="this.closest('[data-task-index]').remove(); updateImportTaskCount();" class="text-gray-300 hover:text-red-500 text-sm p-1.5 rounded hover:bg-red-50">🗑️</button>
+        <button onclick="this.closest('[data-task-index]').remove(); updateImportTaskCount();" class="text-gray-300 hover:text-red-500 text-sm p-1.5 rounded hover:bg-red-50">${icon('trash')}</button>
       </div>
       <div class="grid grid-cols-2 gap-2 mb-2">
         <select class="import-task-priority border border-gray-200 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-teal">
@@ -184,7 +184,7 @@ function renderImportTasksList(phases) {
     totalTasks += (phase.tasks || []).length;
     const header = showHeaders ? `
       <div class="flex items-center gap-2 mb-2 ${phaseIndex > 0 ? 'mt-4' : ''}">
-        <span class="text-xs flex-shrink-0">🚩</span>
+        <span class="text-xs flex-shrink-0">${icon('goal')}</span>
         <input type="text" class="import-phase-title flex-1 text-xs font-semibold text-gray-600 bg-transparent border-b border-dashed border-gray-300 focus:outline-none focus:border-teal py-1" value="${esc(phase.title || '')}">
       </div>` : '';
     return `<div data-phase-group="${phaseIndex}">${header}<div class="space-y-2">${rows}</div></div>`;
@@ -319,11 +319,11 @@ function describeReviseOp(op) {
   if (op.type === 'removePredecessor') return `"${esc(op.taskTitle)}" no longer waits for "${esc(op.predecessorTitle)}"`;
   if (op.type === 'moveTask') return `"${esc(op.currentTitle)}" to "${esc(op.toPhaseTitle)}"`;
   if (op.type === 'renamePhase') return `to "${esc(op.title)}"`;
-  if (op.type === 'addBlocker') return `⚔️ "${esc(op.blocker.name)}" ×${op.blocker.count} on "${esc(op.taskTitle)}"`;
-  if (op.type === 'removeBlocker') return `⚔️ "${esc(op.currentName)}" from "${esc(op.taskTitle)}"`;
+  if (op.type === 'addBlocker') return `${icon('blocker')} "${esc(op.blocker.name)}" ×${op.blocker.count} on "${esc(op.taskTitle)}"`;
+  if (op.type === 'removeBlocker') return `${icon('blocker')} "${esc(op.currentName)}" from "${esc(op.taskTitle)}"`;
   if (op.type === 'updateBlocker') {
     const changes = Object.entries(op.changes).map(([k, v]) => k === 'resolved' ? (v ? 'ticked off as cleared' : 'back to pending') : `${k} → ${k === 'count' ? '×' + v : v}`).join(', ');
-    return `⚔️ "${esc(op.currentName)}" on "${esc(op.taskTitle)}": ${esc(changes)}`;
+    return `${icon('blocker')} "${esc(op.currentName)}" on "${esc(op.taskTitle)}": ${esc(changes)}`;
   }
   return `"${esc(op.title)}" with ${op.tasks.length} task${op.tasks.length === 1 ? '' : 's'}`;
 }
@@ -450,8 +450,8 @@ function renderAssistantWelcome() {
   el.innerHTML = `<span class="asst-mark" style="margin:0 auto;width:48px;height:48px;border-radius:16px" aria-hidden="true"><svg viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z"/></svg></span>
     <h4>${APP.assistantTaskId ? 'About this task' : APP.assistantProjectId ? 'Shape this project' : 'What are we working towards?'}</h4>
     <p>${esc(assistantGreeting())}</p>
-    <div class="asst-starters">${assistantIdeas().slice(0, 4).map(([icon, text]) =>
-      `<button type="button" class="asst-starter" onclick="useAssistantSuggestion(this.dataset.text)" data-text="${esc(text)}"><span aria-hidden="true">${icon}</span>${esc(text)}</button>`).join('')}</div>`;
+    <div class="asst-starters">${assistantIdeas().slice(0, 4).map(([ideaIcon, text]) =>
+      `<button type="button" class="asst-starter" onclick="useAssistantSuggestion(this.dataset.text)" data-text="${esc(text)}"><span aria-hidden="true">${emojiIcon(ideaIcon)}</span>${esc(text)}</button>`).join('')}</div>`;
   wrap.appendChild(el);
 }
 function clearAssistantWelcome() {
@@ -468,7 +468,7 @@ async function loadAssistantConversation(id, { keepFocus = false } = {}) {
   const wrap = document.getElementById('assistant-chat');
   wrap.innerHTML = '';
   convo.messages.forEach(m => {
-    if (m.role === 'user') assistantBubble('user', (m.attachmentName ? '📎 ' + m.attachmentName + (m.content ? '\n' : '') : '') + (m.content || ''));
+    if (m.role === 'user') assistantBubble('user', (m.attachmentName ? 'Attached: ' + m.attachmentName + (m.content ? '\n' : '') : '') + (m.content || ''));
     else {
       assistantBubble('assistant', m.content);
       if (m.kind === 'edits') assistantNote('These were suggested changes. Ask again to see them to approve.');
@@ -558,10 +558,10 @@ async function toggleAssistantHistory() {
     <div class="group flex items-start gap-2 rounded-xl px-3 py-2.5 mb-1 cursor-pointer hover:bg-gray-50 ${c.id === APP.assistantConversationId ? 'bg-teal/5 ring-1 ring-teal/30' : ''}" onclick="openSavedAssistantChat('${c.id}')">
       <div class="flex-1 min-w-0">
         <p class="text-sm font-semibold text-navy truncate">${esc(c.title || 'New chat')}</p>
-        <p class="text-xs text-gray-400 truncate">${c.projectTitle ? '📁 ' + esc(c.projectTitle) + ' · ' : ''}${esc(when(c.updatedAt))} · ${c.count} message${c.count === 1 ? '' : 's'}</p>
+        <p class="text-xs text-gray-400 truncate">${c.projectTitle ? icon('folder', 'tiny mr-0.5') + esc(c.projectTitle) + ' · ' : ''}${esc(when(c.updatedAt))} · ${c.count} message${c.count === 1 ? '' : 's'}</p>
         ${c.preview ? `<p class="text-xs text-gray-500 truncate mt-0.5">${esc(c.preview)}</p>` : ''}
       </div>
-      <button onclick="event.stopPropagation(); deleteSavedAssistantChat('${c.id}')" title="Delete this chat" aria-label="Delete this chat" class="text-gray-300 hover:text-red-500 px-1 text-sm flex-shrink-0">🗑️</button>
+      <button onclick="event.stopPropagation(); deleteSavedAssistantChat('${c.id}')" title="Delete this chat" aria-label="Delete this chat" class="text-gray-300 hover:text-red-500 px-1 text-sm flex-shrink-0">${icon('trash')}</button>
     </div>`).join('');
 }
 async function openSavedAssistantChat(id) {
@@ -654,7 +654,7 @@ function resumeAssistantListening() {
 // heard at the start, it quietly tries once more before giving up.
 const ASSISTANT_IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const ASSISTANT_MIC_ERRORS = {
-  'not-allowed': 'Microphone access is blocked for this site. Allow it in your browser (the 🔒 or ⓘ next to the address), then tap the mic again.',
+  'not-allowed': 'Microphone access is blocked for this site. Allow it in your browser (the padlock or ⓘ next to the address), then tap the mic again.',
   'service-not-allowed': 'Speech recognition isn\'t allowed in this browser. Try Chrome, Edge or Safari, or type instead.',
   'audio-capture': 'I couldn\'t find a microphone. Check your earbuds or headset are connected and chosen as the input, then try again.',
   'no-speech': 'I didn\'t hear anything. With wireless earbuds, wait a second after tapping the mic, then speak. You can always type instead.',
@@ -781,7 +781,7 @@ async function sendAssistantMessage(viaVoice = false) {
   APP.assistantMessages.push(message);
   clearAssistantWelcome();
   renderAssistantSuggestions();
-  assistantBubble('user', (attachment ? '📎 ' + attachment.name + (text ? '\n' : '') : '') + text);
+  assistantBubble('user', (attachment ? 'Attached: ' + attachment.name + (text ? '\n' : '') : '') + text);
   clearAssistantAttachment();
   const sendBtn = document.getElementById('assistant-send');
   input.disabled = true;
@@ -817,7 +817,7 @@ async function sendAssistantMessage(viaVoice = false) {
   } catch (e) {
     thinking.remove();
     saveAssistantChat(); // keep what was asked, even when the reply failed
-    assistantBubble('assistant', '⚠️ ' + (e.message || 'Something went wrong. Try again.'));
+    assistantBubble('assistant', (e.message || 'Something went wrong. Try again.'));
   } finally {
     input.disabled = false;
     sendBtn.disabled = false;
@@ -861,7 +861,7 @@ async function applyAssistantEdits(btn) {
     await applyOperations(projectId, ops);
     btn.remove();
     card.querySelectorAll('input').forEach(i => { i.disabled = true; });
-    assistantBubble('assistant', `✅ Applied ${ops.length} change${ops.length === 1 ? '' : 's'}.`);
+    assistantBubble('assistant', `Applied ${ops.length} change${ops.length === 1 ? '' : 's'}.`);
     if (APP.currentProjectId === projectId) renderProjectDetail(projectId);
     updateSidebar();
   } catch (e) {
@@ -917,10 +917,10 @@ async function sendReferralInvite() {
   try {
     const r = await API.sendReferralInvite(email);
     input.value = '';
-    status.textContent = `✅ Invite sent. ${r.invitesLeftToday} left today.`;
+    status.textContent = `Invite sent. ${r.invitesLeftToday} left today.`;
     loadReferralCard();
   } catch (e) {
-    status.textContent = '❌ ' + (e.message || 'Could not send the invite');
+    status.textContent = '' + (e.message || 'Could not send the invite');
   } finally {
     btn.disabled = false;
   }
