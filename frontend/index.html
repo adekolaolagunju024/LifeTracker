@@ -270,6 +270,29 @@
     .recap-actions button:last-child { background: rgba(255,255,255,.15); color: #fff; }
     .recap-nav { position: absolute; top: 0; bottom: 0; z-index: 1; background: none; border: 0; cursor: pointer; }
     .recap-prev { left: 0; width: 35%; } .recap-next { right: 0; width: 65%; }
+    /* Phones and tablets: the week story straight after the goal card, so it plays on opening */
+    @media (max-width: 1023px) { #dash-focus { order: 0; } #dash-week-card { order: 1; } #dash-upnext-card { order: 2; } #dashboard-quests { order: 3; } }
+    .recap-ic { width: .78em; height: .78em; vertical-align: -.04em; margin-right: .14em; stroke-width: 2.25; }
+    /* The story inside the dashboard's This week card */
+    .recap-mini { position: relative; height: 232px; border-radius: 16px; overflow: hidden; color: #fff; display: flex; align-items: flex-end; transition: background .6s ease; background: linear-gradient(160deg,#0D1B2A,#0A7E8C); }
+    .recap-mini .recap-progress { top: 10px; left: 10px; right: 46px; }
+    .recap-mini.paused .recap-progress > span.active::after { animation-play-state: paused; }
+    .recap-mini .recap-body { margin: 0; padding: 26px 16px 16px; }
+    .recap-mini .recap-kicker { font-size: 10.5px; }
+    .recap-mini .recap-big { margin-top: 6px; font-size: 24px; }
+    .recap-mini .recap-huge { margin-top: 4px; font-size: 56px; }
+    .recap-mini .recap-sub { margin-top: 6px; font-size: 13px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .recap-mini .recap-bar { margin-top: 10px; height: 7px; }
+    .recap-mini .recap-list { margin-top: 8px; gap: 5px; }
+    .recap-mini .recap-list li { padding: 6px 10px; border-radius: 10px; font-size: 12.5px; }
+    .recap-mini .recap-list li:nth-child(n+4) { display: none; }
+    .recap-mini .recap-stats { margin-top: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+    .recap-mini .recap-stats > div { padding: 7px 8px; border-radius: 10px; }
+    .recap-mini .recap-stats b { font-size: 18px; }
+    .recap-mini .recap-stats span { font-size: 10.5px; }
+    .recap-expand { position: absolute; top: 4px; right: 6px; z-index: 4; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 10px; background: none; color: rgba(255,255,255,.85); cursor: pointer; }
+    .recap-expand:hover { background: rgba(255,255,255,.15); color: #fff; }
+    .recap-expand .ic { width: 16px; height: 16px; }
     @media (prefers-reduced-motion: reduce) { .recap-in > * { animation: none; } .recap-progress > span.active::after { animation: none; width: 100%; } }
 
     /* The assistant listening: a pulsing orb with ripples spreading out and
@@ -1802,14 +1825,16 @@
           <div id="dash-upnext"><p class="text-sm text-gray-400 py-3">Loading…</p></div>
         </div>
 
-        <div class="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col gap-1">
-          <p class="text-[15px] font-extrabold text-navy">This week</p>
-          <p class="text-3xl font-extrabold text-navy" id="dash-week-done">0 <span class="text-sm font-semibold text-gray-500">tasks done</span></p>
-          <p class="text-xs font-bold" id="dash-week-trend"></p>
-          <div class="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="goals-bar-fill h-full rounded-full transition-all duration-500" id="hero-goals-prog" style="width:0%"></div></div>
-          <p class="text-xs text-gray-500 mt-1"><span id="hero-goals-pct">0%</span> of all planned work · <span id="hero-goals-sub">0 of 0 tasks complete</span> <span id="hero-goals-detail" class="hidden"></span></p>
-          <p class="text-xs text-gray-500"><span id="kpi-total">0</span> tasks · <span id="kpi-done">0</span> done · <span id="kpi-inprog">0</span> in progress</p>
-          <button onclick="openWeeklyRecap()" class="mt-auto pt-2 text-left text-sm font-extrabold text-teal hover:underline inline-flex items-center gap-1.5" data-icon="play">Watch my week</button>
+        <div class="bg-white rounded-2xl border border-gray-200 p-3 flex flex-col gap-1" id="dash-week-card">
+          <!-- My week, playing as a story (js/recap.js) -->
+          <div class="recap-mini" id="dash-recap" role="region" aria-label="Your week so far, as slides"></div>
+          <p class="text-[15px] font-extrabold text-navy px-1 pt-2">This week</p>
+          <p class="text-3xl font-extrabold text-navy px-1" id="dash-week-done">0 <span class="text-sm font-semibold text-gray-500">tasks done</span></p>
+          <p class="text-xs font-bold px-1" id="dash-week-trend"></p>
+          <div class="mx-1 mt-2 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="goals-bar-fill h-full rounded-full transition-all duration-500" id="hero-goals-prog" style="width:0%"></div></div>
+          <p class="text-xs text-gray-500 mt-1 px-1"><span id="hero-goals-pct">0%</span> of all planned work · <span id="hero-goals-sub">0 of 0 tasks complete</span> <span id="hero-goals-detail" class="hidden"></span></p>
+          <p class="text-xs text-gray-500 px-1"><span id="kpi-total">0</span> tasks · <span id="kpi-done">0</span> done · <span id="kpi-inprog">0</span> in progress</p>
+          <button onclick="openWeeklyRecap()" class="mt-auto pt-2 px-1 pb-1 text-left text-sm font-extrabold text-teal hover:underline inline-flex items-center gap-1.5" data-icon="expand">Watch full screen</button>
         </div>
       </div>
 
