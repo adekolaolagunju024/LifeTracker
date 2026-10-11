@@ -463,4 +463,64 @@ router.delete('/conversations/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// ── YOUR WHY, AS A CONVERSATION ─────────────────────────────────
+// Forms put people off, so Your why can be filled by a short interview:
+// one question at a time, spoken or typed, then a draft for the person to
+// check and save (nothing is saved here). Quotes come only from the
+// starter shelf (by id) or the person's own words, music links only from
+// what they pasted, and a real mentor's words only from the person.
+const WHY_TOOL = {
+  name: 'draft_why',
+  description: "Return a draft of the user's Your why once you have enough",
+  input_schema: {
+    type: 'object',
+    properties: {
+      reply: { type: 'string', description: 'One warm sentence to say as you hand over the draft' },
+      why: { type: 'string', description: 'Why their goal matters to them, in their own voice, first person, one sentence' },
+      becoming: { type: 'string', description: 'Who they are becoming, completing "I\'m becoming…", short' },
+      mentorPreset: { type: 'string', enum: ['athlete', 'founder', 'scholar', 'carer', 'creator', ''], description: 'If they picked a type of mentor rather than a person' },
+      mentorName: { type: 'string', description: 'The person they look up to, if a real person' },
+      mentorRoutine: { type: 'string', description: "That person's routine or habits, as the user described them" },
+      mentorSays: { type: 'string', description: 'For a real person: only words the user said that person would say. For a type: one short line in that spirit.' },
+      sources: { type: 'array', items: { type: 'string', enum: ['Bible', 'Quran', 'Books and speeches'] }, description: 'Where they said they like their words from; empty if none of these' },
+      shelfQuoteIds: { type: 'array', items: { type: 'string' }, description: 'Ids of starter-shelf quotes, only from the sources they chose' },
+      ownQuotes: { type: 'array', items: { type: 'object', properties: { text: { type: 'string' }, source: { type: 'string' } } }, description: 'Quotes the user typed or said themselves, word for word' },
+      musicLinks: { type: 'array', items: { type: 'object', properties: { url: { type: 'string' }, label: { type: 'string' } } }, description: 'Music links the user pasted' },
+    },
+    required: ['reply'],
+  },
+};
+
+const WHY_SYSTEM = shelf => `You are Waypoint's coach, helping someone put into words what keeps them going, so the app can remind them when they are about to give up. Have a short, warm conversation: ask ONE short question at a time (under 20 words), react briefly to what they say, and never lecture. Cover, in this order, skipping anything they already answered: the goal they care about most and why it matters to them; who they are becoming; someone they look up to (a real person, or a type: athlete, founder, scholar, carer, creator) and what that person does or their routine; where they draw strength from (ask openly: their faith and which one, books or speeches, songs, people they know, or nothing in particular) and words that move them. Only suggest starter-shelf lines from a source they chose; never offer scripture from a faith they did not name; and music they work to (they can paste a Spotify, YouTube or Apple Music link, or skip). After about five questions, or sooner if they want, call draft_why.
+
+Rules: write their why and becoming in their own voice. Never invent a quote or attribute words to a real person; real-person mentor words must be the user's own. Starter shelf quotes go in shelfQuoteIds by id only. Use only music links they pasted. If they seem low, be kind and practical.
+
+Starter shelf (id: text — source):
+${shelf}`;
+
+router.post('/why-interview', aiQuota('assistant'), async (req, res) => {
+  if (!isAIConfigured()) return res.status(503).json({ error: 'The AI interview is not available right now. You can fill in Your why yourself below.' });
+  const msgs = (Array.isArray(req.body.messages) ? req.body.messages : [])
+    .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+    .slice(-24)
+    .map(m => ({ role: m.role, content: m.content.trim().slice(0, 1500) }));
+  if (!msgs.some(m => m.role === 'user')) return res.status(400).json({ error: 'Say something first' });
+  // The interview opens with our own first question; the model needs the
+  // person to speak first.
+  if (msgs[0].role !== 'user') msgs.unshift({ role: 'user', content: 'Help me put my why into words.' });
+  const shelf = motivation.LIBRARY.map(q => `${q.id}: ${q.text} — ${q.source}`).join('\n');
+  try {
+    const response = await callAI({ system: WHY_SYSTEM(shelf), messages: msgs, tools: [WHY_TOOL], maxTokens: 1200 });
+    if (!(response.type === 'tool_use' && response.name === 'draft_why')) {
+      return res.json({ type: 'question', text: response.text || 'Tell me a little more?' });
+    }
+    const d = response.input || {};
+    const draft = motivation.draftFromInterview(d, msgs.filter(m => m.role === 'user').map(m => m.content));
+    res.json({ type: 'draft', text: d.reply || "Here's your why. Change anything you like, then save it.", draft });
+  } catch (e) {
+    console.error('Why interview error:', e);
+    res.status(502).json({ error: e?.message || 'The interview could not continue' });
+  }
+});
+
 module.exports = router;

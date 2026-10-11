@@ -38,6 +38,7 @@ const API = {
   updateProfile: (data)    => request('PUT',    '/profile', data),
   getMotivation: ()        => request('GET',    '/motivation'),
   saveMotivation: (data)   => request('PUT',    '/motivation', data),
+  whyInterview:  (messages) => request('POST', '/ai/why-interview', { messages }),
 
   // ── PROJECTS ──
   getProjects:   (params = {}) => {

@@ -90,3 +90,30 @@ test('music is a library of up to 12 playlists, the first plays by default', () 
   assert.equal(m.playlist.url, m.playlists[0].url);
   assert.match(motivation.forAssistant(m), /Mix 0 \(default\)/);
 });
+
+test('people choose where their quotes come from', () => {
+  const u = user();
+  const m = motivation.save(u.id, { sources: ['Quran', 'Torah', 'Quran'] });
+  assert.deepEqual(m.sources, ['Quran']);
+  assert.deepEqual(motivation.SOURCES.sort(), ['Bible', 'Books and speeches', 'Quran']);
+});
+
+test('the interview draft only keeps what the person chose or said', () => {
+  const said = ['I want to qualify as a nurse so my mum can retire', 'My faith is Islam', 'Coach Ade always says no excuses, just reps', 'https://open.spotify.com/playlist/abc is my playlist', 'My gran says small steps every day'];
+  const d = motivation.draftFromInterview({
+    sources: ['Quran'],
+    why: 'So my mum can retire',
+    shelfQuoteIds: ['quran-94-5', 'phil-4-13'],          // a Bible verse they didn't choose
+    ownQuotes: [{ text: 'Small steps every day', source: 'My gran' }, { text: 'Invented wisdom', source: 'Someone' }],
+    mentorName: 'Coach Ade', mentorSays: 'No excuses, just reps', mentorRoutine: 'Trains at 6',
+    musicLinks: [{ url: 'https://open.spotify.com/playlist/abc', label: 'Mine' }, { url: 'https://open.spotify.com/playlist/made-up' }],
+  }, said);
+  assert.deepEqual(d.sources, ['Quran']);
+  assert.deepEqual(d.quotes.map(q => q.source), ['Quran 94:5–6 (Sahih International)', 'My gran']);
+  assert.equal(d.mentor.says, 'No excuses, just reps');
+  assert.deepEqual(d.playlists.map(p => p.url), ['https://open.spotify.com/playlist/abc']);
+  // Words a real person didn't say are dropped.
+  assert.equal(motivation.draftFromInterview({ mentorName: 'Serena', mentorSays: 'Never give up' }, said).mentor.says, '');
+  // No sources chosen, no scripture.
+  assert.equal(motivation.draftFromInterview({ shelfQuoteIds: ['quran-94-5'] }, said).quotes.length, 0);
+});
