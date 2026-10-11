@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "A fresh new look",
+      "text": "A calmer, clearer design across the app and website: a focus card for your main goal with a Play button straight into its Journey, today's quests, your next tasks to tick off from the home screen, a tab bar on phones, and the game's streak and level pills always in view."
+    },
+    {
+      "date": "2026-10-11",
       "title": "The game levels up: sounds, ranks and daily quests",
       "text": "Sounds and phone buzzes when you finish a task or beat a blocker, ranks from Rookie to Mythic with a level-up moment, three new quests every day for bonus XP, XP for beating blockers and finishing early, and 21 achievements to collect."
     },

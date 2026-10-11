@@ -19,6 +19,13 @@ A general-purpose personal goal tracker — Career is just one of the built-in p
   - what's recently done and coming up, what's overdue, open and cleared blockers, and tasks waiting on others
 
   It downloads as a PDF (headless Chromium), prints, goes by email, or shares as a **live read-only link** (`/r/<token>`, not indexed) that its owner or an editor can turn off at any time. Anyone who can see the project can view the report (`backend/reports/progress.js`; `GET /api/reports/projects/:id/progress`, `.html` and `.pdf`; `GET`/`POST`/`DELETE /api/reports/projects/:id/share`)
+- **Design** — the house style is "Calm Bento with a quest layer", chosen from a Dribbble-led comparison of four directions:
+  - **Planning:** solid, quiet surfaces (an #F4F5F7 ground, white cards with hairline borders and generous radii, a light sidebar), set in Plus Jakarta Sans.
+  - **Game:** drawn in a brighter, rounder style in Nunito (streak and level pills, quest chips, the navy focus card with stage segments and ▶ Play).
+  - **Dashboard:** greeting and date, a ⌘K command bar with the assistant beside it, the focus goal (the project with the soonest open due date, its schedule status, next stop, Report and Play), today's quests, "Up next" tasks to tick off in place (gates respected), and this week against last.
+  - **Phones** get a bottom tab bar (Home, Planner, Journey, Actions, More).
+  - **Website:** the public site uses the same light style.
+  - **Dark mode** uses solid surfaces too.
 - **The game layer** (`backend/journey.js`, `frontend/js/gameui.js`, `frontend/js/sfx.js`):
   - **XP:** finishing a task pays XP by priority, plus a bonus for finishing before the due date. Beating a blocker pays 5 XP per enemy (up to 20), only the first time it's beaten.
   - **Ranks:** levels carry a rank title, from 🌱 Rookie through 🧭 Explorer, 🔥 Trailblazer, 🏅 Champion and 👑 Legend to 🐉 Mythic. Levelling up plays a full-screen moment with a fanfare (and a "new rank" ribbon when the title changes).
