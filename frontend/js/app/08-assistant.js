@@ -437,9 +437,25 @@ function startNewAssistantChat({ keepFocus = false } = {}) {
   APP.assistantMessages = [];
   showAssistantPane('chat');
   document.getElementById('assistant-chat').innerHTML = '';
-  assistantBubble('assistant', assistantGreeting());
   updateAssistantContext();
+  renderAssistantWelcome();
   renderAssistantSuggestions();
+}
+// A fresh chat opens on a welcome card: what the assistant can do here and
+// four one-tap starters. It goes as soon as the first message is sent.
+function renderAssistantWelcome() {
+  const wrap = document.getElementById('assistant-chat');
+  const el = document.createElement('div');
+  el.className = 'asst-welcome';
+  el.innerHTML = `<span class="asst-mark" style="margin:0 auto;width:48px;height:48px;border-radius:16px" aria-hidden="true"><svg viewBox="0 0 24 24" style="width:26px;height:26px"><path d="M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M18 15l.9 2.1L21 18l-2.1.9L18 21l-.9-2.1L15 18l2.1-.9z"/></svg></span>
+    <h4>${APP.assistantTaskId ? 'About this task' : APP.assistantProjectId ? 'Shape this project' : 'What are we working towards?'}</h4>
+    <p>${esc(assistantGreeting())}</p>
+    <div class="asst-starters">${assistantIdeas().slice(0, 4).map(([icon, text]) =>
+      `<button type="button" class="asst-starter" onclick="useAssistantSuggestion(this.dataset.text)" data-text="${esc(text)}"><span aria-hidden="true">${icon}</span>${esc(text)}</button>`).join('')}</div>`;
+  wrap.appendChild(el);
+}
+function clearAssistantWelcome() {
+  document.querySelector('#assistant-chat .asst-welcome')?.remove();
 }
 async function loadAssistantConversation(id, { keepFocus = false } = {}) {
   const convo = await API.getAssistantConversation(id);
@@ -466,7 +482,7 @@ async function loadAssistantConversation(id, { keepFocus = false } = {}) {
 function assistantNote(text) {
   const wrap = document.getElementById('assistant-chat');
   const el = document.createElement('p');
-  el.className = 'text-[11px] text-gray-400 pl-1 -mt-2';
+  el.className = 'asst-note';
   el.textContent = text;
   wrap.appendChild(el);
 }
@@ -492,14 +508,21 @@ function clearAssistantFocus() {
   renderAssistantSuggestions();
 }
 // One-tap starters that fit where the assistant was opened from.
-function renderAssistantSuggestions() {
-  const ideas = APP.assistantTaskId
-    ? ['Split it into smaller tasks', 'Push the due date back a week', 'Set a target count for it', 'Make it wait on another task', 'Add a blocker to it', 'Delete this task']
+function assistantIdeas() {
+  return APP.assistantTaskId
+    ? [['✂️', 'Split it into smaller tasks'], ['📅', 'Push the due date back a week'], ['🎯', 'Set a target count for it'], ['🔗', 'Make it wait on another task'], ['🧱', 'Add a blocker to it'], ['🗑️', 'Delete this task']]
     : APP.assistantProjectId
-      ? ['What should I do next?', 'Add any missing tasks', 'Link tasks in the right order', 'Spread the due dates out', 'Delete tasks I no longer need']
-      : ['Plan a new goal for me', 'Help me prioritise this week'];
-  document.getElementById('assistant-suggestions').innerHTML = ideas.map(text =>
-    `<button type="button" onclick="useAssistantSuggestion(this.textContent)" class="flex-shrink-0 whitespace-nowrap text-xs font-semibold text-teal bg-teal/10 hover:bg-teal/20 px-3 py-1.5 rounded-full">${esc(text)}</button>`).join('');
+      ? [['🧭', 'What should I do next?'], ['➕', 'Add any missing tasks'], ['🔗', 'Link tasks in the right order'], ['📅', 'Spread the due dates out'], ['🗑️', 'Delete tasks I no longer need']]
+      : [['✨', 'Plan a new goal for me'], ['📋', 'Help me prioritise this week'], ['🏃', 'Plan a 10k training block'], ['🎓', 'Plan my exam revision']];
+}
+// The chips above the input stay hidden while the welcome card shows the
+// same starters.
+function renderAssistantSuggestions() {
+  const box = document.getElementById('assistant-suggestions');
+  const welcome = document.querySelector('#assistant-chat .asst-welcome');
+  box.classList.toggle('hidden', !!welcome);
+  box.innerHTML = welcome ? '' : assistantIdeas().map(([, text]) =>
+    `<button type="button" onclick="useAssistantSuggestion(this.textContent)" class="asst-chip">${esc(text)}</button>`).join('');
 }
 function useAssistantSuggestion(text) {
   const input = document.getElementById('assistant-input');
@@ -562,8 +585,7 @@ function closeAssistant() {
 function assistantBubble(role, text) {
   const wrap = document.getElementById('assistant-chat');
   const el = document.createElement('div');
-  el.className = 'max-w-[85%] text-sm rounded-2xl px-3 py-2 whitespace-pre-wrap ' +
-    (role === 'user' ? 'ml-auto bg-teal text-white rounded-br-sm' : 'bg-gray-100 text-navy rounded-bl-sm');
+  el.className = 'asst-msg ' + (role === 'user' ? 'user' : 'assistant');
   el.textContent = text;
   wrap.appendChild(el);
   wrap.scrollTop = wrap.scrollHeight;
@@ -757,13 +779,15 @@ async function sendAssistantMessage(viaVoice = false) {
   const message = { role: 'user', content: text };
   if (attachment) message.attachment = attachment;
   APP.assistantMessages.push(message);
+  clearAssistantWelcome();
+  renderAssistantSuggestions();
   assistantBubble('user', (attachment ? '📎 ' + attachment.name + (text ? '\n' : '') : '') + text);
   clearAssistantAttachment();
   const sendBtn = document.getElementById('assistant-send');
   input.disabled = true;
   sendBtn.disabled = true;
-  const thinking = assistantBubble('assistant', 'Thinking…');
-  thinking.classList.add('opacity-60');
+  const thinking = assistantBubble('assistant', '');
+  thinking.innerHTML = '<span class="asst-typing" role="status" aria-label="Thinking"><i></i><i></i><i></i></span>';
   try {
     const res = await fetch('/api/ai/assistant', {
       method: 'POST',
@@ -808,17 +832,18 @@ function renderAssistantEdits(body) {
   saveAssistantChat();
   const wrap = document.getElementById('assistant-chat');
   const card = document.createElement('div');
-  card.className = 'bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-2 text-sm';
+  card.className = 'asst-changes';
+  const n = body.operations.length;
   const rows = body.operations.map((op, i) => `
-    <label class="flex items-start gap-2 bg-white border border-gray-200 rounded-lg p-2 cursor-pointer">
-      <input type="checkbox" class="assistant-check mt-1 accent-teal" data-op-index="${i}" checked>
+    <label class="asst-change">
+      <input type="checkbox" class="assistant-check" data-op-index="${i}" checked>
       <span class="min-w-0">
-        <span class="block text-xs font-semibold text-teal uppercase tracking-wide">${REVISE_LABELS[op.type]}</span>
-        <span class="block text-navy">${describeReviseOp(op)}</span>
+        <span class="kind">${REVISE_LABELS[op.type]}</span>
+        <span class="block">${describeReviseOp(op)}</span>
       </span>
     </label>`).join('');
-  card.innerHTML = `<p class="text-navy">${esc(summary)}</p>` + (body.operations.length
-    ? rows + '<button onclick="applyAssistantEdits(this)" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Apply selected</button>'
+  card.innerHTML = `<p class="font-semibold">${esc(summary)}</p>` + (n
+    ? `<p class="text-xs text-gray-500 -mt-1">${n} suggested change${n === 1 ? '' : 's'}. Untick any you don't want.</p>` + rows + '<button onclick="applyAssistantEdits(this)" class="asst-apply">Apply selected</button>'
     : '<p class="text-gray-500">Nothing needed changing. Tell me more about what to change.</p>');
   wrap.appendChild(card);
   wrap.scrollTop = wrap.scrollHeight;

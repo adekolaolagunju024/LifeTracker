@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "A new assistant panel",
+      "text": "The assistant now opens as a side panel next to your work, with a welcome card of one-tap starters, clearer chat bubbles, a typing indicator, and suggested changes you can tick and apply in one tap. On phones it fills the screen."
+    },
+    {
+      "date": "2026-10-11",
       "title": "Smoother Journey in every world",
       "text": "The 3D camera now keeps your character in view when you beat a blocker and finish the task straight after, task names read in full, the scene fills its frame, and levelling up mid-game shows a banner instead of covering the action."
     },
