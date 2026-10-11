@@ -1996,7 +1996,68 @@ function markReminderRung(id, iso = new Date().toISOString()) {
   db.prepare('UPDATE task_reminders SET fireCount = fireCount + 1, lastFiredAt = ? WHERE id = ?').run(iso, id);
 }
 
+
+// ── REPORT MEDIA (photos and files in reports) ──────────────────
+const REPORT_MEDIA_KINDS = ['progress', 'blocker', 'info'];
+function reportMediaRows(where, params) {
+  return db.prepare(`
+    SELECT rm.*, a.originalName, a.mimetype, a.size, a.filename, a.createdAt AS uploadedAt,
+      t.title AS taskTitle, p.name AS addedByName
+    FROM report_media rm
+    JOIN attachments a ON a.id = rm.attachmentId
+    LEFT JOIN tasks t ON t.id = rm.taskId AND t.deletedAt IS NULL
+    LEFT JOIN profile p ON p.userId = rm.addedBy
+    WHERE ${where} ORDER BY rm.createdAt DESC
+  `).all(...params).map(r => ({
+    id: r.id, projectId: r.projectId, attachmentId: r.attachmentId, caption: r.caption, kind: r.kind,
+    taskId: r.taskTitle ? r.taskId : null, taskTitle: r.taskTitle || '', addedBy: r.addedBy,
+    addedByName: r.addedByName && r.addedByName !== 'Your Name' ? r.addedByName : '',
+    originalName: r.originalName, mimetype: r.mimetype, size: r.size, filename: r.filename, createdAt: r.createdAt,
+  }));
+}
+// Everything pinned to a project's reports, for anyone who can see it.
+function listReportMedia(viewerId, projectId) {
+  if (!getProjectById(viewerId, projectId)) return null;
+  return reportMediaRows('rm.projectId = ?', [topLevelProjectId(projectId)]);
+}
+// Files already shared in the project (comments, chat), to pick from.
+function listProjectAttachments(viewerId, projectId) {
+  if (!getProjectById(viewerId, projectId)) return null;
+  return db.prepare('SELECT id, originalName, mimetype, size, createdAt FROM attachments WHERE projectId = ? ORDER BY createdAt DESC LIMIT 60')
+    .all(topLevelProjectId(projectId));
+}
+function addReportMedia(userId, projectId, { attachmentId, caption = '', kind = 'progress', taskId = null }) {
+  if (!canCommentOnProject(userId, projectId)) throw new Error('You need at least commenter access to add to this report');
+  const root = topLevelProjectId(projectId);
+  const attachment = getAttachmentById(attachmentId);
+  if (!attachment || attachment.projectId !== root) throw new Error('That file isn\'t part of this project');
+  if (!REPORT_MEDIA_KINDS.includes(kind)) kind = 'progress';
+  if (taskId) {
+    const task = getTaskById(userId, taskId);
+    if (!task || topLevelProjectId(task.projectId) !== root) taskId = null;
+  }
+  const existing = db.prepare('SELECT id FROM report_media WHERE projectId = ? AND attachmentId = ?').get(root, attachmentId);
+  const clean = String(caption || '').trim().slice(0, 200);
+  if (existing) {
+    db.prepare('UPDATE report_media SET caption = ?, kind = ?, taskId = ? WHERE id = ?').run(clean, kind, taskId || null, existing.id);
+    return reportMediaRows('rm.id = ?', [existing.id])[0];
+  }
+  const id = uuid();
+  db.prepare('INSERT INTO report_media (id, projectId, attachmentId, caption, kind, taskId, addedBy, createdAt) VALUES (?,?,?,?,?,?,?,?)')
+    .run(id, root, attachmentId, clean, kind, taskId || null, userId, new Date().toISOString());
+  return reportMediaRows('rm.id = ?', [id])[0];
+}
+// The person who added it, or an owner/editor, can take it out.
+function removeReportMedia(userId, mediaId) {
+  const row = db.prepare('SELECT * FROM report_media WHERE id = ?').get(mediaId);
+  if (!row || !getProjectById(userId, row.projectId)) return false;
+  if (row.addedBy !== userId && !canEditProject(userId, row.projectId)) throw new Error('Only the person who added it, or an editor, can remove it');
+  db.prepare('DELETE FROM report_media WHERE id = ?').run(mediaId);
+  return true;
+}
+
 module.exports = {
+  listReportMedia, listProjectAttachments, addReportMedia, removeReportMedia,
   purgeOldAnalytics,
   recordActiveDay,
   getOneDrive, setOneDrive,
