@@ -528,6 +528,44 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_task_reminders_due ON task_reminders (ackAt, remindAt);
 `);
 
+// Reward pledges (backend/pledges.js): someone who believes in you (a
+// parent, boss, coach, friend, teacher) promises a reward, cash or
+// anything else, for finishing a goal. Waypoint tracks the promise from
+// pledged to earned to given; any money changes hands between them.
+// pledge_links is the goal's private "pledge a reward" link (one per goal;
+// deleting the row turns it off). Each pledge has its own manageToken, the
+// pledger's private link to follow the goal and mark the reward given.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS pledge_links (
+    projectId TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    token TEXT NOT NULL UNIQUE,
+    createdAt TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS pledges (
+    id TEXT PRIMARY KEY,
+    projectId TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    ownerId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    relation TEXT NOT NULL DEFAULT 'friend',
+    kind TEXT NOT NULL DEFAULT 'other',
+    amount INTEGER,
+    currency TEXT,
+    reward TEXT NOT NULL DEFAULT '',
+    message TEXT NOT NULL DEFAULT '',
+    condition TEXT NOT NULL DEFAULT 'finish',
+    byDate TEXT,
+    email TEXT,
+    manageToken TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'pledged',
+    source TEXT NOT NULL DEFAULT 'link',
+    createdAt TEXT NOT NULL,
+    earnedAt TEXT,
+    givenAt TEXT,
+    endedAt TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_pledges_project ON pledges (projectId, status);
+`);
+
 // "Your why" (backend/motivation.js): what keeps each person going. Their
 // reason, who they're becoming, a mentor and that mentor's routine, the
 // quotes that move them and a focus playlist, kept as one JSON document.

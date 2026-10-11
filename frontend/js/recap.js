@@ -56,7 +56,7 @@ async function buildWeeklyRecap() {
     name: ((APP.profile && APP.profile.name) || '').trim() !== 'Your Name' ? ((APP.profile && APP.profile.name) || '').split(' ')[0] : '',
     done: done.length, prev: donePrev.length, bestDay, foes: foes.reduce((n, o) => n + (o.count || 1), 0), foeNames: foes.slice(0, 3).map(o => o.name),
     streak: (APP.profile && APP.profile.currentStreak) || 0, longest: (APP.profile && APP.profile.longestStreak) || 0,
-    level: gaming ? gaming.level : null, top, next, title, titleIcon,
+    level: gaming ? gaming.level : null, quests: gaming && gaming.daily ? gaming.daily : null, top, next, title, titleIcon,
     range: `${new Date(weekStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(now).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
   };
 }
@@ -69,6 +69,14 @@ function recapSlides(r) {
     { bg: 'linear-gradient(160deg,#0D1B2A,#0A7E8C)', html: `<p class="recap-kicker">${esc(r.range)}</p><p class="recap-big">${r.name ? `${esc(r.name)}'s` : 'Your'} week<br>in review</p><p class="recap-sub">Tap to begin</p>` },
     { bg: 'linear-gradient(160deg,#1B3A5C,#0A7E8C)', html: `<p class="recap-kicker">Tasks finished</p><p class="recap-huge">${r.done}</p><p class="recap-sub">${esc(trend)}</p>` },
   ];
+  // Today's quests, unless the game layer is switched off (Focus mode).
+  const q = r.quests;
+  if (q && q.quests && q.quests.length && !document.documentElement.classList.contains('focus-mode')) {
+    const n = q.quests.filter(x => x.done).length;
+    slides.push({ bg: 'linear-gradient(160deg,#134E4A,#0D9488)', html: `<p class="recap-kicker">Today's quests</p><p class="recap-big">${n === q.quests.length ? `All done! +${q.bonusXp || 30} XP` : `${n} of ${q.quests.length} done`}</p>
+      <ul class="recap-list">${q.quests.map(x => `<li><span>${x.done ? icon('check', 'recap-li-ic') : ''}${esc(x.text)}</span><b>${x.progress}/${x.target}</b></li>`).join('')}</ul>
+      ${n === q.quests.length ? '' : `<p class="recap-sub">Finish all three today for +${q.bonusXp || 30} XP.</p>`}` });
+  }
   if (r.bestDay) slides.push({ bg: 'linear-gradient(160deg,#4C1D95,#BE185D)', html: `<p class="recap-kicker">Your best day</p><p class="recap-big">${esc(r.bestDay[0])}</p><p class="recap-sub">${r.bestDay[1]} task${r.bestDay[1] === 1 ? '' : 's'} done in one day.</p>` });
   if (r.foes) slides.push({ bg: 'linear-gradient(160deg,#7F1D1D,#C2410C)', html: `<p class="recap-kicker">Blockers beaten</p><p class="recap-huge">${icon('blocker', 'recap-ic')}${r.foes}</p><p class="recap-sub">${r.foeNames.map(n => `“${esc(n)}”`).join(', ')}${r.foeNames.length ? ' and more, cleared out of your way.' : ''}</p>` });
   slides.push({ bg: 'linear-gradient(160deg,#9A3412,#F59E0B)', html: `<p class="recap-kicker">Your streak</p><p class="recap-huge">${icon('flame', 'recap-ic')}${r.streak}</p><p class="recap-sub">${r.streak ? `day${r.streak === 1 ? '' : 's'} in a row${r.longest > r.streak ? `. Your best is ${r.longest}.` : '. Your best yet!'}` : 'Finish one task today to start a new one.'}</p>` });

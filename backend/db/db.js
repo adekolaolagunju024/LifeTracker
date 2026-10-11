@@ -1911,6 +1911,12 @@ function getReportLinkTarget(token) {
   return db.prepare('SELECT r.projectId, p.userId AS ownerId FROM report_links r JOIN projects p ON p.id = r.projectId WHERE r.token = ? AND p.deletedAt IS NULL').get(String(token || '')) || null;
 }
 
+// The goal behind a pledge link (backend/routes/pledges.js). Null once
+// turned off, or if the goal is in Trash.
+function getPledgeLinkTarget(token) {
+  return db.prepare('SELECT l.projectId, p.userId AS ownerId FROM pledge_links l JOIN projects p ON p.id = l.projectId WHERE l.token = ? AND p.deletedAt IS NULL').get(String(token || '')) || null;
+}
+
 // ── CALENDAR FEED ──
 // The secret in a user's calendar subscription link. `reset` swaps it for a
 // new one, so an old link that was shared by mistake stops working.
@@ -2060,6 +2066,7 @@ function removeReportMedia(userId, mediaId) {
 }
 
 module.exports = {
+  getPledgeLinkTarget,
   listReportMedia, listProjectAttachments, addReportMedia, removeReportMedia,
   purgeOldAnalytics,
   recordActiveDay,

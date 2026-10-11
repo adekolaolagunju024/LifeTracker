@@ -159,6 +159,9 @@ const calendar = require('./routes/calendar');
 app.use('/calendar', calendar.publicRouter);
 // Live progress reports shared by link (read-only, revocable).
 app.use('/r', require('./routes/reports').publicRouter);
+// Reward pledges: the goal's pledge page and each pledger's own page.
+const pledgeRoutes = require('./routes/pledges');
+app.use('/p', pledgeRoutes.publicRouter);
 
 // ── AUTH GATE — everything else under /api requires a logged-in session ──
 app.use('/api', requireAuth);
@@ -181,6 +184,7 @@ app.use('/api/uploads',  require('./routes/uploads'));
 app.use('/api/push',     require('./routes/push'));
 app.use('/api/reminders', require('./routes/reminders'));
 app.use('/api/motivation', require('./routes/motivation'));
+app.use('/api/pledges', pledgeRoutes);
 app.use('/api/billing', billingRoutes.router);
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/referrals', require('./routes/referrals'));

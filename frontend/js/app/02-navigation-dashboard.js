@@ -163,8 +163,10 @@ function renderDashboardBento(tasks, allProjects) {
         <p class="fc-sub">${pctDone}% · Next stop: ${esc(next.title)}${foes ? ` · ${icon('blocker')} ${foes} ${foes === 1 ? 'blocker' : 'blockers'}` : ''}</p>
         <button type="button" onclick="playJourneyFor('${f.p.id}')" class="fc-play">${icon('play')}Play</button>
       </div>
+      <div id="dash-reward-line"></div>
       <div id="dash-quest-line"></div>`;
     if (typeof paintQuestLine === 'function') paintQuestLine();
+    if (window.Rewards) Rewards.paintDashLine(f.p.id);
   }
 
   // Your focus: what needs attention first (late, due today, blocked,

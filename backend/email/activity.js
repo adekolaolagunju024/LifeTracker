@@ -114,4 +114,4 @@ async function notifyCheckIn(userId, { projectTitle, message }) {
   });
 }
 
-module.exports = { notifyAssigned, notifyMentioned, notifyTaskComment, notifyStatusUpdate, notifyInvited, notifyCheckIn };
+module.exports = { wrapEmailHtml, sendActivityEmail, notifyAssigned, notifyMentioned, notifyTaskComment, notifyStatusUpdate, notifyInvited, notifyCheckIn };

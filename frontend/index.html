@@ -516,6 +516,68 @@
     .pc-stats .good b { color: #5EEAD4; }
     .pc-why { margin-top: 16px; background: rgba(94,234,212,.1); border: 1px solid rgba(94,234,212,.25); border-radius: 16px; padding: 12px 14px; font-size: 14px; line-height: 1.5; color: #E8EEF5; text-align: left; }
     .pc-why b { color: #5EEAD4; }
+    .pc-rewards { margin-top: 12px; background: rgba(253,186,116,.12); border: 1px solid rgba(253,186,116,.35); border-radius: 16px; padding: 12px 14px; text-align: left; }
+    .pc-rw-kicker { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #FDBA74; margin-bottom: 4px; }
+    .pc-rw-row { font-size: 14px; color: #E8EEF5; line-height: 1.5; }
+    .pc-rw-row b { color: #fff; }
+    /* Rewards on a goal (js/pledges.js) */
+    .rw-card { background: #fff; border: 1px solid #E3E6EA; border-radius: 18px; padding: 14px 16px; }
+    .rw-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .rw-ic { width: 40px; height: 40px; border-radius: 12px; background: #FFF4E5; color: #C2410C; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .rw-ic .ic { width: 20px; height: 20px; }
+    .rw-title { font-size: 15px; font-weight: 800; color: #0D1B2A; }
+    .rw-sub { font-size: 13px; color: #5B6472; }
+    .rw-btns { display: flex; gap: 8px; margin-left: auto; }
+    .rw-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; border-radius: 10px; padding: 8px 12px; background: #F1F3F5; color: #1F2A37; }
+    .rw-btn:hover { background: #E6E9EC; }
+    .rw-btn.primary { background: #0A7E8C; color: #fff; }
+    .rw-btn.primary:hover { background: #086C78; }
+    .rw-list { display: grid; gap: 6px; margin-top: 12px; }
+    .rw-row { display: flex; align-items: flex-start; gap: 10px; border: 1px solid #EEF0F2; border-radius: 14px; padding: 10px 12px; }
+    .rw-row.earned { border-color: #FCD9A8; background: #FFFBF4; }
+    .rw-row.off { opacity: .6; }
+    .rw-av { width: 32px; height: 32px; border-radius: 50%; background: #E6F4F5; color: #075E68; font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .rw-what { font-size: 15px; font-weight: 800; color: #0D1B2A; }
+    .rw-who { font-size: 12px; color: #6B7280; }
+    .rw-msg { font-size: 13px; color: #3B4552; font-style: italic; margin-top: 4px; }
+    .rw-side { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+    .rw-chip { font-size: 11px; font-weight: 800; border-radius: 999px; padding: 3px 9px; background: #E6F4F5; color: #075E68; }
+    .rw-chip.earned { background: #FEF3C7; color: #92400E; }
+    .rw-chip.given { background: #DCFCE7; color: #14532D; }
+    .rw-chip.off { background: #F1F3F5; color: #6B7280; }
+    .rw-mini { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; color: #fff; background: #0A7E8C; border-radius: 8px; padding: 4px 9px; }
+    .rw-x { width: 28px; height: 28px; border-radius: 8px; color: #9AA3AF; display: flex; align-items: center; justify-content: center; }
+    .rw-x:hover { background: #FEF2F2; color: #B91C1C; }
+    .rw-x .ic { width: 15px; height: 15px; }
+    .rw-link { display: flex; gap: 8px; margin-top: 16px; }
+    .rw-link input { flex: 1; min-width: 0; border: 1px solid #D5DBE1; border-radius: 12px; padding: 10px 12px; font-size: 13px; background: #F8FAFB; color: #0D1B2A; }
+    .rw-link button, .rw-share a, .rw-share button { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; border-radius: 12px; padding: 0 14px; min-height: 40px; background: #F1F3F5; color: #1F2A37; }
+    .rw-link button { background: #0A7E8C; color: #fff; }
+    .rw-share { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .rw-share a:hover, .rw-share button:hover { background: #E6E9EC; }
+    .rw-note { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: #6B7280; margin-top: 14px; line-height: 1.5; }
+    .rw-form { display: grid; gap: 10px; margin-top: 14px; }
+    .rw-form label { display: grid; gap: 5px; font-size: 13px; font-weight: 700; color: #1F2A37; }
+    .rw-form input, .rw-form select { border: 1px solid #D5DBE1; border-radius: 12px; padding: 10px 12px; font-size: 14px; font-weight: 500; background: #fff; color: #0D1B2A; width: 100%; }
+    .rw-cash { display: grid; grid-template-columns: 96px 1fr; gap: 8px; }
+    .rw-form .rw-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 600; }
+    .rw-form .rw-inline input[type=checkbox] { width: auto; accent-color: #0A7E8C; }
+    .rw-form .rw-inline input[type=date] { width: auto; }
+    .reward-line { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 8px; font-size: 13px; font-weight: 600; color: #3B4552; text-align: left; }
+    .reward-line .ic { width: 15px; height: 15px; color: #C2410C; flex-shrink: 0; }
+    .reward-line b { color: #0D1B2A; }
+    .reward-line.is-earned { color: #92400E; }
+    .reward-line:hover b { color: #0A7E8C; }
+    .dark .rw-card { background: #111A2B; border-color: #24324A; }
+    .dark .rw-title, .dark .rw-what, .dark .reward-line b { color: #E8EEF5; }
+    .dark .rw-sub, .dark .rw-who, .dark .reward-line { color: #94A3B8; }
+    .dark .rw-msg { color: #C9D6E2; }
+    .dark .rw-row { border-color: #24324A; }
+    .dark .rw-row.earned { background: rgba(253,186,116,.08); border-color: rgba(253,186,116,.35); }
+    .dark .rw-btn, .dark .rw-share a, .dark .rw-share button { background: #1A2436; color: #E8EEF5; }
+    .dark .rw-btn.primary, .dark .rw-link button { background: #5EEAD4; color: #0D1B2A; }
+    .dark .rw-link input, .dark .rw-form input, .dark .rw-form select { background: #0B1220; border-color: #24324A; color: #E8EEF5; }
+    .dark .rw-form label { color: #C9D6E2; }
     .pc-msg { margin-top: 12px; font-size: 14px; color: #C9D6E2; line-height: 1.5; }
     .pc-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
     .pc-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; font-size: 14px; font-weight: 700; border-radius: 14px; padding: 12px; background: rgba(255,255,255,.1); color: #fff; }
@@ -700,6 +762,7 @@
     .recap-mini .recap-sub { margin-top: 6px; font-size: 13px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .recap-mini .recap-bar { margin-top: 10px; height: 7px; }
     .recap-mini .recap-list { margin-top: 8px; gap: 5px; }
+    .recap-li-ic { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; color: #5EEAD4; }
     .recap-mini .recap-list li { padding: 6px 10px; border-radius: 10px; font-size: 12.5px; }
     .recap-mini .recap-list li:nth-child(n+4) { display: none; }
     .recap-mini .recap-stats { margin-top: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
@@ -2375,6 +2438,8 @@
 
       <!-- Mini KPIs -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-5" id="detail-stats"></div>
+      <!-- Rewards people have pledged for finishing this goal (js/pledges.js), owner only -->
+      <div class="hidden mb-5" id="detail-rewards"></div>
 
       <!-- Filters -->
       <div class="flex gap-2 sm:gap-3 mb-4 flex-wrap sm:flex-nowrap">
@@ -3955,6 +4020,7 @@
     <p class="pc-title" id="project-complete-title"></p>
     <div class="pc-stats" id="project-complete-stats"></div>
     <p class="pc-why hidden" id="project-complete-why"></p>
+    <div class="pc-rewards hidden" id="project-complete-rewards"></div>
     <p class="pc-msg" id="project-complete-message"></p>
     <div class="pc-actions">
       <button type="button" class="pc-primary" onclick="planNextAfterComplete()"><span class="ei" data-icon="sparkles"></span>Plan what's next</button>
@@ -3993,6 +4059,7 @@
 <script src="js/motivation.js"></script>
 <script src="js/jarvis.js"></script>
 <script src="js/billing.js"></script>
+<script src="js/pledges.js"></script>
 
 </body>
 </html>
