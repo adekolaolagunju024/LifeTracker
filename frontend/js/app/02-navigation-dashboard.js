@@ -160,7 +160,7 @@ function renderDashboardBento(tasks, allProjects) {
       <button type="button" onclick="showPage('project-detail','${f.p.id}')" class="fc-title">${emojiIcon(f.p.icon || '')} ${esc(f.p.title)}</button>
       <div class="focus-segs mt-3" style="grid-template-columns:repeat(${segCount},minmax(0,1fr))">${segs}</div>
       <div class="fc-foot flex items-center justify-between gap-3 flex-wrap">
-        <p class="fc-sub">${pctDone}% · Next stop: ${esc(next.title)}${foes ? ` · ${icon('blocker')} ${foes} ${foes === 1 ? 'blocker' : 'blockers'}` : ''}</p>
+        <p class="fc-sub">${pctDone}% · ${done} of ${f.tree.length} steps${foes ? ` · ${icon('blocker')} ${foes} ${foes === 1 ? 'blocker' : 'blockers'} ahead` : ''}</p>
         <button type="button" onclick="playJourneyFor('${f.p.id}')" class="fc-play">${icon('play')}Play</button>
       </div>
       <div id="dash-reward-line"></div>

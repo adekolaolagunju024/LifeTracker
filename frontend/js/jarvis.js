@@ -351,8 +351,8 @@ const Jarvis = (() => {
     const planNext = plan ? await nextInPlan(tasks) : null;
     const taskLink = t => `<button type="button" onclick="openTaskDetail('${t.id}')">${esc(t.title)}</button>`;
     const sum = plan ? (planNext ? `Today's plan: ${planDone} of ${plan.ids.length} done · Next: ${taskLink(planNext)}` : `Today's plan is done: ${planDone} of ${plan.ids.length}. Great work.`)
-      : top ? `First up: ${taskLink(top)}`
-        : counts.length ? esc(counts.join(' · ')) : 'Nothing late. A good day to get ahead.';
+      : open.length ? '' // Your focus, right under this, lists what's first
+        : 'Nothing open. A good day to plan the next goal.';
     const running = focus && !focus.done && !focus.isBreak;
     const mainBtn = running ? (focus.hidden || focus.min ? `<button type="button" class="brief-go" onclick="Jarvis.showTimer()">${icon('timer')}Show timer</button>` : '')
       : plan && planNext ? `<button type="button" class="brief-go" onclick="Jarvis.startDay()">${icon('play')}Keep going</button>`
@@ -373,7 +373,7 @@ const Jarvis = (() => {
         <div class="brief-pills"></div>
       </div>
       <p class="brief-hello">${esc(hello)}${name ? `, ${esc(name)}` : ''}.</p>
-      <p class="brief-sum">${sum}</p>
+      ${sum ? `<p class="brief-sum">${sum}</p>` : ''}
       ${line}
       <div class="brief-actions">
         ${mainBtn ? `<div class="brief-main">${mainBtn}${plan ? `<button type="button" class="brief-plan" onclick="Jarvis.openPlanner()" aria-label="Change today's plan" title="Change today's plan">${icon('list-checks')}</button>` : ''}</div>` : ''}
