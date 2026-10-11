@@ -41,6 +41,7 @@ function showSettingsTab(key) {
   APP.settingsTab = key;
   try { localStorage.setItem('settingsTab', key); } catch { /* storage off */ }
   document.querySelectorAll('[data-settings-panel]').forEach(p => { p.hidden = p.dataset.settingsPanel !== key; });
+  if (key === 'appearance' && window.Voice) Voice.renderSettings();
   document.querySelectorAll('.settings-tabs [data-tab]').forEach(b => {
     const on = b.dataset.tab === key;
     b.setAttribute('aria-selected', String(on));

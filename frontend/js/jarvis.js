@@ -8,15 +8,80 @@
 // It moves you around the app, starts focus sessions and plays music
 // straight away. Anything that changes your data (finishing a task,
 // setting a reminder, adding a task) comes back as a button you tap.
+// ── The assistant's voice ──
+// Uses the voices the device has (no audio leaves it). The person picks
+// one, or "JARVIS-style": the calmest British voice we can find on this
+// device. Speed is theirs to set. Every place the assistant speaks uses it.
+const Voice = (() => {
+  const KEY = 'wp-voice';
+  const prefs = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; } };
+  const save = p => { try { localStorage.setItem(KEY, JSON.stringify(p)); } catch { /* private mode */ } };
+  const all = () => ('speechSynthesis' in window ? speechSynthesis.getVoices() : []);
+  // Best British (then any English) male-sounding voice, by known names.
+  const JARVIS_NAMES = [/daniel/i, /google uk english male/i, /ryan/i, /thomas/i, /george/i, /arthur/i, /oliver/i, /alfie/i, /harry/i, /malcolm/i, /en-gb.*male/i];
+  function jarvisVoice() {
+    const voices = all();
+    for (const re of JARVIS_NAMES) { const v = voices.find(x => re.test(x.name) && /^en(-|_)gb/i.test(x.lang)); if (v) return v; }
+    for (const re of JARVIS_NAMES) { const v = voices.find(x => re.test(x.name)); if (v) return v; }
+    return voices.find(x => /^en(-|_)gb/i.test(x.lang)) || voices.find(x => /^en/i.test(x.lang)) || null;
+  }
+  function current() {
+    const p = prefs();
+    const voices = all();
+    if (!p.voice || p.voice === 'jarvis') return jarvisVoice();
+    if (p.voice === 'default') return null;
+    return voices.find(v => v.voiceURI === p.voice) || jarvisVoice();
+  }
+  const rate = () => Math.min(1.4, Math.max(0.7, Number(prefs().rate) || 1));
+  // Speaks text sentence by sentence (long single utterances get dropped by
+  // some browsers); resolves when done, or after a safety timeout.
+  function speak(text) {
+    return new Promise(resolve => {
+      if (!('speechSynthesis' in window) || !String(text || '').trim()) return resolve();
+      const sentences = (String(text).match(/[^.!?]+[.!?]*/g) || [text]).map(x => x.trim()).filter(Boolean);
+      let finished = false;
+      const finish = () => { if (!finished) { finished = true; clearTimeout(guard); resolve(); } };
+      const guard = setTimeout(finish, Math.max(4000, text.length * 95 / rate() + 3000));
+      speechSynthesis.cancel();
+      const v = current();
+      sentences.forEach((sentence, i) => {
+        const u = new SpeechSynthesisUtterance(sentence);
+        if (v) { u.voice = v; u.lang = v.lang; } else u.lang = navigator.language || 'en-GB';
+        u.rate = rate();
+        if (i === sentences.length - 1) { u.onend = finish; u.onerror = finish; }
+        speechSynthesis.speak(u);
+      });
+    });
+  }
+  // Settings → Appearance: the voice picker.
+  function renderSettings() {
+    const sel = document.getElementById('voice-select');
+    if (!sel) return;
+    if (!('speechSynthesis' in window)) { sel.closest('[data-voice-row]')?.classList.add('hidden'); return; }
+    const p = prefs();
+    const voices = all();
+    const english = voices.filter(v => /^en/i.test(v.lang));
+    const others = voices.filter(v => !/^en/i.test(v.lang));
+    const jv = jarvisVoice();
+    const opt = v => `<option value="${esc(v.voiceURI)}" ${p.voice === v.voiceURI ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`;
+    sel.innerHTML = `<option value="jarvis" ${!p.voice || p.voice === 'jarvis' ? 'selected' : ''}>JARVIS-style${jv ? `: ${esc(jv.name)}` : ''}</option>`
+      + `<option value="default" ${p.voice === 'default' ? 'selected' : ''}>This device's default</option>`
+      + (english.length ? `<optgroup label="English">${english.map(opt).join('')}</optgroup>` : '')
+      + (others.length ? `<optgroup label="Other languages">${others.map(opt).join('')}</optgroup>` : '');
+    const r = document.getElementById('voice-rate');
+    r.value = String(rate());
+    document.getElementById('voice-rate-out').textContent = `${rate().toFixed(1)}×`;
+  }
+  function setVoice(value) { save({ ...prefs(), voice: value }); preview(); }
+  function setRate(value) { save({ ...prefs(), rate: Number(value) }); document.getElementById('voice-rate-out').textContent = `${Number(value).toFixed(1)}×`; }
+  const preview = () => speak("Good morning. Here's your day. You're on a three-day streak. Shall we start with the first thing?");
+  if ('speechSynthesis' in window) speechSynthesis.addEventListener?.('voiceschanged', renderSettings);
+  return { speak, renderSettings, setVoice, setRate, preview, current };
+})();
+window.Voice = Voice;
+
 const Jarvis = (() => {
-  const say = text => {
-    if (!('speechSynthesis' in window) || !text) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = navigator.language || 'en-GB';
-    u.rate = 1.02;
-    speechSynthesis.speak(u);
-  };
+  const say = text => { Voice.speak(text); };
   const store = {
     get(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } },
     set(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } },
