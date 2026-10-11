@@ -450,13 +450,22 @@ async function renderGantt() {
     tasks.forEach(t => { (byProject[t.projectId] = byProject[t.projectId] || []).push(t); });
     // Sort so a project's sub-folders stay grouped immediately beneath it —
     // by family (the top-level project's title), then rank (the top-level
-    // group itself before its children), then the group's own title.
+    // group itself before its children), then by when each phase starts,
+    // so Phase 1 always sits above Phase 2 like a timeline should (by name
+    // alone, "Build" came before "Research" and "Phase 10" before
+    // "Phase 2").
     const familyTitle = id => {
       const proj = projectById[id];
       if (!proj) return '';
       return proj.parentId ? (projectById[proj.parentId]?.title || '') : proj.title;
     };
     const groupRank = id => projectById[id]?.parentId ? 1 : 0;
+    // A phase's earliest date: its first task's start (or due date if it
+    // has no start), else the phase's own start date; undated phases last.
+    const groupStart = id => byProject[id]
+      .map(t => (t.startDate || t.endDate || '').slice(0, 10))
+      .filter(Boolean)
+      .sort()[0] || projectById[id]?.startDate || '9999';
     const groupProjectIds = Object.keys(byProject)
       .filter(id => !allowedGroupIds || allowedGroupIds.has(id))
       .sort((a, b) => {
@@ -464,7 +473,11 @@ async function renderGantt() {
         if (family !== 0) return family;
         const rank = groupRank(a) - groupRank(b);
         if (rank !== 0) return rank;
-        return (projectById[a]?.title || '').localeCompare(projectById[b]?.title || '');
+        const begins = groupStart(a).localeCompare(groupStart(b));
+        if (begins !== 0) return begins;
+        const made = (projectById[a]?.createdAt || '').localeCompare(projectById[b]?.createdAt || '');
+        if (made !== 0) return made;
+        return (projectById[a]?.title || '').localeCompare(projectById[b]?.title || '', undefined, { numeric: true });
       });
     ganttGroupIds = groupProjectIds;
     const allCollapsed = ganttGroupIds.length > 0 && ganttGroupIds.every(id => ganttCollapsed.has(id));
