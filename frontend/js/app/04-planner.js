@@ -271,11 +271,11 @@ function renderGanttStats(tasks, project) {
   } else {
     const deltaPct = Math.round((youFrac - expectedFrac) * 100);
     if (youFrac > expectedFrac + 0.03) { paceIcon = '🏆'; paceValue = `+${deltaPct}%`; paceLabel = 'Ahead'; }
-    else if (youFrac < expectedFrac - 0.03) { paceIcon = '⏳'; paceValue = `${deltaPct}%`; paceLabel = 'Behind'; }
+    else if (youFrac < expectedFrac - 0.03) { paceIcon = '⏳'; paceValue = `${Math.abs(deltaPct)}%`; paceLabel = 'Behind'; }
     else { paceIcon = '🤝'; paceValue = 'Even'; paceLabel = 'On pace'; }
   }
   const stat = (value, label) => `
-    <div class="flex items-baseline gap-1.5">
+    <div class="flex flex-col sm:flex-row items-start sm:items-baseline gap-0 sm:gap-1.5">
       <span class="text-base font-black text-navy whitespace-nowrap">${value}</span>
       <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide whitespace-nowrap">${esc(label)}</span>
     </div>`;
@@ -502,8 +502,8 @@ async function renderGantt() {
       rowsHTML += `
         <div class="grid gantt-grid-row group border-b border-gray-200 gantt-cat-row" style="grid-template-columns:${GANTT_GRID_COLS}">
           <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-2 font-bold text-xs overflow-hidden">
-            <span class="text-gray-400 text-[10px] flex-shrink-0 transition-transform cursor-pointer" style="${isCollapsed ? '' : 'transform:rotate(90deg)'}" onclick="toggleGanttGroup('${groupId}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">▶</span>
-            <span class="w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${color}"></span>
+            <span class="gantt-keep text-gray-400 text-[10px] flex-shrink-0 transition-transform cursor-pointer" style="${isCollapsed ? '' : 'transform:rotate(90deg)'}" onclick="toggleGanttGroup('${groupId}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">▶</span>
+            <span class="gantt-keep w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${color}"></span>
             <span class="gantt-title-text truncate cursor-pointer hover:underline flex-1 min-w-0" style="color:${color}" onclick="showPage('project-detail','${groupId}')" title="Open this project">${esc(groupProject?.icon || '')} ${esc(groupTitle)}</span>
             ${cardFields.schedule ? miniProjectScheduleBadge(pts) : ''}
             ${canEditGroup ? `
@@ -550,6 +550,7 @@ async function renderGantt() {
           <div class="grid gantt-grid-row group border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px" data-task-id="${t.id}" data-group="${groupId}">
             <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-1 overflow-hidden">
               ${canEditGroup ? `<span class="flex-shrink-0 hidden group-hover:inline cursor-grab text-gray-300 hover:text-gray-500 px-0.5" onmousedown="ganttRowMouseDown(event, '${t.id}', '${t.projectId}', '${groupId}')" title="Drag to reorder">⠿</span>` : ''}
+              <span class="gantt-status-dot gantt-keep" style="background:${statusColor(t.status)}" title="${t.status}" aria-label="${t.status}"></span>
               <span class="gantt-title-text flex-1 min-w-[6rem] text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="${canEditGroup ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" title="${esc(t.title)} (click to ${canEditGroup ? 'edit' : 'view'})">${esc(t.title)}</span>
               ${cardFields.priority ? miniPriorityBadge(t.priority) : ''}
               ${cardFields.tags ? miniTagBadges(t.tags) : ''}
@@ -594,6 +595,7 @@ async function renderGantt() {
     document.getElementById('gantt-rows').dataset.totalDays = totalDays;
     APP.ganttTasks = tasks;
     requestAnimationFrame(drawGanttDependencies);
+    requestAnimationFrame(scrollGanttToToday);
 
     const groupLegend = groupProjectIds
       .map(id => projectById[id])
@@ -743,47 +745,60 @@ function renderKanbanBoard(tasks, projectById) {
 
   if (APP.kanbanPriorityFilter) tasks = tasks.filter(t => t.priority === APP.kanbanPriorityFilter);
 
+  const ICON = {
+    cal: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    dup: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
+    del: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  };
   board.innerHTML = KANBAN_COLUMNS.map(status => {
     const colTasks = tasks.filter(t => t.status === status).sort(KANBAN_SORTS[APP.kanbanSort].fn);
     const cards = colTasks.map(t => {
       const proj = projectById[t.projectId];
       const canEdit = proj && (proj.role === 'owner' || proj.role === 'editor');
-      const borderColor = PRIORITY_BORDER[t.priority] || '#D1D5DB';
       const isOverdue = status !== 'Completed' && t.endDate && t.endDate.slice(0, 10) < localDateKey(new Date());
+      // Moving a card by touch: a plain menu, so no long-press-and-drag
+      // across columns that sit off screen on a phone.
+      const move = canEdit ? `<select class="kanban-move" aria-label="Move ${esc(t.title)} to another column" onchange="updateGanttTaskStatus('${t.id}', this.value)">
+          <option value="${status}" selected>Move to…</option>
+          ${KANBAN_COLUMNS.filter(s => s !== status).map(s => `<option value="${s}">${s}</option>`).join('')}
+        </select>` : '';
       return `
-        <div class="kanban-card group bg-white rounded-lg border border-gray-200 p-3 mb-2" style="border-left:3px solid ${borderColor}"
-          data-task-id="${t.id}" data-status="${status}"
+        <div class="kanban-card group" data-task-id="${t.id}" data-status="${status}"
           ${canEdit ? `onmousedown="kanbanCardMouseDown(event, '${t.id}', '${status}')" ontouchstart="kanbanCardMouseDown(event, '${t.id}', '${status}')"` : ''}>
-          <div class="flex items-start justify-between gap-2 mb-1.5">
-            <span class="text-sm font-semibold text-navy cursor-pointer hover:text-teal" onclick="${canEdit ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}">${esc(t.title)}</span>
-            <div class="flex-shrink-0 flex items-center gap-1.5">
-              <span class="hidden group-hover:flex gap-1">
-                <button onclick="addTaskToGoogleCalendar('${t.id}')" class="text-gray-400 hover:text-gray-600 text-xs" title="Add to Google Calendar">📅</button>
-                ${canEdit ? `<button onclick="duplicateTaskAction('${t.id}', '${t.projectId}')" class="text-gray-400 hover:text-gray-600 text-xs" title="Duplicate">⧉</button>
-                <button onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" class="text-gray-400 hover:text-red-500 text-xs" title="Delete task">🗑️</button>` : ''}
-              </span>
-              ${cardFields.priority ? miniPriorityBadge(t.priority) : ''}
+          <div class="flex items-start justify-between gap-2">
+            <span class="kanban-card-title" role="button" tabindex="0" onclick="${canEdit ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" onkeydown="if(event.key==='Enter')this.click()">${esc(t.title)}</span>
+            <div class="flex-shrink-0 flex items-center gap-1.5 pt-0.5">
+              ${cardFields.priority ? `<span class="kanban-prio" title="${esc(t.priority)} priority"><i style="background:${priorityBorderColor(t.priority)}"></i>${esc(t.priority)}</span>` : ''}
               ${cardFields.assignee ? assigneeInitialBadge(t.assigneeName) : ''}
             </div>
           </div>
-          ${cardFields.tags && (t.tags || []).length ? `<div class="flex flex-wrap gap-1 mb-1.5">${miniTagBadges(t.tags)}</div>` : ''}
-          <div class="flex items-center justify-between text-xs text-gray-400">
-            <span class="truncate flex items-center gap-1.5">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}${statusUpdateBadge(t)}${obstacleBadge(t)}${waitingBadge(t)}${addObstacleButton(t, canEdit)}</span>
-            ${t.endDate ? `<span class="flex-shrink-0 ml-2 ${isOverdue ? 'text-red-500 font-semibold' : ''}">${isOverdue ? '🔴 ' : ''}${formatDateShort(t.endDate)}</span>` : ''}
+          ${cardFields.tags && (t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1.5">${miniTagBadges(t.tags)}</div>` : ''}
+          <div class="kanban-card-foot">
+            <span class="truncate flex items-center gap-1.5 min-w-0">${proj ? `<span class="truncate">${esc(proj.icon)} ${esc(proj.title)}</span>` : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}${statusUpdateBadge(t)}${obstacleBadge(t)}${waitingBadge(t)}</span>
+            ${t.endDate ? `<span class="kanban-due ${isOverdue ? 'is-overdue' : ''}" title="${isOverdue ? 'Overdue' : 'Due'}">${formatDateShort(t.endDate)}</span>` : ''}
           </div>
           ${blockerChecklist(t, canEdit, 'board')}
           ${taskProgressBarHTML(t)}
+          <div class="kanban-actions">
+            <button type="button" class="kanban-act" onclick="addTaskToGoogleCalendar('${t.id}')" title="Add to Google Calendar" aria-label="Add to Google Calendar">${ICON.cal}</button>
+            ${canEdit ? `<button type="button" class="kanban-act" onclick="duplicateTaskAction('${t.id}', '${t.projectId}')" title="Duplicate" aria-label="Duplicate task">${ICON.dup}</button>
+            <button type="button" class="kanban-act danger" onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" title="Delete task" aria-label="Delete task">${ICON.del}</button>
+            ${status !== 'Completed' && !(t.obstacles || []).length ? `<button type="button" class="kanban-act" onclick="openObstacles('${t.id}')" title="Add a blocker (something in the way)" aria-label="Add a blocker">⚔️</button>` : ''}` : ''}
+            ${move}
+          </div>
         </div>`;
-    }).join('') || `<p class="text-xs text-gray-400 text-center py-6">No tasks</p>`;
+    }).join('') || '<p class="kanban-empty">No tasks yet. Drag one here or tap +</p>';
 
     return `
-      <div class="bg-gray-50 rounded-xl p-3 kanban-column" data-status="${status}">
-        <div class="flex items-center justify-between mb-3 px-1">
-          <h4 class="text-xs font-bold uppercase tracking-wide" style="color:${KANBAN_COLUMN_COLOR[status]}">${status} (${colTasks.length})</h4>
-          <button onclick="openAddTaskWithStatus('${status}')" class="text-gray-400 hover:text-teal text-sm px-1" title="Add task">➕</button>
+      <section class="kanban-column" data-status="${status}" aria-label="${status}, ${colTasks.length} task${colTasks.length === 1 ? '' : 's'}">
+        <div class="kanban-col-head">
+          <span class="kanban-col-dot" style="background:${KANBAN_COLUMN_COLOR[status]}"></span>
+          <h4>${status}</h4>
+          <span class="kanban-col-count">${colTasks.length}</span>
+          <button type="button" onclick="openAddTaskWithStatus('${status}')" class="kanban-col-add" title="Add a task to ${status}" aria-label="Add a task to ${status}"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
-        <div class="kanban-column-body" data-status="${status}" style="min-height:60px">${cards}</div>
-      </div>`;
+        <div class="kanban-column-body" data-status="${status}">${cards}</div>
+      </section>`;
   }).join('');
 }
 
@@ -818,7 +833,7 @@ const KANBAN_TOUCH_CANCEL_PX = 10;
 let kanbanTouchHoldTimer = null;
 
 function kanbanCardMouseDown(e, taskId, currentStatus) {
-  if (e.target.closest('button')) return; // let the 📅/🗑️ buttons handle their own click
+  if (e.target.closest('button, select, input, label')) return; // actions, the Move menu and blocker ticks handle their own taps
 
   if (e.type === 'touchstart') {
     const cardEl = e.currentTarget;
@@ -893,6 +908,14 @@ function kanbanMouseMove(e) {
   const column = el && el.closest('.kanban-column');
   d.dropStatus = column ? column.dataset.status : null;
   if (column) column.classList.add('kanban-column-dragover');
+  // On a phone the columns swipe sideways: holding a card near either
+  // edge scrolls the next column into view.
+  const board = document.getElementById('kanban-board');
+  if (board && board.scrollWidth > board.clientWidth) {
+    const r = board.getBoundingClientRect();
+    if (x > r.right - 40) board.scrollLeft += 12;
+    else if (x < r.left + 40) board.scrollLeft -= 12;
+  }
 }
 
 async function kanbanMouseUp() {
@@ -912,6 +935,18 @@ async function kanbanMouseUp() {
   if (d.dropStatus && d.dropStatus !== d.currentStatus) {
     await updateGanttTaskStatus(d.taskId, d.dropStatus); // already re-renders Gantt (and, in turn, Kanban) on completion
   }
+}
+
+// The chart opens on today rather than on the first month, so on a
+// narrow screen the bars that matter are in view without a long swipe.
+// Only on a fresh chart: a re-render after an edit keeps your place.
+function scrollGanttToToday() {
+  const pane = document.getElementById('gantt-rows-scroll');
+  const line = pane && pane.querySelector('.today-line');
+  if (!line || pane.scrollLeft > 0) return;
+  const area = line.parentElement;
+  const offset = line.getBoundingClientRect().left - area.getBoundingClientRect().left;
+  pane.scrollLeft = Math.max(0, offset - Math.min(80, area.clientWidth * 0.15));
 }
 
 // ── GANTT DEPENDENCY ARROWS ───────────────────────────────────────

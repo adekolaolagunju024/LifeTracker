@@ -300,6 +300,7 @@
        so a widened "Task / Project" column also prints uncompressed. */
     #page-gantt { --gc1: 240px; --gc2: 90px; --gc3: 100px; --gc4: 100px; --gc5: 70px; }
     .gantt-sticky { position: sticky; z-index: 6; background: inherit; }
+    .gantt-status-dot { display: none; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     .gantt-sticky-1 { left: 0; }
     .gantt-sticky-2 { left: var(--gc1); }
     .gantt-sticky-3 { left: calc(var(--gc1) + var(--gc2)); }
@@ -816,7 +817,55 @@
     .gantt-row-dragging { opacity: 0.4; }
     .gantt-drop-above { box-shadow: inset 0 2px 0 0 #0A7E8C; }
     .gantt-drop-below { box-shadow: inset 0 -2px 0 0 #0A7E8C; }
-    .kanban-card { cursor: grab; }
+    /* Kanban: three soft columns of white cards; on phones the columns
+       sit side by side and swipe, one at a time, like Trello's app. */
+    .kanban-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+    @media (max-width: 767px) {
+      .kanban-board { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 0 16px 8px; scroll-padding: 0 16px; scrollbar-width: none; }
+      .kanban-board::-webkit-scrollbar { display: none; }
+      .kanban-board > .kanban-column { flex: 0 0 86%; scroll-snap-align: start; }
+    }
+    .kanban-column { background: #EDEFF2; border-radius: 20px; padding: 12px; min-width: 0; }
+    .kanban-col-head { display: flex; align-items: center; gap: 8px; padding: 2px 4px 10px; }
+    .kanban-col-head h4 { font-size: 13px; font-weight: 800; color: #0D1B2A; margin: 0; }
+    .kanban-col-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .kanban-col-count { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 12px; color: #5B6472; background: #fff; border-radius: 999px; padding: 1px 8px; }
+    .kanban-col-add { margin-left: auto; width: 32px; height: 32px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; color: #5B6472; border: 0; background: transparent; }
+    .kanban-col-add:hover { background: #fff; color: #0A7E8C; }
+    .kanban-col-add svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+    .kanban-column-body { display: flex; flex-direction: column; gap: 8px; min-height: 72px; }
+    .kanban-empty { border: 2px dashed #D5DAE0; border-radius: 14px; padding: 18px 8px; text-align: center; font-size: 12px; font-weight: 600; color: #8A93A0; }
+    .kanban-card { cursor: grab; background: #fff; border: 1px solid #E3E6EA; border-radius: 16px; padding: 12px; box-shadow: 0 1px 2px rgba(13,27,42,.04); transition: box-shadow .15s, border-color .15s; }
+    .kanban-card:hover { border-color: #CDEDEF; box-shadow: 0 6px 18px rgba(13,27,42,.08); }
+    .kanban-card-title { font-size: 14px; font-weight: 700; color: #0D1B2A; line-height: 1.35; cursor: pointer; overflow-wrap: anywhere; }
+    .kanban-card-title:hover { color: #0A7E8C; }
+    .kanban-prio { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #5B6472; }
+    .kanban-prio i { width: 8px; height: 8px; border-radius: 50%; }
+    .kanban-card-foot { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: #8A93A0; }
+    .kanban-due { margin-left: auto; flex-shrink: 0; font-weight: 600; }
+    .kanban-due.is-overdue { color: #B91C1C; background: #FDECEA; border-radius: 999px; padding: 1px 8px; }
+    .kanban-actions { display: flex; align-items: center; gap: 2px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #F0F2F4; }
+    .kanban-act { width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; color: #8A93A0; border: 0; background: transparent; }
+    .kanban-act:hover { background: #F0F2F4; color: #0D1B2A; }
+    .kanban-act.danger:hover { color: #B91C1C; background: #FDECEA; }
+    .kanban-act svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .kanban-move { margin-left: auto; font-size: 12px; font-weight: 700; color: #075E68; background: #E6F4F5; border: 0; border-radius: 999px; padding: 5px 10px; max-width: 140px; }
+    /* Actions only on hover with a mouse; always there on touch screens. */
+    @media (hover: hover) and (pointer: fine) {
+      .kanban-actions { display: none; }
+      .kanban-card:hover .kanban-actions, .kanban-card:focus-within .kanban-actions { display: flex; }
+    }
+    .dark .kanban-column { background: #0F1726; }
+    .dark .kanban-col-head h4 { color: #F1F5F9; }
+    .dark .kanban-col-count { background: #1A2436; color: #CBD5E1; }
+    .dark .kanban-col-add:hover { background: #1A2436; }
+    .dark .kanban-empty { border-color: #263449; color: #64748B; }
+    .dark .kanban-card { background: #111A2B; border-color: #1F2A3D; }
+    .dark .kanban-card-title { color: #F1F5F9; }
+    .dark .kanban-actions { border-color: #1F2A3D; }
+    .dark .kanban-act:hover { background: #1A2436; color: #fff; }
+    .dark .kanban-move { background: rgba(94,234,212,.12); color: #5EEAD4; }
+    .dark .kanban-due.is-overdue { background: rgba(239,68,68,.15); color: #FCA5A5; }
     .kanban-card-dragging { opacity: 0.4; }
     .kanban-column-dragover { background: #E0F4F6 !important; }
     .dark .kanban-column-dragover { background: #0F3A40 !important; }
@@ -846,10 +895,16 @@
        narrow max-width match, and Print/PDF wants every column, not the
        on-screen mobile layout's reduced set. */
     @media screen and (max-width: 767px) {
-      .gantt-grid-row { grid-template-columns: 130px 64px 1fr !important; }
-      .gantt-sticky-3, .gantt-sticky-4, .gantt-sticky-5 { display: none !important; }
-      .gantt-sticky-2 { left: 130px !important; box-shadow: 3px 0 6px -2px rgba(0,0,0,.08); }
-      .dark .gantt-sticky-2 { box-shadow: 3px 0 6px -2px rgba(0,0,0,.4); }
+      /* Only the name stays frozen: status shows as a dot beside it (the
+         dropdown was clipped to "No…" at this width) and the badges move
+         out of the way so the task name can be read. */
+      .gantt-grid-row { grid-template-columns: 150px 1fr !important; }
+      .gantt-sticky-2, .gantt-sticky-3, .gantt-sticky-4, .gantt-sticky-5 { display: none !important; }
+      .gantt-sticky-1 { padding-left: 10px !important; padding-right: 8px !important; box-shadow: 3px 0 6px -2px rgba(0,0,0,.08); }
+      .dark .gantt-sticky-1 { box-shadow: 3px 0 6px -2px rgba(0,0,0,.4); }
+      .gantt-sticky-1 > :not(.gantt-title-text):not(.gantt-keep) { display: none !important; }
+      .gantt-sticky-1 .gantt-title-text { min-width: 0 !important; }
+      .gantt-status-dot { display: inline-block !important; }
       /* Fixed columns on mobile (see above) — a resize handle here would
          drag a variable the layout no longer even uses. */
       .gantt-col-resize-handle { display: none !important; }
@@ -1378,7 +1433,7 @@
   <nav aria-label="Main" id="bottom-nav" class="bottom-nav">
     <button type="button" data-tab="dashboard" onclick="showPage('dashboard')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
     <button type="button" data-tab="gantt" onclick="showPage('gantt')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M4 12h16M4 18h7"/></svg>Planner</button>
-    <button type="button" data-tab="journey" onclick="openJourneyTab()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 21V4l14 6-14 6"/></svg>Journey</button>
+    <button type="button" data-tab="calendar" onclick="showPage('calendar')"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Calendar</button>
     <button type="button" data-tab="actions" onclick="showPage('actions')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l4 4L19 6"/></svg>Actions</button>
     <button type="button" data-tab="more" onclick="openMobileSidebar()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>More</button>
   </nav>
@@ -1774,7 +1829,7 @@
            its game panel, so this one hides itself there instead of
            showing a second, visually mismatched copy (see
            applyGanttPageView() in app.js). -->
-      <div class="flex items-center gap-3 sm:gap-5 justify-between sm:justify-start bg-white rounded-xl border border-gray-200 px-4 py-2.5 mb-4 overflow-x-auto ui-noscrollbar whitespace-nowrap" id="gantt-stats-strip"></div>
+      <div class="flex items-center gap-3 sm:gap-5 justify-between sm:justify-start bg-white rounded-xl border border-gray-200 px-4 py-2.5 mb-4" id="gantt-stats-strip"></div>
 
       <!-- ═══ TIMELINE (Gantt) VIEW ═══ -->
       <div id="gantt-timeline-view">
@@ -1833,7 +1888,7 @@
             </select>
           </label>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="kanban-board"></div>
+        <div class="kanban-board" id="kanban-board"></div>
       </div>
 
       <!-- ═══ JOURNEY VIEW ═══ — "Road to the Goal": a winding road leads

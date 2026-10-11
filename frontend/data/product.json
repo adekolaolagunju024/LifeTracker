@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "A cleaner Kanban and a phone-friendly Gantt",
+      "text": "Kanban cards have a fresh look with a Move menu that works by touch, and on phones the columns swipe side by side. The Gantt chart opens on today, keeps task names readable on a phone and shows status as a dot. Calendar now has its own tab in the phone bar."
+    },
+    {
+      "date": "2026-10-11",
       "title": "A new assistant panel",
       "text": "The assistant now opens as a side panel next to your work, with a welcome card of one-tap starters, clearer chat bubbles, a typing indicator, and suggested changes you can tick and apply in one tap. On phones it fills the screen."
     },

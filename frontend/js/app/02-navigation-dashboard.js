@@ -81,21 +81,14 @@ function profileName(profile) {
   return name && name !== 'Your Name' ? name : '';
 }
 
-// The phone tab bar's highlighted tab. Journey is the Planner page on its
-// Journey view, so it lights up instead of Planner there.
+// The phone tab bar's highlighted tab. The Journey is a view of the
+// Planner (its toggle sits at the top), so Planner covers it.
 function syncBottomNav(page) {
-  let tab = page;
-  if (page === 'gantt') { try { if (localStorage.getItem('ganttPageView') === 'journey') tab = 'journey'; } catch { /* storage off */ } }
   document.querySelectorAll('#bottom-nav [data-tab]').forEach(b => {
-    const on = b.dataset.tab === tab;
+    const on = b.dataset.tab === page;
     b.classList.toggle('active', on);
     if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
-}
-function openJourneyTab() {
-  showPage('gantt');
-  setGanttPageView('journey');
-  syncBottomNav('gantt');
 }
 
 // ── DASHBOARD BENTO ────────────────────────────────────────────

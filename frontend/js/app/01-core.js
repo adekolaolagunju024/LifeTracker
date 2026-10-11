@@ -220,7 +220,9 @@ function obstacleBadge(t) {
 // variant 'quest' uses the Journey panel's own themed styles.
 const blockerTasks = new Map(); // task id -> the task objects rendered with a checklist
 function blockerChecklist(t, canEdit, variant) {
-  const obs = t.obstacles || [];
+  // Cards and table rows list only what's still in the way; the ⚔️ badge
+  // beside them opens the full list, cleared ones included.
+  const obs = variant === 'quest' ? (t.obstacles || []) : (t.obstacles || []).filter(o => !o.resolved);
   if (!obs.length || t.status === 'Completed') return '';
   if (!blockerTasks.has(t.id)) blockerTasks.set(t.id, new Set());
   blockerTasks.get(t.id).add(t);
@@ -228,7 +230,7 @@ function blockerChecklist(t, canEdit, variant) {
   const rows = obs.map(o => `
       <label class="${variant === 'quest' ? `journey-blocker-row${o.resolved ? ' is-resolved' : ''}` : `flex items-center gap-1.5 text-xs ${o.resolved ? 'text-gray-400 line-through' : 'text-red-700'} ${canEdit ? 'cursor-pointer' : ''}`}" ${stop} title="${o.resolved ? 'Cleared. Untick if it is back in the way' : 'Tick when this blocker is cleared'}">
         <input type="checkbox" class="${variant === 'quest' ? 'journey-blocker-check' : 'w-3.5 h-3.5 accent-green-600'}" data-obstacle-id="${o.id}" ${o.resolved ? 'checked' : ''} ${canEdit ? '' : 'disabled'} onchange="tickBlocker('${t.id}', '${o.id}', this)" aria-label="${esc(o.name)} cleared">
-        <span class="${variant === 'quest' ? 'journey-blocker-name' : 'truncate'}">${o.resolved ? '✅' : '⚔️'} ${esc(o.name)}${(o.count || 1) > 1 ? ` ×${o.count}` : ''}</span>
+        <span class="${variant === 'quest' ? 'journey-blocker-name' : 'truncate'}">${variant === 'quest' ? (o.resolved ? '✅ ' : '⚔️ ') : ''}${esc(o.name)}${(o.count || 1) > 1 ? ` ×${o.count}` : ''}</span>
       </label>`).join('');
   return `<div class="${variant === 'quest' ? 'journey-blocker-list' : 'mt-1.5 flex flex-col gap-0.5'}" data-blocker-list="${t.id}">${rows}</div>`;
 }
