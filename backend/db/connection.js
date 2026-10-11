@@ -521,4 +521,16 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_task_reminders_due ON task_reminders (ackAt, remindAt);
 `);
 
+// Landing-page visits per day, for the owner's metrics (backend/metrics.js):
+// a count only, nothing about who visited.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS page_views (
+    day TEXT NOT NULL,
+    path TEXT NOT NULL,
+    views INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, path)
+  );
+  CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events (userId, createdAt);
+`);
+
 module.exports = db;

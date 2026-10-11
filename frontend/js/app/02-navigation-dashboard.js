@@ -44,7 +44,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
     dashboard: 'Dashboard', projects: 'All Projects',
     gantt: 'Planner',       actions: 'Actions',
     settings: 'Settings',   calendar: 'Calendar',
-    chats: 'Chats',
+    chats: 'Chats',         metrics: 'Metrics',
   };
   document.getElementById('topbar-title').textContent =
     projectId ? '' : (titles[id] || id);
@@ -57,6 +57,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
   if (id === 'settings')       renderSettings();
   if (id === 'calendar')       renderCalendar();
   if (id === 'chats')          renderChats();
+  if (id === 'metrics' && window.Metrics) Metrics.render();
 
   updateSidebar();
   updateBackButton();

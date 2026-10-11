@@ -6,6 +6,7 @@ const db = require('../db/db');
 // real usage rate). Fine to lose this cache on a restart; it just means
 // the next request re-touches immediately, no real cost.
 const lastTouch = new Map();
+const lastDay = new Map(); // userId -> the UTC day already recorded as active
 const HEARTBEAT_INTERVAL_MS = 20 * 1000;
 
 module.exports = function requireAuth(req, res, next) {
@@ -27,6 +28,11 @@ module.exports = function requireAuth(req, res, next) {
     if (!lastTouch.has(userId) || now - lastTouch.get(userId) > HEARTBEAT_INTERVAL_MS) {
       lastTouch.set(userId, now);
       db.touchLastActive(userId);
+    }
+    const day = new Date(now).toISOString().slice(0, 10);
+    if (lastDay.get(userId) !== day) {
+      lastDay.set(userId, day);
+      try { db.recordActiveDay(userId, day); } catch { /* metrics never block a request */ }
     }
     return next();
   }
