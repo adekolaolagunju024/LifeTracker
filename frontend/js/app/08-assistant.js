@@ -813,6 +813,8 @@ async function sendAssistantMessage(viaVoice = false) {
       showImportPreview(body.proposal);
     } else if (body.type === 'edits') {
       renderAssistantEdits(body);
+    } else if (body.type === 'music') {
+      renderAssistantMusic(body);
     }
   } catch (e) {
     thinking.remove();
@@ -823,6 +825,34 @@ async function sendAssistantMessage(viaVoice = false) {
     sendBtn.disabled = false;
     input.focus();
   }
+}
+
+// The assistant and your music (Your why): it plays a saved playlist, or
+// offers to add a link you pasted to your library. Adding waits for a tap.
+function renderAssistantMusic(body) {
+  APP.assistantMessages.push({ role: 'assistant', content: body.text });
+  saveAssistantChat();
+  const el = assistantBubble('assistant', body.text);
+  speakAssistant(body.text);
+  if (body.action === 'play') { Why.playMusic(body.index || 0); return; }
+  const row = document.createElement('div');
+  row.className = 'asst-music-actions';
+  if (body.action === 'save') {
+    row.innerHTML = `<button type="button" class="asst-music-yes">${icon('plus')}Add to my music and play</button><button type="button" class="asst-music-no">Not now</button>`;
+    row.querySelector('.asst-music-yes').onclick = async () => {
+      row.querySelectorAll('button').forEach(b => { b.disabled = true; });
+      try {
+        const i = await Why.addPlaylist(body.url, body.label);
+        row.innerHTML = `<span class="asst-music-done">${icon('check')}Added to your music</span>`;
+        Why.playMusic(Math.max(0, i));
+      } catch (e) { showToast('❌ ' + (e.message || 'Could not save it'), 'error'); row.querySelectorAll('button').forEach(b => { b.disabled = false; }); }
+    };
+    row.querySelector('.asst-music-no').onclick = () => row.remove();
+  } else {
+    row.innerHTML = `<button type="button" class="asst-music-yes">${icon('music')}Add music in Your why</button>`;
+    row.querySelector('.asst-music-yes').onclick = () => { closeModal('modal-assistant'); showPage('why'); };
+  }
+  el.appendChild(row);
 }
 
 function renderAssistantEdits(body) {

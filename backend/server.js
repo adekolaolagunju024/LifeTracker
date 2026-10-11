@@ -60,7 +60,8 @@ const CSP = [
   "img-src 'self' data: blob: https://images.pexels.com",
   "media-src 'self' blob: https://videos.pexels.com",
   "connect-src 'self' blob: data:", // 3D models unpack their textures through blob: URLs
-  "frame-src 'self' https://meet.jit.si",
+  // Jitsi for live calls; the music services' own players for Your why.
+  "frame-src 'self' https://meet.jit.si https://open.spotify.com https://www.youtube-nocookie.com https://www.youtube.com https://embed.music.apple.com https://w.soundcloud.com https://widget.deezer.com",
   "worker-src 'self'",
   "manifest-src 'self'",
   "object-src 'none'",

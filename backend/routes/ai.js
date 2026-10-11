@@ -153,6 +153,26 @@ const TASK_SCHEMA = {
   required: ['title', 'priority', 'status', 'startDate', 'endDate', 'notes'],
 };
 
+// The user's focus music (Your why): play it in the app's music dock, or
+// offer to save a playlist link the user pasted. Saving is only proposed;
+// the user confirms it, and only a link that appears in their own message
+// is accepted, so the assistant can't invent one.
+const MUSIC_TOOL = {
+  name: 'focus_music',
+  description: "Play one of the user's saved playlists in the app's music player, or offer to add a music link the user pasted (Spotify, YouTube, Apple Music, SoundCloud or Deezer) to their music library.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['play', 'save'], description: 'play: start one of their saved playlists. save: offer to add the link they pasted to their library.' },
+      name: { type: 'string', description: 'For play: which saved playlist, by its name, if they said one; leave empty for their default' },
+      url: { type: 'string', description: 'For save: the exact link from the user\'s message' },
+      label: { type: 'string', description: 'For save: a short name for it, if they gave one' },
+      reply: { type: 'string', description: 'One short, warm sentence to show the user' },
+    },
+    required: ['action', 'reply'],
+  },
+};
+
 const IMPORT_TOOL = {
   name: 'propose_project',
   description: 'Return a proposed project, broken into phases, once the conversation (and any attached file) has enough to finalize',
@@ -324,7 +344,7 @@ router.post('/edit-project', aiQuota(), async (req, res) => {
 // review before anything changes.
 const ASSISTANT_SYSTEM = today => `You are Waypoint's assistant. You help the user set up goals and keep them on track. Today's date is ${today}.
 
-If the user describes a new goal and you have enough to plan it, call propose_project. If the user asks for changes to the project they have open, and that project's plan is included below, call propose_edits. That includes deleting a task the user wants gone (it goes to Trash and can be restored), and a task's blockers (the obstacles in its way, listed under each task): adding one, renaming it, changing its count, ticking it off as cleared, or removing it. It also covers a task's progress target (a count such as 20 pages, set through updateTask's targetCount and targetUnit, or cleared with 0) and its predecessors (the tasks it waits on, shown as "waits on" in the plan): addPredecessor and removePredecessor. Otherwise reply in one or two short sentences, asking a question if you need one. Never say you have made a change: you only propose changes, and the user approves them.`;
+If the user describes a new goal and you have enough to plan it, call propose_project. If the user asks for changes to the project they have open, and that project's plan is included below, call propose_edits. That includes deleting a task the user wants gone (it goes to Trash and can be restored), and a task's blockers (the obstacles in its way, listed under each task): adding one, renaming it, changing its count, ticking it off as cleared, or removing it. It also covers a task's progress target (a count such as 20 pages, set through updateTask's targetCount and targetUnit, or cleared with 0) and its predecessors (the tasks it waits on, shown as "waits on" in the plan): addPredecessor and removePredecessor. If the user asks for their music (play my music, put my workout playlist on, I need focus music) call focus_music with action play, naming the playlist if they did; if they paste a music link to keep, call focus_music with action save. Otherwise reply in one or two short sentences, asking a question if you need one. Never say you have made a change: you only propose changes, and the user approves them.`;
 
 router.post('/assistant', aiQuota('assistant'), async (req, res) => {
   if (!isAIConfigured()) {
@@ -356,7 +376,7 @@ router.post('/assistant', aiQuota('assistant'), async (req, res) => {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const tools = [IMPORT_TOOL];
+  const tools = [IMPORT_TOOL, MUSIC_TOOL];
   let system = ASSISTANT_SYSTEM(today);
   // Their own "Your why" (if they allow it), so encouragement speaks to
   // what actually moves them. Never invented quotes or words for real people.
@@ -377,6 +397,25 @@ router.post('/assistant', aiQuota('assistant'), async (req, res) => {
     const response = await callAI({ system, messages, tools, maxTokens: 4000 });
     if (response.type === 'tool_use' && response.name === 'propose_project') {
       return res.json({ type: 'proposal', proposal: response.input });
+    }
+    if (response.type === 'tool_use' && response.name === 'focus_music') {
+      const { action, reply } = response.input || {};
+      const library = motivation.get(userId).playlists;
+      if (action === 'save') {
+        // Only a link the user actually sent, and only a web link.
+        const lastUser = [...cleaned].reverse().find(m => m.role === 'user');
+        const url = String(response.input.url || '').trim();
+        const clean = motivation.clean({ playlist: { url, label: response.input.label } }).playlist;
+        if (clean.url && lastUser && String(lastUser.content || '').includes(url)) {
+          return res.json({ type: 'music', action: 'save', url: clean.url, label: clean.label, text: reply || 'Want me to save that as your focus music?' });
+        }
+        return res.json({ type: 'message', text: 'Paste the link to your playlist and I\'ll save it as your focus music.' });
+      }
+      if (!library.length) return res.json({ type: 'music', action: 'setup', text: "You haven't added any music yet. Paste a Spotify, YouTube or Apple Music link here, or add it in Your why." });
+      const want = String(response.input.name || '').trim().toLowerCase();
+      const found = want ? library.findIndex(p => (p.label || '').toLowerCase().includes(want) || want.includes((p.label || '').toLowerCase() || '\u0000')) : 0;
+      if (found < 0) return res.json({ type: 'message', text: `I couldn't find "${response.input.name}" in your music. You have: ${library.map(p => p.label || 'Untitled').join(', ')}.` });
+      return res.json({ type: 'music', action: 'play', index: found, label: library[found].label, text: reply || `Putting on ${library[found].label || 'your music'}.` });
     }
     if (response.type === 'tool_use' && response.name === 'propose_edits' && context) {
       const { operations, dropped } = validateOperations(response.input.operations, context.index);
