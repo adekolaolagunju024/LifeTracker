@@ -15,7 +15,8 @@ function aiQuota(kind = 'ai') {
     if (!isAIConfigured()) return next();
     const spend = kind === 'assistant' ? db.consumeAssistantQuota : db.consumeAiQuota;
     if (!spend(req.session.userId)) {
-      return res.status(429).json({ error: "You've used today's AI allowance. It resets tomorrow — everything else in Waypoint still works." });
+      const pro = require('../billing').isPro(req.session.userId);
+      return res.status(429).json({ error: pro ? "You've used today's AI allowance. It resets tomorrow. Everything else in Waypoint still works." : "You've used today's AI allowance. It resets tomorrow, or Waypoint Pro gives you ten times as much (Settings, Profile). Everything else still works.", upgrade: !pro });
     }
     next();
   };

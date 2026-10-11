@@ -42,6 +42,7 @@ function showSettingsTab(key) {
   try { localStorage.setItem('settingsTab', key); } catch { /* storage off */ }
   document.querySelectorAll('[data-settings-panel]').forEach(p => { p.hidden = p.dataset.settingsPanel !== key; });
   if (key === 'appearance' && window.Voice) Voice.renderSettings();
+  if (key === 'profile' && window.Billing) Billing.render();
   document.querySelectorAll('.settings-tabs [data-tab]').forEach(b => {
     const on = b.dataset.tab === key;
     b.setAttribute('aria-selected', String(on));
@@ -578,6 +579,7 @@ async function afterAuth() {
   if (window.Metrics) Metrics.initNav();
   if (window.Why) Why.load().catch(() => {}); // ready for the alarm screen
   if (window.Jarvis) Jarvis.resumeFocus(); // a focus session survives a reload
+  if (window.Billing) Billing.handleReturn(); // back from Stripe's checkout
 }
 
 // Pending project-share invites — checked once per login (not re-dismissed
