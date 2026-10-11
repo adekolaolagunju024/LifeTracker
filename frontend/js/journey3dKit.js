@@ -84,6 +84,14 @@ export function makeViewToggle(container, onCam) {
     btns[mode] = b; bar.appendChild(b);
   });
   select(start);
+  // The app's toggle in the Journey header moves the camera of the stage
+  // that's showing; a stage that has since been torn down drops out.
+  const fromApp = e => {
+    if (!bar.isConnected) { container.removeEventListener('journeysetcam', fromApp); return; }
+    const mode = e.detail && e.detail.cam;
+    if (btns[mode]) { onCam(mode); select(mode); }
+  };
+  container.addEventListener('journeysetcam', fromApp);
   return { bar, start, select, label(mode, text) { if (btns[mode]) btns[mode].textContent = text; } };
 }
 export function createShell(container, { label, background, loadingText, winTitle, winText, winFill, winEdge }) {
