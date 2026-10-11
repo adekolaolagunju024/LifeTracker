@@ -116,6 +116,14 @@ const Jarvis = (() => {
     store.set('wp-focus', { ...focus, tick: undefined });
     paintFocus();
   }
+  // Shrinks the timer to a small ring and the time left, out of the way.
+  // It still counts, and it opens up again by itself when time is up.
+  function toggleMin() {
+    if (!focus) return;
+    focus.min = !focus.min;
+    store.set('wp-focus', { ...focus, tick: undefined });
+    paintFocus();
+  }
   function extend(minutes) {
     if (!focus) return;
     focus.total += minutes * 60000; focus.ends = Date.now() + minutes * 60000; focus.done = false;
@@ -137,7 +145,8 @@ const Jarvis = (() => {
       const t = hud.querySelector('.focus-time');
       if (t) t.textContent = fmt(left);
     };
-    hud.className = 'focus-hud' + (focus.done ? ' is-done' : '');
+    const min = focus.min && !focus.done;
+    hud.className = 'focus-hud' + (focus.done ? ' is-done' : '') + (min ? ' is-min' : '');
     hud.innerHTML = focus.done ? `
       <div class="focus-hud-main">
         <p class="focus-kicker">Time</p>
@@ -153,9 +162,11 @@ const Jarvis = (() => {
         <p class="focus-kicker">${focus.paused != null ? 'Paused' : 'Focusing'}</p>
         <p class="focus-title">${esc(focus.title || 'Deep work')}</p>
       </div>
-      <span class="focus-time">${fmt(focus.ends - Date.now())}</span>
+      <span class="focus-time">${fmt(focus.paused != null ? focus.paused : focus.ends - Date.now())}</span>
+      ${min ? `<button type="button" class="focus-btn" onclick="Jarvis.toggleMin()" aria-label="Show the focus timer" title="Show">${icon('maximize-2')}</button>` : `
       <button type="button" class="focus-btn" onclick="Jarvis.togglePause()" aria-label="${focus.paused != null ? 'Resume' : 'Pause'}">${icon(focus.paused != null ? 'play' : 'pause')}</button>
-      <button type="button" class="focus-btn" onclick="Jarvis.stopFocus()" aria-label="End focus session">${icon('close')}</button>`;
+      <button type="button" class="focus-btn" onclick="Jarvis.toggleMin()" aria-label="Minimise the focus timer" title="Minimise (keeps counting)">${icon('minimize-2')}</button>
+      <button type="button" class="focus-btn" onclick="Jarvis.stopFocus()" aria-label="End focus session">${icon('close')}</button>`}`;
     if (!focus.done) { draw(); focus.tick = setInterval(draw, 1000); }
   }
   function finished() {
@@ -320,6 +331,6 @@ const Jarvis = (() => {
     talk();
   });
 
-  return { startFocus, stopFocus, togglePause, extend, focusDone, resumeFocus, handle, renderBriefing, hear, startDay, talk, isFocusing: () => !!focus };
+  return { startFocus, stopFocus, togglePause, toggleMin, extend, focusDone, resumeFocus, handle, renderBriefing, hear, startDay, talk, isFocusing: () => !!focus };
 })();
 window.Jarvis = Jarvis;

@@ -296,7 +296,17 @@
     .music-libpick button.on { color: #5EEAD4; font-weight: 700; }
     /* Minimised: the player stays loaded off screen so the music keeps going */
     .music-dock.is-min { width: auto; left: auto; }
-    .music-dock.is-min .music-full, .music-dock.is-min .music-bar-text small { display: none; }
+    .music-dock.is-min .music-full, .music-dock.is-min .music-bar-text small, .music-dock.is-min .music-transport { display: none; }
+    .music-dock:not(.is-min) .music-minonly { display: none; }
+    .music-transport { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px 8px; }
+    .music-tbtn { position: relative; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #C9D6E2; flex-shrink: 0; }
+    .music-tbtn:hover { background: rgba(255,255,255,.1); color: #fff; }
+    .music-tbtn .ic { width: 19px; height: 19px; }
+    .music-tbtn.music-seek .ic { width: 15px; height: 15px; transform: translateY(-3px); }
+    .music-tbtn.music-seek span { position: absolute; bottom: 5px; font-size: 9px; font-weight: 800; letter-spacing: .02em; }
+    .music-tbtn.music-pp-big { width: 46px; height: 46px; background: #5EEAD4; color: #0D1B2A; }
+    .music-tbtn.music-pp-big:hover { background: #99F6E4; color: #0D1B2A; }
+    .music-tbtn.music-pp-big .ic { width: 20px; height: 20px; }
     .music-dock.is-min .music-bar-text { max-width: 120px; }
     .music-btn.music-rep.on { color: #5EEAD4; }
     .music-btn.music-rep.on::after { content: ''; position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #5EEAD4; transform: translateY(12px); }
@@ -370,8 +380,15 @@
     .focus-actions button { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; border-radius: 10px; padding: 7px 11px; background: rgba(255,255,255,.12); color: #fff; }
     .focus-actions .focus-yes { background: #5EEAD4; color: #0D1B2A; }
     .focus-actions .ic { width: 15px; height: 15px; }
-    @media (max-width: 640px) { .focus-hud { top: 62px; } .focus-title { max-width: 140px; } }
+    .focus-hud.is-min { top: auto; bottom: 16px; gap: 6px; padding: 5px 6px 5px 6px; }
+    .focus-hud.is-min .focus-hud-main { display: none; }
+    .focus-hud.is-min .focus-ring { width: 28px; height: 28px; }
+    .focus-hud.is-min .focus-time { font-size: 14px; padding: 0 2px; }
+    .focus-hud.is-min .focus-btn { width: 28px; height: 28px; }
+    @media (max-width: 640px) { .focus-hud { top: 62px; } .focus-title { max-width: 140px; } .focus-hud.is-min { top: 62px; bottom: auto; } }
     body.journey-fs .focus-hud { top: 12px; }
+    body.journey-fs .focus-hud.is-min { top: auto; }
+    @media (max-width: 640px) { body.journey-fs .focus-hud.is-min { top: 12px; bottom: auto; } }
     .voice-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; padding-left: 42px; }
     .voice-row select { flex: 1 1 220px; min-width: 0; border: 1px solid #E3E6EA; border-radius: 10px; height: 38px; padding: 0 10px; font-size: 13px; background: #fff; }
     .voice-rate { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #5B6472; }
