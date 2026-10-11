@@ -31,11 +31,19 @@ function showLevelUp(reward) {
       ${reward.rankChanged ? '<p class="levelup-new">New rank unlocked</p>' : ''}
       <p class="levelup-hint">Tap to keep going</p>
     </div>`;
+  // While the Journey is on screen, a compact banner at the top instead
+  // of the full-screen moment, so it never hides the scene's own action
+  // (a blocker going down, the walk to the next flag).
+  const journeyOnScreen = APP.currentPage === 'gantt' && !document.getElementById('gantt-journey-view')?.classList.contains('hidden');
+  if (journeyOnScreen) {
+    el.classList.add('is-compact');
+    el.querySelector('.levelup-card').innerHTML = `<p class="levelup-level">${reward.level}</p><div><p class="levelup-kicker">Level up!</p><p class="levelup-rank">${esc(reward.rank.icon)} ${esc(reward.rank.name)}${reward.rankChanged ? ' · new rank' : ''}</p></div>`;
+  }
   document.body.appendChild(el);
-  if (celebrationsEnabled()) fireBigScreenConfetti();
+  if (celebrationsEnabled() && !journeyOnScreen) fireBigScreenConfetti();
   const close = () => el.remove();
   el.addEventListener('click', close);
-  setTimeout(close, 4200);
+  setTimeout(close, journeyOnScreen ? 3000 : 4200);
 }
 
 // Today's quests, wherever they show.

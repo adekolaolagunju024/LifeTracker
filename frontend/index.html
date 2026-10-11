@@ -107,6 +107,12 @@
     .xp-float { position: fixed; left: 50%; bottom: 90px; z-index: 1002; transform: translateX(-50%); background: linear-gradient(135deg,#F59E0B,#F97316); color: #fff; font-weight: 900; font-size: 18px; padding: 8px 16px; border-radius: 999px; box-shadow: 0 10px 30px rgba(249,115,22,.4); pointer-events: none; animation: xpfloat 1.8s cubic-bezier(.2,.8,.2,1) forwards; text-align: center; line-height: 1.1; }
     .xp-float small { display: block; font-size: 11px; font-weight: 700; opacity: .9; }
     @keyframes xpfloat { 0% { opacity: 0; transform: translate(-50%, 20px) scale(.8); } 15% { opacity: 1; transform: translate(-50%, 0) scale(1.08); } 30% { transform: translate(-50%, -6px) scale(1); } 100% { opacity: 0; transform: translate(-50%, -90px) scale(1); } }
+    #levelup-overlay.is-compact { inset: auto; top: 84px; left: 50%; transform: translateX(-50%); background: none; pointer-events: none; }
+    #levelup-overlay.is-compact .levelup-card { background: #0D1B2A; border: 2px solid #FCD34D; border-radius: 22px; padding: 12px 26px; box-shadow: 0 16px 40px rgba(13,27,42,.35); display: flex; align-items: center; gap: 14px; }
+    #levelup-overlay.is-compact .levelup-level { font-size: 44px; }
+    #levelup-overlay.is-compact .levelup-kicker { font-size: 12px; }
+    #levelup-overlay.is-compact .levelup-rank { font-size: 18px; margin: 0; }
+    #levelup-overlay.is-compact .levelup-new, #levelup-overlay.is-compact .levelup-hint { display: none; }
     #levelup-overlay { position: fixed; inset: 0; z-index: 1003; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at center, rgba(245,158,11,.35), rgba(13,27,42,.85) 70%); cursor: pointer; animation: lvfade .3s ease both; }
     .levelup-card { text-align: center; color: #fff; animation: lvpop .7s cubic-bezier(.2,1.4,.3,1) both; }
     .levelup-kicker { font-size: 18px; font-weight: 900; letter-spacing: .3em; text-transform: uppercase; color: #FCD34D; }
@@ -320,6 +326,9 @@
     @media (min-width: 640px) {
       #journey-hud { flex-direction: row; height: min(58vh, 480px); }
       #journey-hud #mountain-quest-panel { flex: 0 0 272px; width: 272px; max-height: none; }
+      /* the scene fills the frame's full height (it was 20px short, which
+         showed as a pale strip along the bottom of every stage) */
+      #journey-hud #mountain-scene-wrap { height: auto !important; min-height: 0 !important; }
     }
 
     /* A glassy "screen" bezel instead of a flat drop shadow — an inset
@@ -425,7 +434,7 @@
     .journey-quest-badge.is-next { background: #fbbf24; animation: journey-quest-pulse 1.6s ease-in-out infinite; }
     .journey-quest-badge.is-pending { background: #475569; color: #cbd5e1; }
     @keyframes journey-quest-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(251,191,36,.55); } 50% { box-shadow: 0 0 0 5px rgba(251,191,36,0); } }
-    .journey-quest-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .journey-quest-title { flex: 1 1 auto; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; line-height: 1.25; overflow-wrap: anywhere; } /* two lines, so a name reads in full instead of "Resea…" */
     .journey-quest-row.is-done .journey-quest-title { text-decoration: line-through; color: var(--quest-text-done); font-weight: 500; }
     .journey-quest-date { flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--quest-date); }
     .journey-quest-foes { flex-shrink: 0; font-size: 11px; font-weight: 800; color: #fca5a5; }

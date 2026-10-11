@@ -637,12 +637,25 @@ export function resolveChanges(prev, next) {
 // A short glance from the follow cam at a wall whose obstacle was just
 // ticked off, so its enemies are seen going down: set peek.at and peek.t,
 // then call this in the follow branch of the camera update.
+//
+// The glance keeps to the side it started on (the character's side of the
+// wall) and ends as soon as the character walks past the wall. Before, it
+// followed the character round: once they passed the wall the camera
+// swung to the far side, and on its way back cut through the character,
+// so a task finished straight after a knockout showed an empty road.
 export function peekCamera(peek, from, camDesired, lookDesired, dt, dist = 9, height = 4.5, lookUp = 2.2) {
-  if (!(peek.t > 0)) return false;
+  if (!(peek.t > 0)) { peek.side = null; return false; }
+  const key = `${peek.at.x.toFixed(2)},${peek.at.z.toFixed(2)}`;
+  if (!peek.side || peek.sideFor !== key) {
+    const start = from.clone().sub(peek.at).setY(0);
+    if (start.lengthSq() < 1e-4) start.set(0, 0, 1);
+    peek.side = start.normalize();
+    peek.sideFor = key;
+  }
+  // walked past the wall (no longer on the camera's side of it): stop
+  if (from.clone().sub(peek.at).setY(0).dot(peek.side) < -0.5) { peek.t = 0; peek.side = null; return false; }
   peek.t -= dt;
-  const away = from.clone().sub(peek.at).setY(0);
-  if (away.lengthSq() < 1e-4) away.set(0, 0, 1);
-  away.normalize();
+  const away = peek.side;
   camDesired.copy(peek.at).addScaledVector(away, dist).setY(peek.at.y + height);
   lookDesired.copy(peek.at).setY(peek.at.y + lookUp);
   return true;
