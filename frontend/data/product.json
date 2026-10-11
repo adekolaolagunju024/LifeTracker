@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "Task alarms and a Blocked list",
+      "text": "Set a reminder on any task and Waypoint rings like an alarm at that time: a full-screen alarm with sound in the app, and an alert that stays on your phone screen with Start and Snooze buttons, ringing again every few minutes until you respond. Actions now has a Blocked section showing exactly what is in each task's way."
+    },
+    {
+      "date": "2026-10-11",
       "title": "A cleaner Kanban and a phone-friendly Gantt",
       "text": "Kanban cards have a fresh look with a Move menu that works by touch, and on phones the columns swipe side by side. The Gantt chart opens on today, keeps task names readable on a phone and shows status as a dot. Calendar now has its own tab in the phone bar."
     },

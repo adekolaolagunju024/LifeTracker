@@ -201,4 +201,11 @@ const API = {
   subscribePush:     (sub)      => request('POST', '/push/subscribe', sub),
   unsubscribePush:   (endpoint) => request('POST', '/push/unsubscribe', { endpoint }),
   testPush:          ()         => request('POST', '/push/test'),
+
+  // ── TASK REMINDERS (alarms) ──
+  getReminders:      ()                 => request('GET', '/reminders'),
+  setTaskReminder:   (taskId, data)     => request('PUT', `/reminders/task/${taskId}`, data),
+  clearTaskReminder: (taskId)           => request('DELETE', `/reminders/task/${taskId}`),
+  snoozeReminder:    (id, minutes)      => request('POST', `/reminders/${id}/snooze`, { minutes }),
+  ackReminder:       (id)               => request('POST', `/reminders/${id}/ack`),
 };

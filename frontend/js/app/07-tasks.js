@@ -34,6 +34,10 @@ async function openTaskDetail(id) {
     document.getElementById('td-project-title').textContent = proj ? proj.title : '';
     document.getElementById('td-title').textContent = t.title;
     document.getElementById('td-badges').innerHTML   = statusBadge(t.status) + priorityBadge(t.priority);
+    const reminder = window.Reminders && Reminders.forTask(id);
+    const remindBtn = document.getElementById('td-reminder-btn');
+    remindBtn.textContent = reminder ? `⏰ ${Reminders.fmt(reminder.remindAt)}` : '⏰ Remind me';
+    remindBtn.classList.toggle('hidden', t.status === 'Completed');
     document.getElementById('td-progress').innerHTML = taskProgressPanelHTML(t);
     document.getElementById('td-progress').classList.toggle('hidden', !t.targetCount);
     document.getElementById('td-cost').textContent      = (t.cost || 0) > 0 ? money(t.cost) : '—';

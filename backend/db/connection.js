@@ -495,4 +495,24 @@ db.exec(`
   );
 `);
 
+// Task reminders: "ring me about this task at 18:30", per person (a
+// collaborator's alarm is their own). Rings as an urgent push and, while
+// the app is open, a full-screen alarm. With nag on it rings again every
+// few minutes until answered (start, snooze, dismiss) or the task is done.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS task_reminders (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    taskId TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    remindAt TEXT NOT NULL,
+    nag INTEGER NOT NULL DEFAULT 1,
+    fireCount INTEGER NOT NULL DEFAULT 0,
+    lastFiredAt TEXT,
+    ackAt TEXT,
+    createdAt TEXT NOT NULL,
+    UNIQUE (userId, taskId)
+  );
+  CREATE INDEX IF NOT EXISTS idx_task_reminders_due ON task_reminders (ackAt, remindAt);
+`);
+
 module.exports = db;

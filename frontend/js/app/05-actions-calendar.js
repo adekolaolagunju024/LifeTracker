@@ -24,9 +24,13 @@ async function renderActions() {
     const todayKey = localDateKey(new Date());
     const weekAheadKey = localDateKey(new Date(Date.now() + 7 * 86400000));
 
-    const overdue = [], dueThisWeek = [], startingThisWeek = [], highPriority = [];
+    const overdue = [], dueThisWeek = [], startingThisWeek = [], highPriority = [], blocked = [];
     tasks.forEach(t => {
       if (t.status === 'Completed') return;
+      // Blocked is its own lens too: anything with a blocker still standing
+      // or a predecessor not finished yet, so what's stopping work is in
+      // one place instead of discovered when you try to tick a task off.
+      if (pendingFoes(t) || waitingOn(t).length) blocked.push(t);
       const dueKey = t.endDate ? t.endDate.slice(0, 10) : null;
       // Overdue/Due This Week/Starting This Week stay mutually exclusive with
       // each other, but High Priority is an independent lens, not a leftover
@@ -46,23 +50,34 @@ async function renderActions() {
     dueThisWeek.sort((a, b) => a.endDate < b.endDate ? -1 : a.endDate > b.endDate ? 1 : 0);
     startingThisWeek.sort((a, b) => a.startDate < b.startDate ? -1 : a.startDate > b.startDate ? 1 : 0);
     highPriority.sort((a, b) => a.title.localeCompare(b.title));
+    blocked.sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999'));
 
     document.getElementById('act-overdue').textContent  = overdue.length;
     document.getElementById('act-week').textContent     = dueThisWeek.length;
     document.getElementById('act-starting').textContent = startingThisWeek.length;
     document.getElementById('act-high').textContent     = highPriority.length;
+    document.getElementById('act-blocked').textContent  = blocked.length;
 
     const row = (t, reason) => {
       const proj = projectById[t.projectId];
+      const canEdit = proj && (proj.role === 'owner' || proj.role === 'editor');
+      const stuck = pendingFoes(t) > 0;
+      const waiting = waitingOn(t);
       return `
         <div class="flex items-start gap-3 px-5 py-4 border-b border-gray-100 hover:bg-gray-50 transition-all">
-          <div class="w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0 mt-0.5 flex items-center justify-center cursor-pointer hover:border-teal hover:bg-teal/10"
-            onclick="markActionDone('${t.id}')" title="Mark as completed"></div>
+          <button type="button" class="w-5 h-5 rounded-full border-2 flex-shrink-0 mt-0.5 flex items-center justify-center ${stuck ? 'border-red-200 bg-red-50 text-[10px] cursor-not-allowed' : 'border-gray-300 hover:border-teal hover:bg-teal/10'}"
+            onclick="markActionDone('${t.id}')" title="${stuck ? 'Clear its blockers first' : 'Mark as completed'}" aria-label="${stuck ? 'Blocked: clear its blockers first' : 'Mark ' + esc(t.title) + ' as completed'}">${stuck ? '🔒' : ''}</button>
           <div class="flex-1 min-w-0">
             <h5 class="text-sm font-semibold text-navy cursor-pointer hover:text-teal truncate" onclick="openTaskDetail('${t.id}')">${esc(t.title)}</h5>
             <p class="text-xs text-gray-400 mt-0.5 truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${reason ? ' · ' + reason : ''}</p>
+            ${waiting.length ? `<p class="text-xs font-semibold text-amber-700 mt-1">🔗 Waiting on ${waiting.map(p => `"${esc(p.title)}"`).join(', ')}</p>` : ''}
+            ${stuck ? `<p class="text-xs font-bold text-red-700 mt-1.5">⚔️ Blocked by:</p>${blockerChecklist(t, canEdit, 'board')}` : ''}
           </div>
-          <span class="text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${PRI_BADGE[t.priority] || 'bg-gray-100 text-gray-500'}">${esc(t.priority)}</span>
+          <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${PRI_BADGE[t.priority] || 'bg-gray-100 text-gray-500'}">${esc(t.priority)}</span>
+            <span data-reminder-slot="${t.id}">${window.Reminders ? Reminders.chip(t.id) : ''}</span>
+            ${window.Reminders && !Reminders.forTask(t.id) ? `<button type="button" onclick="Reminders.openSheet('${t.id}')" class="text-xs font-semibold text-gray-400 hover:text-teal" title="Ring me about this task at a set time" aria-label="Set a reminder for ${esc(t.title)}">⏰ Remind</button>` : ''}
+          </div>
         </div>`;
     };
 
@@ -88,7 +103,7 @@ async function renderActions() {
     // the same local-date keys used for bucketing above.
     const daysBetweenKeys = (fromKey, toKey) => Math.round((new Date(toKey + 'T00:00:00Z') - new Date(fromKey + 'T00:00:00Z')) / 86400000);
 
-    if (!overdue.length && !dueThisWeek.length && !startingThisWeek.length && !highPriority.length) {
+    if (!overdue.length && !dueThisWeek.length && !startingThisWeek.length && !highPriority.length && !blocked.length) {
       document.getElementById('action-list').innerHTML = `
         <div class="bg-white rounded-xl border border-gray-200 px-6 py-10 text-center">
           <p class="text-4xl mb-2">🎉</p>
@@ -102,6 +117,10 @@ async function renderActions() {
         const days = daysBetweenKeys(t.endDate.slice(0, 10), todayKey);
         return `${days} day${days === 1 ? '' : 's'} overdue`;
       }, 'Nothing overdue 🎉') +
+      section('Blocked', '⚔️', blocked, t => {
+        const n = pendingFoes(t);
+        return n ? `${n} blocker${n === 1 ? '' : 's'} in the way` : 'Waiting on another task';
+      }, 'Nothing blocked') +
       section('Due This Week', '🟡', dueThisWeek, t => {
         const days = daysBetweenKeys(todayKey, t.endDate.slice(0, 10));
         return days === 0 ? 'Due today' : `Due in ${days} day${days === 1 ? '' : 's'}`;

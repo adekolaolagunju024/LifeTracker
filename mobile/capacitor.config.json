@@ -3,7 +3,7 @@
   "appName": "Waypoint",
   "webDir": "www",
   "server": {
-    "url": "https://lifetracker-production-c3b1.up.railway.app",
+    "url": "https://waypointapp.com",
     "cleartext": false
   }
 }
