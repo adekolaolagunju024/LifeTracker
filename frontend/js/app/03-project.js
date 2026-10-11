@@ -172,18 +172,10 @@ async function renderTaskTable(projectId) {
               ${taskProgressBarHTML(t)}
             </td>
             <td class="tt-status px-4 py-3">
-              <select aria-label="Status of ${esc(t.title)}" class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(statusColor(t.status))}" ${canEdit ? '' : 'disabled'}
-                onchange="updateTaskStatus('${t.id}', this.value, '${projectId}')">
-                ${['Not Started','In Progress','Completed'].map(s =>
-                  `<option ${t.status === s ? 'selected' : ''}>${s}</option>`).join('')}
-              </select>
+              ${statusChipHTML(t, canEdit, projectId)}
             </td>
             <td class="tt-priority px-4 py-3">
-              <select aria-label="Priority of ${esc(t.title)}" class="rounded-lg px-2 py-1 text-xs font-semibold border focus:outline-none" style="${tintStyle(priorityBorderColor(t.priority))}" ${canEdit ? '' : 'disabled'}
-                onchange="updateTaskPriority('${t.id}', this.value, '${projectId}')">
-                ${['High','Medium','Low'].map(p =>
-                  `<option ${t.priority === p ? 'selected' : ''}>${p}</option>`).join('')}
-              </select>
+              ${priorityChipHTML(t, canEdit, projectId)}
             </td>
             <td class="tt-assignee px-4 py-3">${assigneeAvatar(t.assigneeName)}</td>
             <td class="tt-start px-4 py-3">

@@ -767,10 +767,7 @@ function renderKanbanBoard(tasks, projectById) {
       const isOverdue = status !== 'Completed' && t.endDate && t.endDate.slice(0, 10) < localDateKey(new Date());
       // Moving a card by touch: a plain menu, so no long-press-and-drag
       // across columns that sit off screen on a phone.
-      const move = canEdit ? `<select class="kanban-move" aria-label="Move ${esc(t.title)} to another column" onchange="updateGanttTaskStatus('${t.id}', this.value)">
-          <option value="${status}" selected>Move to…</option>
-          ${KANBAN_COLUMNS.filter(s => s !== status).map(s => `<option value="${s}">${s}</option>`).join('')}
-        </select>` : '';
+      const move = canEdit ? `<button type="button" class="kanban-move" aria-haspopup="menu" aria-label="Move ${esc(t.title)} to another column" onclick="event.stopPropagation(); openChipMenu(this, 'status', '${t.id}', '${status}', 'kanban')">Move to… ▾</button>` : '';
       return `
         <div class="kanban-card group" data-task-id="${t.id}" data-status="${status}"
           ${canEdit ? `onmousedown="kanbanCardMouseDown(event, '${t.id}', '${status}')" ontouchstart="kanbanCardMouseDown(event, '${t.id}', '${status}')"` : ''}>
@@ -812,9 +809,10 @@ function renderKanbanBoard(tasks, projectById) {
   }).join('');
 }
 
-function openAddTaskWithStatus(status) {
-  openAddTask(APP.ganttProjectFilter || undefined);
+async function openAddTaskWithStatus(status) {
+  await openAddTask(APP.ganttProjectFilter || undefined);
   document.getElementById('task-status').value = status;
+  syncSegs(document.getElementById('modal-task'));
 }
 
 // Manual drag-to-change-status, mouse- and touch-based like the rest of
@@ -968,29 +966,47 @@ const STATUS_CHIP = {
   'In Progress': { icon: '◐', label: 'Doing', cls: 'is-doing' },
   'Completed':   { icon: '✓', label: 'Done',  cls: 'is-done' },
 };
-function statusChipHTML(t, canEdit) {
-  const c = STATUS_CHIP[t.status] || STATUS_CHIP['Not Started'];
-  return `<button type="button" class="status-chip ${c.cls}" ${canEdit ? `onclick="event.stopPropagation(); openStatusMenu(this, '${t.id}', '${t.status}')" aria-haspopup="menu"` : 'disabled'}
-    title="${t.status}${canEdit ? ' (tap to change)' : ''}" aria-label="Status: ${t.status}${canEdit ? '. Change status' : ''}"><span aria-hidden="true">${c.icon}</span>${c.label}</button>`;
+const PRIORITY_CHIP = {
+  High:   { icon: '●', label: 'High',   cls: 'is-high' },
+  Medium: { icon: '●', label: 'Medium', cls: 'is-medium' },
+  Low:    { icon: '●', label: 'Low',    cls: 'is-low' },
+};
+const CHIP_SETS = { status: STATUS_CHIP, priority: PRIORITY_CHIP };
+// ctx says where the chip lives, so the change goes through the right
+// page's updater: '' or 'kanban' (Planner) or a project id (project table).
+function chipHTML(kind, t, canEdit, ctx = '') {
+  const current = kind === 'status' ? t.status : t.priority;
+  const c = CHIP_SETS[kind][current] || Object.values(CHIP_SETS[kind])[0];
+  const word = kind === 'status' ? 'Status' : 'Priority';
+  return `<button type="button" class="status-chip ${c.cls}" ${canEdit ? `onclick="event.stopPropagation(); openChipMenu(this, '${kind}', '${t.id}', '${current}', '${ctx}')" aria-haspopup="menu"` : 'disabled'}
+    title="${current}${canEdit ? ' (tap to change)' : ''}" aria-label="${word}: ${current}${canEdit ? '. Change ' + word.toLowerCase() : ''}"><span aria-hidden="true">${c.icon}</span>${c.label}</button>`;
 }
+function statusChipHTML(t, canEdit, ctx = '') { return chipHTML('status', t, canEdit, ctx); }
+function priorityChipHTML(t, canEdit, ctx = '') { return chipHTML('priority', t, canEdit, ctx); }
 function closeStatusMenu() { document.getElementById('status-menu')?.remove(); }
-function openStatusMenu(btn, taskId, current) {
+function openStatusMenu(btn, taskId, current, ctx = '') { openChipMenu(btn, 'status', taskId, current, ctx); }
+function openChipMenu(btn, kind, taskId, current, ctx = '') {
   closeStatusMenu();
   const menu = document.createElement('div');
   menu.id = 'status-menu';
   menu.setAttribute('role', 'menu');
-  menu.innerHTML = Object.entries(STATUS_CHIP).map(([status, c]) =>
-    `<button type="button" role="menuitemradio" aria-checked="${status === current}" class="status-chip ${c.cls} ${status === current ? 'is-current' : ''}" data-status="${status}"><span aria-hidden="true">${c.icon}</span>${status}</button>`).join('');
+  menu.setAttribute('aria-label', kind === 'status' ? 'Change status' : 'Change priority');
+  menu.innerHTML = Object.entries(CHIP_SETS[kind]).map(([value, c]) =>
+    `<button type="button" role="menuitemradio" aria-checked="${value === current}" class="status-chip ${c.cls} ${value === current ? 'is-current' : ''}" data-value="${value}"><span aria-hidden="true">${c.icon}</span>${value}</button>`).join('');
   document.body.appendChild(menu);
   const r = btn.getBoundingClientRect();
   const top = r.bottom + menu.offsetHeight + 8 > innerHeight ? r.top - menu.offsetHeight - 4 : r.bottom + 4;
   menu.style.top = Math.max(8, top) + 'px';
   menu.style.left = Math.max(8, Math.min(innerWidth - menu.offsetWidth - 8, r.left)) + 'px';
   menu.addEventListener('click', e => {
-    const pick = e.target.closest('[data-status]');
+    const pick = e.target.closest('[data-value]');
     if (!pick) return;
     closeStatusMenu();
-    if (pick.dataset.status !== current) updateGanttTaskStatus(taskId, pick.dataset.status);
+    const v = pick.dataset.value;
+    if (v === current) return;
+    if (kind === 'priority') updateTaskPriority(taskId, v, ctx);
+    else if (ctx && ctx !== 'kanban') updateTaskStatus(taskId, v, ctx);
+    else updateGanttTaskStatus(taskId, v);
   });
   menu.querySelector('[aria-checked="true"]')?.focus();
   setTimeout(() => document.addEventListener('click', closeStatusMenu, { once: true }), 0);

@@ -332,6 +332,56 @@
        so a widened "Task / Project" column also prints uncompressed. */
     #page-gantt { --gc1: 240px; --gc2: 90px; --gc3: 100px; --gc4: 100px; --gc5: 70px; }
     .gantt-sticky { position: sticky; z-index: 6; background: inherit; }
+    /* Tap-to-pick segmented chips (task form, task panel) */
+    .seg { display: flex; gap: 4px; background: #F0F2F4; border-radius: 14px; padding: 4px; }
+    .seg button { flex: 1; min-height: 38px; border: 0; border-radius: 10px; background: transparent; font-size: 13px; font-weight: 700; color: #5B6472; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; cursor: pointer; }
+    .seg button i { width: 8px; height: 8px; border-radius: 50%; }
+    .seg button[aria-checked="true"] { background: #fff; color: #0D1B2A; box-shadow: 0 1px 3px rgba(13,27,42,.12); }
+    .seg button:disabled { cursor: not-allowed; opacity: .5; }
+    .seg[data-seg-for="task-status"] button[data-value="Completed"][aria-checked="true"], .seg.td-status button[data-value="Completed"][aria-checked="true"] { background: #E9F9EF; color: #14532B; }
+    .seg[data-seg-for="task-status"] button[data-value="In Progress"][aria-checked="true"], .seg.td-status button[data-value="In Progress"][aria-checked="true"] { background: #FFF1E3; color: #9A4410; }
+    .task-more { border: 1px solid #EEF0F3; border-radius: 14px; padding: 10px 12px; }
+    .task-more summary { cursor: pointer; font-size: 13px; font-weight: 800; color: #0D1B2A; }
+    .task-more summary span { font-weight: 600; color: #8A93A0; margin-left: 4px; }
+    .dark .seg { background: #0F1726; }
+    .dark .seg button { color: #94A3B8; }
+    .dark .seg button[aria-checked="true"] { background: #1A2436; color: #F1F5F9; }
+    .dark .task-more { border-color: #1F2A3D; } .dark .task-more summary { color: #F1F5F9; }
+    /* Task panel: key facts */
+    .td-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .td-fact { background: #F8F9FA; border: 1px solid #EEF0F3; border-radius: 12px; padding: 8px 10px; min-width: 0; }
+    .td-fact p { margin: 0; }
+    .td-fact .k { font-size: 11px; font-weight: 700; color: #8A93A0; }
+    .td-fact .v { font-size: 14px; font-weight: 700; color: #0D1B2A; overflow-wrap: anywhere; }
+    .td-fact .v small { display: block; font-size: 11px; font-weight: 700; }
+    .td-fact.is-late { background: #FDECEA; border-color: #F5C2BC; } .td-fact.is-late .v small { color: #B91C1C; }
+    .td-fact.is-soon .v small { color: #9A4410; }
+    .dark .td-fact { background: #0F1726; border-color: #1F2A3D; } .dark .td-fact .v { color: #F1F5F9; }
+    .dark .td-fact.is-late { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.3); } .dark .td-fact.is-late .v small { color: #FCA5A5; }
+    /* Dashboard: Needs your attention */
+    .attention-card { background: #fff; border: 1px solid #E3E6EA; border-radius: 20px; padding: 16px; }
+    .attention-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+    @media (max-width: 520px) { .attention-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .attention-count { text-align: left; border: 1px solid #EEF0F3; border-radius: 14px; padding: 10px 12px; background: #F8F9FA; cursor: pointer; }
+    .attention-count:hover { border-color: #CDEDEF; }
+    .attention-count b { display: block; font-size: 22px; font-weight: 800; color: #0D1B2A; line-height: 1.1; }
+    .attention-count span { font-size: 12px; font-weight: 700; color: #5B6472; }
+    .attention-count.is-hot { background: #FDECEA; border-color: #F5C2BC; } .attention-count.is-hot b { color: #B91C1C; }
+    .attention-count.is-warn { background: #FFF6E5; border-color: #F7D79A; } .attention-count.is-warn b { color: #9A4410; }
+    .attention-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid #F0F2F4; }
+    .attention-row:first-child { border-top: 0; }
+    .attention-why { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 8px; margin-right: 4px; }
+    .attention-why.late { background: #FDECEA; color: #B91C1C; } .attention-why.blocked { background: #FDECEA; color: #8E1F14; }
+    .attention-why.today { background: #FFF6E5; color: #9A4410; } .attention-why.waiting { background: #FFF6E5; color: #92400E; }
+    .attention-act { width: 34px; height: 34px; border-radius: 10px; border: 1px solid #E3E6EA; background: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .attention-act:hover { border-color: #0A7E8C; }
+    .attention-act:disabled { opacity: .45; cursor: not-allowed; }
+    .dark .attention-card { background: #111A2B; border-color: #1F2A3D; }
+    .dark .attention-count { background: #0F1726; border-color: #1F2A3D; } .dark .attention-count b { color: #F1F5F9; } .dark .attention-count span { color: #94A3B8; }
+    .dark .attention-count.is-hot { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.3); } .dark .attention-count.is-hot b { color: #FCA5A5; }
+    .dark .attention-count.is-warn { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.3); } .dark .attention-count.is-warn b { color: #FCD34D; }
+    .dark .attention-row { border-color: #1F2A3D; }
+    .dark .attention-act { background: #0F1726; border-color: #263449; }
     /* Owner metrics (js/metrics.js) */
     #page-metrics { max-width: 1100px; }
     .metric-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
@@ -414,6 +464,13 @@
     .status-chip.is-todo { background: #F0F2F4; color: #3F4A57; border-color: #E3E6EA; }
     .status-chip.is-doing { background: #FFF1E3; color: #9A4410; border-color: #F7C99A; }
     .status-chip.is-done { background: #E9F9EF; color: #14532B; border-color: #BBE6CB; }
+    .status-chip.is-high { background: #FDECEA; color: #B91C1C; border-color: #F5C2BC; }
+    .status-chip.is-medium { background: #FFF6E5; color: #9A4410; border-color: #F7D79A; }
+    .status-chip.is-low { background: #E9F9EF; color: #14532B; border-color: #BBE6CB; }
+    .dark .status-chip.is-high { background: rgba(239,68,68,.14); color: #FCA5A5; border-color: rgba(239,68,68,.3); }
+    .dark .status-chip.is-medium { background: rgba(245,158,11,.14); color: #FCD34D; border-color: rgba(245,158,11,.3); }
+    .dark .status-chip.is-low { background: rgba(52,211,153,.12); color: #6EE7B7; border-color: rgba(52,211,153,.3); }
+    .tt-status .status-chip, .tt-priority .status-chip { width: auto; min-width: 84px; min-height: 30px; }
     #status-menu { position: fixed; z-index: 70; background: #fff; border: 1px solid #E3E6EA; border-radius: 14px; box-shadow: 0 12px 32px rgba(13,27,42,.18); padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
     #status-menu .status-chip { justify-content: flex-start; font-size: 13px; padding: 8px 12px; min-height: 36px; }
     #status-menu .status-chip.is-current { box-shadow: inset 0 0 0 2px currentColor; }
@@ -1699,7 +1756,7 @@
           <p class="text-3xl font-extrabold text-navy" id="dash-week-done">0 <span class="text-sm font-semibold text-gray-500">tasks done</span></p>
           <p class="text-xs font-bold" id="dash-week-trend"></p>
           <div class="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="goals-bar-fill h-full rounded-full transition-all duration-500" id="hero-goals-prog" style="width:0%"></div></div>
-          <p class="text-xs text-gray-500 mt-1"><span id="hero-goals-pct">0%</span> of everything · <span id="hero-goals-sub">0 of 0 tasks complete</span> <span id="hero-goals-detail" class="hidden"></span></p>
+          <p class="text-xs text-gray-500 mt-1"><span id="hero-goals-pct">0%</span> of all planned work · <span id="hero-goals-sub">0 of 0 tasks complete</span> <span id="hero-goals-detail" class="hidden"></span></p>
           <p class="text-xs text-gray-500"><span id="kpi-total">0</span> tasks · <span id="kpi-done">0</span> done · <span id="kpi-inprog">0</span> in progress</p>
           <button onclick="openWeeklyRecap()" class="mt-auto pt-2 text-left text-sm font-extrabold text-teal hover:underline">🎬 Watch my week</button>
         </div>
@@ -1732,19 +1789,18 @@
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="project-stats"></div>
 
-      <!-- Needs Attention — a one-line pointer into Actions, not a second
-           copy of its list: Actions is a primary top-level nav item (one
-           click away, same depth as Dashboard), so duplicating its full
-           Overdue/High-priority table here just meant two places to scan
-           for the same thing, with this one capped, read-only, and unable
-           to mark a task done. -->
-      <div class="bg-white rounded-xl border border-gray-200 p-5 flex items-center justify-between gap-4 flex-wrap">
-        <div class="min-w-0">
-          <p class="text-sm font-bold text-navy">⚡ Needs Attention</p>
-          <p class="text-xs text-gray-400 mt-0.5" id="dash-attention-text">Loading…</p>
+      <!-- Needs your attention: what's late, blocked, due today or waiting
+           on someone else, as counts that open Actions, plus the three most
+           urgent tasks with one-tap Done / Remind / Open, so the first
+           things to deal with can be dealt with right here. -->
+      <section class="attention-card" aria-labelledby="dash-attention-title">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <h3 class="text-[15px] font-extrabold text-navy" id="dash-attention-title">Needs your attention</h3>
+          <button type="button" onclick="showPage('actions')" class="text-xs font-bold text-teal hover:underline">Open Actions →</button>
         </div>
-        <button onclick="showPage('actions')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">Open Actions →</button>
-      </div>
+        <div class="attention-counts" id="dash-attention-counts"></div>
+        <div id="dash-attention-list"><p class="text-sm text-gray-400 py-2">Loading…</p></div>
+      </section>
     </div>
 
     <!-- ─── ALL PROJECTS ─── -->
@@ -2829,106 +2885,125 @@
         <button onclick="closeModal('modal-task')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
       </div>
     </div>
-    <div class="p-6 overflow-y-auto flex-1 space-y-4">
-      <input type="hidden" id="task-id">
+    <!-- Task form: the essentials first (what, where, status, when, who),
+         then notes, checklist and tags; repeat, target and cost tuck into
+         "More options" and open by themselves when they have a value.
+         Status and priority are tap-to-pick chips over the original
+         selects, which stay as the source of truth for saveTask(). -->
+    <div class="p-6 overflow-y-auto flex-1 space-y-5">
       <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Project *</label>
-        <select id="task-project" onchange="onTaskProjectChange()" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal"></select>
+        <input type="hidden" id="task-id">
+        <label class="block text-xs font-bold text-gray-600 mb-1.5" for="task-title-in">What needs doing? *</label>
+        <input type="text" id="task-title-in" placeholder="e.g. Send my application to the NHS trust"
+          class="w-full border border-gray-200 rounded-xl px-3 py-3 text-base font-semibold text-navy focus:outline-none focus:border-teal">
       </div>
       <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Task Title *</label>
-        <input type="text" id="task-title-in" placeholder="e.g. PRINCE2 Foundation Exam"
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        <label class="block text-xs font-bold text-gray-600 mb-1.5" for="task-project">Project *</label>
+        <select id="task-project" onchange="onTaskProjectChange()" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-teal bg-white"></select>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Status</label>
-          <select id="task-status" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          <p class="block text-xs font-bold text-gray-600 mb-1.5" id="task-status-label">Status</p>
+          <select id="task-status" class="sr-only" tabindex="-1" aria-hidden="true">
             <option>Not Started</option><option>In Progress</option><option>Completed</option>
           </select>
+          <div class="seg" role="radiogroup" aria-labelledby="task-status-label" data-seg-for="task-status">
+            <button type="button" role="radio" data-value="Not Started">○ To do</button>
+            <button type="button" role="radio" data-value="In Progress">◐ Doing</button>
+            <button type="button" role="radio" data-value="Completed">✓ Done</button>
+          </div>
         </div>
         <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Priority</label>
-          <select id="task-priority" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          <p class="block text-xs font-bold text-gray-600 mb-1.5" id="task-priority-label">Priority</p>
+          <select id="task-priority" class="sr-only" tabindex="-1" aria-hidden="true">
             <option>High</option><option>Medium</option><option>Low</option>
           </select>
+          <div class="seg" role="radiogroup" aria-labelledby="task-priority-label" data-seg-for="task-priority">
+            <button type="button" role="radio" data-value="High"><i style="background:#DC2626"></i>High</button>
+            <button type="button" role="radio" data-value="Medium"><i style="background:#F59E0B"></i>Medium</button>
+            <button type="button" role="radio" data-value="Low"><i style="background:#16A34A"></i>Low</button>
+          </div>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-gray-600 mb-1.5" for="task-start">Start</label>
+          <input type="date" id="task-start" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-teal bg-white">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Cost</label>
-          <input type="number" id="task-cost" placeholder="0" min="0"
-            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Start Date</label>
-          <input type="date" id="task-start"
-            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Due Date</label>
-          <input type="date" id="task-end"
-            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Assigned To</label>
-          <select id="task-assignee" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-            <option value="">Unassigned</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Repeat</label>
-          <select id="task-recurrence" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-            <option value="none">Doesn't repeat</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-          </select>
-          <p class="text-xs text-gray-400 mt-1">Marking it Completed creates the next occurrence automatically.</p>
+          <label class="block text-xs font-bold text-gray-600 mb-1.5" for="task-end">Due</label>
+          <input type="date" id="task-end" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-teal bg-white">
         </div>
       </div>
       <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Progress Target (optional)</label>
-        <div class="flex gap-2">
-          <input type="number" id="task-target-count" min="1" placeholder="e.g. 20" oninput="onTaskTargetCountChange()"
-            class="w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-          <input type="text" id="task-target-unit" placeholder="unit, e.g. mock tests"
-            class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-        </div>
-        <p class="text-xs text-gray-400 mt-1">Log progress with a "+1" button instead of a checklist — hits the target and the task auto-completes.</p>
-        <div id="task-progress-current-row" class="hidden mt-2 flex items-center gap-2">
-          <label class="text-xs text-gray-500 whitespace-nowrap">Current progress:</label>
-          <input type="number" id="task-progress-current" min="0" class="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-teal">
-        </div>
+        <label class="block text-xs font-bold text-gray-600 mb-1.5" for="task-assignee">Who's doing it</label>
+        <select id="task-assignee" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-teal bg-white">
+          <option value="">Unassigned</option>
+        </select>
       </div>
       <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Notes</label>
-        <textarea id="task-notes" rows="3" placeholder="Any details, links or reminders..."
-          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
-      </div>
-      <div>
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Tags</label>
-        <div id="task-tag-picker" class="flex flex-wrap gap-1.5 mb-2"></div>
-        <div class="flex gap-2">
-          <input type="text" id="task-new-tag-label" placeholder="New tag name…" onkeydown="if(event.key==='Enter'){event.preventDefault(); createTagFromTaskModal();}"
-            class="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-teal">
-          <input type="color" id="task-new-tag-color" value="#0A7E8C" class="w-9 h-8 border border-gray-200 rounded-lg cursor-pointer">
-          <button onclick="createTagFromTaskModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-lg">+ New</button>
-        </div>
+        <label class="block text-xs font-bold text-gray-600 mb-1.5" for="task-notes">Notes</label>
+        <textarea id="task-notes" rows="3" placeholder="Details, links, anything you'll want to remember…"
+          class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-teal bg-white resize-none"></textarea>
       </div>
       <!-- Checklist (subtasks) — only meaningful once the task exists, so
            hidden entirely on the "New Task" form. -->
       <div class="hidden" id="task-checklist-section">
-        <label class="block text-xs font-semibold text-gray-600 mb-1">Checklist <span id="task-checklist-count" class="font-normal text-gray-400"></span></label>
+        <p class="block text-xs font-bold text-gray-600 mb-1.5">Checklist <span id="task-checklist-count" class="font-normal text-gray-400"></span></p>
         <div id="task-checklist-items" class="space-y-1.5 mb-2"></div>
         <div class="flex gap-2">
-          <input type="text" id="task-checklist-input" placeholder="Add an item…" onkeydown="if(event.key==='Enter'){event.preventDefault(); addTaskChecklistItem();}"
-            class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
-          <button onclick="addTaskChecklistItem()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg">Add</button>
+          <input type="text" id="task-checklist-input" placeholder="Add a step…" aria-label="New checklist step" onkeydown="if(event.key==='Enter'){event.preventDefault(); addTaskChecklistItem();}"
+            class="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-teal">
+          <button onclick="addTaskChecklistItem()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-xl">Add</button>
         </div>
       </div>
+      <div>
+        <p class="block text-xs font-bold text-gray-600 mb-1.5">Tags</p>
+        <div id="task-tag-picker" class="flex flex-wrap gap-1.5 mb-2"></div>
+        <div class="flex gap-2">
+          <input type="text" id="task-new-tag-label" placeholder="New tag…" aria-label="New tag name" onkeydown="if(event.key==='Enter'){event.preventDefault(); createTagFromTaskModal();}"
+            class="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-teal">
+          <input type="color" id="task-new-tag-color" value="#0A7E8C" aria-label="Tag colour" class="w-9 h-8 border border-gray-200 rounded-lg cursor-pointer">
+          <button onclick="createTagFromTaskModal()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-1.5 rounded-xl">+ Add</button>
+        </div>
+      </div>
+      <details class="task-more" id="task-more">
+        <summary>More options <span id="task-more-hint">repeat, target, cost</span></summary>
+        <div class="space-y-4 pt-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1.5" for="task-recurrence">Repeat</label>
+            <select id="task-recurrence" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-teal bg-white">
+              <option value="none">Doesn't repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            <p class="text-xs text-gray-400 mt-1">Finishing it creates the next one automatically.</p>
+          </div>
+          <div>
+            <p class="block text-xs font-bold text-gray-600 mb-1.5">Target to count towards</p>
+            <div class="flex gap-2">
+              <input type="number" id="task-target-count" min="1" placeholder="e.g. 20" aria-label="Target number" oninput="onTaskTargetCountChange()"
+                class="w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-teal">
+              <input type="text" id="task-target-unit" placeholder="of what, e.g. applications" aria-label="Target unit"
+                class="flex-1 min-w-0 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-teal">
+            </div>
+            <p class="text-xs text-gray-400 mt-1">Log progress with +1 as you go; reaching the target finishes the task.</p>
+            <div id="task-progress-current-row" class="hidden mt-2 flex items-center gap-2">
+              <label class="text-xs text-gray-500 whitespace-nowrap" for="task-progress-current">Done so far:</label>
+              <input type="number" id="task-progress-current" min="0" class="w-20 border border-gray-200 rounded-xl px-2 py-1 text-sm focus:outline-none focus:border-teal">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1.5" for="task-cost">Cost</label>
+            <input type="number" id="task-cost" placeholder="0" min="0" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-teal bg-white">
+          </div>
+        </div>
+      </details>
     </div>
     <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
-      <button onclick="closeModal('modal-task')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
-      <button onclick="saveTask()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Save Task</button>
+      <button onclick="closeModal('modal-task')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-xl">Cancel</button>
+      <button onclick="saveTask()" class="bg-teal hover:bg-teal/90 text-white text-sm font-bold px-5 py-2.5 rounded-xl">Save task</button>
     </div>
   </div>
 </div>
@@ -2936,18 +3011,23 @@
 <!-- TASK DETAIL SIDE PANEL -->
 <div class="hidden fixed inset-0 bg-black/40 z-40" id="task-detail-backdrop" onclick="closeTaskDetail()"></div>
 <div class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300 translate-x-full" id="task-detail-panel">
-  <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Task Details</p>
-    <button onclick="closeTaskDetail()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1">✕</button>
+  <div class="flex items-center justify-between gap-3 px-6 py-4 border-b border-gray-100">
+    <button type="button" onclick="openTaskProject()" class="flex items-center gap-2 min-w-0 text-left hover:opacity-80" title="Open this project">
+      <span id="td-project-icon" class="text-lg flex-shrink-0"></span>
+      <span id="td-project-title" class="text-sm font-bold text-gray-500 truncate"></span>
+    </button>
+    <button onclick="closeTaskDetail()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1 flex-shrink-0" aria-label="Close task details">✕</button>
   </div>
   <div class="p-6 overflow-y-auto flex-1">
-    <div class="flex items-center gap-2 mb-2">
-      <span id="td-project-icon" class="text-lg"></span>
-      <span id="td-project-title" class="text-xs font-semibold text-gray-400"></span>
+    <h2 class="text-2xl font-black text-navy leading-tight mb-3" id="td-title">Task</h2>
+    <div class="seg td-status mb-3" id="td-status-seg" role="radiogroup" aria-label="Status">
+      <button type="button" role="radio" data-value="Not Started" onclick="setDetailStatus('Not Started')">○ To do</button>
+      <button type="button" role="radio" data-value="In Progress" onclick="setDetailStatus('In Progress')">◐ Doing</button>
+      <button type="button" role="radio" data-value="Completed" onclick="setDetailStatus('Completed')">✓ Done</button>
     </div>
-    <h2 class="text-xl font-black text-navy mb-3" id="td-title">Task</h2>
-    <div class="flex flex-wrap items-center gap-2 mb-5"><div class="flex flex-wrap gap-2" id="td-badges"></div>
+    <div class="flex flex-wrap items-center gap-2 mb-4"><div class="flex flex-wrap gap-2" id="td-badges"></div>
       <button type="button" id="td-reminder-btn" onclick="Reminders.openSheet(APP_currentDetailTaskId, document.getElementById('td-title').textContent)" class="reminder-btn" title="Ring me about this task at a set time">⏰ Remind me</button></div>
+    <div class="td-facts mb-5" id="td-facts"></div>
     <div id="td-progress" class="hidden mb-5"></div>
 
     <!-- "Just start" affordance — only for a Not Started task someone can
@@ -2965,39 +3045,20 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-4 mb-5 text-sm">
-      <div>
-        <p class="text-xs font-semibold text-gray-400 mb-0.5">Cost</p>
-        <p class="font-medium text-navy" id="td-cost">—</p>
-      </div>
-      <div>
-        <p class="text-xs font-semibold text-gray-400 mb-0.5">Start Date</p>
-        <p class="font-medium text-navy" id="td-start">—</p>
-      </div>
-      <div>
-        <p class="text-xs font-semibold text-gray-400 mb-0.5">Due Date</p>
-        <p class="font-medium text-navy" id="td-end">—</p>
-      </div>
-      <div>
-        <p class="text-xs font-semibold text-gray-400 mb-0.5">Assigned To</p>
-        <p class="font-medium text-navy" id="td-assignee">Unassigned</p>
-      </div>
-    </div>
-
     <div class="border-t border-gray-100 pt-4 mb-5">
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Notes</p>
       <p class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed" id="td-notes">No notes for this task yet.</p>
     </div>
 
     <div class="border-t border-gray-100 pt-4 mb-5">
-      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">⚔️ Obstacles</p>
-      <p class="text-xs text-gray-400 mb-2">What's standing in the way. Each one shows on the Journey as enemies on the road before this task's flag. Tick each one off as it's cleared: the task can't be completed until they all are.</p>
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">⚔️ Blockers</p>
+      <p class="text-xs text-gray-400 mb-2">What's in the way. Tick each one off when it's cleared; the task can't be finished until they all are.</p>
       <div id="td-obstacles" class="space-y-1.5 mb-2"></div>
       <div id="td-obstacle-box" class="flex gap-2 items-center">
         <input type="text" id="td-obstacle-name" maxlength="80" placeholder="e.g. Waiting on the supplier quote" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitObstacle();}"
-          class="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal" aria-label="Obstacle name">
-        <label class="sr-only" for="td-obstacle-count">How many enemies</label>
-        <select id="td-obstacle-count" class="border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white focus:outline-none focus:border-teal" title="How many enemies it puts on the road">
+          class="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal" aria-label="What's in the way">
+        <label class="sr-only" for="td-obstacle-count">How big is it</label>
+        <select id="td-obstacle-count" class="border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white focus:outline-none focus:border-teal" title="How big is it? Bigger blockers put more enemies on the Journey road">
           <option value="1">×1</option><option value="2">×2</option><option value="3">×3</option><option value="4">×4</option><option value="5">×5</option>
         </select>
         <button onclick="submitObstacle()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg flex-shrink-0">Add</button>
@@ -3068,7 +3129,8 @@
     <button onclick="addTaskToGoogleCalendar(APP_currentDetailTaskId)" title="Add to Google Calendar" aria-label="Add to Google Calendar" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-sm w-10 h-9 rounded-lg flex-shrink-0">📅</button>
     <button onclick="duplicateTaskFromDetail()" title="Duplicate this task" aria-label="Duplicate this task" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-sm w-10 h-9 rounded-lg flex-shrink-0">⧉</button>
     <button onclick="askAIAboutTask(APP_currentDetailTaskId)" id="td-ai-btn" title="Ask AI about this task" aria-label="Ask AI about this task" class="bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-sm w-10 h-9 rounded-lg flex-shrink-0">✨</button>
-    <button onclick="editTaskFromDetail()" id="btn-edit-task-detail" class="flex-1 bg-teal hover:bg-teal/90 text-white text-sm font-semibold px-4 h-9 rounded-lg">✏️ Edit Task</button>
+    <button onclick="editTaskFromDetail()" id="btn-edit-task-detail" class="bg-white hover:bg-gray-50 text-navy border border-gray-200 text-sm font-semibold px-3 h-9 rounded-lg flex-shrink-0">✏️ Edit</button>
+    <button onclick="detailPrimaryAction()" id="td-primary-btn" class="flex-1 bg-teal hover:bg-teal/90 text-white text-sm font-bold px-4 h-9 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">▶ Start</button>
   </div>
 </div>
 
