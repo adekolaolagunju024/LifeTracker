@@ -841,6 +841,7 @@ function renderAssistantMusic(body) {
   const el = assistantBubble('assistant', body.text);
   speakAssistant(body.text);
   if (body.action === 'play') { Why.playMusic(body.index || 0); return; }
+  if (body.action === 'pause') { if (window.Music) Music.setPaused(true); return; }
   const row = document.createElement('div');
   row.className = 'asst-music-actions';
   if (body.action === 'save') {

@@ -199,7 +199,7 @@ const EMOJI_ICON = [
   [/^📎/u, 'paperclip'], [/^[🏆🥇]/u, 'trophy'], [/^🔥/u, 'flame'], [/^[⏰⏱]/u, 'alarm'], [/^🗑/u, 'trash'],
   [/^[🔒🔐]/u, 'lock'], [/^[✉📨📧📩]/u, 'mail'], [/^⚠/u, 'warning'], [/^✨/u, 'sparkles'], [/^🎯/u, 'goal'],
   [/^[📈📊]/u, 'chart'], [/^👥/u, 'users'], [/^📅/u, 'calendar'], [/^[☁💾]/u, 'cloud'], [/^[✏📝]/u, 'edit'],
-  [/^[📄📋]/u, 'file'], [/^[🔔]/u, 'bell'], [/^📷/u, 'camera'],
+  [/^[📄📋]/u, 'file'], [/^[🔔]/u, 'bell'], [/^📷/u, 'camera'], [/^⏸/u, 'pause'], [/^▶/u, 'play'],
 ];
 const LEADING_EMOJI = /^(?:[\p{Extended_Pictographic}\u2190-\u21FF\u2713-\u2716\uFE0F\u200D]+\s*)+/u;
 

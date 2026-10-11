@@ -164,7 +164,7 @@ const MUSIC_TOOL = {
   input_schema: {
     type: 'object',
     properties: {
-      action: { type: 'string', enum: ['play', 'save'], description: 'play: start one of their saved playlists. save: offer to add the link they pasted to their library.' },
+      action: { type: 'string', enum: ['play', 'pause', 'save'], description: 'play: start one of their saved playlists (or resume). pause: pause what is playing. save: offer to add the link they pasted to their library.' },
       name: { type: 'string', description: 'For play: which saved playlist, by its name, if they said one; leave empty for their default' },
       url: { type: 'string', description: 'For save: the exact link from the user\'s message' },
       label: { type: 'string', description: 'For save: a short name for it, if they gave one' },
@@ -347,7 +347,7 @@ const ASSISTANT_SYSTEM = today => `You are Waypoint's assistant: a calm, capable
 
 When the user wants something done in the app (open a page, project or task; start focusing on a task, optionally with their music; finish a task; set a reminder; add a task), call take_actions with the ids from the context. When they ask what to do next, pick one task from their day, say why in a sentence, and offer to start a focus session on it.
 
-If the user describes a new goal and you have enough to plan it, call propose_project. If the user asks for changes to the project they have open, and that project's plan is included below, call propose_edits. That includes deleting a task the user wants gone (it goes to Trash and can be restored), and a task's blockers (the obstacles in its way, listed under each task): adding one, renaming it, changing its count, ticking it off as cleared, or removing it. It also covers a task's progress target (a count such as 20 pages, set through updateTask's targetCount and targetUnit, or cleared with 0) and its predecessors (the tasks it waits on, shown as "waits on" in the plan): addPredecessor and removePredecessor. If the user asks for their music (play my music, put my workout playlist on, I need focus music) call focus_music with action play, naming the playlist if they did; if they paste a music link to keep, call focus_music with action save. Otherwise reply in one or two short sentences, asking a question if you need one. Never say you have made a change: you only propose changes, and the user approves them.`;
+If the user describes a new goal and you have enough to plan it, call propose_project. If the user asks for changes to the project they have open, and that project's plan is included below, call propose_edits. That includes deleting a task the user wants gone (it goes to Trash and can be restored), and a task's blockers (the obstacles in its way, listed under each task): adding one, renaming it, changing its count, ticking it off as cleared, or removing it. It also covers a task's progress target (a count such as 20 pages, set through updateTask's targetCount and targetUnit, or cleared with 0) and its predecessors (the tasks it waits on, shown as "waits on" in the plan): addPredecessor and removePredecessor. If the user asks for their music (play my music, put my workout playlist on, I need focus music) call focus_music with action play, naming the playlist if they did; to stop or pause it, action pause; if they paste a music link to keep, call focus_music with action save. Otherwise reply in one or two short sentences, asking a question if you need one. Never say you have made a change: you only propose changes, and the user approves them.`;
 
 router.post('/assistant', aiQuota('assistant'), async (req, res) => {
   if (!isAIConfigured()) {
@@ -410,6 +410,7 @@ router.post('/assistant', aiQuota('assistant'), async (req, res) => {
     if (response.type === 'tool_use' && response.name === 'focus_music') {
       const { action, reply } = response.input || {};
       const library = motivation.get(userId).playlists;
+      if (action === 'pause') return res.json({ type: 'music', action: 'pause', text: reply || 'Paused.' });
       if (action === 'save') {
         // Only a link the user actually sent, and only a web link.
         const lastUser = [...cleaned].reverse().find(m => m.role === 'user');
