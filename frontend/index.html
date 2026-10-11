@@ -630,6 +630,36 @@
     .dark .plan-sub { color: #94A3B8; }
     .dark .plan-badge { background: #1A2436; color: #CBD5E1; }
     /* Your why: at a glance, then one section at a time */
+    /* Project chat composer */
+    .chat-compose { display: flex; align-items: flex-end; gap: 8px; }
+    .chat-plus { width: 40px; height: 40px; border-radius: 50%; background: #E6F4F5; color: #0A7E8C; display: flex; align-items: center; justify-content: center; transition: transform .15s, background .15s; }
+    .chat-plus:hover { background: #D2ECEE; }
+    .chat-plus[aria-expanded="true"] { transform: rotate(45deg); background: #0A7E8C; color: #fff; }
+    .chat-plus .ic { width: 20px; height: 20px; }
+    .chat-plus-menu { position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 30; background: #fff; border: 1px solid #E3E6EA; border-radius: 14px; box-shadow: 0 16px 40px rgba(13,27,42,.16); padding: 6px; width: 230px; }
+    .chat-plus-menu button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; font-size: 14px; font-weight: 600; color: #1F2A37; padding: 10px 10px; border-radius: 10px; }
+    .chat-plus-menu button:hover { background: #F1F5F6; }
+    .chat-plus-menu .ic { width: 18px; height: 18px; color: #0A7E8C; }
+    .chat-input { display: block; width: 100%; resize: none; border: 1px solid #D5DBE1; border-radius: 20px; padding: 9px 14px; font-size: 14px; line-height: 1.4; max-height: 140px; min-height: 40px; background: #fff; }
+    .chat-input:focus { outline: none; border-color: #0A7E8C; box-shadow: 0 0 0 3px rgba(10,126,140,.12); }
+    .chat-send { width: 40px; height: 40px; border-radius: 50%; background: #0A7E8C; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .chat-send:hover { background: #086C78; }
+    .chat-send:disabled { background: #D5DBE1; cursor: default; }
+    .chat-send .ic { width: 18px; height: 18px; transform: translateX(-1px); }
+    .chat-att-thumb { width: 44px; height: 44px; border-radius: 10px; background: #E6F4F5; color: #0A7E8C; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+    .chat-att-thumb img, .chat-att-thumb video { width: 100%; height: 100%; object-fit: cover; }
+    .chat-email-row { align-items: center; gap: 8px; flex-wrap: wrap; background: #F0FAF9; border: 1px solid #CDEBEA; border-radius: 12px; padding: 6px 8px 6px 10px; }
+    .chat-email-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #075E68; }
+    .chat-cc-input { flex: 1; min-width: 160px; border: 1px solid #D5DBE1; border-radius: 8px; padding: 5px 8px; font-size: 12px; background: #fff; }
+    .chat-day { display: flex; justify-content: center; margin: 14px 0 6px; }
+    .chat-day span { font-size: 11px; font-weight: 700; color: #6B7280; background: #F1F3F5; border-radius: 999px; padding: 3px 10px; }
+    #project-chat-panel.chat-drop::after { content: 'Drop to attach'; position: absolute; inset: 12px; border: 2px dashed #0A7E8C; border-radius: 18px; background: rgba(230,244,245,.85); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #0A7E8C; z-index: 40; pointer-events: none; }
+    .dark .chat-plus { background: rgba(94,234,212,.12); color: #5EEAD4; }
+    .dark .chat-plus-menu { background: #111A2B; border-color: #24324A; }
+    .dark .chat-plus-menu button { color: #E8EEF5; } .dark .chat-plus-menu button:hover { background: #1A2436; }
+    .dark .chat-input, .dark .chat-cc-input { background: #0B1220; border-color: #24324A; color: #E8EEF5; }
+    .dark .chat-email-row { background: rgba(94,234,212,.08); border-color: rgba(94,234,212,.25); }
+    .dark .chat-day span { background: #1A2436; color: #94A3B8; }
     .why-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
     .why-talk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: #0A7E8C; background: #E6F4F5; border-radius: 999px; padding: 8px 14px; }
     .why-talk:hover { background: #D2ECEE; }
@@ -3890,7 +3920,7 @@
       <p class="font-bold text-navy truncate" id="team-chat-project-title"></p>
     </div>
     <div class="flex items-center gap-1 flex-shrink-0">
-      <button onclick="startGoLive()" id="btn-go-live" class="hidden text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-gray-100 text-base" title="Start a live video walkthrough"><span class="ei" data-icon="overdue"></span></button>
+      <button onclick="startGoLive()" id="btn-go-live" class="hidden text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-gray-100 text-base" title="Go live: a video walkthrough for the team" aria-label="Go live"><span class="ei" data-icon="video"></span></button>
       <button onclick="openShareProject(APP.chatProjectId)" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-base" title="Add members / manage access"><span class="ei" data-icon="users"></span></button>
       <button onclick="closeProjectChat()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
     </div>
@@ -3917,28 +3947,41 @@
       <span class="text-xs text-gray-600 truncate flex-1">↩ Replying to <strong id="team-chat-reply-author"></strong>: <span id="team-chat-reply-snippet" class="text-gray-400"></span></span>
       <button onclick="cancelChatReply()" class="text-gray-400 hover:text-red-500 text-xs flex-shrink-0" title="Cancel reply" aria-label="Close" data-icon="close"></button>
     </div>
-    <div class="hidden items-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2" id="team-chat-attachment-chip">
-      <span class="text-sm flex-shrink-0"><span class="ei" data-icon="paperclip"></span></span>
+    <div class="hidden items-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-xl p-2" id="team-chat-attachment-chip">
+      <span class="chat-att-thumb" id="team-chat-attachment-thumb"><span class="ei" data-icon="paperclip"></span></span>
       <span class="text-xs text-gray-600 truncate flex-1" id="team-chat-attachment-name"></span>
-      <button onclick="clearTeamChatAttachment()" class="text-gray-400 hover:text-red-500 text-xs flex-shrink-0" title="Remove" aria-label="Close" data-icon="close"></button>
+      <button onclick="clearTeamChatAttachment()" class="text-gray-400 hover:text-red-500 text-xs flex-shrink-0 p-1" title="Remove" aria-label="Remove the attachment" data-icon="close"></button>
     </div>
+    <!-- The message box: one "+" for photos, files, a status or emailing the
+         team; a box that grows as you type (Enter sends, Shift+Enter for a
+         new line); paste or drop a photo straight in. -->
     <div id="team-chat-input-box">
-      <label class="flex items-center gap-1.5 mb-1.5 text-xs text-gray-500 cursor-pointer select-none">
-        <input type="checkbox" id="chat-also-email" onchange="toggleChatEmailOptions()"> <span class="ei" data-icon="mail"></span> Also email this to the team
-      </label>
-      <div class="hidden mb-1.5" id="chat-cc-row">
-        <input type="text" id="chat-cc-input" placeholder="CC anyone else (comma-separated emails, optional)"
-          class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-teal">
+      <input type="checkbox" id="chat-also-email" class="hidden" onchange="toggleChatEmailOptions()">
+      <div class="hidden mb-2 chat-email-row" id="chat-cc-row">
+        <span class="chat-email-label"><span class="ei" data-icon="mail"></span> Also emailing this to the team</span>
+        <input type="text" id="chat-cc-input" placeholder="CC anyone else (emails, comma-separated)" class="chat-cc-input">
+        <button type="button" onclick="chatToggleEmail(false)" class="text-gray-400 hover:text-red-500 p-1" aria-label="Don't email" data-icon="close"></button>
       </div>
-      <div class="flex gap-2">
+      <div class="chat-compose">
         <input type="file" id="team-chat-file-input" accept="image/*,video/*,.pdf,.xlsx,.xls,.docx,.doc,.txt,.csv" class="hidden" onchange="onTeamChatFileSelected(this.files[0])">
-        <button onclick="document.getElementById('team-chat-file-input').click()" class="text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-2.5 flex-shrink-0" title="Attach a file or photo"><span class="ei" data-icon="paperclip"></span></button>
-        <div class="relative flex-1">
-          <div class="hidden absolute bottom-full left-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-20 w-56" id="team-chat-mention-list"></div>
-          <input type="text" id="team-chat-input" placeholder="Message the team… (@ to mention)" oninput="onMentionInput('team-chat-input','team-chat-mention-list')" onblur="hideMentionListDelayed('team-chat-mention-list')" onkeydown="if(event.key==='Enter'){event.preventDefault(); submitProjectChatMessage();}"
-            class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
+        <input type="file" id="team-chat-media-input" accept="image/*,video/*" class="hidden" onchange="onTeamChatFileSelected(this.files[0]); this.value=''">
+        <div class="relative flex-shrink-0">
+          <button type="button" class="chat-plus" id="chat-plus" onclick="toggleChatPlus()" aria-label="Add a photo, file or more" aria-haspopup="menu" aria-expanded="false"><span class="ei" data-icon="plus"></span></button>
+          <div class="chat-plus-menu hidden" id="chat-plus-menu" role="menu">
+            <button type="button" role="menuitem" onclick="chatPick('team-chat-media-input')"><span class="ei" data-icon="camera"></span><span>Photo or video</span></button>
+            <button type="button" role="menuitem" onclick="chatPick('team-chat-file-input')"><span class="ei" data-icon="paperclip"></span><span>File</span></button>
+            <button type="button" role="menuitem" onclick="closeChatPlus(); openStatusComposer()"><span class="ei" data-icon="circle-dot"></span><span>Post a status</span></button>
+            <button type="button" role="menuitem" onclick="closeChatPlus(); chatToggleEmail()"><span class="ei" data-icon="mail"></span><span id="chat-email-item">Email this to the team</span></button>
+          </div>
         </div>
-        <button onclick="submitProjectChatMessage()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg flex-shrink-0">Send</button>
+        <div class="relative flex-1 min-w-0">
+          <div class="hidden absolute bottom-full left-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-20 w-56" id="team-chat-mention-list"></div>
+          <textarea id="team-chat-input" rows="1" placeholder="Message the team" aria-label="Message the team. Type @ to mention someone" title="Type @ to mention someone"
+            oninput="onMentionInput('team-chat-input','team-chat-mention-list'); chatInputChanged()" onblur="hideMentionListDelayed('team-chat-mention-list')"
+            onkeydown="if(event.key==='Enter' && !event.shiftKey && !event.isComposing){event.preventDefault(); submitProjectChatMessage();}"
+            onpaste="chatPaste(event)" class="chat-input"></textarea>
+        </div>
+        <button type="button" onclick="submitProjectChatMessage()" id="chat-send" class="chat-send" aria-label="Send" disabled><span class="ei" data-icon="send"></span></button>
       </div>
     </div>
     <p class="hidden text-xs text-gray-400" id="team-chat-viewonly"><span class="ei" data-icon="eye"></span> View-only access — you can't post in this chat.</p>
