@@ -5,7 +5,7 @@ const motivation = require('../motivation');
 // GET /api/motivation: this person's "Your why", plus the starter shelf
 // of quotes and the mentor types to choose from.
 router.get('/', (req, res) => {
-  res.json({ motivation: motivation.get(req.session.userId), library: motivation.LIBRARY, mentors: motivation.MENTORS });
+  res.json({ motivation: motivation.get(req.session.userId), library: motivation.LIBRARY, sources: motivation.SOURCES, mentors: motivation.MENTORS });
 });
 
 // PUT /api/motivation: replaces it (the body is cleaned, see motivation.js).

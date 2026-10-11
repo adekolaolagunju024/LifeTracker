@@ -32,6 +32,10 @@ const LIBRARY = [
   { id: 'mlk-keep-moving', group: 'Books and speeches', text: "If you can't fly then run, if you can't run then walk, if you can't walk then crawl, but whatever you do you have to keep moving forward.", source: 'Martin Luther King Jr., Spelman College, 1960' },
 ];
 
+// Where people like their words from. Nobody is shown or offered quotes
+// from a source they didn't choose.
+const SOURCES = [...new Set(LIBRARY.map(q => q.group))];
+
 // Mentors by type, for people who'd rather pick a kind of person than name
 // someone. Each comes with the routine the app reminds them of.
 const MENTORS = [
@@ -68,6 +72,7 @@ function clean(input = {}) {
     .filter(p => p.url && !seen.has(p.url) && seen.add(p.url))
     .slice(0, 12);
   return {
+    sources: (Array.isArray(input.sources) ? input.sources : []).filter(g => SOURCES.includes(g)).filter((g, i, a) => a.indexOf(g) === i),
     why: str(input.why, 300),
     becoming: str(input.becoming, 200),
     mentor: { preset: preset ? preset.id : null, name: str(m.name, 80), routine: str(m.routine, 400), says: str(m.says, 200) },
@@ -109,6 +114,29 @@ function quoteOfTheDay(m, date = new Date()) {
   return m.quotes[day % m.quotes.length];
 }
 
+// The interview's draft, kept honest: shelf quotes only from the sources
+// the person chose, their own quotes and a real mentor's words only if they
+// said them, and only music links they pasted.
+function draftFromInterview(d = {}, userMessages = []) {
+  const said = userMessages.map(t => String(t).toLowerCase()).join('\n');
+  const theirs = s => !!s && said.includes(String(s).toLowerCase().trim().replace(/[.!?]+$/, ''));
+  const preset = MENTORS.find(p => p.id === d.mentorPreset);
+  const sources = (Array.isArray(d.sources) ? d.sources : []).filter(g => SOURCES.includes(g));
+  return clean({
+    sources,
+    why: d.why,
+    becoming: d.becoming,
+    mentor: preset
+      ? { preset: preset.id, name: preset.name, routine: d.mentorRoutine || preset.routine, says: d.mentorSays || preset.says }
+      : { preset: null, name: d.mentorName, routine: d.mentorRoutine, says: theirs(d.mentorSays) ? d.mentorSays : '' },
+    quotes: [
+      ...(Array.isArray(d.shelfQuoteIds) ? d.shelfQuoteIds : []).map(id => LIBRARY.find(q => q.id === id)).filter(q => q && sources.includes(q.group)).map(q => ({ text: q.text, source: q.source })),
+      ...(Array.isArray(d.ownQuotes) ? d.ownQuotes : []).filter(q => q && theirs(q.text)),
+    ],
+    playlists: (Array.isArray(d.musicLinks) ? d.musicLinks : []).filter(l => l && l.url && said.includes(String(l.url).toLowerCase())),
+  });
+}
+
 // One short line for a phone nudge, from whatever the person filled in.
 function nudgeLine(m, date = new Date()) {
   if (!m.show.nudges || isEmpty(m)) return '';
@@ -131,4 +159,4 @@ function forAssistant(m) {
   return lines.join('\n');
 }
 
-module.exports = { LIBRARY, MENTORS, clean, get, save, isEmpty, quoteOfTheDay, nudgeLine, forAssistant };
+module.exports = { LIBRARY, SOURCES, MENTORS, clean, draftFromInterview, get, save, isEmpty, quoteOfTheDay, nudgeLine, forAssistant };

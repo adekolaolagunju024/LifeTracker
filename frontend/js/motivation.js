@@ -100,11 +100,99 @@ const Why = (() => {
     body.innerHTML = '<p class="text-sm text-gray-400 py-10 text-center">Loading…</p>';
     try { await load(true); } catch (e) { body.innerHTML = `<p class="text-sm text-red-500">${esc(e.message || 'Could not load')}</p>`; return; }
     draft = JSON.parse(JSON.stringify(m()));
+    const fresh = isEmpty(m());
+    body.innerHTML = `
+      <section class="why-chat" id="why-chat">
+        <div class="why-chat-head">
+          <div class="brief-orb small" aria-hidden="true"><span></span></div>
+          <div class="min-w-0"><p class="why-chat-title">${fresh ? "Let's find your why" : 'Talk it through again'}</p><p class="why-chat-sub">A two-minute chat with your coach. Talk or type, and it fills this in for you.</p></div>
+        </div>
+        <div class="why-chat-log" id="why-chat-log" aria-live="polite"></div>
+        <form class="why-chat-input" onsubmit="event.preventDefault(); Why.interviewSend();">
+          <button type="button" class="why-chat-mic" id="why-chat-mic" onclick="Why.interviewListen()" aria-label="Talk instead of typing">${icon('mic')}</button>
+          <input id="why-chat-in" autocomplete="off" maxlength="1500" placeholder="Type your answer, or tap the mic">
+          <button type="submit" class="why-chat-send" aria-label="Send">${icon('send')}</button>
+        </form>
+      </section>
+      <details class="why-form-wrap" id="why-form-wrap" ${fresh ? '' : 'open'}>
+        <summary>${fresh ? 'Or fill it in yourself' : 'Your why'}</summary>
+        <div id="why-form"></div>
+      </details>`;
+    interview = { messages: [{ role: 'assistant', content: fresh ? "Hi! What's the one goal you most want to reach right now?" : "What's changed? Tell me about the goal you're most focused on now." }] };
+    renderChat();
     paint();
   }
 
+  // ── The interview ──
+  let interview = null;
+  let voiceTurn = false;
+  function renderChat() {
+    const log = document.getElementById('why-chat-log');
+    if (!log) return;
+    log.innerHTML = interview.messages.map(x => `<div class="why-msg ${x.role}">${esc(x.content)}</div>`).join('') + (interview.busy ? '<div class="why-msg assistant"><span class="asst-typing" role="status" aria-label="Thinking"><i></i><i></i><i></i></span></div>' : '');
+    log.scrollTop = log.scrollHeight;
+  }
+  async function interviewSend() {
+    const input = document.getElementById('why-chat-in');
+    const text = input.value.trim();
+    if (!text || interview.busy) return;
+    input.value = '';
+    interview.messages.push({ role: 'user', content: text });
+    interview.busy = true; renderChat();
+    try {
+      const r = await API.whyInterview(interview.messages);
+      interview.busy = false;
+      interview.messages.push({ role: 'assistant', content: r.text });
+      renderChat();
+      if (voiceTurn && 'speechSynthesis' in window) { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(r.text)); }
+      if (r.type === 'draft') applyDraft(r.draft);
+    } catch (e) {
+      interview.busy = false;
+      interview.messages.push({ role: 'assistant', content: e.message || 'Something went wrong. You can fill it in yourself below.' });
+      renderChat();
+      document.getElementById('why-form-wrap').open = true;
+    }
+    voiceTurn = false;
+    input.focus();
+  }
+  // The coach's draft goes into the form for them to check, then Save.
+  function applyDraft(d) {
+    ['why', 'becoming'].forEach(k => { if (d[k]) draft[k] = d[k]; });
+    if (d.sources && d.sources.length) draft.sources = d.sources;
+    if (d.mentor && d.mentor.name) draft.mentor = d.mentor;
+    d.quotes.forEach(q => { if (!draft.quotes.some(x => x.text === q.text) && draft.quotes.length < 12) draft.quotes.push(q); });
+    d.playlists.forEach(p => { if (!draft.playlists.some(x => x.url === p.url) && draft.playlists.length < 12) draft.playlists.push(p); });
+    const wrap = document.getElementById('why-form-wrap');
+    wrap.open = true;
+    wrap.querySelector('summary').textContent = 'Your why: check it, then save';
+    paint();
+    document.getElementById('why-save-btn')?.classList.add('pulse');
+    setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+  }
+  function interviewListen() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { showToast('Voice isn\u2019t available in this browser. You can type instead'); return; }
+    const rec = new SR();
+    rec.lang = navigator.language || 'en-GB';
+    rec.interimResults = true;
+    const btn = document.getElementById('why-chat-mic');
+    const input = document.getElementById('why-chat-in');
+    btn.classList.add('on');
+    let finalText = '';
+    rec.onresult = ev => {
+      let interim = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript; else interim += ev.results[i][0].transcript;
+      }
+      input.value = (finalText + interim).trim();
+    };
+    rec.onerror = () => btn.classList.remove('on');
+    rec.onend = () => { btn.classList.remove('on'); if (finalText.trim()) { voiceTurn = true; interviewSend(); } };
+    try { rec.start(); } catch { btn.classList.remove('on'); }
+  }
+
   function paint() {
-    const body = document.getElementById('why-body');
+    const body = document.getElementById('why-form');
     const groups = [...new Set(data.library.map(q => q.group))];
     const has = q => draft.quotes.some(x => x.text === q.text);
     body.innerHTML = `
@@ -139,12 +227,15 @@ const Why = (() => {
           <input id="why-q-source" maxlength="120" placeholder="Where it's from (optional)">
           <button type="button" onclick="Why.addOwnQuote()">${icon('plus')}Add</button>
         </div>
-        <details class="why-shelf"><summary>${icon('book')}Starter shelf</summary>
+        <p class="why-label">Where do you draw strength from?</p>
+        <p class="why-help">Pick any that are yours, or none. The starter shelf only shows what you choose.</p>
+        <div class="why-chips">${data.sources.map(g => `<button type="button" class="why-chip ${draft.sources.includes(g) ? 'on' : ''}" aria-pressed="${draft.sources.includes(g)}" onclick="Why.toggleSource('${esc(g)}')">${esc(g)}</button>`).join('')}</div>
+        ${draft.sources.length ? `<details class="why-shelf" ${shelfOpen ? 'open' : ''}><summary>${icon('book')}Starter shelf</summary>
           <p class="why-help">Every line here is quoted exactly, with its source.</p>
-          ${groups.map(g => `<p class="why-shelf-group">${esc(g)}</p>${data.library.filter(q => q.group === g).map(q => `
+          ${groups.filter(g => draft.sources.includes(g)).map(g => `<p class="why-shelf-group">${esc(g)}</p>${data.library.filter(q => q.group === g).map(q => `
             <div class="why-q shelf"><div class="min-w-0 flex-1"><p>“${esc(q.text)}”</p><span>${esc(q.source)}</span></div>
             <button type="button" onclick="Why.addLibraryQuote('${q.id}')" ${has(q) ? 'disabled aria-label="Added"' : 'aria-label="Add this quote"'}>${icon(has(q) ? 'check' : 'plus')}</button></div>`).join('')}`).join('')}
-        </details>
+        </details>` : ''}
       </section>
 
       <section class="why-sec">
@@ -177,6 +268,12 @@ const Why = (() => {
       </div>`;
   }
 
+  let shelfOpen = false;
+  function toggleSource(g) {
+    draft.sources = draft.sources.includes(g) ? draft.sources.filter(x => x !== g) : [...draft.sources, g];
+    shelfOpen = true;
+    paint();
+  }
   const set = (k, v) => { draft[k] = v; };
   const setMentor = (k, v) => { draft.mentor[k] = v; if (k === 'name' && draft.mentor.preset) { const p = data.mentors.find(x => x.id === draft.mentor.preset); if (!p || p.name !== v) draft.mentor.preset = null; } };
   const serviceOf = url => { const e = Music.embedFor(url); return e ? e.service : 'Opens in a new tab'; };
@@ -218,9 +315,8 @@ const Why = (() => {
     if (!q || draft.quotes.some(x => x.text === q.text)) return;
     if (draft.quotes.length >= 12) { showToast('That is 12 already. Remove one to add another', 'error'); return; }
     draft.quotes.push({ text: q.text, source: q.source });
-    const open = document.querySelector('.why-shelf')?.open;
+    shelfOpen = !!document.querySelector('.why-shelf')?.open;
     paint();
-    if (open) document.querySelector('.why-shelf').open = true;
   }
   function removeQuote(i) { draft.quotes.splice(i, 1); paint(); }
   async function save() {
@@ -235,11 +331,11 @@ const Why = (() => {
     btn.disabled = false;
   }
   function clearAll() {
-    draft = { why: '', becoming: '', mentor: { preset: null, name: '', routine: '', says: '' }, quotes: [], playlists: [], playlist: { url: '', label: '' }, show: draft.show };
+    draft = { sources: [], why: '', becoming: '', mentor: { preset: null, name: '', routine: '', says: '' }, quotes: [], playlists: [], playlist: { url: '', label: '' }, show: draft.show };
     paint();
   }
 
-  return { load, renderDashboard, alarmHTML, fillStuck, renderPage, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
+  return { load, renderDashboard, alarmHTML, fillStuck, renderPage, interviewSend, interviewListen, toggleSource, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
 })();
 window.Why = Why;
 
