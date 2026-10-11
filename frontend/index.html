@@ -272,6 +272,76 @@
     .recap-prev { left: 0; width: 35%; } .recap-next { right: 0; width: 65%; }
     /* Phones and tablets: the week story straight after the goal card, so it plays on opening */
     @media (max-width: 1023px) { #dash-focus { order: 0; } #dash-week-card { order: 1; } #dash-upnext-card { order: 2; } #dashboard-quests { order: 3; } }
+    /* Your why (js/motivation.js) */
+    .why-card { display: flex; gap: 14px; align-items: center; background: linear-gradient(135deg, #0D1B2A, #12384A); color: #fff; border-radius: 18px; padding: 16px 18px; }
+    .why-card.is-empty { background: #fff; color: #0D1B2A; border: 1px dashed #9ACBD1; }
+    .why-card-ic { width: 40px; height: 40px; border-radius: 12px; background: #E6F4F5; color: #0A7E8C; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .why-card-ic .ic { width: 20px; height: 20px; }
+    .why-card-title { font-weight: 800; font-size: 15px; }
+    .why-card-sub { font-size: 13px; color: #5B6472; margin-top: 2px; }
+    .why-card-cta { flex-shrink: 0; background: #0A7E8C; color: #fff; font-weight: 800; font-size: 13px; border-radius: 12px; padding: 10px 14px; }
+    .why-quote { font-size: 17px; font-weight: 700; line-height: 1.4; letter-spacing: -.01em; }
+    .why-source { font-size: 12px; color: #9FB3C8; margin-top: 4px; font-weight: 600; }
+    .why-line { font-size: 13px; color: #C9D6E2; margin-top: 8px; }
+    .why-line b { color: #fff; }
+    .why-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex-shrink: 0; }
+    .why-music, .alarm-music { display: inline-flex; align-items: center; gap: 7px; background: #5EEAD4; color: #0D1B2A; font-weight: 800; font-size: 13px; border-radius: 12px; padding: 9px 13px; white-space: nowrap; }
+    .why-music .ic, .alarm-music .ic { width: 16px; height: 16px; }
+    .why-music.small { padding: 6px 10px; font-size: 12px; background: #fff; border: 1px solid #FED7AA; color: #9A3412; margin-top: 8px; }
+    .why-edit { width: 34px; height: 34px; border-radius: 10px; color: #C9D6E2; display: flex; align-items: center; justify-content: center; }
+    .why-edit:hover { background: rgba(255,255,255,.12); color: #fff; }
+    .why-stuck { font-size: 13px; color: #7C2D12; margin-top: 10px; }
+    .why-link { font-size: 12px; font-weight: 700; color: #9A3412; margin-top: 10px; display: inline-flex; align-items: center; }
+    @media (max-width: 640px) { .why-card { flex-direction: column; align-items: stretch; } .why-actions { flex-direction: row; justify-content: space-between; align-items: center; } }
+    .alarm-why { margin: 16px 0 4px; text-align: left; background: rgba(255,255,255,.08); border-radius: 16px; padding: 14px 16px; }
+    .alarm-why-mentor { font-size: 14px; color: #E2E8F0; }
+    .alarm-why-quote { font-size: 15px; font-weight: 700; color: #fff; margin-top: 8px; line-height: 1.4; }
+    .alarm-why-quote span { display: block; font-size: 12px; font-weight: 600; color: #94A3B8; margin-top: 4px; }
+    .alarm-music { margin-top: 12px; }
+    .why-sec { background: #fff; border: 1px solid #E3E6EA; border-radius: 18px; padding: 18px 20px; margin-bottom: 16px; }
+    .why-sec h3 { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; color: #0D1B2A; }
+    .why-sec h3 .ic { color: #0A7E8C; width: 18px; height: 18px; }
+    .why-help { font-size: 13px; color: #5B6472; margin: 4px 0 10px; }
+    .why-label { display: block; font-size: 13px; font-weight: 700; color: #0D1B2A; margin: 12px 0 6px; }
+    .why-sec textarea, .why-sec input:not([type=checkbox]) { width: 100%; border: 1px solid #E3E6EA; border-radius: 12px; padding: 10px 13px; font-size: 14px; resize: none; background: #fff; }
+    .why-sec textarea:focus, .why-sec input:focus { outline: none; border-color: #0A7E8C; }
+    .why-grid { display: grid; gap: 0 14px; grid-template-columns: 1fr; }
+    @media (min-width: 720px) { .why-grid { grid-template-columns: 1fr 1fr; } }
+    .why-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .why-chip { border: 1px solid #E3E6EA; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; color: #3F4A57; background: #fff; }
+    .why-chip.on { background: #E6F4F5; border-color: #0A7E8C; color: #075E68; font-weight: 800; }
+    .why-q { display: flex; gap: 10px; align-items: flex-start; border: 1px solid #E3E6EA; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+    .why-q p { font-size: 14px; font-weight: 600; color: #0D1B2A; }
+    .why-q span { font-size: 12px; color: #6B7480; }
+    .why-q button { width: 32px; height: 32px; flex-shrink: 0; border-radius: 9px; color: #6B7480; display: flex; align-items: center; justify-content: center; }
+    .why-q button:hover:not(:disabled) { background: #F1F3F5; color: #0A7E8C; }
+    .why-q button:disabled { color: #16A34A; }
+    .why-q.shelf { background: #FAFBFC; }
+    .why-none { font-size: 13px; color: #9AA3AE; margin-bottom: 8px; }
+    .why-add { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    @media (min-width: 720px) { .why-add { grid-template-columns: 2fr 1fr auto; } }
+    .why-add button, .why-save-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #0A7E8C; color: #fff; font-weight: 800; font-size: 14px; border-radius: 12px; padding: 10px 16px; }
+    .why-shelf { margin-top: 12px; }
+    .why-shelf summary { cursor: pointer; font-size: 14px; font-weight: 700; color: #075E68; display: inline-flex; align-items: center; gap: 6px; list-style: none; }
+    .why-shelf summary::-webkit-details-marker { display: none; }
+    .why-shelf-group { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #6B7480; margin: 14px 0 6px; }
+    .why-toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #3F4A57; padding: 6px 0; }
+    .why-toggle input { width: 18px; height: 18px; accent-color: #0A7E8C; }
+    .why-save { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 10px; padding: 12px 0; background: linear-gradient(transparent, #F6F7F9 30%); }
+    .why-clear { font-size: 14px; font-weight: 700; color: #6B7480; padding: 10px 14px; border-radius: 12px; }
+    .why-clear:hover { background: #F1F3F5; }
+    .dark .why-card.is-empty { background: #111A2B; color: #E8EEF5; border-color: #2B4A55; }
+    .dark .why-card-sub { color: #94A3B8; }
+    .dark .why-sec { background: #111A2B; border-color: #1F2A3D; }
+    .dark .why-sec h3, .dark .why-label, .dark .why-q p { color: #E8EEF5; }
+    .dark .why-help, .dark .why-toggle { color: #94A3B8; }
+    .dark .why-sec textarea, .dark .why-sec input:not([type=checkbox]) { background: #0F1726; border-color: #263449; color: #E8EEF5; }
+    .dark .why-chip, .dark .why-q { background: #0F1726; border-color: #263449; color: #CBD5E1; }
+    .dark .why-chip.on { background: rgba(94,234,212,.12); border-color: #5EEAD4; color: #5EEAD4; }
+    .dark .why-q.shelf { background: #0B1220; }
+    .dark .why-save { background: linear-gradient(transparent, #0B1220 30%); }
+    .dark .why-music.small { background: #0F1726; border-color: #7C2D12; color: #FDBA74; }
+    .dark .why-stuck { color: #FDBA74; }
     .recap-ic { width: .78em; height: .78em; vertical-align: -.04em; margin-right: .14em; stroke-width: 2.25; }
     /* The story inside the dashboard's This week card */
     .recap-mini { position: relative; height: 232px; border-radius: 16px; overflow: hidden; color: #fff; display: flex; align-items: flex-end; transition: background .6s ease; background: linear-gradient(160deg,#0D1B2A,#0A7E8C); }
@@ -1689,6 +1759,10 @@
         <span class="icon-badge nav-ic" data-icon="actions"></span> Actions
       </button>
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('why')" data-page="why">
+        <span class="icon-badge nav-ic" data-icon="heart"></span> Your why
+      </button>
+      <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="showPage('calendar')" data-page="calendar">
         <span class="icon-badge nav-ic" data-icon="calendar"></span> Calendar
       </button>
@@ -1832,6 +1906,9 @@
           <span class="hidden sm:inline">Assistant</span>
         </button>
       </div>
+
+      <!-- Your why: today's quote, their reason, their mentor, their music -->
+      <div id="dash-why" class="hidden mb-5"></div>
 
       <!-- Bento: the focus goal (navy, with its stage), today's quests, up
            next with tick boxes, and this week -->
@@ -2347,6 +2424,15 @@
     </div>
 
     <!-- ─── METRICS (owner only; js/metrics.js, backend/metrics.js) ─── -->
+    <!-- ─── YOUR WHY (js/motivation.js) ─── -->
+    <div class="page p-4 md:p-6" id="page-why">
+      <div class="max-w-3xl mx-auto">
+        <h2 class="text-2xl font-black text-navy">Your why</h2>
+        <p class="text-gray-500 text-sm mt-1 mb-5">What gets you up when you don't feel like it. Waypoint brings it back at the moments you'd give up: when an alarm rings, when a task feels stuck, and every morning on your dashboard.</p>
+        <div id="why-body"></div>
+      </div>
+    </div>
+
     <div class="page p-6" id="page-metrics">
       <div class="flex items-end justify-between gap-3 flex-wrap mb-5">
         <div>
@@ -3226,6 +3312,7 @@
         <span class="hidden text-sm font-bold text-orange-700" id="td-timer-display"></span>
         <button onclick="markStartedFromTimer()" id="td-timer-done-btn" class="hidden bg-navy hover:bg-navy-2 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">Mark In Progress</button>
       </div>
+      <div id="td-why"></div>
     </div>
 
     <div class="border-t border-gray-100 pt-4 mb-5">
@@ -3559,6 +3646,7 @@
 <script src="js/reminders.js"></script>
 <script src="js/metrics.js"></script>
 <script src="js/reports.js"></script>
+<script src="js/motivation.js"></script>
 
 </body>
 </html>

@@ -39,6 +39,8 @@ function paletteActions() {
     { icon: '🧩', label: 'New project from a template', run: () => { showPage('projects'); openAddProject(); } },
     { icon: '✨', label: 'Open the assistant', hint: 'A', run: () => openAssistant(here) },
     { icon: '🎬', label: 'My week in review', run: () => openWeeklyRecap() },
+    { icon: '❤️', label: 'Your why: what keeps you going', run: () => showPage('why') },
+    ...(window.Why && Why.get() && Why.get().playlist.url ? [{ icon: '🎵', label: 'Play my focus music', run: () => Why.playMusic() }] : []),
     ...(here ? [{ icon: '📄', label: 'Progress report for this project', run: () => openProgressReport(here) }] : []),
     { icon: '🌗', label: 'Switch light / dark mode', run: () => toggleTheme() },
     { icon: '⌨️', label: 'Keyboard shortcuts', hint: '?', run: () => showToast('⌨️ Shortcuts: ⌘K command palette · / search · n new task · a assistant · Esc close') },

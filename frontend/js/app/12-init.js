@@ -5,11 +5,11 @@
 // ── EXPORT / IMPORT ─────────────────────────────────────────────
 async function exportData() {
   try {
-    const [profile, projects, tasks] = await Promise.all([
-      API.getProfile(), API.getProjects(), API.getTasks(),
+    const [profile, projects, tasks, why] = await Promise.all([
+      API.getProfile(), API.getProjects(), API.getTasks(), API.getMotivation().catch(() => null),
     ]);
     const blob = new Blob(
-      [JSON.stringify({ profile, projects, tasks }, null, 2)],
+      [JSON.stringify({ profile, projects, tasks, motivation: why && why.motivation }, null, 2)],
       { type: 'application/json' }
     );
     const a = document.createElement('a');
