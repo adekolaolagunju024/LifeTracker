@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "Quicker tasks and a smarter dashboard",
+      "text": "The task window leads with what matters and tucks repeat, target and cost into More options; status and priority are one tap. The task panel shows how long is left (or how late it is) and has a Start / Mark done button that tells you when a blocker is in the way. And the dashboard's Needs your attention lists what's overdue, blocked, due today or waiting, with Done and Remind right there."
+    },
+    {
+      "date": "2026-10-11",
       "title": "Clear privacy and terms",
       "text": "Our Privacy Policy and Terms are rewritten in plain English for UK law: exactly what we collect and why, who we share it with, how long we keep it, and your rights. Deleting your account now also removes your usage history, and old usage records are cleared automatically after 13 months."
     },

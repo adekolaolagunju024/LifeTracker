@@ -33,24 +33,32 @@ async function openTaskDetail(id) {
     document.getElementById('td-project-icon').textContent  = proj ? proj.icon : '';
     document.getElementById('td-project-title').textContent = proj ? proj.title : '';
     document.getElementById('td-title').textContent = t.title;
-    document.getElementById('td-badges').innerHTML   = statusBadge(t.status) + priorityBadge(t.priority);
+    APP.detailTask = t;
+    APP.detailProject = proj;
     const reminder = window.Reminders && Reminders.forTask(id);
     const remindBtn = document.getElementById('td-reminder-btn');
     remindBtn.textContent = reminder ? `⏰ ${Reminders.fmt(reminder.remindAt)}` : '⏰ Remind me';
     remindBtn.classList.toggle('hidden', t.status === 'Completed');
     document.getElementById('td-progress').innerHTML = taskProgressPanelHTML(t);
     document.getElementById('td-progress').classList.toggle('hidden', !t.targetCount);
-    document.getElementById('td-cost').textContent      = (t.cost || 0) > 0 ? money(t.cost) : '—';
-    document.getElementById('td-start').textContent     = formatDateShort(t.startDate);
-    document.getElementById('td-end').textContent       = formatDateShort(t.endDate);
+    document.getElementById('td-facts').innerHTML = taskFactsHTML(t);
     document.getElementById('td-notes').textContent     = t.notes && t.notes.trim() ? t.notes : 'No notes for this task yet.';
-    document.getElementById('td-assignee').textContent  = t.assigneeName || 'Unassigned';
 
     // Google-Drive style: editor/owner can edit the task, commenter can
     // only comment, viewer can only look.
     const canEdit    = proj && (proj.role === 'owner' || proj.role === 'editor');
     const canComment = proj && (proj.role === 'owner' || proj.role === 'editor' || proj.role === 'commenter');
     document.getElementById('btn-edit-task-detail').classList.toggle('hidden', !canEdit);
+    // Status: tap-to-change chips for editors, a plain badge for others.
+    const seg = document.getElementById('td-status-seg');
+    seg.classList.toggle('hidden', !canEdit);
+    seg.querySelectorAll('button[data-value]').forEach(b => {
+      const on = b.dataset.value === t.status;
+      b.setAttribute('aria-checked', String(on));
+      b.tabIndex = on ? 0 : -1;
+    });
+    document.getElementById('td-badges').innerHTML = (canEdit ? '' : statusBadge(t.status)) + priorityBadge(t.priority);
+    syncDetailPrimary(t, canEdit);
     document.getElementById('td-comment-box').classList.toggle('hidden', !canComment);
     document.getElementById('td-comment-viewonly').classList.toggle('hidden', canComment);
     document.getElementById('td-status-update-box').classList.toggle('hidden', !canComment);
@@ -78,6 +86,79 @@ async function openTaskDetail(id) {
     document.getElementById('td-predecessor-box').classList.toggle('hidden', !canEdit);
     renderPredecessors(t);
   } catch (e) { console.error('Task detail error:', e); }
+}
+
+// The task panel's key facts: when it's due (with how long left, or how
+// late), when it starts, who's on it, and cost or repeat only when set.
+function taskFactsHTML(t) {
+  const todayKey = localDateKey(new Date());
+  const days = (a, b) => Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000);
+  const facts = [];
+  const due = (t.endDate || '').slice(0, 10);
+  if (due) {
+    const d = days(todayKey, due);
+    const late = t.status !== 'Completed' && d < 0;
+    const when = t.status === 'Completed' ? '' : late ? `${-d} day${d === -1 ? '' : 's'} late` : d === 0 ? 'today' : d === 1 ? 'tomorrow' : `in ${d} days`;
+    facts.push([late ? 'is-late' : d <= 2 && t.status !== 'Completed' ? 'is-soon' : '', 'Due', `${esc(formatDateShort(t.endDate))}${when ? `<small>${when}</small>` : ''}`]);
+  } else facts.push(['', 'Due', 'No date']);
+  facts.push(['', 'Starts', t.startDate ? esc(formatDateShort(t.startDate)) : 'Any time']);
+  facts.push(['', 'Who', esc(t.assigneeName || 'Unassigned')]);
+  if ((t.cost || 0) > 0) facts.push(['', 'Cost', esc(money(t.cost))]);
+  if (t.recurrence && t.recurrence !== 'none') facts.push(['', 'Repeats', esc(t.recurrence[0].toUpperCase() + t.recurrence.slice(1))]);
+  return facts.map(([cls, k, v]) => `<div class="td-fact ${cls}"><p class="k">${k}</p><p class="v">${v}</p></div>`).join('');
+}
+// The panel's main button follows the task: Start it, Mark it done, or
+// Reopen it. Locked (with the reason) while blockers or predecessors stand.
+function syncDetailPrimary(t, canEdit) {
+  const btn = document.getElementById('td-primary-btn');
+  btn.classList.toggle('hidden', !canEdit);
+  const blockers = (t.obstacles || []).filter(o => !o.resolved).length;
+  const waiting = waitingOn(t).length;
+  btn.disabled = false; btn.title = '';
+  if (t.status === 'Completed') { btn.textContent = '↺ Reopen'; btn.dataset.next = 'In Progress'; return; }
+  if (t.status === 'Not Started') {
+    btn.textContent = waiting ? '🔒 Waiting on another task' : '▶ Start';
+    btn.dataset.next = 'In Progress';
+    if (waiting) { btn.disabled = true; btn.title = 'It starts once the tasks it waits on are done'; }
+    return;
+  }
+  btn.dataset.next = 'Completed';
+  btn.textContent = blockers ? `🔒 Clear ${blockers} blocker${blockers === 1 ? '' : 's'} first` : '✓ Mark done';
+  if (blockers) { btn.disabled = true; btn.title = 'Tick off its blockers below first'; }
+}
+function detailPrimaryAction() {
+  const btn = document.getElementById('td-primary-btn');
+  if (!btn.disabled && btn.dataset.next) setDetailStatus(btn.dataset.next);
+}
+async function setDetailStatus(status) {
+  const id = APP_currentDetailTaskId;
+  if (!id || (APP.detailTask && APP.detailTask.status === status)) return;
+  try {
+    const saved = await API.updateTask(id, { status });
+    if (status === 'Completed') {
+      if (saved && saved.journeyReward) announceJourneyReward(saved.journeyReward);
+      else Sfx.play('complete');
+      showToast('✅ Done!');
+    }
+  } catch (e) { taskErrorToast(e, 'Could not change the status'); return; }
+  await openTaskDetail(id);
+  rerenderCurrentPage();
+}
+function openTaskProject() {
+  const pid = APP.detailTaskProjectId;
+  if (!pid) return;
+  closeTaskDetail();
+  showPage('project-detail', pid);
+}
+// Refreshes whatever page is behind the panel after a change made in it.
+function rerenderCurrentPage() {
+  const page = APP.currentPage;
+  if (page === 'dashboard') renderDashboard();
+  else if (page === 'gantt') renderGantt();
+  else if (page === 'actions') renderActions();
+  else if (page === 'calendar') renderCalendar();
+  else if (page === 'project-detail' && APP.currentProjectId) renderProjectDetail(APP.currentProjectId);
+  updateSidebar();
 }
 
 // ── TASK PREDECESSORS (side panel) ─────────────────────────────────
@@ -142,18 +223,24 @@ function renderObstacles(taskId, obstacles) {
   wrap.innerHTML = obstacles.length
     ? obstacles.map(o => `
         <div class="flex items-center gap-2 ${o.resolved ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'} border rounded-lg px-2.5 py-1.5">
-          <input type="checkbox" ${o.resolved ? 'checked' : ''} ${canEdit ? '' : 'disabled'} onchange="toggleObstacleResolved('${o.id}', this.checked)" class="w-4 h-4 accent-green-600 flex-shrink-0" title="${o.resolved ? 'Resolved. Untick if it is back in the way' : 'Tick when this obstacle is cleared'}" aria-label="${esc(o.name)} resolved">
-          <span class="flex-1 min-w-0 text-sm truncate ${o.resolved ? 'line-through text-gray-400' : 'text-gray-800'}" title="${esc(o.name)}">${o.resolved ? '✅' : '⚔️'} ${esc(o.name)}</span>
+          <input type="checkbox" ${o.resolved ? 'checked' : ''} ${canEdit ? '' : 'disabled'} onchange="toggleObstacleResolved('${o.id}', this.checked)" class="w-4 h-4 accent-green-600 flex-shrink-0" title="${o.resolved ? 'Cleared. Untick if it is back in the way' : 'Tick when this blocker is cleared'}" aria-label="${esc(o.name)} cleared">
+          <span class="flex-1 min-w-0 text-sm truncate ${o.resolved ? 'line-through text-gray-400' : 'text-gray-800'}" title="${esc(o.name)}">${o.resolved ? '' : '⚔️ '}${esc(o.name)}</span>
           ${canEdit && !o.resolved ? `
-            <button onclick="changeObstacleCount('${o.id}', ${o.count - 1})" ${o.count <= 1 ? 'disabled' : ''} class="w-6 h-6 rounded-md text-gray-600 hover:bg-white disabled:opacity-30" aria-label="One fewer enemy">−</button>
-            <span class="text-xs font-bold text-red-700 w-6 text-center" aria-label="${o.count} enemies">×${o.count}</span>
-            <button onclick="changeObstacleCount('${o.id}', ${o.count + 1})" ${o.count >= 5 ? 'disabled' : ''} class="w-6 h-6 rounded-md text-gray-600 hover:bg-white disabled:opacity-30" aria-label="One more enemy">+</button>
-            <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove obstacle">🗑️</button>`
+            <button onclick="changeObstacleCount('${o.id}', ${o.count - 1})" ${o.count <= 1 ? 'disabled' : ''} class="w-6 h-6 rounded-md text-gray-600 hover:bg-white disabled:opacity-30" aria-label="Smaller blocker" title="Smaller (fewer enemies on the Journey)">−</button>
+            <span class="text-xs font-bold text-red-700 w-6 text-center" aria-label="Size ${o.count}">×${o.count}</span>
+            <button onclick="changeObstacleCount('${o.id}', ${o.count + 1})" ${o.count >= 5 ? 'disabled' : ''} class="w-6 h-6 rounded-md text-gray-600 hover:bg-white disabled:opacity-30" aria-label="Bigger blocker" title="Bigger (more enemies on the Journey)">+</button>
+            <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove blocker">🗑️</button>`
           : `<span class="text-xs font-bold ${o.resolved ? 'text-green-700' : 'text-red-700'}">×${o.count}</span>${canEdit ? `
-            <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove obstacle">🗑️</button>` : ''}`}
+            <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove blocker">🗑️</button>` : ''}`}
         </div>`).join('')
-    : `<p class="text-xs text-gray-400">No obstacles. Add one if something is in the way.</p>`;
+    : `<p class="text-xs text-gray-400">Nothing in the way. Add a blocker if something is stopping you.</p>`;
   syncObstaclesToJourney(taskId, obstacles);
+  // Ticking the last blocker off unlocks "Mark done" right away.
+  if (APP.detailTask && APP.detailTask.id === taskId) {
+    APP.detailTask.obstacles = obstacles;
+    const p = APP.detailProject;
+    syncDetailPrimary(APP.detailTask, !!(p && (p.role === 'owner' || p.role === 'editor')));
+  }
 }
 // Keeps the Journey (and the cached task lists) in step without a reload.
 function syncObstaclesToJourney(taskId, obstacles) {
@@ -177,7 +264,7 @@ async function submitObstacle() {
     await API.addObstacle(APP_currentDetailTaskId, name, Number(countEl.value));
     nameEl.value = ''; countEl.value = '1';
     refreshObstacles(APP_currentDetailTaskId);
-  } catch (e) { showToast('❌ ' + (e.message || 'Could not add the obstacle'), 'error'); }
+  } catch (e) { showToast('❌ ' + (e.message || 'Could not add the blocker'), 'error'); }
 }
 async function toggleObstacleResolved(obstacleId, resolved) {
   try {
@@ -186,17 +273,17 @@ async function toggleObstacleResolved(obstacleId, resolved) {
     // The Gantt, Kanban and table badges count only pending obstacles.
     if (APP.currentPage === 'gantt') renderGantt();
     else if (APP.currentPage === 'project-detail') renderProjectDetail(APP.currentProjectId);
-  } catch (e) { showToast('❌ ' + (e.message || 'Could not update the obstacle'), 'error'); }
+  } catch (e) { showToast('❌ ' + (e.message || 'Could not update the blocker'), 'error'); }
 }
 async function changeObstacleCount(obstacleId, count) {
   if (count < 1 || count > 5) return;
   try {
     await API.updateObstacle(obstacleId, { count });
     refreshObstacles(APP_currentDetailTaskId);
-  } catch (e) { showToast('❌ ' + (e.message || 'Could not change the obstacle'), 'error'); }
+  } catch (e) { showToast('❌ ' + (e.message || 'Could not change the blocker'), 'error'); }
 }
 function removeObstacle(obstacleId) {
-  confirmAction('Remove this obstacle?', async () => {
+  confirmAction('Remove this blocker?', async () => {
     try {
       await API.deleteObstacle(obstacleId);
       refreshObstacles(APP_currentDetailTaskId);
@@ -515,7 +602,49 @@ async function addTaskToGoogleCalendar(taskId) {
 }
 
 // ── MODALS ───────────────────────────────────────────────────────
-function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function openModal(id)  {
+  document.getElementById(id).classList.add('open');
+  if (id === 'modal-task') prepareTaskForm();
+}
+// The task form's chips mirror its status/priority selects (still the
+// source of truth for saveTask), and "More options" opens itself when any
+// of repeat, target or cost holds a value.
+function syncSegs(root = document) {
+  root.querySelectorAll('.seg[data-seg-for]').forEach(seg => {
+    const sel = document.getElementById(seg.dataset.segFor);
+    seg.querySelectorAll('button[data-value]').forEach(b => {
+      const on = sel && sel.value === b.dataset.value;
+      b.setAttribute('aria-checked', String(on));
+      b.tabIndex = on ? 0 : -1;
+    });
+  });
+}
+function prepareTaskForm() {
+  syncSegs(document.getElementById('modal-task'));
+  const more = document.getElementById('task-more');
+  const filled = document.getElementById('task-recurrence').value !== 'none'
+    || document.getElementById('task-target-count').value
+    || Number(document.getElementById('task-cost').value) > 0;
+  more.open = !!filled;
+  if (!document.getElementById('task-id').value) setTimeout(() => document.getElementById('task-title-in').focus(), 60);
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('.seg[data-seg-for] button[data-value]');
+  if (!b) return;
+  const seg = b.closest('.seg');
+  const sel = document.getElementById(seg.dataset.segFor);
+  sel.value = b.dataset.value;
+  sel.dispatchEvent(new Event('change'));
+  syncSegs(seg.parentElement);
+});
+// Arrow keys move the choice within a chip group, as a radio group should.
+document.addEventListener('keydown', e => {
+  const b = e.target.closest && e.target.closest('.seg button[data-value]');
+  if (!b || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+  const items = [...b.closest('.seg').querySelectorAll('button[data-value]:not(:disabled)')];
+  const next = items[(items.indexOf(b) + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length];
+  e.preventDefault(); next.focus(); next.click();
+});
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 // PROJECT MODAL

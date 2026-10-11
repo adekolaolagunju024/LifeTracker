@@ -812,9 +812,10 @@ function renderKanbanBoard(tasks, projectById) {
   }).join('');
 }
 
-function openAddTaskWithStatus(status) {
-  openAddTask(APP.ganttProjectFilter || undefined);
+async function openAddTaskWithStatus(status) {
+  await openAddTask(APP.ganttProjectFilter || undefined);
   document.getElementById('task-status').value = status;
+  syncSegs(document.getElementById('modal-task'));
 }
 
 // Manual drag-to-change-status, mouse- and touch-based like the rest of
