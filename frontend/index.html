@@ -629,6 +629,48 @@
     .dark .plan-card:not(.is-pro) { background: #111A2B; border-color: #1F2A3D; }
     .dark .plan-sub { color: #94A3B8; }
     .dark .plan-badge { background: #1A2436; color: #CBD5E1; }
+    /* Your why: at a glance, then one section at a time */
+    .why-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .why-talk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: #0A7E8C; background: #E6F4F5; border-radius: 999px; padding: 8px 14px; }
+    .why-talk:hover { background: #D2ECEE; }
+    .why-talk[aria-expanded="true"] { background: #0A7E8C; color: #fff; }
+    .why-status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #1A7A4A; }
+    .why-status .why-saving { color: #6B7280; } .why-status .why-err { color: #B91C1C; }
+    .why-chat[hidden] { display: none; }
+    .why-chat-x { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; color: #6B7280; flex-shrink: 0; }
+    .why-chat-x:hover { background: #F1F3F5; color: #0D1B2A; }
+    .why-glance { background: linear-gradient(135deg, #E9F8F6 0%, #FFFFFF 62%); border: 1px solid #D5ECEA; border-radius: 20px; padding: 18px; margin-bottom: 14px; }
+    .why-gl-main { display: block; width: 100%; text-align: left; }
+    .why-gl-main small, .why-gl-chip small { display: block; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #0A7E8C; }
+    .why-gl-main span { display: block; margin-top: 4px; font-size: 22px; font-weight: 800; line-height: 1.3; letter-spacing: -.015em; color: #0D1B2A; }
+    .why-gl-main.empty span { font-size: 16px; color: #6B7280; font-weight: 600; }
+    .why-gl-main:hover span { color: #0A7E8C; }
+    .why-gl-becoming { margin-top: 6px; font-size: 14px; color: #5B6472; }
+    .why-gl-becoming b { color: #1F2A37; }
+    .why-gl-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+    .why-gl-chip { display: flex; align-items: flex-start; gap: 8px; text-align: left; background: rgba(255,255,255,.8); border: 1px solid #E3E6EA; border-radius: 14px; padding: 10px 12px; min-width: 0; }
+    .why-gl-chip:hover { border-color: #9ACBD1; }
+    .why-gl-chip > .ic { width: 16px; height: 16px; color: #0A7E8C; flex-shrink: 0; margin-top: 2px; }
+    .why-gl-chip b { display: block; font-size: 13px; font-weight: 700; color: #1F2A37; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 640px) { .why-gl-row { grid-template-columns: 1fr; } .why-gl-main span { font-size: 19px; } }
+    .why-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; background: #EEF1F3; border-radius: 14px; padding: 4px; margin-bottom: 12px; }
+    .why-tabs::-webkit-scrollbar { display: none; }
+    .why-tab { display: inline-flex; align-items: center; gap: 6px; flex: 1 0 auto; justify-content: center; font-size: 13px; font-weight: 700; color: #5B6472; border-radius: 10px; padding: 8px 12px; white-space: nowrap; }
+    .why-tab:hover { color: #0D1B2A; }
+    .why-tab.on { background: #fff; color: #0D1B2A; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .why-tab i { font-style: normal; font-size: 11px; font-weight: 800; background: #E6F4F5; color: #075E68; border-radius: 999px; padding: 1px 7px; }
+    #why-form .why-sec > h3 { display: none; }
+    .why-clear { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 13px; font-weight: 700; color: #B91C1C; }
+    .dark .why-talk { background: rgba(94,234,212,.12); color: #5EEAD4; }
+    .dark .why-talk[aria-expanded="true"] { background: #5EEAD4; color: #0D1B2A; }
+    .dark .why-glance { background: radial-gradient(120% 140% at 0% 0%, #12384A 0%, #0D1B2A 60%, #0B1220 100%); border-color: transparent; }
+    .dark .why-gl-main span, .dark .why-gl-becoming b, .dark .why-gl-chip b { color: #E8EEF5; }
+    .dark .why-gl-main small, .dark .why-gl-chip small, .dark .why-gl-chip > .ic { color: #5EEAD4; }
+    .dark .why-gl-becoming { color: #9FB3C8; }
+    .dark .why-gl-chip { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.1); }
+    .dark .why-tabs { background: #111A2B; }
+    .dark .why-tab { color: #94A3B8; }
+    .dark .why-tab.on { background: #24324A; color: #fff; }
     /* Your why, as a conversation */
     .why-chat { background: linear-gradient(135deg, #E9F8F6 0%, #FFFFFF 62%); border: 1px solid #D5ECEA; color: #0D1B2A; border-radius: 20px; padding: 18px; margin-bottom: 16px; }
     .why-chat-head { display: flex; gap: 12px; align-items: center; }
@@ -752,9 +794,8 @@
     .why-shelf-group { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #6B7480; margin: 14px 0 6px; }
     .why-toggle { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #3F4A57; padding: 6px 0; }
     .why-toggle input { width: 18px; height: 18px; accent-color: #0A7E8C; }
-    .why-save { position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 10px; padding: 12px 0; background: linear-gradient(transparent, #F6F7F9 30%); }
-    .why-clear { font-size: 14px; font-weight: 700; color: #6B7480; padding: 10px 14px; border-radius: 12px; }
-    .why-clear:hover { background: #F1F3F5; }
+    .why-sec .why-clear { padding: 8px 0; color: #B91C1C; }
+    .why-sec .why-clear:hover { text-decoration: underline; }
     .dark .why-card.is-empty { background: #111A2B; color: #E8EEF5; border-color: #2B4A55; }
     .dark .why-card-sub { color: #94A3B8; }
     .dark .why-sec { background: #111A2B; border-color: #1F2A3D; }
@@ -764,7 +805,6 @@
     .dark .why-chip, .dark .why-q { background: #0F1726; border-color: #263449; color: #CBD5E1; }
     .dark .why-chip.on { background: rgba(94,234,212,.12); border-color: #5EEAD4; color: #5EEAD4; }
     .dark .why-q.shelf { background: #0B1220; }
-    .dark .why-save { background: linear-gradient(transparent, #0B1220 30%); }
     .dark .why-music.small { background: #0F1726; border-color: #7C2D12; color: #FDBA74; }
     .dark .why-stuck { color: #FDBA74; }
     .recap-ic { width: .78em; height: .78em; vertical-align: -.04em; margin-right: .14em; stroke-width: 2.25; }
@@ -2829,7 +2869,7 @@
     <div class="page p-4 md:p-6" id="page-why">
       <div class="max-w-3xl mx-auto">
         <h2 class="text-2xl font-black text-navy">Your why</h2>
-        <p class="text-gray-500 text-sm mt-1 mb-5">What gets you up when you don't feel like it. Waypoint brings it back at the moments you'd give up: when an alarm rings, when a task feels stuck, and every morning on your dashboard.</p>
+        <p class="text-gray-500 text-sm mt-1 mb-4">What gets you up when you don't feel like it. Waypoint brings it back when you'd give up.</p>
         <div id="why-body"></div>
       </div>
     </div>
