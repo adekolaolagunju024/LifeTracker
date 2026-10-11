@@ -116,6 +116,12 @@ const Why = (() => {
   }
 
   // ── The Your why page ──
+  // At a glance first (your why, who you're becoming, your mentor, today's
+  // quote, your music), then one section at a time in tabs. The coach chat
+  // opens on demand (by itself when there's nothing here yet). Everything
+  // saves as you go: no Save button.
+  const TABS = [['you', 'heart', 'About you'], ['mentor', 'user', 'Mentor'], ['quotes', 'book', 'Quotes'], ['music', 'music', 'Music'], ['reminders', 'bell', 'Reminders']];
+  let tab = (() => { try { return localStorage.getItem('wp-why-tab') || 'you'; } catch { return 'you'; } })();
   async function renderPage() {
     const body = document.getElementById('why-body');
     body.innerHTML = '<p class="text-sm text-gray-400 py-10 text-center">Loading…</p>';
@@ -123,10 +129,15 @@ const Why = (() => {
     draft = JSON.parse(JSON.stringify(m()));
     const fresh = isEmpty(m());
     body.innerHTML = `
-      <section class="why-chat" id="why-chat">
+      <div class="why-bar">
+        <button type="button" class="why-talk" id="why-talk-btn" onclick="Why.toggleChat()" aria-expanded="${fresh}">${icon('sparkles', 'tiny')}<span>${fresh ? "Let's find your why" : 'Talk it through'}</span></button>
+        <span class="why-status" id="why-status" aria-live="polite"></span>
+      </div>
+      <section class="why-chat" id="why-chat" ${fresh ? '' : 'hidden'}>
         <div class="why-chat-head">
           <div class="brief-orb small" aria-hidden="true"><span></span></div>
-          <div class="min-w-0"><p class="why-chat-title">${fresh ? "Let's find your why" : 'Talk it through again'}</p><p class="why-chat-sub">A two-minute chat with your coach. Talk or type, and it fills this in for you.</p></div>
+          <div class="min-w-0 flex-1"><p class="why-chat-title">${fresh ? "Let's find your why" : 'Talk it through again'}</p><p class="why-chat-sub">A two-minute chat with your coach. Talk or type, and it fills this in for you.</p></div>
+          ${fresh ? '' : `<button type="button" class="why-chat-x" onclick="Why.toggleChat(false)" aria-label="Close the chat">${icon('close')}</button>`}
         </div>
         <div class="why-chat-log" id="why-chat-log" aria-live="polite"></div>
         <form class="why-chat-input" onsubmit="event.preventDefault(); Why.interviewSend();">
@@ -135,13 +146,49 @@ const Why = (() => {
           <button type="submit" class="why-chat-send" aria-label="Send">${icon('send')}</button>
         </form>
       </section>
-      <details class="why-form-wrap" id="why-form-wrap" ${fresh ? '' : 'open'}>
-        <summary>${fresh ? 'Or fill it in yourself' : 'Your why'}</summary>
-        <div id="why-form"></div>
-      </details>`;
+      <div id="why-glance"></div>
+      <div class="why-tabs" role="tablist" aria-label="Your why" id="why-tabs"></div>
+      <div id="why-form" role="tabpanel"></div>`;
     interview = { messages: [{ role: 'assistant', content: fresh ? "Hi! What's the one goal you most want to reach right now?" : "What's changed? Tell me about the goal you're most focused on now." }] };
     renderChat();
     paint();
+  }
+  function toggleChat(open) {
+    const chat = document.getElementById('why-chat');
+    if (!chat) return;
+    const show = open === undefined ? chat.hidden : open;
+    chat.hidden = !show;
+    document.getElementById('why-talk-btn')?.setAttribute('aria-expanded', String(show));
+    if (show) setTimeout(() => document.getElementById('why-chat-in')?.focus(), 50);
+  }
+  function setTab(t) {
+    tab = t;
+    try { localStorage.setItem('wp-why-tab', t); } catch { /* private mode */ }
+    paint();
+  }
+
+  // ── Saving as you go ──
+  let saveTimer = null; let saving = null;
+  function status(text) { const el = document.getElementById('why-status'); if (el) el.innerHTML = text; }
+  async function saveNow() {
+    clearTimeout(saveTimer);
+    status(`<span class="why-saving">Saving…</span>`);
+    const snapshot = JSON.parse(JSON.stringify(draft));
+    saving = API.saveMotivation({ ...snapshot, playlist: null });
+    try {
+      const r = await saving;
+      data.motivation = r.motivation;
+      status(`${icon('check', 'tiny')} Saved`);
+      paintGlance();
+    } catch (e) { status(`<span class="why-err">Not saved. ${esc(e.message || 'Try again')}</span>`); }
+    saving = null;
+  }
+  // Typing waits a moment; taps save straight away.
+  function changed(repaint = true) {
+    if (repaint) paint();
+    clearTimeout(saveTimer);
+    status('<span class="why-saving">Saving…</span>');
+    saveTimer = setTimeout(saveNow, repaint ? 50 : 700);
   }
 
   // ── The interview ──
@@ -171,7 +218,6 @@ const Why = (() => {
       interview.busy = false;
       interview.messages.push({ role: 'assistant', content: e.message || 'Something went wrong. You can fill it in yourself below.' });
       renderChat();
-      document.getElementById('why-form-wrap').open = true;
     }
     voiceTurn = false;
     input.focus();
@@ -183,12 +229,10 @@ const Why = (() => {
     if (d.mentor && d.mentor.name) draft.mentor = d.mentor;
     d.quotes.forEach(q => { if (!draft.quotes.some(x => x.text === q.text) && draft.quotes.length < 12) draft.quotes.push(q); });
     d.playlists.forEach(p => { if (!draft.playlists.some(x => x.url === p.url) && draft.playlists.length < 12) draft.playlists.push(p); });
-    const wrap = document.getElementById('why-form-wrap');
-    wrap.open = true;
-    wrap.querySelector('summary').textContent = 'Your why: check it, then save';
-    paint();
-    document.getElementById('why-save-btn')?.classList.add('pulse');
-    setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+    tab = 'you';
+    changed();
+    showToast('Your coach filled this in and saved it. Change anything you like');
+    setTimeout(() => document.getElementById('why-glance')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
   }
   function interviewListen() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -212,20 +256,44 @@ const Why = (() => {
     try { rec.start(); } catch { btn.classList.remove('on'); }
   }
 
+  // At a glance: what you've got, each part a tap from its tab.
+  function paintGlance() {
+    const el = document.getElementById('why-glance');
+    if (!el) return;
+    const x = m();
+    if (isEmpty(x)) { el.innerHTML = ''; return; }
+    const q = todaysQuote(x);
+    const mentor = mentorOf(x);
+    const music = x.playlists[0];
+    const chip = (t, ic, label, value) => `<button type="button" class="why-gl-chip" onclick="Why.setTab('${t}')">${icon(ic)}<span class="min-w-0"><small>${label}</small><b>${value}</b></span></button>`;
+    el.innerHTML = `<div class="why-glance">
+      ${x.why ? `<button type="button" class="why-gl-main" onclick="Why.setTab('you')"><small>Your why</small><span>${esc(x.why)}</span></button>` : `<button type="button" class="why-gl-main empty" onclick="Why.setTab('you')"><small>Your why</small><span>Add the real reason this matters</span></button>`}
+      ${x.becoming ? `<p class="why-gl-becoming">Becoming <b>${esc(x.becoming)}</b></p>` : ''}
+      <div class="why-gl-row">
+        ${chip('mentor', 'user', 'Mentor', mentor ? esc(mentor.name) : 'Add one')}
+        ${chip('quotes', 'book', "Today's quote", q ? `“${esc(q.text)}”` : 'Add one')}
+        ${chip('music', 'music', 'Music', music ? esc(music.label || 'Your music') : 'Add some')}
+      </div>
+    </div>`;
+  }
+
   function paint() {
     const body = document.getElementById('why-form');
+    if (!body) return;
+    paintGlance();
+    const counts = { quotes: draft.quotes.length, music: draft.playlists.length };
+    document.getElementById('why-tabs').innerHTML = TABS.map(([t, ic, label]) => `<button type="button" role="tab" aria-selected="${t === tab}" class="why-tab ${t === tab ? 'on' : ''}" onclick="Why.setTab('${t}')">${icon(ic, 'tiny')}<span>${label}</span>${counts[t] ? `<i>${counts[t]}</i>` : ''}</button>`).join('');
     const groups = [...new Set(data.library.map(q => q.group))];
     const has = q => draft.quotes.some(x => x.text === q.text);
-    body.innerHTML = `
-      <section class="why-sec">
+    const sections = {
+      you: `<section class="why-sec">
         <h3>${icon('heart')}Your why</h3>
         <p class="why-help">The real reason this matters. Say it the way you'd say it to a friend.</p>
         <textarea id="why-why" rows="2" maxlength="300" placeholder="e.g. So my kids grow up seeing me finish what I start" oninput="Why.set('why', this.value)">${esc(draft.why)}</textarea>
         <label class="why-label" for="why-becoming">Who you're becoming</label>
         <input id="why-becoming" maxlength="200" placeholder="e.g. someone who keeps promises to myself" value="${esc(draft.becoming)}" oninput="Why.set('becoming', this.value)">
-      </section>
-
-      <section class="why-sec">
+      </section>`,
+      mentor: `<section class="why-sec">
         <h3>${icon('user')}Your mentor</h3>
         <p class="why-help">Everyone has someone. A parent, a coach, a teacher, someone you've never met. When you're stuck, Waypoint asks what they would do.</p>
         <div class="why-chips">${data.mentors.map(p => `<button type="button" class="why-chip ${draft.mentor.preset === p.id ? 'on' : ''}" onclick="Why.pickMentor('${p.id}')">${esc(p.name)}</button>`).join('')}<button type="button" class="why-chip ${draft.mentor.name && !draft.mentor.preset ? 'on' : ''}" onclick="Why.pickMentor(null)">Someone I know</button></div>
@@ -237,11 +305,10 @@ const Why = (() => {
         </div>
         <label class="why-label" for="why-mentor-routine">Their routine, or what they do that you admire</label>
         <textarea id="why-mentor-routine" rows="2" maxlength="400" placeholder="e.g. Up at 6, plans the day on paper, does the hardest call first" oninput="Why.setMentor('routine', this.value)">${esc(draft.mentor.routine)}</textarea>
-      </section>
-
-      <section class="why-sec">
+      </section>`,
+      quotes: `<section class="why-sec">
         <h3>${icon('book')}Words that move you</h3>
-        <p class="why-help">From a book, a speech, the Bible, the Quran, a song or your gran. One shows each day.</p>
+        <p class="why-help">From a book, a speech, the Bible, the Quran, a song or your gran. A different one shows each day, from yours and the shelves you pick.</p>
         <div id="why-quotes">${draft.quotes.length ? draft.quotes.map((q, i) => `<div class="why-q"><div class="min-w-0 flex-1"><p>“${esc(q.text)}”</p>${q.source ? `<span>${esc(q.source)}</span>` : ''}</div><button type="button" onclick="Why.removeQuote(${i})" aria-label="Remove this quote">${icon('trash')}</button></div>`).join('') : '<p class="why-none">No quotes yet. Add your own or pick from the shelf below.</p>'}</div>
         <div class="why-add">
           <input id="why-q-text" maxlength="300" placeholder="A quote or verse">
@@ -257,9 +324,8 @@ const Why = (() => {
             <div class="why-q shelf"><div class="min-w-0 flex-1"><p>“${esc(q.text)}”</p><span>${esc(q.source)}</span></div>
             <button type="button" onclick="Why.addLibraryQuote('${q.id}')" ${has(q) ? 'disabled aria-label="Added"' : 'aria-label="Add this quote"'}>${icon(has(q) ? 'check' : 'plus')}</button></div>`).join('')}`).join('')}
         </details>` : ''}
-      </section>
-
-      <section class="why-sec">
+      </section>`,
+      music: `<section class="why-sec">
         <h3>${icon('music')}Your music</h3>
         <p class="why-help">The playlists and songs that get you going. They play right here in Waypoint and keep playing while you work and on your Journey.</p>
         <div class="music-lib">${draft.playlists.length ? draft.playlists.map((p, i) => `
@@ -286,29 +352,26 @@ const Why = (() => {
           </details>
         </div>
         <p class="why-help mt-2">${icon('smartphone', 'tiny')} On your phone, with Waypoint added to your home screen: tap <b>Share</b> in Spotify or YouTube and pick Waypoint.</p>
-      </section>
-
-      <section class="why-sec">
+      </section>`,
+      reminders: `<section class="why-sec">
         <h3>${icon('eye')}Where Waypoint reminds you</h3>
         ${[['dashboard', 'On the dashboard'], ['alarms', 'On the alarm screen when a task reminder rings'], ['nudges', 'In phone nudges'], ['assistant', 'In the assistant’s coaching']].map(([k, label]) => `
           <label class="why-toggle"><input type="checkbox" ${draft.show[k] ? 'checked' : ''} onchange="Why.setShow('${k}', this.checked)"> ${label}</label>`).join('')}
-        <p class="why-help mt-2">Only you see this. Quotes from your faith stay private to you, and you can clear everything here at any time.</p>
-      </section>
-
-      <div class="why-save">
-        <button type="button" class="why-clear" onclick="Why.clearAll()">Clear all</button>
-        <button type="button" class="why-save-btn" id="why-save-btn" onclick="Why.save()">${icon('check')}Save</button>
-      </div>`;
+        <p class="why-help mt-2">Only you see this. Quotes from your faith stay private to you.</p>
+        <button type="button" class="why-clear" onclick="Why.clearAll()">${icon('trash', 'tiny')} Clear everything on this page</button>
+      </section>`,
+    };
+    body.innerHTML = sections[tab] || sections.you;
   }
 
   let shelfOpen = false;
   function toggleSource(g) {
     draft.sources = draft.sources.includes(g) ? draft.sources.filter(x => x !== g) : [...draft.sources, g];
     shelfOpen = true;
-    paint();
+    changed();
   }
-  const set = (k, v) => { draft[k] = v; };
-  const setMentor = (k, v) => { draft.mentor[k] = v; if (k === 'name' && draft.mentor.preset) { const p = data.mentors.find(x => x.id === draft.mentor.preset); if (!p || p.name !== v) draft.mentor.preset = null; } };
+  const set = (k, v) => { draft[k] = v; changed(false); };
+  const setMentor = (k, v) => { draft.mentor[k] = v; if (k === 'name' && draft.mentor.preset) { const p = data.mentors.find(x => x.id === draft.mentor.preset); if (!p || p.name !== v) draft.mentor.preset = null; } changed(false); };
   const serviceOf = url => { const e = Music.embedFor(url); return e ? e.service : 'Opens in a new tab'; };
   function addPlaylistFromForm() {
     const url = document.getElementById('why-music-url').value.trim();
@@ -316,7 +379,7 @@ const Why = (() => {
     if (!/^https?:\/\//i.test(url)) { showToast('Paste a link that starts with https://', 'error'); document.getElementById('why-music-url').focus(); return; }
     if (draft.playlists.length >= 12) { showToast('That is 12 already. Remove one to add another', 'error'); return; }
     if (!draft.playlists.some(p => p.url === url)) draft.playlists.push({ url, label: label || serviceOf(url) });
-    paint();
+    changed();
   }
   // ── Finding music without copying links ──
   // Search (Spotify's catalogue, or Apple's when Spotify isn't set up),
@@ -354,10 +417,8 @@ const Why = (() => {
     if (draft.playlists.some(p => p.url === url)) return;
     if (draft.playlists.length >= 12) { showToast('That is 12 already. Remove one to add another', 'error'); return; }
     draft.playlists.push({ url, label });
-    try {
-      await addPlaylist(url, label);
-      showToast(`Added “${label}” to your music`);
-    } catch { draft.playlists = draft.playlists.filter(p => p.url !== url); showToast('Could not add that', 'error'); }
+    await saveNow();
+    showToast(`Added “${label}” to your music`);
     const q = document.getElementById('why-music-q')?.value || '';
     paint();
     const input = document.getElementById('why-music-q');
@@ -394,8 +455,8 @@ const Why = (() => {
       showPage('why');
     } catch { showToast('Could not add that', 'error'); }
   }
-  function makeDefault(i) { const [p] = draft.playlists.splice(i, 1); draft.playlists.unshift(p); paint(); }
-  function removePlaylist(i) { draft.playlists.splice(i, 1); paint(); }
+  function makeDefault(i) { const [p] = draft.playlists.splice(i, 1); draft.playlists.unshift(p); changed(); }
+  function removePlaylist(i) { draft.playlists.splice(i, 1); changed(); }
   // From the assistant ("add this to my music"): saves straight away.
   async function addPlaylist(url, label) {
     await load();
@@ -405,11 +466,11 @@ const Why = (() => {
     data.motivation = r.motivation;
     return r.motivation.playlists.findIndex(p => p.url === url);
   }
-  const setShow = (k, v) => { draft.show[k] = v; };
+  const setShow = (k, v) => { draft.show[k] = v; changed(false); };
   function pickMentor(id) {
     const p = data.mentors.find(x => x.id === id);
     draft.mentor = p ? { preset: p.id, name: p.name, routine: p.routine, says: p.says } : { preset: null, name: '', routine: '', says: '' };
-    paint();
+    changed();
     if (!p) document.getElementById('why-mentor-name').focus();
   }
   function addOwnQuote() {
@@ -417,7 +478,7 @@ const Why = (() => {
     if (!text) { document.getElementById('why-q-text').focus(); return; }
     if (draft.quotes.length >= 12) { showToast('That is 12 already. Remove one to add another', 'error'); return; }
     draft.quotes.push({ text, source: document.getElementById('why-q-source').value.trim() });
-    paint();
+    changed();
   }
   function addLibraryQuote(id) {
     const q = data.library.find(x => x.id === id);
@@ -425,26 +486,17 @@ const Why = (() => {
     if (draft.quotes.length >= 12) { showToast('That is 12 already. Remove one to add another', 'error'); return; }
     draft.quotes.push({ text: q.text, source: q.source });
     shelfOpen = !!document.querySelector('.why-shelf')?.open;
-    paint();
+    changed();
   }
-  function removeQuote(i) { draft.quotes.splice(i, 1); paint(); }
-  async function save() {
-    const btn = document.getElementById('why-save-btn');
-    btn.disabled = true;
-    try {
-      const r = await API.saveMotivation({ ...draft, playlist: null });
-      data.motivation = r.motivation; draft = JSON.parse(JSON.stringify(r.motivation));
-      showToast('✅ Saved. Waypoint will remind you of this when it counts');
-      paint();
-    } catch (e) { showToast('❌ ' + (e.message || 'Could not save'), 'error'); }
-    btn.disabled = false;
-  }
+  function removeQuote(i) { draft.quotes.splice(i, 1); changed(); }
+  const save = () => saveNow();
   function clearAll() {
+    if (!window.confirm('Clear everything on this page: your why, mentor, quotes and music? This can’t be undone.')) return;
     draft = { sources: [], why: '', becoming: '', mentor: { preset: null, name: '', routine: '', says: '' }, quotes: [], playlists: [], playlist: { url: '', label: '' }, show: draft.show };
-    paint();
+    changed();
   }
 
-  return { todaysQuote: (date) => todaysQuote(m(), date), musicSearch, addResult, addPick, pasteLink, handleShare, load, renderDashboard, alarmHTML, fillStuck, renderPage, interviewSend, interviewListen, toggleSource, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
+  return { todaysQuote: (date) => todaysQuote(m(), date), toggleChat, setTab, musicSearch, addResult, addPick, pasteLink, handleShare, load, renderDashboard, alarmHTML, fillStuck, renderPage, interviewSend, interviewListen, toggleSource, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
 })();
 window.Why = Why;
 
