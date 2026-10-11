@@ -304,3 +304,48 @@ test('assistant conversations are saved, listed newest first, reopened, kept pri
   const after = await (await fetch(`${server.base}/api/ai/conversations`, { headers: { Cookie: me } })).json();
   assert.deepEqual(after.map(c => c.id), ['convo-bbbb-2222']);
 });
+
+test('pages and scripts carry protective headers, are gzipped, and send no CORS or X-Powered-By', async () => {
+  const res = await fetch(`${server.base}/js/app.js`, { headers: { 'Accept-Encoding': 'gzip', Origin: 'https://evil.example' } });
+  assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(res.headers.get('x-frame-options'), 'SAMEORIGIN');
+  assert.equal(res.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
+  assert.equal(res.headers.get('x-powered-by'), null);
+  assert.equal(res.headers.get('access-control-allow-origin'), null);
+  assert.equal(res.headers.get('content-encoding'), 'gzip');
+});
+
+test('passwords shorter than 8 characters are refused', async () => {
+  const res = await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'short12', acceptTerms: true }));
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error, /8 characters/);
+});
+
+test('signing in starts a fresh session id', async () => {
+  const email = uniqueEmail();
+  await fetch(`${server.base}/api/auth/register`, json({ email, password: 'testpass123', acceptTerms: true }));
+  // a session that exists before sign-in (e.g. planted by someone else)
+  const planted = sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true })));
+  const login = await fetch(`${server.base}/api/auth/login`, json({ email, password: 'testpass123' }, planted));
+  assert.equal(login.status, 200);
+  const fresh = sessionCookie(login);
+  assert.ok(fresh.startsWith('connect.sid='));
+  assert.notEqual(fresh, planted);
+});
+
+test('repeated failed sign-ins for one account are slowed down', async () => {
+  const email = uniqueEmail();
+  let last;
+  for (let i = 0; i < 11; i++) last = await fetch(`${server.base}/api/auth/login`, json({ email, password: 'wrong-password' }));
+  assert.equal(last.status, 429);
+  assert.ok(Number(last.headers.get('retry-after')) > 0);
+});
+
+test('forgot password answers the same for known and unknown emails', async () => {
+  const email = uniqueEmail();
+  await fetch(`${server.base}/api/auth/register`, json({ email, password: 'testpass123', acceptTerms: true }));
+  const known = await fetch(`${server.base}/api/auth/forgot-password`, json({ email }));
+  const unknown = await fetch(`${server.base}/api/auth/forgot-password`, json({ email: uniqueEmail() }));
+  assert.equal(known.status, 200);
+  assert.deepEqual(await known.json(), await unknown.json());
+});

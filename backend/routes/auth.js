@@ -1,10 +1,12 @@
 const express = require('express');
+const { rateLimit, byIp, byIpAndEmail } = require('../middleware/rateLimit');
 const router  = express.Router();
 const bcrypt  = require('bcryptjs');
 const crypto  = require('crypto');
 const { v4: uuid } = require('uuid');
 const { google } = require('googleapis');
 const db = require('../db/db');
+const { sendPasswordResetEmail } = require('../email/account');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -34,13 +36,32 @@ router.get('/me', (req, res) => {
   res.json({ id: user.id, email: user.email });
 });
 
+const MIN_PASSWORD = 8;
+const tooShort = p => !p || String(p).length < MIN_PASSWORD;
+const FIFTEEN_MIN = 15 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
+const loginLimit = rateLimit({ windowMs: FIFTEEN_MIN, max: 10, key: byIpAndEmail, message: 'Too many sign-in attempts. Please wait 15 minutes and try again.' });
+const registerLimit = rateLimit({ windowMs: HOUR, max: 30, key: byIp, message: 'Too many accounts created from this connection. Please try again later.' });
+const forgotLimit = rateLimit({ windowMs: HOUR, max: 5, key: byIpAndEmail, message: 'Too many reset requests. Please check your inbox, or try again in an hour.' });
+const resetLimit = rateLimit({ windowMs: FIFTEEN_MIN, max: 20, key: byIp, message: 'Too many attempts. Please wait a few minutes and try again.' });
+
+// Starts a fresh session for a user who has just signed in, so a session id
+// planted before sign-in (session fixation) is never the one that's trusted.
+function signIn(req, userId) {
+  return new Promise((resolve, reject) => req.session.regenerate(err => {
+    if (err) return reject(err);
+    req.session.userId = userId;
+    resolve();
+  }));
+}
+
 // POST /api/auth/register
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimit, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const { password } = req.body;
 
   if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Enter a valid email address' });
-  if (!password || password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  if (tooShort(password)) return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD} characters` });
   if (req.body.acceptTerms !== true) return res.status(400).json({ error: 'Please agree to the Terms and Privacy Policy to create an account' });
   if (db.getUserByEmail(email)) return res.status(409).json({ error: 'An account with that email already exists' });
 
@@ -54,12 +75,12 @@ router.post('/register', async (req, res) => {
   db.logEvent(user.id, 'user_registered');
   db.attachReferral(user.id, req.body.ref);
 
-  req.session.userId = user.id;
+  await signIn(req, user.id);
   res.status(201).json({ email: user.email });
 });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimit, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const user = db.getUserByEmail(email);
 
@@ -67,7 +88,7 @@ router.post('/login', async (req, res) => {
   const ok = user ? await bcrypt.compare(req.body.password || '', user.passwordHash) : false;
   if (!ok) return res.status(401).json({ error: 'Incorrect email or password' });
 
-  req.session.userId = user.id;
+  await signIn(req, user.id);
   // Unchecking "Keep me signed in" drops the Max-Age/Expires attribute
   // entirely, so the browser clears the cookie when it closes instead of
   // keeping the usual 30-day persistent session.
@@ -119,7 +140,7 @@ router.get('/google/callback', async (req, res) => {
       });
       db.logEvent(user.id, 'user_registered');
     }
-    req.session.userId = user.id;
+    await signIn(req, user.id);
     res.redirect('/');
   } catch (e) {
     console.error('Google login error:', e.message);
@@ -127,29 +148,33 @@ router.get('/google/callback', async (req, res) => {
   }
 });
 
-// POST /api/auth/forgot-password — generates a reset link. There's no email
-// service configured (would need a paid/third-party provider), so the link
-// is logged server-side instead of sent — good enough for a self-hosted
-// single-owner instance, and the account owner can read their own server
-// logs. The response is identical whether or not the email exists, so this
-// endpoint can't be used to discover registered emails.
-router.post('/forgot-password', async (req, res) => {
+// POST /api/auth/forgot-password — emails a reset link (through Resend,
+// the same service as the other emails). Where email isn't set up the link
+// is written to the server log instead, so a self-hosted owner can still
+// get back in. The response is the same whether or not the email exists,
+// so this endpoint can't be used to discover registered emails.
+router.post('/forgot-password', forgotLimit, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const user = db.getUserByEmail(email);
   if (user) {
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
     db.setPasswordResetToken(user.id, token, expiresAt);
-    const resetUrl = `${req.protocol}://${req.get('host')}/?resetToken=${token}`;
-    console.log(`\n🔑 Password reset requested for ${email}\n   ${resetUrl}\n   (valid 1 hour)\n`);
+    const resetUrl = `${process.env.APP_URL || `${req.protocol}://${req.get('host')}`}/app?resetToken=${token}`;
+    try {
+      const sent = await sendPasswordResetEmail(email, resetUrl);
+      if (!sent) console.log(`\n🔑 Password reset requested for ${email} (email is not set up, so here is the link)\n   ${resetUrl}\n   (valid 1 hour)\n`);
+    } catch (e) {
+      console.error('Password reset email failed:', e.message);
+    }
   }
   res.json({ success: true });
 });
 
 // POST /api/auth/reset-password
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', resetLimit, async (req, res) => {
   const { token, newPassword } = req.body;
-  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  if (tooShort(newPassword)) return res.status(400).json({ error: `Password must be at least ${MIN_PASSWORD} characters` });
 
   const user = db.getUserByResetToken(token || '');
   if (!user || !user.resetTokenExpires || new Date(user.resetTokenExpires) < new Date()) {
@@ -175,7 +200,7 @@ router.put('/password', async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   const ok = await bcrypt.compare(currentPassword || '', user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Current password is incorrect' });
-  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  if (tooShort(newPassword)) return res.status(400).json({ error: `New password must be at least ${MIN_PASSWORD} characters` });
 
   db.setUserPasswordHash(user.id, await bcrypt.hash(newPassword, 10));
   res.json({ success: true });
