@@ -100,6 +100,57 @@
     .dark .journey-view-bar button[aria-pressed="true"] { background: #0f172a; color: #5eead4; }
     #mountain-scene [role="group"][aria-label="View"] { display: none !important; }
 
+    /* Command palette (js/palette.js): a solid panel, never see-through. */
+    .palette-panel { background: #fff; color: #111827; border: 1px solid #e5e7eb; }
+    .palette-panel input { color: #111827; }
+    .palette-item { color: #374151; }
+    .palette-item[aria-selected="true"] { background: rgba(10,126,140,.1); color: #0D1B2A; }
+    .palette-item:hover { background: rgba(10,126,140,.06); }
+    .palette-panel kbd { color: #6b7280; border-color: #d1d5db; background: #f9fafb; }
+    .dark .palette-panel { background: #111827; color: #e5e7eb; border-color: #374151; }
+    .dark .palette-panel input { color: #f3f4f6; }
+    .dark .palette-item { color: #d1d5db; }
+    .dark .palette-item[aria-selected="true"] { background: rgba(94,234,212,.12); color: #fff; }
+    .dark .palette-panel kbd { color: #9ca3af; border-color: #4b5563; background: #1f2937; }
+
+    /* My week in review (js/recap.js): a phone-shaped story card with
+       progress bars along the top, like Instagram stories. */
+    .recap-overlay { position: fixed; inset: 0; z-index: 80; background: rgba(5,10,20,.82); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .recap-card { position: relative; width: min(420px, 100%); height: min(760px, calc(100vh - 32px)); border-radius: 28px; overflow: hidden; color: #fff; box-shadow: 0 30px 80px rgba(0,0,0,.5); transition: background .5s ease; display: flex; }
+    .recap-progress { position: absolute; top: 14px; left: 14px; right: 14px; display: flex; gap: 4px; z-index: 3; }
+    .recap-progress > span { flex: 1; height: 3px; border-radius: 3px; background: rgba(255,255,255,.3); overflow: hidden; position: relative; }
+    .recap-progress > span::after { content: ''; position: absolute; inset: 0; width: 0; background: #fff; }
+    .recap-progress > span.done::after { width: 100%; }
+    .recap-progress > span.active::after { animation: recapfill linear forwards; animation-duration: inherit; }
+    @keyframes recapfill { to { width: 100%; } }
+    .recap-close { position: absolute; top: 26px; right: 16px; z-index: 4; font-size: 28px; line-height: 1; color: rgba(255,255,255,.8); background: none; border: 0; cursor: pointer; }
+    .recap-body { position: relative; z-index: 2; margin: auto 0; padding: 40px 32px; width: 100%; pointer-events: none; }
+    .recap-body button { pointer-events: auto; }
+    .recap-in > * { animation: recapin .6s cubic-bezier(.2,.8,.2,1) both; }
+    .recap-in > *:nth-child(2) { animation-delay: .12s; } .recap-in > *:nth-child(3) { animation-delay: .24s; } .recap-in > *:nth-child(4) { animation-delay: .36s; }
+    @keyframes recapin { from { opacity: 0; transform: translateY(24px) scale(.97); } to { opacity: 1; transform: none; } }
+    .recap-kicker { font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.75); }
+    .recap-big { margin-top: 12px; font-size: 40px; line-height: 1.05; font-weight: 900; letter-spacing: -.02em; }
+    .recap-huge { margin-top: 8px; font-size: 104px; line-height: 1; font-weight: 900; letter-spacing: -.04em; }
+    .recap-sub { margin-top: 16px; font-size: 17px; line-height: 1.5; color: rgba(255,255,255,.85); }
+    .recap-bar { margin-top: 20px; height: 10px; border-radius: 10px; background: rgba(255,255,255,.2); overflow: hidden; }
+    .recap-bar > span { display: block; height: 100%; background: #5EEAD4; border-radius: 10px; }
+    .recap-list { margin-top: 18px; display: grid; gap: 10px; }
+    .recap-list li { display: flex; justify-content: space-between; gap: 12px; background: rgba(255,255,255,.1); border-radius: 14px; padding: 12px 14px; font-weight: 600; }
+    .recap-list li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .recap-list li b { flex-shrink: 0; color: #5EEAD4; }
+    .recap-stats { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .recap-stats > div { background: rgba(255,255,255,.1); border-radius: 18px; padding: 14px 16px; }
+    .recap-stats b { display: block; font-size: 36px; font-weight: 900; }
+    .recap-stats span { font-size: 13px; color: rgba(255,255,255,.75); }
+    .recap-actions { margin-top: 24px; display: flex; gap: 10px; }
+    .recap-actions button { flex: 1; padding: 13px; border-radius: 14px; font-weight: 800; font-size: 15px; border: 0; cursor: pointer; }
+    .recap-actions button:first-child { background: #fff; color: #0D1B2A; }
+    .recap-actions button:last-child { background: rgba(255,255,255,.15); color: #fff; }
+    .recap-nav { position: absolute; top: 0; bottom: 0; z-index: 1; background: none; border: 0; cursor: pointer; }
+    .recap-prev { left: 0; width: 35%; } .recap-next { right: 0; width: 65%; }
+    @media (prefers-reduced-motion: reduce) { .recap-in > * { animation: none; } .recap-progress > span.active::after { animation: none; width: 100%; } }
+
     /* The assistant listening: a pulsing orb with ripples spreading out and
        a row of moving sound bars, so it's obvious the mic is on. */
     .ai-listening { display: none; background: linear-gradient(120deg, #0A7E8C, #7c3aed); color: #fff; box-shadow: 0 6px 20px rgba(124,58,237,.25); }
@@ -1238,6 +1289,7 @@
       </div>
       <div class="flex items-center gap-2 md:gap-3 flex-shrink-0">
         <span class="text-gray-400 text-xs font-mono hidden sm:inline" id="topbar-date"></span>
+        <button onclick="openPalette()" aria-label="Command palette (Ctrl+K)" title="Command palette (⌘K / Ctrl+K)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="palette-btn">⌘</button>
         <div class="relative">
           <button onclick="toggleNotifications(event)" aria-label="Notifications" class="relative bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="notif-bell-btn">
             🔔
@@ -1303,6 +1355,7 @@
           </div>
         </div>
         <div class="flex gap-2 flex-shrink-0">
+          <button onclick="openWeeklyRecap()" class="bg-navy hover:bg-navy/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">🎬 My week</button>
           <button onclick="openAssistant()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">Open assistant →</button>
         </div>
       </div>
@@ -2740,6 +2793,8 @@
 <script src="js/api.js"></script>
 <script src="js/journeyGame.js"></script>
 <script src="js/app.js"></script>
+<script src="js/palette.js"></script>
+<script src="js/recap.js"></script>
 
 </body>
 </html>

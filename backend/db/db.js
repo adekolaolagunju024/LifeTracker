@@ -1141,7 +1141,7 @@ function attachObstaclesToTasks(tasks) {
   const rows = db.prepare(`SELECT id, taskId, name, count, resolvedAt FROM task_obstacles WHERE taskId IN (${placeholders}) ORDER BY createdAt ASC`)
     .all(...tasks.map(t => t.id));
   const byTask = {};
-  rows.forEach(r => { (byTask[r.taskId] = byTask[r.taskId] || []).push({ id: r.id, name: r.name, count: r.count, resolved: !!r.resolvedAt }); });
+  rows.forEach(r => { (byTask[r.taskId] = byTask[r.taskId] || []).push({ id: r.id, name: r.name, count: r.count, resolved: !!r.resolvedAt, resolvedAt: r.resolvedAt || null }); });
   tasks.forEach(t => { t.obstacles = byTask[t.id] || []; });
   return tasks;
 }
