@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "Smoother Journey in every world",
+      "text": "The 3D camera now keeps your character in view when you beat a blocker and finish the task straight after, task names read in full, the scene fills its frame, and levelling up mid-game shows a banner instead of covering the action."
+    },
+    {
+      "date": "2026-10-11",
       "title": "Two-step sign-in",
       "text": "Protect your account with a code from an authenticator app, like Google Authenticator or 1Password, on top of your password. Turn it on in Settings, with recovery codes in case you lose your phone."
     },
