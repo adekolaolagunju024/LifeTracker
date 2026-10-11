@@ -306,13 +306,23 @@ test('assistant conversations are saved, listed newest first, reopened, kept pri
 });
 
 test('pages and scripts carry protective headers, are gzipped, and send no CORS or X-Powered-By', async () => {
-  const res = await fetch(`${server.base}/js/app.js`, { headers: { 'Accept-Encoding': 'gzip', Origin: 'https://evil.example' } });
+  const res = await fetch(`${server.base}/js/app/01-core.js`, { headers: { 'Accept-Encoding': 'gzip', Origin: 'https://evil.example' } });
   assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
   assert.equal(res.headers.get('x-frame-options'), 'SAMEORIGIN');
   assert.equal(res.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
   assert.equal(res.headers.get('x-powered-by'), null);
   assert.equal(res.headers.get('access-control-allow-origin'), null);
   assert.equal(res.headers.get('content-encoding'), 'gzip');
+  const csp = res.headers.get('content-security-policy') || '';
+  for (const rule of ["default-src 'self'", "object-src 'none'", "frame-ancestors 'self'", "base-uri 'self'", "form-action 'self'"]) assert.ok(csp.includes(rule), rule);
+});
+
+test('the app loads as ordered parts, and every part the page lists is served', async () => {
+  const html = await (await fetch(`${server.base}/app`)).text();
+  const parts = [...html.matchAll(/<script src="(js\/app\/[^"]+)"><\/script>/g)].map(m => m[1]);
+  assert.ok(parts.length >= 10);
+  assert.deepEqual(parts, [...parts].sort(), 'parts load in numbered order');
+  for (const part of parts) assert.equal((await fetch(`${server.base}/${part}`)).status, 200, part);
 });
 
 test('passwords shorter than 8 characters are refused', async () => {

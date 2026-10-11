@@ -5,6 +5,7 @@ A general-purpose personal goal tracker — Career is just one of the built-in p
 ## Features
 
 - **Accounts** — email/password registration and login, sessions scoped per user (`express-session`), an optional "Sign in with Google" (finds-or-creates an account by email), a "Keep me signed in" toggle (persistent 30-day session vs. a session-only cookie cleared when the browser closes), browser-native password-save support (real `<form>` submits + the Credential Management API), a "Forgot password?" flow that emails a one-hour reset link through Resend (where email isn't set up, the link is written to the server log instead), and self-service permanent account deletion from Settings (password-confirmed; every project/task row cascades with it). Passwords need at least 8 characters
+- **Content Security Policy** on every response: everything loads from the site itself except Google Fonts, the sign-in video and its poster, and Jitsi for live calls. No plugins, no framing by other sites, and forms post only to the site. Inline scripts are still allowed, because the markup uses inline event handlers; moving those into the script files is the step before `'unsafe-inline'` can go.
 - **Security** — a fresh session id is issued at every sign-in (no session fixation); sign-in, sign-up and password-reset requests are rate limited (`backend/middleware/rateLimit.js`: 10 sign-in attempts per account per 15 minutes, 5 reset emails per hour), answering 429 with `Retry-After`; every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin` and, in production, HSTS, with no `X-Powered-By` and no CORS headers (the app and API share one origin)
 - **Two-step sign-in** — Settings → Account & Security → Two-step sign-in (`backend/twofactor.js`).
   - **Setup:** scan a QR code (or type the key) into any authenticator app, confirm a code, and save 10 single-use recovery codes. They're stored only as hashes and shown once; new ones can be made with a code.
@@ -217,7 +218,12 @@ backend/
   reports/             Excel/PDF/image export generation, plus the Gantt chart's image export
 frontend/
   index.html           all pages/modals (single-page app, no router)
-  js/app.js            UI logic, rendering, event handling
+  js/app/              UI logic, rendering, event handling, in 12 numbered parts
+                       (01-core … 12-init) that load in order as plain scripts
+                       and share one global scope; index.html lists them
+  js/palette.js        ⌘K command palette
+  js/recap.js          My week in review
+  js/gameui.js, sfx.js the game layer's UI and sounds
   js/api.js            thin fetch wrapper for the backend API
 mobile/
   capacitor.config.json  points the Android WebView at the live Railway URL

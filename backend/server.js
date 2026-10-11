@@ -45,10 +45,34 @@ if (!process.env.SESSION_SECRET) {
 // production. The browser app and API share one origin, so no CORS
 // headers are sent: other sites can't read the API from a visitor's browser.
 app.disable('x-powered-by');
+// Content Security Policy: everything loads from this site, except Google
+// Fonts, the sign-in screen's background video and its poster, and the
+// Jitsi room embedded for live calls. No plugins, no other site may frame
+// the app, and forms only post here. Scripts still allow inline code: the
+// app's markup uses inline event handlers throughout, so moving those to
+// script files has to come before 'unsafe-inline' can be dropped.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com data:",
+  "img-src 'self' data: blob: https://images.pexels.com",
+  "media-src 'self' blob: https://videos.pexels.com",
+  "connect-src 'self' blob: data:", // 3D models unpack their textures through blob: URLs
+  "frame-src 'self' https://meet.jit.si",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+  ...(process.env.NODE_ENV === 'production' ? ['upgrade-insecure-requests'] : []),
+].join('; ');
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', CSP);
   if (process.env.NODE_ENV === 'production') res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
   next();
 });
