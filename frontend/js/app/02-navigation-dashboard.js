@@ -152,10 +152,10 @@ function renderDashboardBento(tasks, allProjects) {
       <button type="button" onclick="showPage('project-detail','${f.p.id}')" class="block text-left mt-2 text-xl font-extrabold text-white hover:underline">${esc(f.p.icon || '')} ${esc(f.p.title)}</button>
       <div class="focus-segs mt-3" style="grid-template-columns:repeat(${segCount},minmax(0,1fr))">${segs}</div>
       <div class="flex items-center justify-between gap-3 mt-3 flex-wrap">
-        <p class="text-sm text-[#C9D6E2] min-w-0">${pctDone}% · Next stop: ${esc(next.title)}${foes ? ` · ⚔️ ${foes} ${foes === 1 ? 'blocker' : 'blockers'}` : ''}</p>
+        <p class="text-sm text-[#C9D6E2] min-w-0">${pctDone}% · Next stop: ${esc(next.title)}${foes ? ` · ${icon('blocker')} ${foes} ${foes === 1 ? 'blocker' : 'blockers'}` : ''}</p>
         <div class="flex gap-2">
           <button type="button" onclick="openProgressReport('${f.p.id}')" class="text-sm font-bold text-white/80 hover:text-white px-3 min-h-[44px]">Report</button>
-          <button type="button" onclick="playJourneyFor('${f.p.id}')" class="bg-[#5EEAD4] text-navy font-extrabold text-sm px-5 min-h-[44px] rounded-xl hover:brightness-105">▶ Play</button>
+          <button type="button" onclick="playJourneyFor('${f.p.id}')" class="bg-[#5EEAD4] text-navy font-extrabold text-sm px-5 min-h-[44px] rounded-xl hover:brightness-105 inline-flex items-center gap-1.5">${icon('play')}Play</button>
         </div>
       </div>`;
   }
@@ -171,10 +171,10 @@ function renderDashboardBento(tasks, allProjects) {
   const today = open.filter(t => dueKey(t) === todayKey);
   const blocked = open.filter(t => blockersOf(t));
   const waitingTasks = open.filter(t => waitingOn(t).length);
-  const countChips = [['late', late.length, 'overdue', '🔴'], ['blocked', blocked.length, 'blocked', '⚔️'], ['today', today.length, 'due today', '📌'], ['waiting', waitingTasks.length, 'waiting', '🔗']]
+  const countChips = [['late', late.length, 'overdue', 'overdue'], ['blocked', blocked.length, 'blocked', 'blocker'], ['today', today.length, 'due today', 'clock'], ['waiting', waitingTasks.length, 'waiting', 'waiting']]
     .filter(([, n]) => n)
-    .map(([cls, n, label, icon]) => `<button type="button" class="focus-count ${cls}" onclick="showPage('actions')" aria-label="${n} ${label}. Open Actions">${icon} ${n} ${label}</button>`);
-  document.getElementById('dash-attention-counts').innerHTML = countChips.length ? countChips.join('') : '<span class="focus-count clear">🎉 Nothing late or blocked</span>';
+    .map(([cls, n, label, ic]) => `<button type="button" class="focus-count ${cls}" onclick="showPage('actions')" aria-label="${n} ${label}. Open Actions">${icon(ic)}${n} ${label}</button>`);
+  document.getElementById('dash-attention-counts').innerHTML = countChips.length ? countChips.join('') : `<span class="focus-count clear">${icon('done')}Nothing late or blocked</span>`;
   const rank = t => (dueKey(t) && dueKey(t) < todayKey ? 0 : dueKey(t) === todayKey ? 1 : blockersOf(t) ? 2 : waitingOn(t).length ? 3 : 4);
   const focusList = [...open].sort((a, b) => rank(a) - rank(b) || (dueKey(a) || '9999').localeCompare(dueKey(b) || '9999') || (a.priority === 'High' ? -1 : b.priority === 'High' ? 1 : 0)).slice(0, 5);
   document.getElementById('dash-upnext').innerHTML = focusList.length ? focusList.map(t => {
@@ -185,16 +185,16 @@ function renderDashboardBento(tasks, allProjects) {
     const proj = byId[t.projectId] || {};
     const canEdit = proj.role === 'owner' || proj.role === 'editor';
     const why = [];
-    if (n) why.push(`<span class="attention-why blocked">⚔️ ${n} blocker${n === 1 ? '' : 's'}</span>`);
-    if (waiting.length) why.push(`<span class="attention-why waiting" title="Waiting on ${esc(waiting.map(p => p.title).join(', '))}">🔗 Waiting</span>`);
+    if (n) why.push(`<span class="attention-why blocked">${icon('blocker')}${n} blocker${n === 1 ? '' : 's'}</span>`);
+    if (waiting.length) why.push(`<span class="attention-why waiting" title="Waiting on ${esc(waiting.map(p => p.title).join(', '))}">${icon('link')}Waiting</span>`);
     return `<div class="flex items-center gap-3 min-h-[52px] border-b border-gray-100 last:border-0">
       <input type="checkbox" class="w-5 h-5 accent-teal flex-shrink-0" onchange="completeFromDashboard('${t.id}', this)" aria-label="${stuck ? 'Blocked: ' : 'Mark '}${esc(t.title)}${stuck ? '' : ' done'}" ${stuck || !canEdit ? `disabled title="${stuck ? 'Clear what is in the way first' : 'View-only'}"` : ''}>
       <button type="button" onclick="openTaskDetail('${t.id}')" class="flex-1 min-w-0 text-left">
-        <span class="block text-sm font-semibold text-navy truncate hover:text-teal">${stuck ? '🔒 ' : ''}${esc(t.title)}</span>
+        <span class="block text-sm font-semibold text-navy truncate hover:text-teal">${stuck ? icon('lock', 'mr-1 text-gray-400') : ''}${esc(t.title)}</span>
         <span class="block text-[11px] text-gray-500 truncate">${why.join('')}${esc(proj.title || '')}</span>
       </button>
       <span class="flex-shrink-0 w-20 text-right text-xs font-semibold ${due.late ? 'text-red-600' : dueKey(t) === todayKey ? 'text-amber-700' : 'text-gray-500'}">${esc(due.text)}</span>
-      <button type="button" class="attention-act" onclick="Reminders.openSheet('${t.id}')" title="Remind me" aria-label="Set a reminder for ${esc(t.title)}">⏰</button>
+      <button type="button" class="attention-act" onclick="Reminders.openSheet('${t.id}')" title="Remind me" aria-label="Set a reminder for ${esc(t.title)}">${icon('alarm')}</button>
     </div>`;
   }).join('') : '<p class="text-sm text-gray-500 py-4">Nothing open. Plan your next goal with the assistant, or start from a template.</p>';
 
@@ -216,7 +216,7 @@ async function completeFromDashboard(taskId, checkbox) {
   checkbox.disabled = true;
   try {
     await API.updateTask(taskId, { status: 'Completed' });
-    checkbox.closest('label').classList.add('opacity-50', 'line-through');
+    checkbox.parentElement.classList.add('opacity-50', 'line-through');
     setTimeout(renderDashboard, 900);
   } catch (e) {
     checkbox.checked = false; checkbox.disabled = false;
@@ -287,7 +287,7 @@ async function renderDashboard() {
     document.getElementById('hero-name').textContent  = profileName(profile) ? `, ${profileName(profile).split(' ')[0]}` : '';
 
     const bonusLine = document.getElementById('bonus-credits-line');
-    bonusLine.textContent = profile.bonusAiCredits ? `🎁 ${profile.bonusAiCredits} bonus AI credits from invites` : '';
+    bonusLine.textContent = profile.bonusAiCredits ? `${profile.bonusAiCredits} bonus AI credits from invites` : '';
     bonusLine.classList.toggle('hidden', !profile.bonusAiCredits);
 
     // Momentum streak — consecutive days with >=1 completed task.
@@ -353,9 +353,9 @@ async function renderDashboard() {
       const pdone    = pts.filter(t => t.status === 'Completed').length;
       const overdue  = pts.filter(t => t.status !== 'Completed' && t.endDate && t.endDate.slice(0, 10) < todayKey).length;
       const pp       = ProgressMath.progressPct(pts);
-      const sharedSuffix = proj.role !== 'owner' && proj.ownerName ? ` · 👤 ${esc(proj.ownerName)}` : '';
+      const sharedSuffix = proj.role !== 'owner' && proj.ownerName ? ` · ${esc(proj.ownerName)}` : '';
       const subLine  = `${pts.length} tasks · ${pdone} done` + sharedSuffix;
-      const overdueBadge = overdue > 0 ? `<span class="flex-shrink-0 bg-red-50 text-red-600 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">🔴 ${overdue} overdue</span>` : '';
+      const overdueBadge = overdue > 0 ? `<span class="flex-shrink-0 bg-red-50 text-red-600 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap inline-flex items-center gap-1">${icon('overdue', 'tiny')}${overdue} overdue</span>` : '';
 
       cardsHTML += `
         <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-4 cursor-pointer"
@@ -410,7 +410,7 @@ async function renderProjects() {
       const emptyByFilter = {
         mine: 'No private projects — every project you own is currently shared.',
         'shared-with-me': "No one's shared a project with you yet.",
-        'shared-by-me': "You haven't shared any of your projects yet — open one and hit 👥 Share.",
+        'shared-by-me': "You haven't shared any of your projects yet — open one and choose Share.",
       };
       document.getElementById('projects-grid').innerHTML = `<p class="text-center text-gray-400 text-sm py-8 col-span-full">${emptyByFilter[filter] || 'No projects yet.'}</p>`;
       return;
@@ -434,18 +434,18 @@ async function renderProjects() {
             <span class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style="background:${proj.color}1A">${proj.icon}</span>
             <div class="project-card-actions flex gap-1 opacity-0 transition-opacity">
               <button onclick="event.stopPropagation();editProject('${proj.id}')"
-                class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm">✏️</button>
+                class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm" aria-label="Edit project">${icon('edit')}</button>
               ${proj.role === 'owner' ? `<button onclick="event.stopPropagation();deleteProjectConfirm('${proj.id}')"
-                class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm">🗑️</button>` : ''}
+                class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm" aria-label="Delete project">${icon('trash')}</button>` : ''}
             </div>
           </div>
           <div class="flex items-center gap-2 flex-wrap mb-1">
             <h3 class="font-bold text-navy text-base cursor-pointer hover:text-teal"
               onclick="showPage('project-detail','${proj.id}')">${esc(proj.title)}</h3>
-            ${proj.role !== 'owner' && proj.ownerName ? `<span class="text-[10px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full whitespace-nowrap">👤 ${esc(proj.ownerName)}</span>` : ''}
+            ${proj.role !== 'owner' && proj.ownerName ? `<span class="text-[10px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full whitespace-nowrap">${icon('user', 'tiny mr-0.5')}${esc(proj.ownerName)}</span>` : ''}
             ${proj.role === 'owner' ? (proj.collaboratorCount > 0
-                ? `<span class="text-[10px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full whitespace-nowrap">👥 Shared with ${proj.collaboratorCount}</span>`
-                : `<span class="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full whitespace-nowrap">🔒 Private</span>`) : ''}
+                ? `<span class="text-[10px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full whitespace-nowrap">${icon('users', 'tiny mr-0.5')}Shared with ${proj.collaboratorCount}</span>`
+                : `<span class="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full whitespace-nowrap">${icon('lock', 'tiny mr-0.5')}Private</span>`) : ''}
           </div>
           <p class="text-gray-400 text-xs mb-4">${esc(proj.description || '')}</p>
           <div class="flex gap-2 mb-3 flex-wrap">${tagsHTML}</div>
