@@ -159,6 +159,8 @@
     #alarm-overlay { position: fixed; inset: 0; z-index: 1000; background: radial-gradient(circle at 50% 30%, rgba(10,126,140,.97), rgba(13,27,42,.99) 70%); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 20px; animation: alarmin .25s ease-out both; }
     @keyframes alarmin { from { opacity: 0; } to { opacity: 1; } }
     .alarm-card { width: min(400px, 100%); text-align: center; color: #fff; }
+    .alarm-bell .ic { width: 64px; height: 64px; color: #5EEAD4; stroke-width: 1.75; }
+    .alarm-start .ic { width: 18px; height: 18px; vertical-align: -3px; }
     .alarm-bell { font-size: 64px; line-height: 1; display: inline-block; animation: alarmshake 1s ease-in-out infinite; }
     @keyframes alarmshake { 0%, 50%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(-14deg); } 20%, 40% { transform: rotate(14deg); } }
     .alarm-kicker { margin: 16px 0 6px; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #5EEAD4; }
@@ -408,6 +410,13 @@
     .dark .attention-count.is-warn { background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.3); } .dark .attention-count.is-warn b { color: #FCD34D; }
     .dark .attention-row { border-color: #1F2A3D; }
     .dark .attention-act { background: #0F1726; border-color: #263449; }
+    .focus-count .ic { width: 14px; height: 14px; }
+    .kpi-label { display: flex; align-items: center; gap: 6px; }
+    .kpi-label .ic { width: 15px; height: 15px; }
+    .ic.tiny { width: 11px; height: 11px; vertical-align: -1px; }
+    .attention-why .ic { width: 12px; height: 12px; }
+    .attention-act .ic { width: 17px; height: 17px; color: #3F4A57; }
+    .dark .attention-act .ic { color: #CBD5E1; }
     /* Owner metrics (js/metrics.js) */
     #page-metrics { max-width: 1100px; }
     .metric-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
@@ -1013,6 +1022,19 @@
 
     /* Apple-style icon badge — a small rounded-square tinted backdrop
        behind a nav/section icon, used in the sidebar and Settings. */
+    /* Line icons (js/icons.js): Lucide shapes in the text colour */
+    .ic { width: 1.15em; height: 1.15em; flex-shrink: 0; display: inline-block; vertical-align: -0.2em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .icon-badge .ic { width: 17px; height: 17px; }
+    .icon-badge-sm .ic { width: 14px; height: 14px; }
+    .icon-badge.nav-ic, .icon-badge-sm.nav-ic { background: none; width: 22px; }
+    #notif-bell-btn .ic, #topbar-back-btn .ic { width: 17px; height: 17px; }
+    #streak-badge { display: inline-flex; align-items: center; gap: 5px; }
+    #streak-badge.hidden { display: none; }
+    .dark .icon-badge[style*="#0D1B2A"], .dark .icon-badge[style*="#1B3A5C"] { color: #CBD5E1 !important; }
+    #toast { display: flex; align-items: center; gap: 9px; }
+    #toast .ic { width: 18px; height: 18px; color: #5EEAD4; }
+    #toast.is-error .ic { color: #fff; }
+    #undo-toast .ic { width: 17px; height: 17px; color: #5EEAD4; flex-shrink: 0; }
     .icon-badge { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 9px; font-size: 15px; flex-shrink: 0; }
     .icon-badge-sm { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 7px; font-size: 12px; flex-shrink: 0; }
     .gantt-summary-cap { position: absolute; top: 50%; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; margin-top: -2px; transform: translateX(-50%); z-index: 3; }
@@ -1599,29 +1621,29 @@
       <p class="text-white/25 text-[9px] font-bold tracking-widest px-3 mb-2 uppercase">Overview</p>
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="showPage('dashboard')" data-page="dashboard">
-        <span class="icon-badge" style="background:rgba(10,126,140,.22)">🏠</span> Dashboard
+        <span class="icon-badge nav-ic" data-icon="home"></span> Dashboard
       </button>
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="showPage('gantt')" data-page="gantt">
-        <span class="icon-badge" style="background:rgba(124,58,237,.22)">📊</span> Planner
+        <span class="icon-badge nav-ic" data-icon="planner"></span> Planner
       </button>
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="showPage('actions')" data-page="actions">
-        <span class="icon-badge" style="background:rgba(26,122,74,.22)">✅</span> Actions
+        <span class="icon-badge nav-ic" data-icon="actions"></span> Actions
       </button>
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="showPage('calendar')" data-page="calendar">
-        <span class="icon-badge" style="background:rgba(196,74,122,.22)">📅</span> Calendar
+        <span class="icon-badge nav-ic" data-icon="calendar"></span> Calendar
       </button>
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="showPage('chats')" data-page="chats">
-        <span class="icon-badge" style="background:rgba(10,126,140,.22)">💬</span> Chats
+        <span class="icon-badge nav-ic" data-icon="chat"></span> Chats
         <span class="hidden ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center leading-none" id="nav-chats-badge">0</span>
       </button>
       <!-- Owner only (js/metrics.js shows it) -->
       <button class="hidden nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="showPage('metrics')" data-page="metrics" id="nav-metrics">
-        <span class="icon-badge" style="background:rgba(13,27,42,.12)">📈</span> Metrics
+        <span class="icon-badge nav-ic" data-icon="chart"></span> Metrics
       </button>
     </div>
 
@@ -1632,7 +1654,7 @@
       <div id="project-nav" class="space-y-1.5"></div>
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="showPage('projects')" data-page="projects">
-        <span class="icon-badge" style="background:rgba(196,154,0,.22)">📁</span> All Projects
+        <span class="icon-badge nav-ic" data-icon="folder"></span> All Projects
       </button>
     </div>
 
@@ -1640,21 +1662,21 @@
     <div class="mt-auto px-3 pt-2 pb-4 space-y-1 relative border-t border-white/10">
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="toggleFileMenu(event)" id="file-menu-btn" aria-haspopup="menu">
-        <span class="icon-badge" style="background:rgba(255,255,255,.12)">⚙️</span> Settings &amp; data
+        <span class="icon-badge nav-ic" data-icon="settings"></span> Settings &amp; data
       </button>
       <div class="hidden absolute left-3 right-3 bottom-full mb-1 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50" id="file-menu">
         <button onclick="closeFileMenu(); showPage('settings')" class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">
-          <span class="icon-badge-sm" style="background:#6B728022">⚙️</span> Settings
+          <span class="icon-badge-sm nav-ic" data-icon="settings"></span> Settings
         </button>
         <button onclick="closeFileMenu(); exportData()" class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">
-          <span class="icon-badge-sm" style="background:#0A7E8C22">⬇</span> Export Data (JSON)
+          <span class="icon-badge-sm nav-ic" data-icon="download"></span> Export Data (JSON)
         </button>
         <button onclick="closeFileMenu(); importData()" class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">
-          <span class="icon-badge-sm" style="background:#C49A0022">⬆</span> Import Data (JSON)
+          <span class="icon-badge-sm nav-ic" data-icon="upload"></span> Import Data (JSON)
         </button>
         <div class="border-t border-gray-100 my-1"></div>
         <button onclick="closeFileMenu(); logout()" class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 text-left">
-          <span class="icon-badge-sm" style="background:#B0302022">🚪</span> Log Out
+          <span class="icon-badge-sm nav-ic" data-icon="logout"></span> Log Out
         </button>
       </div>
     </div>
@@ -1676,12 +1698,12 @@
     <!-- Topbar -->
     <div class="bg-white border-b border-gray-200 px-4 md:px-6 h-14 flex items-center justify-between sticky top-0 z-30 gap-2">
       <div class="flex items-center gap-3 min-w-0 flex-shrink-0">
-        <button onclick="openMobileSidebar()" class="md:hidden text-navy text-xl leading-none px-1 flex-shrink-0" aria-label="Open menu">☰</button>
-        <button onclick="goBack()" id="topbar-back-btn" class="hidden text-navy hover:bg-gray-100 w-7 h-7 rounded-lg inline-flex items-center justify-center text-base flex-shrink-0" aria-label="Back" title="Back">←</button>
+        <button onclick="openMobileSidebar()" class="md:hidden text-navy text-xl leading-none px-1 flex-shrink-0" aria-label="Open menu" data-icon="menu"></button>
+        <button onclick="goBack()" id="topbar-back-btn" class="hidden text-navy hover:bg-gray-100 w-7 h-7 rounded-lg inline-flex items-center justify-center text-base flex-shrink-0" aria-label="Back" title="Back" data-icon="back"></button>
         <h2 class="font-bold text-navy text-sm truncate hidden sm:block" id="topbar-title">Dashboard</h2>
       </div>
       <div class="relative flex-1 min-w-0 max-w-xs mx-2" id="global-search-wrap">
-        <input type="text" id="global-search-input" placeholder="🔍 Search projects &amp; tasks…" title="Search (shortcut: /)" aria-label="Search projects and tasks" autocomplete="off"
+        <input type="text" id="global-search-input" placeholder="Search projects &amp; tasks…" title="Search (shortcut: /)" aria-label="Search projects and tasks" autocomplete="off"
           class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-teal bg-gray-50"
           oninput="onGlobalSearchInput(this.value)" onfocus="onGlobalSearchInput(this.value)">
         <div class="hidden absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50 max-h-80 overflow-y-auto" id="global-search-results"></div>
@@ -1690,8 +1712,7 @@
         <span class="text-gray-400 text-xs font-mono hidden sm:inline" id="topbar-date"></span>
         <button onclick="openPalette()" aria-label="Command palette (Ctrl+K)" title="Command palette (⌘K / Ctrl+K)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="palette-btn">⌘</button>
         <div class="relative">
-          <button onclick="toggleNotifications(event)" aria-label="Notifications" class="relative bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="notif-bell-btn">
-            🔔
+          <button onclick="toggleNotifications(event)" aria-label="Notifications" class="relative bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="notif-bell-btn" data-icon="bell">
             <span class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center leading-none" id="notif-badge-count">0</span>
           </button>
           <div class="hidden absolute right-0 top-full mt-2 bg-white rounded-xl shadow-xl border border-gray-200 z-50 w-80 max-w-[90vw] max-h-[70vh] overflow-y-auto" id="notif-dropdown">
@@ -1707,7 +1728,7 @@
 
     <!-- Daily digest — overdue/due-today tasks, shown once per day, dismissible -->
     <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3" id="digest-banner">
-      <span class="text-lg leading-none">👋</span>
+      <span class="text-amber-600 flex pt-0.5" data-icon="overdue"></span>
       <div class="flex-1 min-w-0 text-sm text-amber-900" id="digest-banner-text"></div>
       <button onclick="dismissDigestBanner()" class="text-amber-500 hover:text-amber-700 text-lg leading-none px-1 flex-shrink-0" aria-label="Dismiss">&times;</button>
     </div>
@@ -1739,8 +1760,8 @@
           <p class="hidden text-xs font-semibold text-teal mt-1" id="bonus-credits-line"></p>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-          <span class="pill-streak hidden" id="streak-badge" title="Days in a row with a finished task">🔥 <span><span id="streak-count">0</span>-day streak</span></span>
-          <button type="button" class="pill-level" id="dash-level-pill" onclick="openJourneyTrophyCase()" title="Your rank and level. Open the Trophy Case">⭐ Lv 1</button>
+          <span class="pill-streak hidden" id="streak-badge" title="Days in a row with a finished task" data-icon="flame"><span><span id="streak-count">0</span>-day streak</span></span>
+          <button type="button" class="pill-level" id="dash-level-pill" onclick="openJourneyTrophyCase()" title="Your rank and level. Open the Trophy Case">Lv 1</button>
         </div>
       </div>
       <div class="flex gap-2 mb-5">
@@ -1788,7 +1809,7 @@
           <div class="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden"><div class="goals-bar-fill h-full rounded-full transition-all duration-500" id="hero-goals-prog" style="width:0%"></div></div>
           <p class="text-xs text-gray-500 mt-1"><span id="hero-goals-pct">0%</span> of all planned work · <span id="hero-goals-sub">0 of 0 tasks complete</span> <span id="hero-goals-detail" class="hidden"></span></p>
           <p class="text-xs text-gray-500"><span id="kpi-total">0</span> tasks · <span id="kpi-done">0</span> done · <span id="kpi-inprog">0</span> in progress</p>
-          <button onclick="openWeeklyRecap()" class="mt-auto pt-2 text-left text-sm font-extrabold text-teal hover:underline">🎬 Watch my week</button>
+          <button onclick="openWeeklyRecap()" class="mt-auto pt-2 text-left text-sm font-extrabold text-teal hover:underline inline-flex items-center gap-1.5" data-icon="play">Watch my week</button>
         </div>
       </div>
 
@@ -1801,7 +1822,7 @@
       <div class="hidden" id="dashboard-goals-section">
         <div class="flex items-center gap-2 mb-3">
           <div class="w-1 h-4 bg-teal rounded-full"></div>
-          <h3 class="text-sm font-bold text-navy-2">🎯 Goals</h3>
+          <h3 class="text-sm font-bold text-navy-2">Goals</h3>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="dashboard-goals-cards"></div>
       </div>
@@ -1815,7 +1836,7 @@
           <div class="w-1 h-4 bg-teal rounded-full"></div>
           <h3 class="text-sm font-bold text-navy-2">Projects at a Glance</h3>
         </div>
-        <div class="flex items-center gap-4"><button onclick="Reports.openPortfolioPicker()" class="text-teal hover:underline text-xs font-semibold">📊 Report on all</button><button onclick="showPage('projects')" class="text-teal hover:underline text-xs font-semibold">View All Projects →</button></div>
+        <div class="flex items-center gap-4"><button onclick="Reports.openPortfolioPicker()" class="text-teal hover:underline text-xs font-semibold inline-flex items-center gap-1" data-icon="chart">Report on all</button><button onclick="showPage('projects')" class="text-teal hover:underline text-xs font-semibold">View All Projects →</button></div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" id="project-stats"></div>
 
@@ -2176,23 +2197,23 @@
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div class="bg-white rounded-xl p-5 border border-gray-200">
-          <p class="text-xs font-semibold text-gray-400">🔴 Overdue</p>
+          <p class="text-xs font-semibold text-gray-400 kpi-label"><span data-icon="overdue" class="text-red-600"></span>Overdue</p>
           <p class="text-3xl font-black font-mono text-red-600 mt-1" id="act-overdue">0</p>
         </div>
         <div class="bg-white rounded-xl p-5 border border-gray-200">
-          <p class="text-xs font-semibold text-gray-400">🟡 Due This Week</p>
+          <p class="text-xs font-semibold text-gray-400 kpi-label"><span data-icon="clock" class="text-amber-600"></span>Due This Week</p>
           <p class="text-3xl font-black font-mono text-brand-orange mt-1" id="act-week">0</p>
         </div>
         <div class="bg-white rounded-xl p-5 border border-gray-200">
-          <p class="text-xs font-semibold text-gray-400">🚀 Starting This Week</p>
+          <p class="text-xs font-semibold text-gray-400 kpi-label"><span data-icon="start" class="text-blue-600"></span>Starting This Week</p>
           <p class="text-3xl font-black font-mono text-blue-600 mt-1" id="act-starting">0</p>
         </div>
         <div class="bg-white rounded-xl p-5 border border-gray-200">
-          <p class="text-xs font-semibold text-gray-400">⭐ High Priority</p>
+          <p class="text-xs font-semibold text-gray-400 kpi-label"><span data-icon="star" class="text-teal"></span>High Priority</p>
           <p class="text-3xl font-black font-mono text-teal mt-1" id="act-high">0</p>
         </div>
         <div class="bg-white rounded-xl p-5 border border-gray-200 col-span-2 sm:col-span-1">
-          <p class="text-xs font-semibold text-gray-400">⚔️ Blocked</p>
+          <p class="text-xs font-semibold text-gray-400 kpi-label"><span data-icon="blocker" class="text-red-700"></span>Blocked</p>
           <p class="text-3xl font-black font-mono text-red-700 mt-1" id="act-blocked">0</p>
         </div>
       </div>
@@ -2201,7 +2222,7 @@
       <div class="bg-gradient-to-br from-navy to-navy-2 rounded-xl p-5 mb-6 text-white">
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <p class="text-sm font-bold">✨ AI Insights</p>
+            <p class="text-sm font-bold flex items-center gap-1.5"><span class="flex" data-icon="sparkles"></span>AI Insights</p>
             <p class="text-xs text-white/50 mt-0.5">Get a short, prioritised plan for what's below, with the next step for each. Takes about 15 seconds and counts towards your AI allowance.</p>
           </div>
           <button onclick="loadAIInsights()" id="ai-insights-btn" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap">Analyze My Tasks</button>
@@ -2327,10 +2348,10 @@
       </section>
       <section class="settings-panel" role="tabpanel" id="settings-panel-notifications" aria-labelledby="settings-tab-notifications" data-settings-panel="notifications">
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5 settings-rows">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy pb-2"><span class="icon-badge" style="background:#C0642A22">🔔</span> Notifications</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy pb-2"><span class="icon-badge" style="background:#C0642A22;color:#C0642A" data-icon="bell"></span> Notifications</h3>
         <div class="flex items-center justify-between py-3.5 border-b border-gray-100">
           <div class="flex items-center gap-3 min-w-0">
-            <span class="icon-badge" style="background:#0A7E8C22">📧</span>
+            <span class="icon-badge" style="background:#0A7E8C22;color:#0A7E8C" data-icon="mail"></span>
             <div class="min-w-0">
               <p class="text-sm font-semibold text-navy">Daily Email Digest</p>
               <p class="text-xs text-gray-400 mt-0.5">One email a day (mornings) listing anything overdue, due today, or due tomorrow. Skipped automatically on days there's nothing to report.</p>
@@ -2341,7 +2362,7 @@
         <div class="pt-3.5">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3 min-w-0">
-              <span class="icon-badge" style="background:#B0302022">🔔</span>
+              <span class="icon-badge" style="background:#B0302022;color:#B03020" data-icon="bell"></span>
               <div class="min-w-0">
                 <p class="text-sm font-semibold text-navy">Push Reminders</p>
                 <p class="text-xs text-gray-400 mt-0.5">Real notifications on this device. The overdue and nudge alerts vibrate and stay on screen until you dismiss them, not a 3-second toast that's easy to swipe away without looking.</p>
@@ -2390,7 +2411,7 @@
         </div>
         <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
           <div class="flex items-center gap-3 min-w-0">
-            <span class="icon-badge" style="background:#7C3AED22">✉️</span>
+            <span class="icon-badge" style="background:#7C3AED22;color:#7C3AED" data-icon="mail"></span>
             <div class="min-w-0">
               <p class="text-sm font-semibold text-navy">Activity Emails</p>
               <p class="text-xs text-gray-400 mt-0.5">An email the moment something happens, not just a daily roundup — you're assigned a task, someone @mentions you, comments on a task you're on, or invites you to a project.</p>
@@ -2400,7 +2421,7 @@
         </div>
         <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
           <div class="flex items-center gap-3 min-w-0">
-            <span class="icon-badge" style="background:#0A7E8C22">🎯</span>
+            <span class="icon-badge" style="background:#0A7E8C22;color:#0A7E8C" data-icon="goal"></span>
             <div class="min-w-0">
               <p class="text-sm font-semibold text-navy">Weekly Goal Check-ins (AI)</p>
               <p class="text-xs text-gray-400 mt-0.5">Once a week, AI looks at how each AI-created goal is actually going and sends a short check-in — what's on track, what's stalled, and one concrete next step. It only reads status, never edits your plan.</p>
@@ -2413,10 +2434,10 @@
       </section>
       <section class="settings-panel" role="tabpanel" id="settings-panel-appearance" aria-labelledby="settings-tab-appearance" data-settings-panel="appearance">
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5 settings-rows">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy pb-2"><span class="icon-badge" style="background:#6D28D922">🎨</span> Appearance and game</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy pb-2"><span class="icon-badge" style="background:#6D28D922;color:#6D28D9" data-icon="palette"></span> Appearance and game</h3>
         <div class="flex items-center justify-between py-3.5 border-b border-gray-100">
           <div class="flex items-center gap-3">
-            <span class="icon-badge" style="background:#1B3A5C22">🌙</span>
+            <span class="icon-badge" style="background:#1B3A5C22;color:#1B3A5C" data-icon="moon"></span>
             <div>
               <p class="text-sm font-semibold text-navy">Dark Mode</p>
               <p class="text-xs text-gray-400 mt-0.5">Switch between light and dark themes.</p>
@@ -2426,7 +2447,7 @@
         </div>
         <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
           <div class="flex items-center gap-3 min-w-0">
-            <span class="icon-badge" style="background:#F59E0B22">🎉</span>
+            <span class="icon-badge" style="background:#F59E0B22;color:#F59E0B" data-icon="party"></span>
             <div class="min-w-0">
               <p class="text-sm font-semibold text-navy">Celebration Effects</p>
               <p class="text-xs text-gray-400 mt-0.5">Confetti, balloons, and the full-screen "project complete" page when you finish a task or a whole project. Off if you'd rather skip the fanfare.</p>
@@ -2436,7 +2457,7 @@
         </div>
         <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
           <div class="flex items-center gap-3 min-w-0">
-            <span class="icon-badge" style="background:#6D28D922">🔊</span>
+            <span class="icon-badge" style="background:#6D28D922;color:#6D28D9" data-icon="volume"></span>
             <div class="min-w-0">
               <p class="text-sm font-semibold text-navy">Game sounds</p>
               <p class="text-xs text-gray-400 mt-0.5">Short sounds and phone buzzes when you finish a task, beat a blocker, level up or complete a quest. Saved on this device.</p>
@@ -2446,7 +2467,7 @@
         </div>
         <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
           <div class="flex items-center gap-3 min-w-0">
-            <span class="icon-badge" style="background:#0D1B2A22">🧘</span>
+            <span class="icon-badge" style="background:#0D1B2A22;color:#0D1B2A" data-icon="focus"></span>
             <div class="min-w-0">
               <p class="text-sm font-semibold text-navy">Focus mode</p>
               <p class="text-xs text-gray-400 mt-0.5">Hide the game layer: XP, levels, daily quests, trophies, level-up moments and game sounds. Your plan, the Journey map, streak and reminders all stay. Saved on this device.</p>
@@ -2456,7 +2477,7 @@
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#7C3AED22">🧭</span> First-Time Setup</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#7C3AED22;color:#7C3AED" data-icon="compass"></span> First-Time Setup</h3>
         <p class="text-xs text-gray-400 mb-3">Re-run the welcome wizard (name, targets, first project, Google Drive).</p>
         <button onclick="rerunOnboarding()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">🧭 Re-run Setup Wizard</button>
       </div>
@@ -2464,7 +2485,7 @@
       <section class="settings-panel" role="tabpanel" id="settings-panel-apps" aria-labelledby="settings-tab-apps" data-settings-panel="apps">
       <!-- Calendar feed: due dates in Google / Outlook / Apple Calendar -->
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-4"><span class="icon-badge" style="background:#0A7E8C22">📅</span> Your tasks in your calendar</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-4"><span class="icon-badge" style="background:#0A7E8C22;color:#0A7E8C" data-icon="calendar"></span> Your tasks in your calendar</h3>
         <p class="text-xs text-gray-500 mb-3">Subscribe once and every task with a due date shows up in Google Calendar, Outlook or Apple Calendar, and keeps itself up to date (calendar apps refresh every few hours). Keep the link private: anyone who has it can see your task names.</p>
         <div class="flex gap-2 mb-3">
           <input type="text" id="calendar-feed-url" readonly aria-label="Your calendar subscription link" placeholder="Loading your link…"
@@ -2478,7 +2499,7 @@
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#1B3A5C22">☁️</span> Cloud backup</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#1B3A5C22;color:#1B3A5C" data-icon="cloud"></span> Cloud backup</h3>
         <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Google Drive</p>
         <p class="text-sm text-gray-500 mb-1" id="settings-drive-text">Checking connection…</p>
         <p class="text-xs text-gray-400 mb-4" id="settings-drive-sub"></p>
@@ -2500,7 +2521,7 @@
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#0A7E8C22">🎁</span> Invite friends, get AI credits</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#0A7E8C22;color:#0A7E8C" data-icon="gift"></span> Invite friends, get AI credits</h3>
         <p class="text-xs text-gray-500 mb-3">Share your link or send a personal invite. When someone you invite creates their first goal, you both get 20 bonus AI credits.</p>
         <div class="flex gap-2 mb-3">
           <input type="text" id="referral-link" readonly class="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600 bg-gray-50">
@@ -2517,7 +2538,7 @@
       </section>
       <section class="settings-panel" role="tabpanel" id="settings-panel-data" aria-labelledby="settings-tab-data" data-settings-panel="data">
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#C0642A22">💾</span> Your data</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#C0642A22;color:#C0642A" data-icon="database"></span> Your data</h3>
         <div class="flex gap-3 flex-wrap">
           <button onclick="exportData()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">⬇ Download everything (JSON)</button>
           <button onclick="importData()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">⬆ Import a download</button>
@@ -2526,7 +2547,7 @@
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
         <div class="flex items-center justify-between border-b border-gray-100 pb-3 mb-5">
-          <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy"><span class="icon-badge" style="background:#6B728022">🗑️</span> Trash</h3>
+          <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy"><span class="icon-badge" style="background:#6B728022;color:#6B7280" data-icon="trash"></span> Trash</h3>
           <button onclick="purgeAllTrashConfirm()" id="btn-empty-trash" class="hidden bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-3 py-1.5 rounded-lg">Delete All Forever</button>
         </div>
         <p class="text-xs text-gray-400 mb-4">Deleted projects and tasks land here first — restore them, or delete forever. Anything left here is purged automatically after 30 days.</p>
@@ -2535,7 +2556,7 @@
       </section>
       <section class="settings-panel" role="tabpanel" id="settings-panel-security" aria-labelledby="settings-tab-security" data-settings-panel="security">
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#1A7A4A22">🔒</span> Account & Security</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy border-b border-gray-100 pb-3 mb-5"><span class="icon-badge" style="background:#1A7A4A22;color:#1A7A4A" data-icon="lock"></span> Account & Security</h3>
         <p class="text-xs text-gray-400 mb-4">Logged in as <span class="font-semibold text-gray-600" id="account-email">—</span></p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
@@ -2564,7 +2585,7 @@
         </div>
       </div>
       <div class="bg-white rounded-xl border border-red-200 p-6">
-        <h3 class="flex items-center gap-2.5 text-sm font-bold text-red-600 border-b border-red-100 pb-3 mb-5"><span class="icon-badge" style="background:#B0302022">⚠️</span> Danger Zone</h3>
+        <h3 class="flex items-center gap-2.5 text-sm font-bold text-red-600 border-b border-red-100 pb-3 mb-5"><span class="icon-badge" style="background:#B0302022;color:#B03020" data-icon="warning"></span> Danger Zone</h3>
         <p class="text-xs text-gray-400 mb-3">Permanently deletes your account and everything in it — every project and task. Export your data first if you want a copy; this cannot be undone.</p>
         <div class="max-w-xs mb-3">
           <label class="block text-xs font-semibold text-gray-600 mb-1">Enter your password to confirm</label>
@@ -3441,6 +3462,7 @@
 </div>
 
 <!-- SCRIPTS -->
+<script src="js/icons.js"></script>
 <script src="js/api.js"></script>
 <script src="js/progressMath.js"></script>
 <script src="js/journeyGame.js"></script>

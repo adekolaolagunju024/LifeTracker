@@ -34,7 +34,7 @@ const Reminders = (() => {
   const chip = taskId => {
     const r = forTask(taskId);
     if (!r) return '';
-    return `<button type="button" onclick="event.stopPropagation(); Reminders.openSheet('${r.taskId}')" class="reminder-chip" title="Reminder set. Tap to change" aria-label="Reminder at ${esc(fmt(r.remindAt))}. Change reminder">⏰ ${esc(fmt(r.remindAt))}</button>`;
+    return `<button type="button" onclick="event.stopPropagation(); Reminders.openSheet('${r.taskId}')" class="reminder-chip" title="Reminder set. Tap to change" aria-label="Reminder at ${esc(fmt(r.remindAt))}. Change reminder">${icon('alarm', 'tiny mr-1')}${esc(fmt(r.remindAt))}</button>`;
   };
 
   async function load() {
@@ -103,15 +103,15 @@ const Reminders = (() => {
     el.setAttribute('aria-labelledby', 'alarm-title');
     el.innerHTML = `
       <div class="alarm-card">
-        <div class="alarm-bell" aria-hidden="true">⏰</div>
+        <div class="alarm-bell" aria-hidden="true">${icon('alarm')}</div>
         <p class="alarm-kicker">${r.fireCount > 0 ? 'Still waiting on you' : "It's time"} · ${esc(fmt(r.remindAt))}</p>
         <h2 class="alarm-title" id="alarm-title">${esc(r.taskTitle || (task && task.title) || 'Your task')}</h2>
         <p class="alarm-sub">Put the scrolling down for two minutes. Starting is the hard part.</p>
-        ${blockers.length ? `<div class="alarm-blockers"><p>⚔️ Blocked by ${blockers.length === 1 ? 'this' : 'these'}. Clear ${blockers.length === 1 ? 'it' : 'them'} first:</p><ul>${blockers.map(b => `<li>${esc(b.name)}${(b.count || 1) > 1 ? ` ×${b.count}` : ''}</li>`).join('')}</ul></div>` : ''}
-        ${waiting.length ? `<div class="alarm-blockers is-waiting"><p>🔗 Waiting on ${waiting.map(p => `"${esc(p.title)}"`).join(', ')}</p></div>` : ''}
-        <button type="button" class="alarm-start" onclick="Reminders.start()">▶ Start now · 2 minutes</button>
+        ${blockers.length ? `<div class="alarm-blockers"><p>${icon('blocker')} Blocked by ${blockers.length === 1 ? 'this' : 'these'}. Clear ${blockers.length === 1 ? 'it' : 'them'} first:</p><ul>${blockers.map(b => `<li>${esc(b.name)}${(b.count || 1) > 1 ? ` ×${b.count}` : ''}</li>`).join('')}</ul></div>` : ''}
+        ${waiting.length ? `<div class="alarm-blockers is-waiting"><p>${icon('link')} Waiting on ${waiting.map(p => `"${esc(p.title)}"`).join(', ')}</p></div>` : ''}
+        <button type="button" class="alarm-start" onclick="Reminders.start()">${icon('play')} Start now · 2 minutes</button>
         <div class="alarm-row">
-          <button type="button" onclick="Reminders.snooze(10)">😴 10 min</button>
+          <button type="button" onclick="Reminders.snooze(10)">10 min</button>
           <button type="button" onclick="Reminders.snooze(30)">30 min</button>
           <button type="button" onclick="Reminders.snooze(60)">1 hour</button>
         </div>
@@ -274,7 +274,7 @@ const Reminders = (() => {
     const btn = document.getElementById('td-reminder-btn');
     if (btn && typeof APP_currentDetailTaskId !== 'undefined' && APP_currentDetailTaskId) {
       const r = forTask(APP_currentDetailTaskId);
-      btn.textContent = r ? `⏰ ${fmt(r.remindAt)}` : '⏰ Remind me';
+      btn.innerHTML = `${icon('alarm')} ${r ? esc(fmt(r.remindAt)) : 'Remind me'}`;
     }
   }
 

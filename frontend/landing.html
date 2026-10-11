@@ -58,6 +58,13 @@
       .js .reveal { opacity: 1; transform: none; transition: none; }
       .float-y { animation: none; }
     }
+    /* Line icons (js/icons.js), as in the app */
+    .ic { width: 1.15em; height: 1.15em; display: inline-block; vertical-align: -0.2em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    .proof { display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .proof .ic { width: 18px; height: 18px; color: #0A7E8C; }
+    .feat-ic { width: 44px; height: 44px; border-radius: 12px; background: #E6F4F5; color: #0A7E8C; display: flex; align-items: center; justify-content: center; }
+    .feat-ic .ic { width: 22px; height: 22px; }
+    .demo-blocker .ic { width: 15px; height: 15px; }
   </style>
 </head>
 <body class="bg-[#F4F5F7] font-sans text-gray-700 antialiased">
@@ -114,9 +121,9 @@
   <!-- Proof strip: facts only, no invented numbers -->
   <section class="border-b border-gray-100 bg-white">
     <div class="mx-auto grid max-w-6xl gap-6 px-5 py-8 text-center text-sm font-semibold text-navy sm:grid-cols-3">
-      <p>🎙️ Plans from a sentence, typed or spoken</p>
-      <p>🎮 <!--@stagecount--> worlds to play your plan in, 2D or 3D</p>
-      <p>✅ You approve every change the AI suggests</p>
+      <p class="proof"><span data-icon="mic"></span>Plans from a sentence, typed or spoken</p>
+      <p class="proof"><span data-icon="map"></span><!--@stagecount--> worlds to play your plan in, 2D or 3D</p>
+      <p class="proof"><span data-icon="shield"></span>You approve every change the AI suggests</p>
     </div>
   </section>
 
@@ -187,9 +194,9 @@
         <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-navy md:text-4xl">Everything a serious plan needs</h2>
       </div>
       <div class="reveal mt-10 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Screens">
-        <button type="button" class="tab rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-navy" role="tab" aria-selected="true" data-shot="planner">📊 Planner</button>
-        <button type="button" class="tab rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-navy" role="tab" aria-selected="false" data-shot="project">📁 Project</button>
-        <button type="button" class="tab rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-navy" role="tab" aria-selected="false" data-shot="assistant">✨ Assistant</button>
+        <button type="button" class="tab rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-navy" role="tab" aria-selected="true" data-shot="planner">Planner</button>
+        <button type="button" class="tab rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-navy" role="tab" aria-selected="false" data-shot="project">Project</button>
+        <button type="button" class="tab rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-navy" role="tab" aria-selected="false" data-shot="assistant">Assistant</button>
       </div>
       <div class="reveal mx-auto mt-8 max-w-5xl">
         <div class="shot overflow-hidden rounded-2xl border border-gray-200 bg-white">
@@ -209,32 +216,32 @@
       </div>
       <div class="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="text-2xl">🎙️</div>
+          <div class="feat-ic" data-icon="mic"></div>
           <h3 class="mt-4 font-bold text-navy">An assistant you can talk to</h3>
           <p class="mt-2 text-sm leading-relaxed text-gray-600">Create a goal or change a plan by voice: add, move or delete tasks, link them in order, set targets and blockers. You approve every change first, and your chats are saved.</p>
         </div>
         <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="text-2xl">⚔️</div>
+          <div class="feat-ic" data-icon="blocker"></div>
           <h3 class="mt-4 font-bold text-navy">Blockers you can see</h3>
           <p class="mt-2 text-sm leading-relaxed text-gray-600">Name what's in the way and tick each one off as it's sorted. A task can't be marked done while a blocker is still pending.</p>
         </div>
         <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="text-2xl">🔗</div>
+          <div class="feat-ic" data-icon="link"></div>
           <h3 class="mt-4 font-bold text-navy">Tasks in the right order</h3>
           <p class="mt-2 text-sm leading-relaxed text-gray-600">Make a task wait for another to finish, like MS Project. It unlocks the moment its predecessor is done.</p>
         </div>
         <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="text-2xl">🔥</div>
+          <div class="feat-ic" data-icon="flame"></div>
           <h3 class="mt-4 font-bold text-navy">Streaks and reminders</h3>
           <p class="mt-2 text-sm leading-relaxed text-gray-600">A daily streak, alerts when something goes overdue, a morning list of what's due, and an evening nudge when your streak is at risk.</p>
         </div>
         <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="text-2xl">🎯</div>
+          <div class="feat-ic" data-icon="calendar_check"></div>
           <h3 class="mt-4 font-bold text-navy">Weekly check-in</h3>
           <p class="mt-2 text-sm leading-relaxed text-gray-600">A short note on each goal: what's on track, what's stalled, and one next step. It reads your progress and never rewrites your plan.</p>
         </div>
         <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="text-2xl">👥</div>
+          <div class="feat-ic" data-icon="users"></div>
           <h3 class="mt-4 font-bold text-navy">Plan together</h3>
           <p class="mt-2 text-sm leading-relaxed text-gray-600">Invite people as viewers, commenters or editors. Comments with @mentions, status updates, a chat per project, and private goals stay private.</p>
         </div>
@@ -303,6 +310,7 @@
     </div>
   </footer>
 
+  <script src="/js/icons.js"></script>
   <script src="/js/progressMath.js"></script>
   <script>
   // Try-it demo: one sample plan at a time, all in the page.
@@ -339,17 +347,17 @@
           ${!beaten && foeIndex >= 0 ? `<span class="demo-foe" style="left:${at(foeIndex + 0.6)}" aria-hidden="true">👾</span>` : ''}
           <span class="demo-walker" style="left:${at(doneN)}" aria-hidden="true">${finished ? '🥳' : '🚶'}</span>
         </div>
-        <div class="demo-stats"><span>🎯 ${pct}% <small>complete, weighted by task size</small></span><span>${esc(plan.icon)} ${esc(plan.title)}</span></div>
+        <div class="demo-stats"><span>${pct}% <small>complete, weighted by task size</small></span><span>${esc(plan.icon)} ${esc(plan.title)}</span></div>
         <div class="demo-phases">${plan.phases.map((p, pi) => `
           <div class="demo-phase"><h3>${esc(p.title)}</h3>${tasks.map((t, i) => t.phase !== pi ? '' : `
             <label class="demo-task ${t.done ? 'is-done' : ''} ${t.blocked && !beaten ? 'is-locked' : ''}">
               <input type="checkbox" data-i="${i}" ${t.done ? 'checked' : ''} ${t.blocked && !beaten ? 'disabled' : ''}>
               <span>${esc(t.title)}<small>${t.days} day${t.days === 1 ? '' : 's'}</small></span>
             </label>
-            ${t.blocked && !beaten ? `<div class="demo-blocker">⚔️ ${esc(plan.blocker)}<button type="button" data-beat>Beat it</button></div>` : ''}`).join('')}
+            ${t.blocked && !beaten ? `<div class="demo-blocker">${icon('blocker')} ${esc(plan.blocker)}<button type="button" data-beat>Beat it</button></div>` : ''}`).join('')}
           </div>`).join('')}
         </div>
-        ${finished ? `<div class="demo-finish"><p style="font-size:20px;font-weight:800;margin:0">🏁 You reached the finish line.</p><p style="margin:6px 0 0;color:#C9D6E2">Now do it for real, with your own goal, dates and reminders.</p><a href="/app">Start free</a></div>` : ''}`;
+        ${finished ? `<div class="demo-finish"><p style="font-size:20px;font-weight:800;margin:0">You reached the finish line.</p><p style="margin:6px 0 0;color:#C9D6E2">Now do it for real, with your own goal, dates and reminders.</p><a href="/app">Start free</a></div>` : ''}`;
     }
     board.addEventListener('change', e => { const i = e.target.dataset.i; if (i === undefined) return; tasks[+i].done = e.target.checked; render(); });
     board.addEventListener('click', e => { if (e.target.closest('[data-beat]')) { beaten = true; render(); } });

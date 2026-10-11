@@ -66,35 +66,35 @@ async function renderActions() {
       return `
         <div class="flex items-start gap-3 px-5 py-4 border-b border-gray-100 hover:bg-gray-50 transition-all">
           <button type="button" class="w-5 h-5 rounded-full border-2 flex-shrink-0 mt-0.5 flex items-center justify-center ${stuck ? 'border-red-200 bg-red-50 text-[10px] cursor-not-allowed' : 'border-gray-300 hover:border-teal hover:bg-teal/10'}"
-            onclick="markActionDone('${t.id}')" title="${stuck ? 'Clear its blockers first' : 'Mark as completed'}" aria-label="${stuck ? 'Blocked: clear its blockers first' : 'Mark ' + esc(t.title) + ' as completed'}">${stuck ? '🔒' : ''}</button>
+            onclick="markActionDone('${t.id}')" title="${stuck ? 'Clear its blockers first' : 'Mark as completed'}" aria-label="${stuck ? 'Blocked: clear its blockers first' : 'Mark ' + esc(t.title) + ' as completed'}">${stuck ? icon('lock', 'tiny text-red-500') : ''}</button>
           <div class="flex-1 min-w-0">
             <h5 class="text-sm font-semibold text-navy cursor-pointer hover:text-teal truncate" onclick="openTaskDetail('${t.id}')">${esc(t.title)}</h5>
             <p class="text-xs text-gray-400 mt-0.5 truncate">${proj ? esc(proj.icon) + ' ' + esc(proj.title) : ''}${reason ? ' · ' + reason : ''}</p>
-            ${waiting.length ? `<p class="text-xs font-semibold text-amber-700 mt-1">🔗 Waiting on ${waiting.map(p => `"${esc(p.title)}"`).join(', ')}</p>` : ''}
-            ${stuck ? `<p class="text-xs font-bold text-red-700 mt-1.5">⚔️ Blocked by:</p>${blockerChecklist(t, canEdit, 'board')}` : ''}
+            ${waiting.length ? `<p class="text-xs font-semibold text-amber-700 mt-1">${icon('link', 'tiny mr-1')}Waiting on ${waiting.map(p => `"${esc(p.title)}"`).join(', ')}</p>` : ''}
+            ${stuck ? `<p class="text-xs font-bold text-red-700 mt-1.5">${icon('blocker', 'tiny mr-1')}Blocked by:</p>${blockerChecklist(t, canEdit, 'board')}` : ''}
           </div>
           <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
             <span class="text-xs font-semibold px-2.5 py-1 rounded-full ${PRI_BADGE[t.priority] || 'bg-gray-100 text-gray-500'}">${esc(t.priority)}</span>
             <span data-reminder-slot="${t.id}">${window.Reminders ? Reminders.chip(t.id) : ''}</span>
-            ${window.Reminders && !Reminders.forTask(t.id) ? `<button type="button" onclick="Reminders.openSheet('${t.id}')" class="text-xs font-semibold text-gray-400 hover:text-teal" title="Ring me about this task at a set time" aria-label="Set a reminder for ${esc(t.title)}">⏰ Remind</button>` : ''}
+            ${window.Reminders && !Reminders.forTask(t.id) ? `<button type="button" onclick="Reminders.openSheet('${t.id}')" class="text-xs font-semibold text-gray-400 hover:text-teal" title="Ring me about this task at a set time" aria-label="Set a reminder for ${esc(t.title)}">${icon('alarm', 'mr-0.5')}Remind</button>` : ''}
           </div>
         </div>`;
     };
 
     // A section with nothing in it shrinks to a single quiet line, so the
     // lists that do need attention aren't pushed down the page.
-    const section = (title, icon, items, reasonFn, emptyMsg) => items.length ? `
+    const section = (title, ic, items, reasonFn, emptyMsg) => items.length ? `
       <div class="mb-6">
         <div class="flex items-center gap-2 mb-3">
           <div class="w-1 h-4 bg-teal rounded-full"></div>
-          <h3 class="text-sm font-bold text-navy-2">${icon} ${title} <span class="text-gray-400 font-semibold">${items.length}</span></h3>
+          <h3 class="text-sm font-bold text-navy-2 flex items-center gap-1.5">${ic} ${title} <span class="text-gray-400 font-semibold">${items.length}</span></h3>
         </div>
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
           ${items.map(t => row(t, reasonFn(t))).join('')}
         </div>
       </div>` : `
       <div class="mb-2 flex items-center gap-2 px-4 py-2.5 bg-white/60 rounded-lg border border-dashed border-gray-200 text-xs text-gray-400">
-        <span>${icon}</span><span class="font-semibold text-gray-500">${title}</span><span class="ml-auto">${emptyMsg}</span>
+        <span class="flex">${ic}</span><span class="font-semibold text-gray-500">${title}</span><span class="ml-auto">${emptyMsg}</span>
       </div>`;
 
     // Both sides parsed the same way (UTC midnight for the calendar date,
@@ -106,30 +106,30 @@ async function renderActions() {
     if (!overdue.length && !dueThisWeek.length && !startingThisWeek.length && !highPriority.length && !blocked.length) {
       document.getElementById('action-list').innerHTML = `
         <div class="bg-white rounded-xl border border-gray-200 px-6 py-10 text-center">
-          <p class="text-4xl mb-2">🎉</p>
+          <p class="mb-2 text-teal flex justify-center">${icon('party', 'w-9 h-9')}</p>
           <h3 class="text-base font-bold text-navy">You're all caught up</h3>
           <p class="text-sm text-gray-500 mt-1">Nothing overdue, nothing due or starting in the next 7 days, and no high-priority work in progress.</p>
         </div>`;
       return;
     }
     document.getElementById('action-list').innerHTML =
-      section('Overdue', '🔴', overdue, t => {
+      section('Overdue', icon('overdue', 'text-red-600'), overdue, t => {
         const days = daysBetweenKeys(t.endDate.slice(0, 10), todayKey);
         return `${days} day${days === 1 ? '' : 's'} overdue`;
-      }, 'Nothing overdue 🎉') +
-      section('Blocked', '⚔️', blocked, t => {
+      }, 'Nothing overdue') +
+      section('Blocked', icon('blocker', 'text-red-700'), blocked, t => {
         const n = pendingFoes(t);
         return n ? `${n} blocker${n === 1 ? '' : 's'} in the way` : 'Waiting on another task';
       }, 'Nothing blocked') +
-      section('Due This Week', '🟡', dueThisWeek, t => {
+      section('Due This Week', icon('clock', 'text-amber-600'), dueThisWeek, t => {
         const days = daysBetweenKeys(todayKey, t.endDate.slice(0, 10));
         return days === 0 ? 'Due today' : `Due in ${days} day${days === 1 ? '' : 's'}`;
       }, 'Nothing due this week') +
-      section('Starting This Week', '🚀', startingThisWeek, t => {
+      section('Starting This Week', icon('start', 'text-teal'), startingThisWeek, t => {
         const days = daysBetweenKeys(todayKey, t.startDate.slice(0, 10));
         return days === 0 ? 'Starts today' : `Starts in ${days} day${days === 1 ? '' : 's'}`;
       }, 'Nothing starting this week') +
-      section('High Priority — In Progress', '⭐', highPriority, () => '', 'No high-priority tasks in progress');
+      section('High Priority — In Progress', icon('star', 'text-amber-500'), highPriority, () => '', 'No high-priority tasks in progress');
 
   } catch (e) { console.error('Actions error:', e); }
 }
@@ -156,7 +156,7 @@ async function loadAIInsights() {
     const notConfigured = (e.message || '').includes('not configured');
     body.innerHTML = `
       <div class="bg-white/10 rounded-lg p-4 text-xs text-white/70">
-        <p class="font-semibold text-white mb-1">⚠️ ${esc(e.message || 'AI insights are unavailable')}</p>
+        <p class="font-semibold text-white mb-1">${icon('warning', 'mr-1')}${esc(e.message || 'AI insights are unavailable')}</p>
         ${notConfigured ? `<p>Add an Anthropic API key to the server's <code class="bg-black/20 px-1 rounded">.env</code> file as <code class="bg-black/20 px-1 rounded">ANTHROPIC_API_KEY</code>, then restart the server.</p>` : ''}
       </div>`;
   } finally {
@@ -325,7 +325,7 @@ function renderCalendarDayCell(cell, byDate, todayKey, opts) {
     return `<div onmousedown="calendarTaskMouseDown(event,'${t.id}','${cell.dateKey}')" ontouchstart="calendarTaskMouseDown(event,'${t.id}','${cell.dateKey}')"
       onclick="event.stopPropagation(); openTaskDetail('${t.id}')" title="${esc(t.title)} — drag to reschedule"
       class="text-[10px] font-semibold px-1.5 py-0.5 rounded truncate cursor-grab active:cursor-grabbing ${t.status === 'Completed' ? 'line-through opacity-50' : ''}"
-      style="background:${color}22;color:${overdue ? '#DC2626' : color}">${overdue ? '🔴 ' : ''}${esc(t.title)}</div>`;
+      style="background:${color}22;color:${overdue ? '#DC2626' : color}">${overdue ? icon('overdue', 'tiny mr-0.5') : ''}${esc(t.title)}</div>`;
   }).join('');
   const moreLink = hiddenCount > 0
     ? `<button onclick="event.stopPropagation(); expandCalendarDay('${cell.dateKey}')" class="text-[10px] text-teal font-semibold hover:underline">+${hiddenCount} more</button>`

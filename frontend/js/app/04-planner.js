@@ -548,7 +548,7 @@ async function renderGantt() {
               title="${esc(t.title)} [${t.priority} priority]: ${t.startDate} → ${t.endDate}${canEditGroup ? ' (drag to move, edges to resize, click to edit)' : ''}"
               ${canEditGroup ? `onmousedown="ganttBarMouseDown(event,'${t.id}','move')"` : ''}>
               ${canEditGroup ? `<span class="gantt-resize-handle" style="left:0" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-left')"></span>` : ''}
-              <span class="gantt-bar-label">${pendingFoes(t) && t.status !== 'Completed' ? `⚔️${pendingFoes(t)} ` : ''}${esc(t.title)}</span>
+              <span class="gantt-bar-label">${pendingFoes(t) && t.status !== 'Completed' ? `${icon('blocker', 'tiny')}${pendingFoes(t)} ` : ''}${esc(t.title)}</span>
               ${canEditGroup ? `<span class="gantt-resize-handle" style="right:0" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-right')"></span>` : ''}
             </div>`;
         } else if (te) {
@@ -790,7 +790,7 @@ function renderKanbanBoard(tasks, projectById) {
             <button type="button" class="kanban-act" onclick="addTaskToGoogleCalendar('${t.id}')" title="Add to Google Calendar" aria-label="Add to Google Calendar">${ICON.cal}</button>
             ${canEdit ? `<button type="button" class="kanban-act" onclick="duplicateTaskAction('${t.id}', '${t.projectId}')" title="Duplicate" aria-label="Duplicate task">${ICON.dup}</button>
             <button type="button" class="kanban-act danger" onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" title="Delete task" aria-label="Delete task">${ICON.del}</button>
-            ${status !== 'Completed' && !(t.obstacles || []).length ? `<button type="button" class="kanban-act" onclick="openObstacles('${t.id}')" title="Add a blocker (something in the way)" aria-label="Add a blocker">⚔️</button>` : ''}` : ''}
+            ${status !== 'Completed' && !(t.obstacles || []).length ? `<button type="button" class="kanban-act" onclick="openObstacles('${t.id}')" title="Add a blocker (something in the way)" aria-label="Add a blocker">${icon('blocker')}</button>` : ''}` : ''}
             ${move}
           </div>
         </div>`;

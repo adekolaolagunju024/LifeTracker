@@ -119,15 +119,15 @@ function syncDetailPrimary(t, canEdit) {
   const blockers = (t.obstacles || []).filter(o => !o.resolved).length;
   const waiting = waitingOn(t).length;
   btn.disabled = false; btn.title = '';
-  if (t.status === 'Completed') { btn.textContent = '↺ Reopen'; btn.dataset.next = 'In Progress'; return; }
+  if (t.status === 'Completed') { btn.innerHTML = `${icon('undo')} Reopen`; btn.dataset.next = 'In Progress'; return; }
   if (t.status === 'Not Started') {
-    btn.textContent = waiting ? '🔒 Waiting on another task' : '▶ Start';
+    btn.innerHTML = waiting ? `${icon('lock')} Waiting on another task` : `${icon('play')} Start`;
     btn.dataset.next = 'In Progress';
     if (waiting) { btn.disabled = true; btn.title = 'It starts once the tasks it waits on are done'; }
     return;
   }
   btn.dataset.next = 'Completed';
-  btn.textContent = blockers ? `🔒 Clear ${blockers} blocker${blockers === 1 ? '' : 's'} first` : '✓ Mark done';
+  btn.innerHTML = blockers ? `${icon('lock')} Clear ${blockers} blocker${blockers === 1 ? '' : 's'} first` : `${icon('check')} Mark done`;
   if (blockers) { btn.disabled = true; btn.title = 'Tick off its blockers below first'; }
 }
 function detailPrimaryAction() {
@@ -228,7 +228,7 @@ function renderObstacles(taskId, obstacles) {
     ? obstacles.map(o => `
         <div class="flex items-center gap-2 ${o.resolved ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'} border rounded-lg px-2.5 py-1.5">
           <input type="checkbox" ${o.resolved ? 'checked' : ''} ${canEdit ? '' : 'disabled'} onchange="toggleObstacleResolved('${o.id}', this.checked)" class="w-4 h-4 accent-green-600 flex-shrink-0" title="${o.resolved ? 'Cleared. Untick if it is back in the way' : 'Tick when this blocker is cleared'}" aria-label="${esc(o.name)} cleared">
-          <span class="flex-1 min-w-0 text-sm truncate ${o.resolved ? 'line-through text-gray-400' : 'text-gray-800'}" title="${esc(o.name)}">${o.resolved ? '' : '⚔️ '}${esc(o.name)}</span>
+          <span class="flex-1 min-w-0 text-sm truncate ${o.resolved ? 'line-through text-gray-400' : 'text-gray-800'}" title="${esc(o.name)}">${o.resolved ? '' : icon('blocker', 'tiny mr-1 text-red-600')}${esc(o.name)}</span>
           ${canEdit && !o.resolved ? `
             <button onclick="changeObstacleCount('${o.id}', ${o.count - 1})" ${o.count <= 1 ? 'disabled' : ''} class="w-6 h-6 rounded-md text-gray-600 hover:bg-white disabled:opacity-30" aria-label="Smaller blocker" title="Smaller (fewer enemies on the Journey)">−</button>
             <span class="text-xs font-bold text-red-700 w-6 text-center" aria-label="Size ${o.count}">×${o.count}</span>

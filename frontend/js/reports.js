@@ -39,7 +39,7 @@ const Reports = (() => {
     if (!all) q.set('ids', ids.join(','));
     if (title) q.set('title', title);
     closeModal('modal-portfolio');
-    document.getElementById('report-heading').textContent = '📊 Portfolio report';
+    document.getElementById('report-heading').textContent = 'Portfolio report';
     document.getElementById('report-frame').src = `/api/reports/portfolio.html?${q}&t=${Date.now()}`;
     document.getElementById('report-pdf').href = `/api/reports/portfolio.pdf?${q}`;
     setReportMode('portfolio');

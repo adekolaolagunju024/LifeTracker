@@ -129,14 +129,14 @@ function showNewVersionNotice() {
   bar.id = 'new-version-notice';
   bar.setAttribute('role', 'status');
   bar.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-navy text-white text-sm font-semibold pl-4 pr-2 py-2 rounded-xl shadow-2xl';
-  bar.innerHTML = '<span id="new-version-text">✨ A new version of Waypoint is ready.</span><button class="bg-teal hover:bg-teal/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg" onclick="location.reload()">Reload</button><button class="text-white/60 hover:text-white text-lg leading-none px-1" aria-label="Dismiss" onclick="this.parentElement.remove()">×</button>';
+  bar.innerHTML = '<span id="new-version-text">A new version of Waypoint is ready.</span><button class="bg-teal hover:bg-teal/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg" onclick="location.reload()">Reload</button><button class="text-white/60 hover:text-white text-lg leading-none px-1" aria-label="Dismiss" onclick="this.parentElement.remove()">×</button>';
   document.body.appendChild(bar);
   // Say what's new, from the same log the landing page shows
   // (frontend/data/product.json).
   fetch('/data/product.json', { cache: 'no-store' }).then(r => r.json()).then(p => {
     const latest = p && p.whatsNew && p.whatsNew[0];
     const text = document.getElementById('new-version-text');
-    if (latest && text) text.textContent = `✨ New in Waypoint: ${latest.title}.`;
+    if (latest && text) text.textContent = `New in Waypoint: ${latest.title}.`;
   }).catch(() => { /* the plain message stays */ });
 }
 checkForNewVersion();
@@ -160,7 +160,7 @@ document.addEventListener('keydown', e => {
   } else if (e.key === 'a') {
     e.preventDefault(); openAssistant(projectId);
   } else if (e.key === '?') {
-    showToast('⌨️ Shortcuts: ⌘K command palette · / search · n new task · a assistant · Esc close');
+    showToast('Shortcuts: ⌘K command palette · / search · n new task · a assistant · Esc close');
   }
 });
 
@@ -173,7 +173,7 @@ let reportShareUrl = null;
 async function openProgressReport(projectId) {
   if (!projectId) return;
   reportProjectId = projectId;
-  document.getElementById('report-heading').textContent = '📄 Progress report';
+  document.getElementById('report-heading').textContent = 'Progress report';
   if (window.Reports) Reports.setReportMode('project');
   document.getElementById('report-frame').src = `/api/reports/projects/${projectId}/progress.html?t=${Date.now()}`;
   document.getElementById('report-pdf').href = `/api/reports/projects/${projectId}/progress.pdf`;

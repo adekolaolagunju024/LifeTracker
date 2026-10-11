@@ -48,7 +48,11 @@ function shadeColor(hex, amount) {
 
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
-  t.textContent = msg;
+  // A leading emoji ("❌ Could not save") becomes the matching line icon.
+  const { name, text } = iconFromMessage(msg, type === 'error' ? 'error' : 'done');
+  t.innerHTML = `${icon(name)}<span></span>`;
+  t.lastElementChild.textContent = text;
+  t.classList.toggle('is-error', type === 'error');
   t.style.background = type === 'error' ? '#B03020' : '#0D1B2A';
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2800);
@@ -67,8 +71,9 @@ function showUndoToast(msg, undo) {
     bar.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 z-[1001] flex items-center gap-3 bg-navy text-white text-sm font-medium pl-4 pr-2 py-2 rounded-xl shadow-2xl max-w-[92vw]';
     document.body.appendChild(bar);
   }
-  bar.innerHTML = '<span class="min-w-0 truncate"></span><button type="button" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-teal-300 font-bold text-xs uppercase tracking-wide px-3 py-1.5 rounded-lg">Undo</button>';
-  bar.firstElementChild.textContent = msg;
+  const { name, text } = iconFromMessage(msg, 'trash');
+  bar.innerHTML = `${icon(name)}<span class="min-w-0 truncate"></span><button type="button" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-teal-300 font-bold text-xs uppercase tracking-wide px-3 py-1.5 rounded-lg">Undo</button>`;
+  bar.children[1].textContent = text;
   const hide = () => { clearTimeout(_undoTimer); bar.remove(); };
   bar.lastElementChild.onclick = async () => {
     hide();
@@ -191,8 +196,8 @@ function statusUpdateBadge(t) {
   // A blocker gets a visually distinct red icon so a stuck task stands out
   // from an ordinary progress note without opening it.
   return t.latestUpdateIsBlocker
-    ? `<span class="text-[9px] flex-shrink-0" title="🚧 Blocker — ${esc(title)}">🚧</span>`
-    : `<span class="text-[9px] text-gray-400 flex-shrink-0" title="${esc(title)}">📝</span>`;
+    ? `<span class="text-[9px] flex-shrink-0" title="Blocker: ${esc(title)}">${icon('blocker', 'tiny text-red-600')}</span>`
+    : `<span class="text-[9px] text-gray-400 flex-shrink-0" title="${esc(title)}">${icon('file', 'tiny')}</span>`;
 }
 // Obstacles on a task (named, each with an enemy count) as a red ⚔️ badge
 // on the table row, Gantt row and Kanban card, with the names in its
@@ -211,8 +216,8 @@ function obstacleBadge(t) {
   if (!obs.length || t.status === 'Completed') return '';
   const n = pendingFoes(t);
   const names = obstacleNames(t);
-  if (!n) return `<button type="button" data-obstacle-badge="${t.id}" onclick="event.stopPropagation(); openObstacles('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-green-700 bg-green-50 hover:bg-green-100 border border-green-100 rounded px-1 leading-4" title="⚔️ All obstacles cleared: ${esc(names)}" aria-label="All obstacles cleared: ${esc(names)}">⚔️ ✓</button>`;
-  return `<button type="button" data-obstacle-badge="${t.id}" onclick="event.stopPropagation(); openObstacles('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded px-1 leading-4" title="⚔️ Obstacles: ${esc(names)}" aria-label="${n} obstacle enemies: ${esc(names)}">⚔️ ${n}</button>`;
+  if (!n) return `<button type="button" data-obstacle-badge="${t.id}" onclick="event.stopPropagation(); openObstacles('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-green-700 bg-green-50 hover:bg-green-100 border border-green-100 rounded px-1 leading-4" title="All blockers cleared: ${esc(names)}" aria-label="All blockers cleared: ${esc(names)}">${icon('done', 'tiny')}</button>`;
+  return `<button type="button" data-obstacle-badge="${t.id}" onclick="event.stopPropagation(); openObstacles('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-100 rounded px-1 leading-4" title="Blockers: ${esc(names)}" aria-label="${n} blockers: ${esc(names)}">${icon('blocker', 'tiny')}${n}</button>`;
 }
 // A task's blockers as a little checklist right under it (Journey task
 // list, Kanban cards, task table): tick one when it's sorted and the
@@ -230,7 +235,7 @@ function blockerChecklist(t, canEdit, variant) {
   const rows = obs.map(o => `
       <label class="${variant === 'quest' ? `journey-blocker-row${o.resolved ? ' is-resolved' : ''}` : `flex items-center gap-1.5 text-xs ${o.resolved ? 'text-gray-400 line-through' : 'text-red-700'} ${canEdit ? 'cursor-pointer' : ''}`}" ${stop} title="${o.resolved ? 'Cleared. Untick if it is back in the way' : 'Tick when this blocker is cleared'}">
         <input type="checkbox" class="${variant === 'quest' ? 'journey-blocker-check' : 'w-3.5 h-3.5 accent-green-600'}" data-obstacle-id="${o.id}" ${o.resolved ? 'checked' : ''} ${canEdit ? '' : 'disabled'} onchange="tickBlocker('${t.id}', '${o.id}', this)" aria-label="${esc(o.name)} cleared">
-        <span class="${variant === 'quest' ? 'journey-blocker-name' : 'truncate'}">${variant === 'quest' ? (o.resolved ? '✅ ' : '⚔️ ') : ''}${esc(o.name)}${(o.count || 1) > 1 ? ` ×${o.count}` : ''}</span>
+        <span class="${variant === 'quest' ? 'journey-blocker-name' : 'truncate'}">${variant === 'quest' ? icon(o.resolved ? 'done' : 'blocker', 'tiny mr-1') : ''}${esc(o.name)}${(o.count || 1) > 1 ? ` ×${o.count}` : ''}</span>
       </label>`).join('');
   return `<div class="${variant === 'quest' ? 'journey-blocker-list' : 'mt-1.5 flex flex-col gap-0.5'}" data-blocker-list="${t.id}">${rows}</div>`;
 }
@@ -308,13 +313,13 @@ function waitingBadge(t) {
   const waiting = t.status === 'Completed' ? [] : waitingOn(t);
   if (!waiting.length) return '';
   const names = waiting.map(p => p.title).join(', ');
-  return `<button type="button" onclick="event.stopPropagation(); openTaskDetail('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded px-1 leading-4" title="🔗 Waiting on: ${esc(names)}" aria-label="Waiting on ${esc(names)}">🔗 ${waiting.length}</button>`;
+  return `<button type="button" onclick="event.stopPropagation(); openTaskDetail('${t.id}')" class="flex-shrink-0 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-100 rounded px-1 leading-4" title="Waiting on: ${esc(names)}" aria-label="Waiting on ${esc(names)}">${icon('link', 'tiny')}${waiting.length}</button>`;
 }
 
 // On hover, a quick way to add an obstacle to a task that has none yet.
 function addObstacleButton(t, canEdit) {
   if (!canEdit || t.status === 'Completed' || (t.obstacles || []).length) return '';
-  return `<button type="button" onclick="event.stopPropagation(); openObstacles('${t.id}')" class="flex-shrink-0 hidden group-hover:inline text-[10px] font-bold text-gray-400 hover:text-red-600 px-1" title="Add an obstacle (something blocking this task)">+⚔️</button>`;
+  return `<button type="button" onclick="event.stopPropagation(); openObstacles('${t.id}')" class="flex-shrink-0 hidden group-hover:inline text-[10px] font-bold text-gray-400 hover:text-red-600 px-1" title="Add a blocker (something in the way of this task)" aria-label="Add a blocker">+${icon('blocker', 'tiny')}</button>`;
 }
 // Opens the task panel and puts the cursor in the "add obstacle" box.
 async function openObstacles(taskId) {
@@ -338,14 +343,14 @@ function taskProgressBarHTML(t) {
     <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[100px]">
       <div class="h-full bg-teal rounded-full" style="width:${pct}%"></div>
     </div>
-    <span class="text-[10px] text-gray-500 font-semibold whitespace-nowrap">🎯 ${label}</span>
+    <span class="text-[10px] text-gray-500 font-semibold whitespace-nowrap">${label}</span>
     ${t.status !== 'Completed' ? `<button onclick="bumpTaskProgressAction('${t.id}',1,'${t.projectId}')" class="text-[10px] font-bold bg-teal/10 hover:bg-teal/20 text-teal px-1.5 py-0.5 rounded flex-shrink-0" title="Log one">+1</button>` : ''}
   </div>`;
 }
 // Compact version for tight spots (Gantt row) — just the count, no bar.
 function miniProgressBadge(t) {
   if (!t.targetCount) return '';
-  return `<span class="text-[9px] text-gray-400 flex-shrink-0" title="Progress toward target">🎯 ${t.progressCount}/${t.targetCount}</span>`;
+  return `<span class="text-[9px] text-gray-400 flex-shrink-0" title="Progress toward target">${t.progressCount}/${t.targetCount}</span>`;
 }
 // Larger version for the task detail side panel, matching its text sizing.
 function taskProgressPanelHTML(t) {
