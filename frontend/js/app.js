@@ -652,6 +652,7 @@ function tasksInProjectTree(projectId, allProjects, allTasks) {
 
 // ── DASHBOARD ──────────────────────────────────────────────────
 async function renderDashboard() {
+  loadDailyQuests();
   try {
     const [tasks, allProjects, profile] = await Promise.all([
       API.getTasks(),
@@ -5278,7 +5279,7 @@ async function renderJourneyView() {
     const themeSel0 = document.getElementById('journey-theme-select');
     if (themeSel0) themeSel0.value = getJourneyStage();
     mountainState = null;
-    API.getJourneyGaming().then(updateJourneyLevelBadge).catch(() => {});
+    loadDailyQuests().then(g => g && updateJourneyLevelBadge(g));
     return;
   }
   statusEl.textContent = 'Loading…';
@@ -5317,7 +5318,7 @@ async function renderJourneyView() {
     if (themeSel) themeSel.value = getJourneyStage();
     renderMountainScene();
     renderMountainTaskList();
-    API.getJourneyGaming().then(updateJourneyLevelBadge).catch(() => {});
+    loadDailyQuests().then(g => g && updateJourneyLevelBadge(g));
   } catch (e) {
     statusEl.textContent = '⚠️ ' + (e.message || 'Could not load this project');
   }
@@ -5998,6 +5999,7 @@ function dismissProjectCompleteOverlay() {
 })();
 
 async function celebrateTaskCompletion(task) {
+  Sfx.play('complete');
   // XP/level-up/achievement toasts matter regardless of which view is open
   // — they're not Journey-view-local the way the confetti below is.
   announceJourneyReward(task.journeyReward);
@@ -6037,19 +6039,25 @@ async function celebrateTaskCompletion(task) {
 // backend/journey.js), so there's nothing to re-derive client-side.
 function announceJourneyReward(reward) {
   if (!reward) return;
-  if (reward.leveledUp) {
-    setTimeout(() => showToast(`⭐ Level up! You're now Level ${reward.level}.`), 250);
+  floatXp(reward.xpAwarded - (reward.questBonus || 0), reward.early ? 'early finish bonus' : reward.blocker ? 'blocker beaten' : '');
+  let delay = 700;
+  if (reward.questBonus) {
+    setTimeout(() => { Sfx.play('quest'); floatXp(reward.questBonus, "all today's quests"); showToast(`🎯 All of today's quests done! +${reward.questBonus} XP`); }, delay);
+    delay += 900;
   }
+  if (reward.leveledUp) { setTimeout(() => showLevelUp(reward), delay); delay += 1600; }
   (reward.newAchievements || []).forEach((a, i) => {
-    setTimeout(() => showToast(`🏆 Achievement unlocked: ${a.icon} ${a.name}`), 600 + i * 900);
+    setTimeout(() => { Sfx.play('achievement'); showToast(`🏆 Achievement unlocked: ${a.icon} ${a.name}`); }, delay + i * 1100);
   });
-  updateJourneyLevelBadge({ level: reward.level });
+  updateJourneyLevelBadge({ level: reward.level, rank: reward.rank });
+  if (reward.quests) renderDailyQuests(reward.quests);
 }
 
 function updateJourneyLevelBadge(g) {
   const badge = document.getElementById('journey-level-badge');
   if (!badge || !g) return;
-  badge.textContent = `⭐ Lv.${g.level}`;
+  badge.textContent = `${g.rank ? g.rank.icon : '⭐'} Lv.${g.level}`;
+  if (g.rank) badge.title = `${g.rank.name}, level ${g.level}. Open the Trophy Case`;
   badge.classList.remove('hidden');
   badge.classList.add('flex');
 }
@@ -6058,17 +6066,26 @@ async function openJourneyTrophyCase() {
   openModal('modal-journey-trophy');
   try {
     const g = await API.getJourneyGaming();
-    document.getElementById('trophy-level-text').textContent = `Level ${g.level}`;
+    document.getElementById('trophy-level-text').textContent = `${g.rank.icon} ${g.rank.name} · Level ${g.level}`;
+    document.getElementById('trophy-stats').textContent = `${g.tasksCompleted} task${g.tasksCompleted === 1 ? '' : 's'} done · ${g.blockersBeaten} blocker${g.blockersBeaten === 1 ? '' : 's'} beaten · ${g.questDays} quest day${g.questDays === 1 ? '' : 's'} · ${g.achievements.filter(a => a.unlocked).length}/${g.achievements.length} achievements`;
+    document.getElementById('trophy-quests').innerHTML = g.daily.quests.map(q => `
+      <div class="quest-chip ${q.done ? 'is-done' : ''}"><span class="quest-icon">${q.done ? '✅' : q.icon}</span>
+        <span class="min-w-0"><span class="block truncate font-semibold">${esc(q.text)}</span><span class="quest-bar"><i style="width:${Math.round(q.progress / q.target * 100)}%"></i></span></span>
+        <span class="quest-count">${q.progress}/${q.target}</span></div>`).join('') + `<p class="text-[11px] text-gray-400 mt-1">${g.daily.allDone ? `Done for today. +${g.daily.bonusXp} XP earned.` : `Finish all three today for +${g.daily.bonusXp} XP. New quests every day.`}</p>`;
+    renderDailyQuests(g.daily.quests, g.daily);
     const { floor, ceiling } = g.levelProgress;
     const pct = ceiling > floor ? Math.round(((g.xp - floor) / (ceiling - floor)) * 100) : 100;
     document.getElementById('trophy-xp-bar').style.width = pct + '%';
     document.getElementById('trophy-xp-text').textContent = `${g.xp - floor} / ${ceiling - floor} XP to Level ${g.level + 1}`;
-    document.getElementById('trophy-achievements').innerHTML = g.achievements.map(a => `
+    const groups = [...new Set(g.achievements.map(a => a.group || 'More'))];
+    document.getElementById('trophy-achievements').innerHTML = groups.map(group => `
+      <p class="col-span-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-2">${esc(group)}</p>
+      ${g.achievements.filter(a => (a.group || 'More') === group).map(a => `
       <div class="flex flex-col items-center text-center p-3 rounded-xl border ${a.unlocked ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-gray-50 opacity-50'}">
         <span class="text-2xl mb-1">${a.unlocked ? a.icon : '🔒'}</span>
         <span class="text-xs font-bold text-navy">${esc(a.name)}</span>
         <span class="text-[10px] text-gray-400 mt-0.5">${esc(a.desc)}</span>
-      </div>`).join('');
+      </div>`).join('')}`).join('');
     updateJourneyLevelBadge(g);
   } catch (e) { console.error('Journey gaming error:', e); }
 }

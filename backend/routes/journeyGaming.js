@@ -13,7 +13,11 @@ router.get('/me', (req, res) => {
     xp,
     level: journey.levelForXp(xp),
     levelProgress: journey.levelThresholds(xp),
+    rank: journey.rankForLevel(journey.levelForXp(xp)),
     tasksCompleted: profile.journeyTasksCompleted || 0,
+    blockersBeaten: profile.journeyBlockersBeaten || 0,
+    questDays: profile.journeyQuestDays || 0,
+    daily: journey.questsFor(req.session.userId),
     achievements: journey.JOURNEY_ACHIEVEMENTS.map(a => ({ ...a, unlocked: unlocked.has(a.code) })),
   });
 });

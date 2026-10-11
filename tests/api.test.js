@@ -462,3 +462,34 @@ test('a progress report covers the plan, and its share link is live, read-only a
   await fetch(`${server.base}/api/reports/projects/${project.id}/share`, authed(cookie, 'DELETE'));
   assert.equal((await fetch(`${server.base}${path}`)).status, 404);
 });
+
+test('game rewards: early finishes earn a bonus, a blocker pays once, and daily quests track real progress', async () => {
+  const cookie = await signUp();
+  const project = await (await fetch(`${server.base}/api/projects`, authed(cookie, 'POST', { title: 'Game test' }))).json();
+  const future = new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10);
+  const task = await (await fetch(`${server.base}/api/tasks`, authed(cookie, 'POST', { projectId: project.id, title: 'Early one', priority: 'Medium', endDate: future }))).json();
+  const blocker = await (await fetch(`${server.base}/api/tasks/${task.id}/obstacles`, authed(cookie, 'POST', { name: 'Waiting on a reply', count: 2 }))).json();
+
+  // a blocker pays XP the first time it's beaten, never again
+  const beat = await (await fetch(`${server.base}/api/tasks/obstacles/${blocker.id}`, authed(cookie, 'PUT', { resolved: true }))).json();
+  assert.equal(beat.journeyReward.xpAwarded >= 10, true);
+  assert.ok(beat.journeyReward.newAchievements.some(a => a.code === 'blocker_1'));
+  await fetch(`${server.base}/api/tasks/obstacles/${blocker.id}`, authed(cookie, 'PUT', { resolved: false }));
+  const again = await (await fetch(`${server.base}/api/tasks/obstacles/${blocker.id}`, authed(cookie, 'PUT', { resolved: true }))).json();
+  assert.equal(again.journeyReward, null);
+
+  // finishing before the due date earns the early bonus and badge
+  const done = await (await fetch(`${server.base}/api/tasks/${task.id}`, authed(cookie, 'PUT', { status: 'Completed' }))).json();
+  assert.equal(done.journeyReward.early, true);
+  assert.ok(done.journeyReward.xpAwarded >= 15);
+  assert.ok(done.journeyReward.newAchievements.some(a => a.code === 'early_1'));
+  assert.ok(done.journeyReward.rank && done.journeyReward.rank.name);
+
+  const me = await (await fetch(`${server.base}/api/journey-gaming/me`, authed(cookie))).json();
+  assert.equal(me.daily.quests.length, 3);
+  assert.equal(me.daily.quests[0].code, 'finish1');
+  assert.equal(me.daily.quests[0].done, true);
+  assert.equal(me.blockersBeaten, 1);
+  assert.ok(me.achievements.length >= 20);
+  assert.equal(me.rank.name, 'Rookie');
+});
