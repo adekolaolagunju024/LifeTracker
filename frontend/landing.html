@@ -8,20 +8,15 @@
   <link rel="icon" href="/icons/icon-192.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Nunito:wght@800;900&display=swap" rel="stylesheet">
   <script>document.documentElement.classList.add('js')</script>
   <link rel="stylesheet" href="/css/site.css">
   <style>
     html { scroll-behavior: smooth; }
-    .hero-glow {
-      background:
-        radial-gradient(60% 50% at 80% 0%, rgba(10,126,140,.35), transparent 70%),
-        radial-gradient(40% 40% at 0% 100%, rgba(27,58,92,.6), transparent 70%),
-        linear-gradient(180deg, #0D1B2A 0%, #0f2236 100%);
-    }
+    .hero-glow { background: #0D1B2A; }
     .js .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s ease; }
     .reveal.in { opacity: 1; transform: none; }
-    .shot { box-shadow: 0 30px 80px -20px rgba(0,0,0,.55); }
+    .shot { box-shadow: 0 30px 70px -24px rgba(13,27,42,.35); }
     .tab[aria-selected="true"] { background: #0A7E8C; color: #fff; }
     .float-y { animation: floaty 6s ease-in-out infinite; }
     @keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
@@ -32,54 +27,52 @@
     }
   </style>
 </head>
-<body class="bg-white font-sans text-gray-700 antialiased">
+<body class="bg-[#F4F5F7] font-sans text-gray-700 antialiased">
 
   <!-- Every picture on this page is a live screenshot of the current app,
        retaken on each deploy (backend/showcase.js). The stages and "What's
        new" come from frontend/data/product.json (backend/landing.js). -->
-  <header class="hero-glow overflow-hidden text-white">
+  <header class="overflow-hidden bg-[#F4F5F7] text-navy">
     <nav class="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
       <a href="/landing.html" class="flex items-center gap-2.5" aria-label="Waypoint home">
         <img src="/icons/icon-192.png" alt="" class="h-8 w-8 rounded-lg">
-        <span class="text-xl font-black tracking-tight"><span class="text-white">Way</span><span class="text-teal-light">point</span></span>
+        <span class="text-xl font-extrabold tracking-tight"><span class="text-navy">Way</span><span class="text-teal">point</span></span>
       </a>
       <div class="flex items-center gap-5 text-sm">
-        <a href="#stages" class="hidden text-white/70 hover:text-white md:inline">The game</a>
-        <a href="#tour" class="hidden text-white/70 hover:text-white md:inline">Tour</a>
-        <a href="#new" class="hidden text-white/70 hover:text-white md:inline">What's new</a>
-        <a href="/app" class="text-white/80 hover:text-white">Log in</a>
+        <a href="#stages" class="hidden font-semibold text-gray-600 hover:text-navy md:inline">The game</a>
+        <a href="#tour" class="hidden font-semibold text-gray-600 hover:text-navy md:inline">Tour</a>
+        <a href="#new" class="hidden font-semibold text-gray-600 hover:text-navy md:inline">What's new</a>
+        <a href="/app" class="font-semibold text-gray-600 hover:text-navy">Log in</a>
         <a href="/app" class="rounded-lg bg-teal px-4 py-2 font-semibold text-white shadow-lg shadow-teal/30 hover:brightness-110">Get started</a>
       </div>
     </nav>
 
     <div class="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-24 pt-8 lg:grid-cols-[1fr_1.15fr] lg:pt-14">
       <div>
-        <p class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-teal-light">
-          <span class="h-1.5 w-1.5 rounded-full bg-teal-light"></span> AI planner · <!--@stagecount--> game worlds
-        </p>
-        <h1 class="mt-5 text-4xl font-black leading-[1.05] tracking-tight md:text-6xl">
+        <p class="inline-flex items-center gap-2 rounded-full bg-[#E6F4F5] px-3.5 py-1.5 text-sm text-[#075E68]" style="font-family:Nunito,sans-serif;font-weight:900">AI planner · <!--@stagecount--> game worlds</p>
+        <h1 class="mt-5 text-4xl font-extrabold leading-[1.04] tracking-tight text-navy md:text-6xl">
           Turn a goal into a plan,
-          <span class="text-teal-light">then play it to the finish.</span>
+          <span class="text-teal">then play it to the finish.</span>
         </h1>
-        <p class="mt-6 max-w-xl text-lg leading-relaxed text-white/70">
+        <p class="mt-6 max-w-xl text-lg leading-relaxed text-gray-600">
           Tell the assistant what you want, by voice or text, and get a phased plan with dated tasks. Then every task you finish moves your character down the road, and every blocker you name becomes something to beat.
         </p>
         <div class="mt-8 flex flex-wrap items-center gap-4">
           <a href="/app" class="rounded-xl bg-teal px-6 py-3.5 text-base font-bold text-white shadow-xl shadow-teal/30 hover:brightness-110">Start free</a>
-          <a href="#stages" class="rounded-xl border border-white/20 px-6 py-3.5 text-base font-semibold text-white/90 hover:bg-white/5">See the game</a>
+          <a href="#stages" class="rounded-xl border border-gray-300 bg-white px-6 py-3.5 text-base font-bold text-navy hover:border-teal">See the game</a>
         </div>
-        <p class="mt-5 text-sm text-white/50">Works in any browser, on Android, and on iPhone once added to your Home Screen.</p>
+        <p class="mt-5 text-sm text-gray-500">Works in any browser, on Android, and on iPhone once added to your Home Screen.</p>
       </div>
 
       <div class="relative">
-        <div class="absolute -inset-6 rounded-[2rem] bg-teal/25 blur-3xl"></div>
-        <div class="shot relative overflow-hidden rounded-2xl border border-white/10 bg-navy-2">
+        
+        <div class="shot relative overflow-hidden rounded-[24px] border border-navy bg-navy">
           <div class="flex items-center gap-1.5 border-b border-white/10 bg-navy/60 px-4 py-3">
             <span class="h-2.5 w-2.5 rounded-full bg-white/20"></span><span class="h-2.5 w-2.5 rounded-full bg-white/20"></span><span class="h-2.5 w-2.5 rounded-full bg-white/20"></span>
           </div>
           <img src="/showcase/journey.webp" alt="The Journey: a character walking the road of a real plan, with its tasks and blockers listed below" width="1280" height="800" fetchpriority="high" class="w-full bg-navy">
         </div>
-        <img src="/showcase/phone.webp" alt="Waypoint on a phone" width="390" height="844" class="float-y shot absolute -bottom-10 -left-6 hidden w-36 rounded-[1.6rem] border-4 border-navy sm:block lg:-left-14 lg:w-44">
+        <img src="/showcase/phone.webp" alt="Waypoint on a phone" width="390" height="844" class="float-y shot absolute -bottom-10 -left-6 hidden w-36 rounded-[1.6rem] border-4 border-white sm:block lg:-left-14 lg:w-44">
       </div>
     </div>
   </header>
@@ -98,21 +91,21 @@
     <div class="mx-auto max-w-6xl px-5">
       <div class="reveal mx-auto max-w-2xl text-center">
         <p class="text-sm font-bold uppercase tracking-widest text-teal">How it works</p>
-        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">From wanting it to finishing it</h2>
+        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-navy md:text-4xl">From wanting it to finishing it</h2>
       </div>
       <div class="mt-14 grid gap-6 md:grid-cols-3">
         <div class="reveal rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-lg font-black text-white">1</div>
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-lg font-extrabold text-white">1</div>
           <h3 class="mt-5 text-lg font-bold text-navy">Say what you want</h3>
           <p class="mt-2 leading-relaxed text-gray-600">Type it or say it in plain English. The assistant asks a question or two if it needs to, or reads a plan you already have.</p>
         </div>
         <div class="reveal rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-lg font-black text-white">2</div>
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-lg font-extrabold text-white">2</div>
           <h3 class="mt-5 text-lg font-bold text-navy">Get a real plan</h3>
           <p class="mt-2 leading-relaxed text-gray-600">Phases, dated tasks, which task waits on which, and targets to count towards. Change anything, or ask the assistant to.</p>
         </div>
         <div class="reveal rounded-2xl border border-gray-200 bg-white p-7 shadow-sm">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-teal text-lg font-black text-white">3</div>
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-teal text-lg font-extrabold text-white">3</div>
           <h3 class="mt-5 text-lg font-bold text-navy">Play it through</h3>
           <p class="mt-2 leading-relaxed text-gray-600">Finish tasks to move along your road, beat the blockers in your way, and keep your streak alive with reminders and a weekly check-in.</p>
         </div>
@@ -125,7 +118,7 @@
     <div class="mx-auto max-w-6xl px-5">
       <div class="reveal mx-auto max-w-2xl text-center">
         <p class="text-sm font-bold uppercase tracking-widest text-teal">The Journey</p>
-        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">Your plan, as a game you want to finish</h2>
+        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-navy md:text-4xl">Your plan, as a game you want to finish</h2>
         <p class="mt-4 text-lg leading-relaxed text-gray-600">Pick a world. Each task is a stop on the road, and each blocker you name ("waiting on the landlord") shows up as an enemy your character has to deal with. Switch between 2D and full 3D any time.</p>
       </div>
       <div class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"><!--@stages-->
@@ -138,7 +131,7 @@
     <div class="mx-auto max-w-6xl px-5">
       <div class="reveal mx-auto max-w-2xl text-center">
         <p class="text-sm font-bold uppercase tracking-widest text-teal">A real planner underneath</p>
-        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">Everything a serious plan needs</h2>
+        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-navy md:text-4xl">Everything a serious plan needs</h2>
       </div>
       <div class="reveal mt-10 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Screens">
         <button type="button" class="tab rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-navy" role="tab" aria-selected="true" data-shot="planner">📊 Planner</button>
@@ -159,7 +152,7 @@
     <div class="mx-auto max-w-6xl px-5">
       <div class="reveal mx-auto max-w-2xl text-center">
         <p class="text-sm font-bold uppercase tracking-widest text-teal">Built to get you moving</p>
-        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">The features that keep a plan alive</h2>
+        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-navy md:text-4xl">The features that keep a plan alive</h2>
       </div>
       <div class="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
@@ -201,7 +194,7 @@
     <div class="mx-auto max-w-6xl px-5">
       <div class="reveal mx-auto max-w-2xl text-center">
         <p class="text-sm font-bold uppercase tracking-widest text-teal-light">What's new</p>
-        <h2 class="mt-3 text-3xl font-black tracking-tight md:text-4xl">Getting better every week</h2>
+        <h2 class="mt-3 text-3xl font-extrabold tracking-tight md:text-4xl">Getting better every week</h2>
         <p class="mt-3 text-white/60"><!--@updated--></p>
       </div>
       <ul class="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3"><!--@whatsnew-->
@@ -214,7 +207,7 @@
     <div class="mx-auto max-w-6xl px-5">
       <div class="reveal mx-auto max-w-2xl text-center">
         <p class="text-sm font-bold uppercase tracking-widest text-teal">Who it's for</p>
-        <h2 class="mt-3 text-3xl font-black tracking-tight text-navy md:text-4xl">For anyone with something big to get done</h2>
+        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-navy md:text-4xl">For anyone with something big to get done</h2>
       </div>
       <div class="mt-14 grid gap-6 md:grid-cols-3">
         <div class="reveal rounded-2xl bg-white p-8 shadow-sm">
@@ -236,7 +229,7 @@
   <!-- Final call to action -->
   <section class="hero-glow py-20 text-white">
     <div class="reveal mx-auto max-w-3xl px-5 text-center">
-      <h2 class="text-3xl font-black tracking-tight md:text-5xl">What's the goal you keep putting off?</h2>
+      <h2 class="text-3xl font-extrabold tracking-tight md:text-5xl">What's the goal you keep putting off?</h2>
       <p class="mt-5 text-lg text-white/70">Say it in one sentence. Waypoint does the planning, and makes the finishing fun.</p>
       <a href="/app" class="mt-9 inline-block rounded-xl bg-teal px-8 py-4 text-base font-bold text-white shadow-xl shadow-teal/30 hover:brightness-110">Start free</a>
     </div>
@@ -246,7 +239,7 @@
     <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-5 px-5 md:flex-row">
       <a href="/landing.html" class="flex items-center gap-2.5">
         <img src="/icons/icon-192.png" alt="" class="h-6 w-6 rounded-md">
-        <span class="font-black tracking-tight"><span class="text-white">Way</span><span class="text-teal-light">point</span></span>
+        <span class="font-extrabold tracking-tight"><span class="text-white">Way</span><span class="text-teal-light">point</span></span>
       </a>
       <div class="flex gap-6 text-sm">
         <a href="/privacy.html" class="hover:text-white">Privacy</a>

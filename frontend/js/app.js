@@ -563,6 +563,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  syncBottomNav(id);
 
   const pg = document.getElementById('page-' + (projectId ? 'project-detail' : id));
   if (pg) pg.classList.add('active');
@@ -617,6 +618,138 @@ function profileName(profile) {
   return name && name !== 'Your Name' ? name : '';
 }
 
+// The phone tab bar's highlighted tab. Journey is the Planner page on its
+// Journey view, so it lights up instead of Planner there.
+function syncBottomNav(page) {
+  let tab = page;
+  if (page === 'gantt') { try { if (localStorage.getItem('ganttPageView') === 'journey') tab = 'journey'; } catch { /* storage off */ } }
+  document.querySelectorAll('#bottom-nav [data-tab]').forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('active', on);
+    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+}
+function openJourneyTab() {
+  showPage('gantt');
+  setGanttPageView('journey');
+  syncBottomNav('gantt');
+}
+
+// ── DASHBOARD BENTO ────────────────────────────────────────────
+// The top of the dashboard in the house style: a greeting, the focus goal
+// as a navy card with its Journey stage (one segment per stop, the next
+// stop outlined, the finish in pink) and a Play button, the next few
+// tasks to tick off right here, and this week against last week.
+const STAGE_NAMES = { football: 'Football', castle: 'Castle', ocean: 'Ocean', space: 'Space', corporate: 'Corporate', construction: 'Construction', life: 'Life Path', launch: 'Product Launch' };
+function dueLabel(endDate, todayKey) {
+  if (!endDate) return { text: '', late: false };
+  if (endDate < todayKey) return { text: `${formatDateShort(endDate)} · late`, late: true };
+  if (endDate === todayKey) return { text: 'Today', late: false };
+  const days = Math.round((new Date(endDate + 'T00:00:00') - new Date(todayKey + 'T00:00:00')) / 86400000);
+  if (days === 1) return { text: 'Tomorrow', late: false };
+  if (days < 7) return { text: new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short' }), late: false };
+  return { text: formatDateShort(endDate), late: false };
+}
+function renderDashboardBento(tasks, allProjects) {
+  const now = new Date();
+  const todayKey = localDateKey(now);
+  const hour = now.getHours();
+  document.getElementById('dash-date').textContent = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  document.getElementById('dash-greeting').textContent = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  // Focus goal: the top-level project with the soonest open due date.
+  const roots = allProjects.filter(p => !p.parentId);
+  const candidates = roots.map(p => {
+    const tree = tasksInProjectTree(p.id, allProjects, tasks).slice()
+      .sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999') || (a.createdAt || '').localeCompare(b.createdAt || ''));
+    const open = tree.filter(t => t.status !== 'Completed');
+    return { p, tree, open, soonest: open.map(t => t.endDate).filter(Boolean).sort()[0] || '9999' };
+  }).filter(c => c.open.length).sort((a, b) => a.soonest.localeCompare(b.soonest));
+  const focus = document.getElementById('dash-focus');
+  const f = candidates[0];
+  focus.classList.toggle('hidden', !f);
+  if (f) {
+    const done = f.tree.filter(t => t.status === 'Completed').length;
+    const pctDone = pct(done, f.tree.length);
+    const expected = expectedFractionForTasks(f.tree, f.p.startDate || (f.p.createdAt || '').slice(0, 10));
+    const gap = expected === null ? null : pctDone - Math.round(expected * 100);
+    const status = gap === null ? '' : gap >= 5 ? 'Ahead' : gap >= -5 ? 'On track' : gap >= -15 ? 'Slightly behind' : 'Behind';
+    const next = f.open[0];
+    const segCount = Math.min(f.tree.length, 12);
+    const per = f.tree.length / segCount;
+    const nextIndex = Math.floor(f.tree.indexOf(next) / per);
+    const segs = Array.from({ length: segCount }, (_, i) => {
+      const filled = Math.round((i + 1) * per) <= done;
+      return `<span class="${filled ? 'done' : i === nextIndex ? 'next' : ''}"${i === segCount - 1 && !filled ? ' style="background:#FF8FB0"' : ''}></span>`;
+    }).join('');
+    const foes = next ? pendingFoes(next) : 0;
+    focus.innerHTML = `
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-[11px] font-bold tracking-widest uppercase text-[#9FB3C8]">${esc(STAGE_NAMES[getJourneyStage()] || 'Journey')} stage</p>
+        ${status ? `<p class="text-xs font-bold" style="color:${gap < -5 ? '#FDBA74' : '#5EEAD4'}">${status}</p>` : ''}
+      </div>
+      <button type="button" onclick="showPage('project-detail','${f.p.id}')" class="block text-left mt-2 text-xl font-extrabold text-white hover:underline">${esc(f.p.icon || '')} ${esc(f.p.title)}</button>
+      <div class="focus-segs mt-3" style="grid-template-columns:repeat(${segCount},minmax(0,1fr))">${segs}</div>
+      <div class="flex items-center justify-between gap-3 mt-3 flex-wrap">
+        <p class="text-sm text-[#C9D6E2] min-w-0">${pctDone}% · Next stop: ${esc(next.title)}${foes ? ` · ⚔️ ${foes} ${foes === 1 ? 'enemy' : 'enemies'}` : ''}</p>
+        <div class="flex gap-2">
+          <button type="button" onclick="openProgressReport('${f.p.id}')" class="text-sm font-bold text-white/80 hover:text-white px-3 min-h-[44px]">Report</button>
+          <button type="button" onclick="playJourneyFor('${f.p.id}')" class="bg-[#5EEAD4] text-navy font-extrabold text-sm px-5 min-h-[44px] rounded-xl hover:brightness-105">▶ Play</button>
+        </div>
+      </div>`;
+  }
+
+  // Up next: the next few open tasks by due date, ticked off right here.
+  const upnext = tasks.filter(t => t.status !== 'Completed')
+    .sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999') || (a.priority === 'High' ? -1 : 0)).slice(0, 5);
+  const byId = Object.fromEntries(allProjects.map(p => [p.id, p]));
+  document.getElementById('dash-upnext').innerHTML = upnext.length ? upnext.map(t => {
+    const due = dueLabel(t.endDate, todayKey);
+    const foes = pendingFoes(t);
+    const waiting = waitingOn(t).length;
+    return `<label class="flex items-center gap-3 min-h-[52px] border-b border-gray-100 last:border-0 cursor-pointer">
+      <input type="checkbox" class="w-5 h-5 accent-teal flex-shrink-0" onchange="completeFromDashboard('${t.id}', this)" aria-label="Mark ${esc(t.title)} done" ${waiting ? 'disabled title="Waiting on another task"' : ''}>
+      <span class="flex-1 min-w-0">
+        <span class="block text-sm font-semibold text-navy truncate">${waiting ? '🔒 ' : ''}${esc(t.title)}</span>
+        <span class="block text-[11px] text-gray-500 truncate">${esc((byId[t.projectId] || {}).title || '')}</span>
+      </span>
+      ${foes ? `<span class="flex-shrink-0 text-[11px] font-extrabold text-red-700 bg-red-50 px-2 py-0.5 rounded-full">⚔️ ${foes}</span>` : ''}
+      <span class="flex-shrink-0 w-20 text-right text-xs font-semibold ${due.late ? 'text-red-600' : 'text-gray-500'}">${esc(due.text)}</span>
+    </label>`;
+  }).join('') : '<p class="text-sm text-gray-500 py-4">Nothing open. Plan your next goal with the assistant, or start from a template.</p>';
+
+  // This week against last week.
+  const DAY = 86400000;
+  const nowMs = now.getTime();
+  const inRange = (t, from, to) => t.status === 'Completed' && t.completedAt && Date.parse(t.completedAt) >= from && Date.parse(t.completedAt) < to;
+  const week = tasks.filter(t => inRange(t, nowMs - 7 * DAY, nowMs + 1)).length;
+  const prev = tasks.filter(t => inRange(t, nowMs - 14 * DAY, nowMs - 7 * DAY)).length;
+  document.getElementById('dash-week-done').innerHTML = `${week} <span class="text-sm font-semibold text-gray-500">task${week === 1 ? '' : 's'} done</span>`;
+  const trend = document.getElementById('dash-week-trend');
+  trend.textContent = week > prev ? `Up ${week - prev} on last week` : week < prev ? `${prev - week} fewer than last week` : (week ? 'Level with last week' : 'A fresh week to start');
+  trend.style.color = week >= prev ? '#1A7A4A' : '#9A4410';
+}
+async function completeFromDashboard(taskId, checkbox) {
+  const task = await API.getTask(taskId).catch(() => null);
+  const gate = taskGateMessage(task, 'Completed');
+  if (gate) { checkbox.checked = false; showToast(gate, 'error'); return; }
+  checkbox.disabled = true;
+  try {
+    await API.updateTask(taskId, { status: 'Completed' });
+    checkbox.closest('label').classList.add('opacity-50', 'line-through');
+    setTimeout(renderDashboard, 900);
+  } catch (e) {
+    checkbox.checked = false; checkbox.disabled = false;
+    taskErrorToast(e, 'Could not complete that task');
+  }
+}
+// The focus card's Play: straight into that project's Journey.
+function playJourneyFor(projectId) {
+  showPage('gantt');
+  setGanttProjectFilter(projectId);
+  setGanttPageView('journey');
+}
+
 // ── SIDEBAR ────────────────────────────────────────────────────
 async function updateSidebar() {
   try {
@@ -652,7 +785,10 @@ function tasksInProjectTree(projectId, allProjects, allTasks) {
 
 // ── DASHBOARD ──────────────────────────────────────────────────
 async function renderDashboard() {
-  loadDailyQuests();
+  loadDailyQuests().then(g => {
+    const pill = document.getElementById('dash-level-pill');
+    if (g && pill) pill.textContent = `${g.rank.icon} Lv ${g.level} · ${g.rank.name}`;
+  });
   try {
     const [tasks, allProjects, profile] = await Promise.all([
       API.getTasks(),
@@ -677,6 +813,7 @@ async function renderDashboard() {
     // Momentum streak — consecutive days with >=1 completed task.
     document.getElementById('streak-badge').classList.toggle('hidden', !profile.currentStreak);
     document.getElementById('streak-count').textContent = profile.currentStreak || 0;
+    renderDashboardBento(tasks, allProjects);
 
     // Goals Progress hero — overall task completion across every project,
     // regardless of type; goals are goals, whether Career, Health, etc.
@@ -1830,6 +1967,7 @@ const KANBAN_COLUMN_COLOR = { 'Not Started': '#6B7280', 'In Progress': '#C0642A'
 // applyGanttPageView is enough there — calling the heavier renderGantt
 // would just redraw Timeline/Kanban pointlessly while they're hidden.
 function setGanttPageView(mode) {
+  setTimeout(() => syncBottomNav(APP.currentPage || 'gantt'), 0);
   try { localStorage.setItem('ganttPageView', mode); } catch { /* private mode etc */ }
   if (mode === 'journey') applyGanttPageView(mode);
   else renderGantt();

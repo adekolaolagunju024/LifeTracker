@@ -6,7 +6,7 @@ module.exports = {
   content: ['./frontend/landing.html', './frontend/privacy.html', './frontend/terms.html'],
   theme: {
     extend: {
-      fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+      fontFamily: { sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'] },
       colors: {
         navy: { DEFAULT: '#0D1B2A', 2: '#1B3A5C' },
         teal: { DEFAULT: '#0A7E8C', light: '#5EEAD4' },
