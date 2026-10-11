@@ -88,6 +88,10 @@ async function openTaskDetail(id) {
   } catch (e) { console.error('Task detail error:', e); }
 }
 
+// Reports and their photos live on the top-level project.
+function topProjectIdOf(projectId) {
+  return (APP.detailProject && APP.detailProject.id === projectId && APP.detailProject.parentId) || projectId;
+}
 // The task panel's key facts: when it's due (with how long left, or how
 // late), when it starts, who's on it, and cost or repeat only when set.
 function taskFactsHTML(t) {
@@ -229,6 +233,7 @@ function renderObstacles(taskId, obstacles) {
             <button onclick="changeObstacleCount('${o.id}', ${o.count - 1})" ${o.count <= 1 ? 'disabled' : ''} class="w-6 h-6 rounded-md text-gray-600 hover:bg-white disabled:opacity-30" aria-label="Smaller blocker" title="Smaller (fewer enemies on the Journey)">−</button>
             <span class="text-xs font-bold text-red-700 w-6 text-center" aria-label="Size ${o.count}">×${o.count}</span>
             <button onclick="changeObstacleCount('${o.id}', ${o.count + 1})" ${o.count >= 5 ? 'disabled' : ''} class="w-6 h-6 rounded-md text-gray-600 hover:bg-white disabled:opacity-30" aria-label="Bigger blocker" title="Bigger (more enemies on the Journey)">+</button>
+            <button onclick="Reports.openMedia(topProjectIdOf(APP.detailTaskProjectId), { kind: 'blocker', taskId: '${taskId}', caption: ${esc(JSON.stringify(o.name))} })" class="text-gray-400 hover:text-teal text-sm px-1" title="Add a photo of this blocker to the project report" aria-label="Add a photo of this blocker to the report">📷</button>
             <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove blocker">🗑️</button>`
           : `<span class="text-xs font-bold ${o.resolved ? 'text-green-700' : 'text-red-700'}">×${o.count}</span>${canEdit ? `
             <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove blocker">🗑️</button>` : ''}`}

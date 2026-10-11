@@ -173,6 +173,8 @@ let reportShareUrl = null;
 async function openProgressReport(projectId) {
   if (!projectId) return;
   reportProjectId = projectId;
+  document.getElementById('report-heading').textContent = '📄 Progress report';
+  if (window.Reports) Reports.setReportMode('project');
   document.getElementById('report-frame').src = `/api/reports/projects/${projectId}/progress.html?t=${Date.now()}`;
   document.getElementById('report-pdf').href = `/api/reports/projects/${projectId}/progress.pdf`;
   openModal('modal-report');

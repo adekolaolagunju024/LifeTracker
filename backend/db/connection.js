@@ -533,4 +533,22 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_analytics_events_user ON analytics_events (userId, createdAt);
 `);
 
+// Photos and files pinned to a project's reports (backend/reports): an
+// upload (attachments) with a caption, what it shows (progress, a blocker,
+// or general info) and optionally the task it's about. Stored against the
+// top-level project, like attachments, so phases share them.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS report_media (
+    id TEXT PRIMARY KEY,
+    projectId TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    attachmentId TEXT NOT NULL REFERENCES attachments(id) ON DELETE CASCADE,
+    caption TEXT NOT NULL DEFAULT '',
+    kind TEXT NOT NULL DEFAULT 'progress',
+    taskId TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+    addedBy TEXT REFERENCES users(id) ON DELETE SET NULL,
+    createdAt TEXT NOT NULL,
+    UNIQUE (projectId, attachmentId)
+  );
+`);
+
 module.exports = db;

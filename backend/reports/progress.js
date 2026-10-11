@@ -96,12 +96,40 @@ function buildProgressReport(viewerId, projectId, now = new Date()) {
     overdue: overdue.slice(0, 8).map(t => ({ title: t.title, date: t.endDate })),
     blockers: blockers.slice(0, 10).map(o => ({ name: o.name, count: o.count, taskTitle: o.taskTitle })), blockersCleared: cleared,
     waiting: waiting.slice(0, 8),
+    // Photos and files pinned to the report. A phase's report shows those
+    // about its own tasks (or about no task in particular).
+    media: (db.listReportMedia(viewerId, project.id) || [])
+      .filter(m => !project.parentId || !m.taskId || tasks.some(t => t.id === m.taskId)),
   };
+}
+
+// Photos and files, as a gallery: images shown (when mediaSrc gives them
+// a source), other files listed by name. Shared by the project and the
+// portfolio report.
+const MEDIA_KIND = { progress: ['Progress', '#0A7E8C'], blocker: ['Blocker', '#B03020'], info: ['Info', '#6B7280'] };
+const MEDIA_CSS = `.media{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+  .media figure{margin:0;border:1px solid #E5E7EB;border-radius:14px;overflow:hidden;background:#fff;break-inside:avoid}
+  .media img{display:block;width:100%;height:170px;object-fit:cover;background:#F3F4F6}
+  .media figcaption{padding:10px 12px;font-size:13px;line-height:1.45}
+  .media .kind{display:inline-block;font-size:11px;font-weight:800;color:#fff;border-radius:999px;padding:1px 8px;margin-right:6px}
+  .media .sub{display:block;color:#6B7280;font-size:12px;margin-top:2px}
+  .files li a{color:#0A7E8C;text-decoration:none;font-weight:700}`;
+function renderMediaSection(media, mediaSrc, { showProject = false } = {}) {
+  if (!media || !media.length) return '';
+  const label = m => { const [k, c] = MEDIA_KIND[m.kind] || MEDIA_KIND.info; return `<span class="kind" style="background:${c}">${k}</span>`; };
+  const sub = m => [showProject && m.projectTitle, m.taskTitle && `Task: ${m.taskTitle}`, m.addedByName, shortDate(m.createdAt.slice(0, 10))].filter(Boolean).map(esc).join(' · ');
+  const images = [], files = [];
+  media.forEach(m => {
+    const src = mediaSrc ? mediaSrc(m) : null;
+    if (src && /^image\//.test(m.mimetype)) images.push(`<figure><img src="${esc(src)}" alt="${esc(m.caption || m.originalName)}" loading="lazy"><figcaption>${label(m)}${esc(m.caption || m.originalName)}<span class="sub">${sub(m)}</span></figcaption></figure>`);
+    else files.push(`<li><span>${label(m)}📎 ${src ? `<a href="${esc(src)}" target="_blank" rel="noopener">${esc(m.originalName)}</a>` : esc(m.originalName)}${m.caption ? ` · ${esc(m.caption)}` : ''}</span><em>${sub(m)}</em></li>`);
+  });
+  return `<section><h2>Photos and files</h2>${images.length ? `<div class="media">${images.join('')}</div>` : ''}${files.length ? `<ul class="files" style="margin-top:${images.length ? 14 : 0}px">${files.join('')}</ul>` : ''}</section>`;
 }
 
 const STATUS_COLOURS = { done: '#1A7A4A', ahead: '#0A7E8C', ontrack: '#1A7A4A', slightly: '#C0642A', behind: '#B03020', none: '#6B7280' };
 
-function renderProgressReportHtml(r, { live = false, appUrl = '' } = {}) {
+function renderProgressReportHtml(r, { live = false, appUrl = '', mediaSrc = null } = {}) {
   const colour = STATUS_COLOURS[r.status.key];
   const ring = (() => {
     const c = 2 * Math.PI * 52;
@@ -150,6 +178,7 @@ function renderProgressReportHtml(r, { live = false, appUrl = '' } = {}) {
   .tl-today{position:absolute;top:18px;bottom:0;border-left:2px dashed #B03020}.tl-today span{position:absolute;top:-18px;left:4px;font-size:11px;font-weight:700;color:#B03020}
   footer{padding:16px 36px;border-top:1px solid #F3F4F6;font-size:12px;color:#9CA3AF;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
   footer a{color:#0A7E8C;text-decoration:none;font-weight:700}
+  ${MEDIA_CSS}
   @media print{body{background:#fff}.page{box-shadow:none;margin:0;max-width:none;border-radius:0} section{break-inside:avoid}}
 </style></head><body><div class="page">
 <header><div class="brand">Waypoint · Progress report</div><h1>${esc(r.project.icon)} ${esc(r.project.title)}</h1>
@@ -170,9 +199,10 @@ ${timeline}
 <section><h2>Blockers (${r.blockers.length} open, ${r.blockersCleared} cleared)</h2>${list(r.blockers, 'Nothing in the way.', o => `<li><span>⚔️ ${esc(o.name)}${o.count > 1 ? ` ×${o.count}` : ''}</span><em>${esc(o.taskTitle)}</em></li>`)}</section>
 </div>
 ${r.waiting.length ? `<section><h2>Waiting on other tasks</h2><ul>${r.waiting.map(w => `<li><span>🔗 ${esc(w.title)}</span><em>after ${esc(w.on.join(', '))}</em></li>`).join('')}</ul></section>` : ''}
+${renderMediaSection(r.media, mediaSrc)}
 </main>
 <footer><span>${live ? 'This page updates itself whenever the plan changes.' : `Generated ${esc(new Date(r.generatedAt).toUTCString())}`}</span><span>Made with ${appUrl ? `<a href="${esc(appUrl)}">Waypoint</a>` : 'Waypoint'}</span></footer>
 </div></body></html>`;
 }
 
-module.exports = { buildProgressReport, renderProgressReportHtml };
+module.exports = { buildProgressReport, renderProgressReportHtml, renderMediaSection, MEDIA_CSS, STATUS_COLOURS, esc, shortDate, longDate };
