@@ -776,6 +776,7 @@ async function showProjectCompleteOverlay(title, { projectId = null, message, he
   document.addEventListener('keydown', _pcEscHandler);
   setTimeout(() => overlay.querySelector('.pc-primary')?.focus(), 400);
   fillProjectCompleteStats(projectId);
+  if (window.Rewards) Rewards.fillCelebration(projectId);
 }
 async function fillProjectCompleteStats(projectId) {
   try {

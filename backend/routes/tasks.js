@@ -1,4 +1,5 @@
 const express = require('express');
+const pledges = require('../pledges');
 const router  = express.Router();
 const { v4: uuid } = require('uuid');
 const db = require('../db/db');
@@ -61,7 +62,9 @@ router.put('/:id', (req, res) => {
     // Journey gaming (XP/level/achievements) — computed from this exact
     // signal, never from a UI click, so it can't be farmed. See backend/journey.js.
     const journeyReward = justCompleted ? journey.applyTaskCompletionRewards(req.session.userId, task) : null;
-    res.json({ ...task, justCompleted, journeyReward });
+    // Finishing the goal earns any rewards pledged on it (backend/pledges.js).
+    const rewardsEarned = justCompleted ? pledges.refresh(task.projectId).length : 0;
+    res.json({ ...task, justCompleted, journeyReward, rewardsEarned });
     const assigneeChanged = task.assigneeId && task.assigneeId !== before?.assigneeId;
     if (assigneeChanged && task.assigneeId !== req.session.userId) {
       const project = db.getProjectById(req.session.userId, task.projectId);
