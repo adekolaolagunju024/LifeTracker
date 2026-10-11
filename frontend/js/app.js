@@ -3900,6 +3900,15 @@ function handleAuthRedirect() {
 
 // Left in the URL (not cleared) until the reset form is actually submitted,
 // so a page reload while the reset view is open doesn't lose the token.
+// A project invite email links to /app?join=<email>: open sign-up with that
+// email filled in, so the invite is waiting the moment they're in.
+function handleJoinRedirect() {
+  const email = new URLSearchParams(window.location.search).get('join');
+  if (!email) return;
+  showAuthView('register');
+  const input = document.getElementById('auth-register-email');
+  if (input) input.value = email;
+}
 function handleResetTokenRedirect() {
   const params = new URLSearchParams(window.location.search);
   const token = params.get('resetToken');
@@ -6253,6 +6262,8 @@ function openAddProject() {
   document.getElementById('proj-start').value  = '';
   document.getElementById('proj-type').value   = 'career';
   document.getElementById('proj-type-wrap').classList.remove('hidden');
+  document.getElementById('proj-invite-wrap').classList.remove('hidden');
+  document.getElementById('proj-invite-emails').value = '';
   renderProjectTemplates();
   openModal('modal-project');
 }
@@ -6282,6 +6293,19 @@ function resetCalendarFeed() {
   });
 }
 
+// Invites whoever was listed under "Invite people" in New Project to the
+// project just created. Returns a short note for the toast.
+async function inviteFromNewProject(projectId) {
+  const emails = [...new Set(document.getElementById('proj-invite-emails').value.split(/[\s,;]+/).map(e => e.trim()).filter(Boolean))];
+  if (!emails.length) return '';
+  const role = document.getElementById('proj-invite-role').value;
+  const results = await Promise.all(emails.map(email => API.inviteCollaborator(projectId, email, role).then(r => ({ ok: true, r }), e => ({ ok: false, email, e }))));
+  const ok = results.filter(x => x.ok).length;
+  const failed = results.filter(x => !x.ok);
+  if (failed.length) setTimeout(() => showToast(`⚠️ Couldn't invite ${failed.map(f => f.email).join(', ')}: ${failed[0].e.message || 'error'}`, 'error'), 3000);
+  return ok ? ` Invited ${ok} ${ok === 1 ? 'person' : 'people'}.` : '';
+}
+
 // The template gallery at the top of New Project (backend/templates.js):
 // one tap creates the whole plan, dated from today, and opens it.
 let projectTemplatesCache = null;
@@ -6305,10 +6329,11 @@ async function startProjectFromTemplate(templateId, btn) {
   btn.classList.add('opacity-60');
   try {
     const project = await API.createFromTemplate({ templateId, startDate: localDateKey(new Date()) });
+    const invited = await inviteFromNewProject(project.id);
     closeModal('modal-project');
     await updateSidebar();
     await showPage('project-detail', project.id);
-    showToast(`🎉 "${project.title}" is ready. Change anything you like.`);
+    showToast(`🎉 "${project.title}" is ready.${invited}`);
   } catch (e) {
     showToast('❌ ' + (e.message || 'Could not create the project'), 'error');
   } finally {
@@ -6321,6 +6346,7 @@ function openAddSubfolder(parentId) {
   document.getElementById('modal-project-title').textContent = 'New Sub-folder';
   document.getElementById('project-ai-btn').classList.add('hidden');
   document.getElementById('proj-templates').classList.add('hidden');
+  document.getElementById('proj-invite-wrap').classList.add('hidden');
   document.getElementById('proj-id').value     = '';
   document.getElementById('proj-parent').value = parentId;
   document.getElementById('proj-title').value  = '';
@@ -6337,6 +6363,7 @@ async function editProject(id) {
   const p = await API.getProject(id);
   document.getElementById('modal-project-title').textContent = p.parentId ? 'Edit Sub-folder' : 'Edit Project';
   document.getElementById('proj-templates').classList.add('hidden');
+  document.getElementById('proj-invite-wrap').classList.add('hidden');
   document.getElementById('project-ai-btn').classList.toggle('hidden', !(p.role === 'owner' || p.role === 'editor'));
   document.getElementById('proj-id').value     = id;
   document.getElementById('proj-parent').value = p.parentId || '';
@@ -6364,7 +6391,11 @@ async function saveProject() {
   if (!data.title) { showToast('Project title is required', 'error'); return; }
   try {
     if (id) { await API.updateProject(id, data); showToast('✅ Project updated'); }
-    else    { await API.addProject(data);         showToast(data.parentId ? '✅ Sub-folder created' : '✅ Project created'); }
+    else {
+      const created = await API.addProject(data);
+      const invited = data.parentId ? '' : await inviteFromNewProject(created.id);
+      showToast((data.parentId ? '✅ Sub-folder created' : '✅ Project created') + invited);
+    }
     closeModal('modal-project');
     if (APP.currentProjectId) renderProjectDetail(APP.currentProjectId);
     else renderProjects();
@@ -6461,6 +6492,18 @@ async function renderShareCollaborators(projectId) {
       const isMe = person.userId === APP.currentUserId;
       const canManage = isOwner && person.role !== 'owner';
       const pending = person.role !== 'owner' && !person.joinedAt;
+      if (person.pendingSignup) {
+        return `
+        <div class="flex items-center gap-3 py-2">
+          <span class="w-2 h-2 rounded-full flex-shrink-0 bg-amber-400" title="Waiting for them to sign up"></span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-navy truncate">${esc(person.email)}</p>
+            <p class="text-xs text-gray-400 truncate">Invited · waiting for them to join Waypoint</p>
+          </div>
+          <span class="text-xs font-semibold text-gray-500 flex-shrink-0">${ROLE_LABEL[person.role] || person.role}</span>
+          ${isOwner ? `<button onclick="cancelEmailInviteConfirm('${projectId}','${esc(person.email)}')" class="text-gray-300 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Cancel invite" aria-label="Cancel the invite to ${esc(person.email)}">✕</button>` : ''}
+        </div>`;
+      }
       const roleControl = canManage
         ? `<select onchange="changeCollaboratorRole('${projectId}','${person.userId}',this.value)" class="text-xs border border-gray-200 rounded-lg px-1.5 py-1 focus:outline-none focus:border-teal flex-shrink-0">
              <option value="viewer" ${person.role === 'viewer' ? 'selected' : ''}>Viewer</option>
@@ -6472,7 +6515,7 @@ async function renderShareCollaborators(projectId) {
         <div class="flex items-center gap-3 py-2">
           ${presenceDot(person.lastActiveAt)}
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold text-navy truncate">${esc(person.name)}${isMe ? ' (you)' : ''}</p>
+            <p class="text-sm font-semibold text-navy truncate">${esc(person.name && person.name !== 'Your Name' ? person.name : person.email)}${isMe ? ' (you)' : ''}</p>
             <p class="text-xs text-gray-400 truncate">${esc(person.email)}${pending ? ' · Invited — pending' : ''}</p>
           </div>
           ${roleControl}
@@ -6503,14 +6546,21 @@ async function submitInviteCollaborator() {
   const role = document.getElementById('share-role-select').value;
   const projectId = APP.shareModalProjectId;
   try {
-    await API.inviteCollaborator(projectId, email, role);
+    const invite = await API.inviteCollaborator(projectId, email, role);
     input.value = '';
-    showToast('✅ Invited ' + email);
+    showToast(invite.pendingSignup ? `✉️ ${email} doesn't have an account yet${invite.emailed ? ', so we emailed them an invite to join' : '. Share the app with them and the invite will be waiting when they sign up'}` : '✅ Invited ' + email);
     renderShareCollaborators(projectId);
   } catch (e) {
     errorEl.textContent = e.message || 'Failed to invite';
     errorEl.classList.remove('hidden');
   }
+}
+
+function cancelEmailInviteConfirm(projectId, email) {
+  confirmAction(`Cancel the invite to ${email}?`, async () => {
+    try { await API.cancelEmailInvite(projectId, email); showToast('Invite cancelled'); renderShareCollaborators(projectId); }
+    catch (e) { showToast('❌ ' + (e.message || 'Failed to cancel'), 'error'); }
+  });
 }
 
 function removeCollaboratorConfirm(projectId, userId, name) {
@@ -7314,6 +7364,7 @@ async function init() {
   if (handleResetTokenRedirect()) return;
   const authed = await checkAuth();
   if (authed) await afterAuth();
+  else handleJoinRedirect();
 }
 
 document.addEventListener('DOMContentLoaded', init);

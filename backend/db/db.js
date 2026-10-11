@@ -12,7 +12,21 @@ function createUser({ id, email, passwordHash, createdAt, acceptedTermsAt = null
   // exists with the table already created.
   db.prepare(`INSERT INTO profile (userId, tagline) VALUES (?, ?)`).run(id, 'Every Goal, One Path');
   db.prepare(`INSERT INTO integrations (userId) VALUES (?)`).run(id);
+  claimEmailInvites(id, email);
   return getUserById(id);
+}
+// Someone invited this email before it had an account: those invites
+// become ordinary pending invites now, waiting for them to accept.
+function claimEmailInvites(userId, email) {
+  const rows = db.prepare('SELECT * FROM project_email_invites WHERE email = ? COLLATE NOCASE').all(String(email || ''));
+  for (const row of rows) {
+    const exists = db.prepare('SELECT 1 FROM project_collaborators WHERE projectId = ? AND userId = ?').get(row.projectId, userId);
+    if (!exists) {
+      db.prepare('INSERT INTO project_collaborators (id, projectId, userId, role, invitedAt, joinedAt) VALUES (?,?,?,?,?,?)')
+        .run(uuid(), row.projectId, userId, row.role, row.createdAt, null);
+    }
+  }
+  db.prepare('DELETE FROM project_email_invites WHERE email = ? COLLATE NOCASE').run(String(email || ''));
 }
 
 function getUserByEmail(email) {
@@ -893,7 +907,15 @@ function listCollaborators(projectId) {
     WHERE pc.projectId = ?
     ORDER BY pc.invitedAt ASC
   `).all(projectId);
-  return [...ownerRow, ...collaborators];
+  const waiting = db.prepare('SELECT id, email, role, createdAt FROM project_email_invites WHERE projectId = ? ORDER BY createdAt ASC').all(projectId)
+    .map(w => ({ id: 'email-' + w.id, userId: null, role: w.role, invitedAt: w.createdAt, joinedAt: null, email: w.email, name: w.email, pendingSignup: true }));
+  return [...ownerRow, ...collaborators, ...waiting];
+}
+// Owner-only: cancel an invite that's still waiting for its person to sign up.
+function cancelEmailInvite(ownerUserId, projectId, email) {
+  projectId = topLevelProjectId(projectId);
+  if (!isProjectOwner(ownerUserId, projectId)) throw new Error('Only the project owner can cancel invites');
+  return db.prepare('DELETE FROM project_email_invites WHERE projectId = ? AND email = ? COLLATE NOCASE').run(projectId, String(email || '').trim()).changes > 0;
 }
 
 // Matches @Name mentions in a comment/message against the project's own
@@ -938,8 +960,19 @@ function inviteCollaborator(inviterUserId, projectId, email, role = 'editor') {
   projectId = topLevelProjectId(projectId);
   if (!isProjectOwner(inviterUserId, projectId)) throw new Error('Only the project owner can invite collaborators');
   if (!COLLAB_ROLES.includes(role)) throw new Error('Invalid role');
-  const invitee = getUserByEmail(String(email || '').trim());
-  if (!invitee) throw new Error('No Waypoint account found for that email');
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) throw new Error('Enter a valid email address');
+  const invitee = getUserByEmail(cleanEmail);
+  if (!invitee) {
+    // No account yet: hold the invite until they sign up with this email.
+    if (db.prepare('SELECT 1 FROM project_email_invites WHERE projectId = ? AND email = ?').get(projectId, cleanEmail)) {
+      throw new Error('Already invited. Waiting for them to join Waypoint');
+    }
+    const pending = { id: uuid(), projectId, email: cleanEmail, role, invitedBy: inviterUserId, createdAt: new Date().toISOString() };
+    db.prepare('INSERT INTO project_email_invites (id, projectId, email, role, invitedBy, createdAt) VALUES (?,?,?,?,?,?)')
+      .run(pending.id, pending.projectId, pending.email, pending.role, pending.invitedBy, pending.createdAt);
+    return { ...pending, pendingSignup: true };
+  }
   if (invitee.id === inviterUserId) throw new Error("That's your own account");
   const existing = db.prepare('SELECT * FROM project_collaborators WHERE projectId = ? AND userId = ?').get(projectId, invitee.id);
   if (existing) throw new Error(existing.joinedAt ? 'Already a collaborator on this project' : 'Already invited — waiting on them to accept');
@@ -1846,7 +1879,7 @@ module.exports = {
   listProjects, getProjectById, createProject, updateProjectById, deleteProjectById, duplicateProject,
   getProjectRole, canAccessProject, canEditProject, canCommentOnProject, isProjectOwner,
   listTasks, getTaskById, createTask, updateTaskById, deleteTaskById, duplicateTask, bumpTaskProgress, reorderTasks,
-  listCollaborators, inviteCollaborator, updateCollaboratorRole, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, leaveProject, touchLastActive,
+  listCollaborators, inviteCollaborator, cancelEmailInvite, updateCollaboratorRole, listPendingInvites, acceptInvite, declineInvite, removeCollaborator, leaveProject, touchLastActive,
   extractMentionedUserIds, getTaskFollowers,
   listComments, addComment, deleteComment,
   listStatusUpdates, addStatusUpdate, deleteStatusUpdate,

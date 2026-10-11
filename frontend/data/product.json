@@ -53,6 +53,11 @@
   "whatsNew": [
     {
       "date": "2026-10-11",
+      "title": "Invite anyone, even before they join",
+      "text": "Invite people while creating a project, and invite anyone by email: people without an account get an email to join, and the project is waiting for them the moment they sign up."
+    },
+    {
+      "date": "2026-10-11",
       "title": "A fresh new look",
       "text": "A calmer, clearer design across the app and website: a focus card for your main goal with a Play button straight into its Journey, today's quests, your next tasks to tick off from the home screen, a tab bar on phones, and the game's streak and level pills always in view."
     },
