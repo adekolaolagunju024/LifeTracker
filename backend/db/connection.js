@@ -521,6 +521,17 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_task_reminders_due ON task_reminders (ackAt, remindAt);
 `);
 
+// "Your why" (backend/motivation.js): what keeps each person going. Their
+// reason, who they're becoming, a mentor and that mentor's routine, the
+// quotes that move them and a focus playlist, kept as one JSON document.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS motivation (
+    userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    data TEXT NOT NULL DEFAULT '{}',
+    updatedAt TEXT NOT NULL
+  );
+`);
+
 // Landing-page visits per day, for the owner's metrics (backend/metrics.js):
 // a count only, nothing about who visited.
 db.exec(`

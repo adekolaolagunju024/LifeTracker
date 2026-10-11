@@ -499,6 +499,7 @@ function resetTinyStepUI(task, canEdit) {
   stopTinyStepTimer();
   const show = canEdit && task.status === 'Not Started';
   document.getElementById('td-tiny-step').classList.toggle('hidden', !show);
+  if (show && window.Why) Why.fillStuck();
   if (!show) return;
   document.getElementById('td-tiny-step-suggestion').classList.add('hidden');
   document.getElementById('td-tiny-step-suggestion').textContent = '';

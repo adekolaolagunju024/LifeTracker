@@ -2,6 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const ExcelJS = require('exceljs');
 const db = require('../db/db');
+const motivation = require('../motivation');
 const { callAI, isAIConfigured } = require('../ai/provider');
 const { EDIT_TOOL, buildEditContext, validateOperations } = require('../ai/edit');
 
@@ -357,6 +358,10 @@ router.post('/assistant', aiQuota('assistant'), async (req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const tools = [IMPORT_TOOL];
   let system = ASSISTANT_SYSTEM(today);
+  // Their own "Your why" (if they allow it), so encouragement speaks to
+  // what actually moves them. Never invented quotes or words for real people.
+  const why = motivation.forAssistant(motivation.get(req.session.userId));
+  if (why) system += `\n\nWhat keeps this user going, in their own words. When they're stuck or low, encourage them briefly with these (their reason, who they're becoming, their mentor's routine, a quote they chose). Quote only what is listed here, exactly, and never make up a quote or put words in a real person's mouth:\n${why}`;
   if (context) {
     tools.push(EDIT_TOOL);
     system += `\n\nThe project the user has open:\n${context.text}`;

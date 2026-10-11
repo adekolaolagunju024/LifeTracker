@@ -36,6 +36,8 @@ const API = {
   // ── PROFILE ──
   getProfile:    ()        => request('GET',    '/profile'),
   updateProfile: (data)    => request('PUT',    '/profile', data),
+  getMotivation: ()        => request('GET',    '/motivation'),
+  saveMotivation: (data)   => request('PUT',    '/motivation', data),
 
   // ── PROJECTS ──
   getProjects:   (params = {}) => {

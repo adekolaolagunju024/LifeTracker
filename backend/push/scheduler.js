@@ -1,6 +1,9 @@
 const cron = require('node-cron');
 const db = require('../db/db');
 const { sendPushToUser } = require('./webpush');
+const motivation = require('../motivation');
+// A line from the person's own "Your why" under a nudge, when they have one.
+const withWhy = (body, userId) => { const line = motivation.nudgeLine(motivation.get(userId)); return line ? `${body}\n${line}` : body; };
 
 // Local (not UTC) date key — same technique and same reason as the email
 // digest: a task's due date is a plain "YYYY-MM-DD" string, and comparing
@@ -87,8 +90,8 @@ async function checkFocusNudges() {
       const count = overdue.length + dueToday.length;
       if (!count) continue;
       await sendPushToUser(u.userId, {
-        title: `⏰ Still open: ${count} ${count === 1 ? 'task needs' : 'tasks need'} attention today`,
-        body: [...overdue, ...dueToday].slice(0, 3).map(t => t.title).join(', '),
+        title: `Still open: ${count} ${count === 1 ? 'task needs' : 'tasks need'} attention today`,
+        body: withWhy([...overdue, ...dueToday].slice(0, 3).map(t => t.title).join(', '), u.userId),
         urgent: true,
         tag: 'focus-nudge', // renotify (re-vibrate/re-sound) each time, not silently replace a still-open one
       });
@@ -111,7 +114,7 @@ async function checkStreakNudge() {
       if (db.hasCompletedTaskToday(u.userId, todayKey)) continue; // streak already safe today
       await sendPushToUser(u.userId, {
         title: 'Don’t lose your streak!',
-        body: `${u.currentStreak}-day streak — complete one task today before it resets.`,
+        body: withWhy(`${u.currentStreak}-day streak. Complete one task today before it resets.`, u.userId),
         urgent: true,
       });
       db.setLastStreakNudgeDate(u.userId, todayKey);
@@ -132,8 +135,8 @@ async function checkTaskReminders(now = new Date()) {
       const again = r.fireCount > 0;
       const blockers = r.pendingBlockers.length ? ` · Clear first: ${r.pendingBlockers.slice(0, 2).join(', ')}` : '';
       await sendPushToUser(r.userId, {
-        title: `${again ? '⏰ Still waiting: ' : '⏰ Time for: '}${r.taskTitle}`,
-        body: (r.taskStatus === 'In Progress' ? 'Pick up where you left off.' : 'Two minutes is enough to start.') + blockers,
+        title: `${again ? 'Still waiting: ' : 'Time for: '}${r.taskTitle}`,
+        body: withWhy((r.taskStatus === 'In Progress' ? 'Pick up where you left off.' : 'Two minutes is enough to start.') + blockers, r.userId),
         url: `${APP_URL}/app?reminder=${r.id}`,
         urgent: true,
         tag: `reminder-${r.taskId}`,

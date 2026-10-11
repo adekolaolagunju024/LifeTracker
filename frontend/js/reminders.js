@@ -93,6 +93,7 @@ const Reminders = (() => {
     current = r;
     let task = null;
     try { task = await API.getTask(r.taskId); } catch { /* still ring with what we have */ }
+    if (window.Why) await Why.load().catch(() => {}); // their why, quote and music on the alarm
     const blockers = task ? (task.obstacles || []).filter(o => !o.resolved) : [];
     const waiting = task ? (task.predecessors || []).filter(p => p.status !== 'Completed') : [];
     document.getElementById('alarm-overlay')?.remove();
@@ -109,6 +110,7 @@ const Reminders = (() => {
         <p class="alarm-sub">Put the scrolling down for two minutes. Starting is the hard part.</p>
         ${blockers.length ? `<div class="alarm-blockers"><p>${icon('blocker')} Blocked by ${blockers.length === 1 ? 'this' : 'these'}. Clear ${blockers.length === 1 ? 'it' : 'them'} first:</p><ul>${blockers.map(b => `<li>${esc(b.name)}${(b.count || 1) > 1 ? ` ×${b.count}` : ''}</li>`).join('')}</ul></div>` : ''}
         ${waiting.length ? `<div class="alarm-blockers is-waiting"><p>${icon('link')} Waiting on ${waiting.map(p => `"${esc(p.title)}"`).join(', ')}</p></div>` : ''}
+        ${window.Why ? Why.alarmHTML() : ''}
         <button type="button" class="alarm-start" onclick="Reminders.start()">${icon('play')} Start now · 2 minutes</button>
         <div class="alarm-row">
           <button type="button" onclick="Reminders.snooze(10)">10 min</button>

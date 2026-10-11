@@ -175,6 +175,7 @@ app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/uploads',  require('./routes/uploads'));
 app.use('/api/push',     require('./routes/push'));
 app.use('/api/reminders', require('./routes/reminders'));
+app.use('/api/motivation', require('./routes/motivation'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/journey-gaming', require('./routes/journeyGaming'));

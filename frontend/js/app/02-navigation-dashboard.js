@@ -48,6 +48,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
     gantt: 'Planner',       actions: 'Actions',
     settings: 'Settings',   calendar: 'Calendar',
     chats: 'Chats',         metrics: 'Metrics',
+    why: 'Your why',
   };
   document.getElementById('topbar-title').textContent =
     projectId ? '' : (titles[id] || id);
@@ -61,6 +62,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
   if (id === 'calendar')       renderCalendar();
   if (id === 'chats')          renderChats();
   if (id === 'metrics' && window.Metrics) Metrics.render();
+  if (id === 'why' && window.Why) Why.renderPage();
 
   updateSidebar();
   updateBackButton();
@@ -295,6 +297,7 @@ async function renderDashboard() {
     document.getElementById('streak-count').textContent = profile.currentStreak || 0;
     renderDashboardBento(tasks, allProjects);
     if (typeof renderDashboardRecap === 'function') renderDashboardRecap();
+    if (window.Why) Why.renderDashboard();
 
     // Goals Progress hero — overall task completion across every project,
     // regardless of type; goals are goals, whether Career, Health, etc.
