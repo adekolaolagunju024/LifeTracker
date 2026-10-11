@@ -608,24 +608,9 @@ function setAssistantSpeak(on) {
 // Some browsers drop long utterances or never fire their end event, so the
 // reply is spoken sentence by sentence and a timer always resolves the wait.
 function speakAssistant(text) {
-  return new Promise(resolve => {
-    const wanted = document.getElementById('assistant-speak').checked || APP.assistantVoiceTurn;
-    if (!wanted || !('speechSynthesis' in window) || !text.trim()) return resolve();
-    const sentences = (text.match(/[^.!?]+[.!?]*/g) || [text]).map(s => s.trim()).filter(Boolean);
-    let finished = false;
-    const finish = () => { if (!finished) { finished = true; clearTimeout(guard); resolve(); } };
-    const guard = setTimeout(finish, Math.max(4000, text.length * 90 + 3000));
-    speechSynthesis.cancel();
-    sentences.forEach((sentence, i) => {
-      const utterance = new SpeechSynthesisUtterance(sentence);
-      utterance.lang = navigator.language || 'en-US';
-      if (i === sentences.length - 1) {
-        utterance.onend = finish;
-        utterance.onerror = finish;
-      }
-      speechSynthesis.speak(utterance);
-    });
-  });
+  const wanted = document.getElementById('assistant-speak').checked || APP.assistantVoiceTurn;
+  if (!wanted) return Promise.resolve();
+  return Voice.speak(text); // the voice chosen in Settings (js/jarvis.js)
 }
 
 // Hands-free: after a spoken message, keep listening for the next one.

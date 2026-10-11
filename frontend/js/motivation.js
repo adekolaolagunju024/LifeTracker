@@ -144,7 +144,7 @@ const Why = (() => {
       interview.busy = false;
       interview.messages.push({ role: 'assistant', content: r.text });
       renderChat();
-      if (voiceTurn && 'speechSynthesis' in window) { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(r.text)); }
+      if (voiceTurn && window.Voice) Voice.speak(r.text);
       if (r.type === 'draft') applyDraft(r.draft);
     } catch (e) {
       interview.busy = false;
