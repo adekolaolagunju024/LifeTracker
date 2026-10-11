@@ -376,17 +376,22 @@
     .brief-pills { display: flex; gap: 6px; flex-wrap: wrap; }
     .brief-pills .pill-streak, .brief-pills .pill-level { font-size: 12px; padding: 4px 10px; }
     .brief-pills .pill-streak.hidden { display: none; }
-    .dash-row { display: grid; gap: 16px; margin-bottom: 16px; }
-    .dash-row > * { min-width: 0; }
+    .dash-grid { display: grid; gap: 16px; grid-template-areas: "week" "today" "journey"; }
+    .dash-grid > * { min-width: 0; }
+    #dash-week-card { grid-area: week; } .today-wrap { grid-area: today; } #dash-focus { grid-area: journey; }
     @media (min-width: 900px) {
-      .dash-row1 { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
-      .dash-row2 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
-      .dash-row2:has(> #dash-focus.hidden) { grid-template-columns: 1fr; }
-      .dash-row1:has(> #dash-brief:empty) { grid-template-columns: 1fr; }
-      .dash-row1 > #dash-brief > .brief-card { height: 100%; }
+      .dash-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); grid-template-rows: auto 1fr; grid-template-areas: "week today" "journey today"; align-items: start; }
+      .dash-grid:has(> #dash-focus.hidden) { grid-template-areas: "week today" "week today"; }
     }
-    .dash-week .recap-mini { height: 100%; min-height: 200px; }
+    .dash-week .recap-mini { height: 210px; }
     .dash-week { display: flex; flex-direction: column; }
+    /* Today and Your focus, one card */
+    .today-wrap { background: #fff; border: 1px solid #D5ECEA; border-radius: 20px; overflow: hidden; }
+    .today-wrap #dash-brief .brief-card { border: 0; border-radius: 0; }
+    .today-wrap #dash-upnext-card { padding: 14px 20px 12px; border-top: 1px solid #EEF0F2; }
+    .today-wrap #dash-brief:empty + #dash-upnext-card { border-top: 0; }
+    .dark .today-wrap { background: #111A2B; border-color: #24324A; }
+    .dark .today-wrap #dash-upnext-card { border-top-color: #24324A; }
     .quest-line { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 12px; padding-top: 10px; border-top: 1px solid #EEF0F2; font-size: 13px; font-weight: 700; color: #3B4552; text-align: left; }
     .quest-line:hover { color: #0A7E8C; }
     .dark .quest-line { border-top-color: rgba(255,255,255,.1); color: #C9D6E2; }
@@ -2435,31 +2440,30 @@
       </div>
       <p class="hidden text-xs font-semibold text-teal -mt-1 mb-3" id="bonus-credits-line"></p>
 
-      <!-- Row one: your week as a story, then Today (js/jarvis.js), the
-           assistant's card with the greeting, what's first, today's quote
-           and Start my day. -->
-      <div class="dash-row dash-row1">
+      <!-- Three cards. On a wide screen: your week and your goal's Journey
+           on the left, Today on the right. Today (js/jarvis.js) is one card:
+           the greeting, today's quote and Start my day, with Your focus,
+           the one list of what to do now, right under it. On a phone: week,
+           Today, Journey. -->
+      <div class="dash-grid mb-6">
         <div class="dash-week bg-white rounded-2xl border border-gray-200 p-2.5" id="dash-week-card">
           <div class="recap-mini" id="dash-recap" role="region" aria-label="Your week so far, as slides"></div>
           <p class="hidden">This week: <span id="dash-week-done">0 tasks done</span> <span id="dash-week-trend"></span></p>
           <div class="hidden"><div id="hero-goals-prog"></div><span id="hero-goals-pct"></span><span id="hero-goals-sub"></span><span id="hero-goals-detail"></span><span id="kpi-total">0</span><span id="kpi-done">0</span><span id="kpi-inprog">0</span></div>
         </div>
-        <div id="dash-brief" class="min-w-0"></div>
-      </div>
-
-      <!-- Row two: Your focus, the one list of what to do now, and your
-           goal's Journey (with today's quests as one line). -->
-      <div class="dash-row dash-row2 mb-6">
-        <div class="bg-white rounded-2xl border border-gray-200 px-4 py-3 min-w-0" id="dash-upnext-card">
-          <!-- What needs attention (late, blocked, due today, waiting) comes
-               first with the reason, then what's due next. Actions holds
-               the full list. -->
-          <div class="flex items-center justify-between gap-3 mb-2">
-            <p class="text-[15px] font-extrabold text-navy">Your focus</p>
-            <button onclick="showPage('actions')" class="text-xs font-bold text-teal hover:underline">All actions →</button>
+        <div class="today-wrap min-w-0">
+          <div id="dash-brief" class="min-w-0"></div>
+          <div class="min-w-0" id="dash-upnext-card">
+            <!-- What needs attention (late, blocked, due today, waiting) comes
+                 first with the reason, then what's due next. Actions holds
+                 the full list. -->
+            <div class="flex items-center justify-between gap-3 mb-2">
+              <p class="text-[15px] font-extrabold text-navy">Your focus</p>
+              <button onclick="showPage('actions')" class="text-xs font-bold text-teal hover:underline">All actions →</button>
+            </div>
+            <div class="focus-counts" id="dash-attention-counts"></div>
+            <div id="dash-upnext"><p class="text-sm text-gray-400 py-3">Loading…</p></div>
           </div>
-          <div class="focus-counts" id="dash-attention-counts"></div>
-          <div id="dash-upnext"><p class="text-sm text-gray-400 py-3">Loading…</p></div>
         </div>
         <div class="focus-card tile hidden min-w-0" id="dash-focus"></div>
       </div>
