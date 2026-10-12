@@ -28,7 +28,13 @@ const jsonForScript = v => JSON.stringify(v).replace(/</g, '\\u003c');
 function sections(product) {
   const stages = product.stages.map(s => `
         <figure class="reveal group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-          <img src="/showcase/stage-${esc(s.id)}.webp" alt="The ${esc(s.name)} stage of the Journey" width="640" height="400" loading="lazy" class="aspect-[16/10] w-full bg-gray-100 object-cover">
+          <div class="stage-shot" data-view="${s.view === '3d' ? '3d' : '2d'}">
+            <img data-v="2d" src="/showcase/stage-${esc(s.id)}.webp" alt="The ${esc(s.name)} stage of the Journey in 2D" width="640" height="400" loading="lazy" class="aspect-[16/10] w-full bg-gray-100 object-cover">
+            <img data-v="3d" src="/showcase/stage-${esc(s.id)}-3d.webp" alt="The ${esc(s.name)} stage of the Journey in 3D" width="640" height="400" loading="lazy" class="aspect-[16/10] w-full bg-gray-100 object-cover">
+            <div class="stage-views" role="group" aria-label="${esc(s.name)} view">
+              <button type="button" data-v="2d">2D</button><button type="button" data-v="3d">3D</button>
+            </div>
+          </div>
           <figcaption class="p-5">
             <p class="font-bold text-navy flex items-center gap-2"><span class="stage-ic">${emojiIcon(s.emoji)}</span>${esc(s.name)}</p>
             <p class="mt-1 text-sm leading-relaxed text-gray-600">${esc(s.line)}</p>
