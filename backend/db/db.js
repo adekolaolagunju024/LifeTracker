@@ -1479,108 +1479,6 @@ function deleteProjectMessage(userId, messageId) {
   return true;
 }
 
-// ── GO LIVE (embedded Jitsi video room for a walkthrough) ──────────
-// The room name is the only thing standing between "anyone with this
-// link" and the video — Jitsi's public server has no idea about our own
-// collaborator permissions — so it's a long random slug, never a
-// guessable one, and it's only ever handed out through this authenticated
-// API to people who already pass canAccessProject.
-const LIVE_SESSION_MAX_HOURS = 6;
-
-function getLiveStatus(userId, projectId) {
-  projectId = topLevelProjectId(projectId);
-  if (!canAccessProject(userId, projectId)) return null;
-  const row = db.prepare('SELECT liveRoomName, liveStartedAt, liveStartedBy FROM projects WHERE id = ?').get(projectId);
-  if (!row || !row.liveRoomName) return { live: false };
-  const ageHours = (Date.now() - new Date(row.liveStartedAt)) / 3600000;
-  if (ageHours > LIVE_SESSION_MAX_HOURS) {
-    db.prepare('UPDATE projects SET liveRoomName = NULL, liveStartedAt = NULL, liveStartedBy = NULL WHERE id = ?').run(projectId);
-    return { live: false };
-  }
-  const starter = getProfile(row.liveStartedBy);
-  return { live: true, roomName: row.liveRoomName, startedAt: row.liveStartedAt, startedByName: starter?.name || 'Someone' };
-}
-
-// Anyone who can edit the project can start (or stop) a broadcast — same
-// bar as everything else that changes shared state, not just the owner.
-function startLiveSession(userId, projectId) {
-  projectId = topLevelProjectId(projectId);
-  assertCanEditProject(userId, projectId);
-  const roomName = 'waypoint-' + uuid();
-  const startedAt = new Date().toISOString();
-  db.prepare('UPDATE projects SET liveRoomName = ?, liveStartedAt = ?, liveStartedBy = ? WHERE id = ?').run(roomName, startedAt, userId, projectId);
-  return { live: true, roomName, startedAt, startedByName: getProfile(userId).name };
-}
-
-function endLiveSession(userId, projectId) {
-  projectId = topLevelProjectId(projectId);
-  assertCanEditProject(userId, projectId);
-  db.prepare('UPDATE projects SET liveRoomName = NULL, liveStartedAt = NULL, liveStartedBy = NULL WHERE id = ?').run(projectId);
-  return { live: false };
-}
-
-// ── PROJECT STATUS (WhatsApp-style, expires after 24h) ─────────────
-const STATUS_LIFETIME_MS = 24 * 60 * 60 * 1000;
-
-function purgeExpiredStatuses(projectId) {
-  db.prepare('DELETE FROM project_statuses WHERE projectId = ? AND expiresAt < ?').run(projectId, new Date().toISOString());
-}
-
-// Grouped by author (like WhatsApp's status tray) — oldest first within
-// each author so the viewer can step forward through their story in the
-// order it was posted, authors ordered by their most recent update.
-function listActiveStatuses(userId, projectId) {
-  projectId = topLevelProjectId(projectId);
-  if (!canAccessProject(userId, projectId)) return null;
-  purgeExpiredStatuses(projectId);
-  const rows = db.prepare(`
-    SELECT ps.id, ps.userId, ps.text, ps.createdAt, ps.expiresAt, p.name AS authorName, ${ATTACHMENT_COLUMNS}
-    FROM project_statuses ps
-    JOIN profile p ON p.userId = ps.userId
-    LEFT JOIN attachments a ON a.id = ps.attachmentId
-    WHERE ps.projectId = ? ORDER BY ps.createdAt ASC
-  `).all(projectId);
-
-  const byAuthor = new Map();
-  for (const row of rows) {
-    if (!byAuthor.has(row.userId)) byAuthor.set(row.userId, { userId: row.userId, authorName: row.authorName, statuses: [] });
-    byAuthor.get(row.userId).statuses.push(row);
-  }
-  return [...byAuthor.values()].sort((a, b) => {
-    const aLatest = a.statuses[a.statuses.length - 1].createdAt;
-    const bLatest = b.statuses[b.statuses.length - 1].createdAt;
-    return bLatest.localeCompare(aLatest);
-  });
-}
-
-function addStatus(userId, projectId, text, attachmentId = null) {
-  projectId = topLevelProjectId(projectId);
-  assertCanComment(userId, projectId);
-  const clean = String(text || '').trim();
-  if (!clean && !attachmentId) throw new Error('A status needs text or a photo/video');
-  assertAttachmentBelongsToProject(attachmentId, projectId);
-  const now = new Date();
-  const status = {
-    id: uuid(), projectId, userId, text: clean, attachmentId: attachmentId || null,
-    createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + STATUS_LIFETIME_MS).toISOString(),
-  };
-  db.prepare('INSERT INTO project_statuses (id, projectId, userId, text, attachmentId, createdAt, expiresAt) VALUES (?,?,?,?,?,?,?)')
-    .run(status.id, status.projectId, status.userId, status.text, status.attachmentId, status.createdAt, status.expiresAt);
-  const attachment = attachmentId ? getAttachmentById(attachmentId) : null;
-  return { ...status, authorName: getProfile(userId).name, attachmentName: attachment?.originalName, attachmentMimetype: attachment?.mimetype, attachmentSize: attachment?.size };
-}
-
-// The status's own author, or the project owner, can remove it early —
-// same moderation boundary as chat messages and comments.
-function deleteStatus(userId, statusId) {
-  const status = db.prepare('SELECT * FROM project_statuses WHERE id = ?').get(statusId);
-  if (!status) return false;
-  const authorized = status.userId === userId || isProjectOwner(userId, status.projectId);
-  if (!authorized) return false;
-  db.prepare('DELETE FROM project_statuses WHERE id = ?').run(statusId);
-  return true;
-}
-
 // ── TRASH ────────────────────────────────────────────────────────
 // Soft-deleted projects/tasks older than this are purged for good — swept
 // lazily on every listTrash() call rather than a separate cron job.
@@ -2103,8 +2001,6 @@ module.exports = {
   listComments, addComment, deleteComment,
   listStatusUpdates, addStatusUpdate, deleteStatusUpdate,
   listChatPreviews, listProjectMessages, addProjectMessage, deleteProjectMessage,
-  getLiveStatus, startLiveSession, endLiveSession,
-  listActiveStatuses, addStatus, deleteStatus,
   getNotifications, markNotificationsRead,
   createAttachment, getAttachmentById,
   listTrash, restoreProject, restoreTask, purgeProjectForever, purgeTaskForever, purgeAllTrash,
