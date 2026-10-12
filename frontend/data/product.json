@@ -8,46 +8,22 @@
       "line": "Dribble past rival players and score at the goal."
     },
     {
-      "id": "castle",
-      "emoji": "🏰",
-      "name": "Castle",
-      "line": "A knight swings at giant frogs and black knights on the way to the dragon."
-    },
-    {
-      "id": "ocean",
-      "emoji": "🌊",
-      "name": "Ocean",
-      "line": "Dive past sharks and jellyfish swarms to the treasure."
-    },
-    {
       "id": "space",
       "emoji": "🚀",
       "name": "Space",
       "line": "Fly up beside asteroids and alien saucers and blast them."
     },
     {
-      "id": "corporate",
-      "emoji": "🏢",
-      "name": "Corporate",
-      "line": "Stamp red tape APPROVED on the road to the boardroom."
+      "id": "castle",
+      "emoji": "🏰",
+      "name": "Castle",
+      "line": "A knight swings at giant frogs and black knights on the way to the dragon."
     },
     {
       "id": "construction",
       "emoji": "🏗️",
       "name": "Construction",
       "line": "Watch the building go up phase by phase as tasks are done."
-    },
-    {
-      "id": "life",
-      "emoji": "🌱",
-      "name": "Life Path",
-      "line": "Grow up from a kid to a grown-up on the road to your dream home."
-    },
-    {
-      "id": "launch",
-      "emoji": "💡",
-      "name": "Product Launch",
-      "line": "Take an idea to a launch stage full of happy customers."
     }
   ],
   "whatsNew": [

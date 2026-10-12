@@ -1327,35 +1327,15 @@
       --quest-text: #cdeeff; --quest-text-done: #4a5a7a; --quest-date: #6ea3c9; --quest-hover: rgba(125,211,252,.08);
       --quest-accent: #7dd3fc;
     }
-    .journey-quest-panel.theme-ocean, .journey-quest-panel.theme-ocean3d {
-      --quest-bg1: #0e4057; --quest-bg2: #082638; --quest-divider: rgba(255,255,255,.14);
-      --quest-text: #e3f8ff; --quest-text-done: #5f93a8; --quest-date: #8fc7dd; --quest-hover: rgba(255,255,255,.08);
-      --quest-accent: #67e8f9;
-    }
     .journey-quest-panel.theme-football, .journey-quest-panel.theme-football3d {
       --quest-bg1: #1a5c33; --quest-bg2: #0c3019; --quest-divider: rgba(255,255,255,.18);
       --quest-text: #eafff0; --quest-text-done: #5f9a76; --quest-date: #9fd9b4; --quest-hover: rgba(255,255,255,.1);
       --quest-accent: #fde047;
     }
-    .journey-quest-panel.theme-corporate, .journey-quest-panel.theme-corporate3d {
-      --quest-bg1: #1e293b; --quest-bg2: #0f172a; --quest-divider: rgba(148,163,184,.28);
-      --quest-text: #f1f5f9; --quest-text-done: #64748b; --quest-date: #94a3b8; --quest-hover: rgba(148,163,184,.1);
-      --quest-accent: #fbbf24;
-    }
     .journey-quest-panel.theme-construction, .journey-quest-panel.theme-construction3d {
       --quest-bg1: #3b2a1a; --quest-bg2: #1f160d; --quest-divider: rgba(250,204,21,.28);
       --quest-text: #fef3c7; --quest-text-done: #8a7a5c; --quest-date: #d6b98a; --quest-hover: rgba(250,204,21,.1);
       --quest-accent: #facc15;
-    }
-    .journey-quest-panel.theme-life, .journey-quest-panel.theme-life3d {
-      --quest-bg1: #3b2563; --quest-bg2: #241640; --quest-divider: rgba(244,114,182,.3);
-      --quest-text: #fdf4ff; --quest-text-done: #9d8bb8; --quest-date: #e9c6f2; --quest-hover: rgba(244,114,182,.1);
-      --quest-accent: #f9a8d4;
-    }
-    .journey-quest-panel.theme-launch, .journey-quest-panel.theme-launch3d {
-      --quest-bg1: #2e1065; --quest-bg2: #1a0b3d; --quest-divider: rgba(236,72,153,.3);
-      --quest-text: #faf5ff; --quest-text-done: #9a86c4; --quest-date: #d8b4fe; --quest-hover: rgba(236,72,153,.12);
-      --quest-accent: #f472b6;
     }
     .journey-quest-panel.theme-castle, .journey-quest-panel.theme-castle3d {
       --quest-bg1: #1c2547; --quest-bg2: #0d1326; --quest-divider: rgba(231,180,67,.28);
@@ -1464,18 +1444,6 @@
       8% { opacity: .9; } 35% { opacity: 0; }
       100% { transform: translateX(30px) rotate(18deg); opacity: 0; }
     }
-    /* Ocean theme ambient life (frontend/js/journeyGame.js' oceanDecorate)
-       — schooling fish and a patrolling shark drift sideways, bubbles
-       rise and fade, and seaweed sways from its base, so the scene
-       reads as a living reef rather than a static backdrop. */
-    .journey-fish-swim  { animation: journey-fish-swim 7s ease-in-out infinite; }
-    .journey-shark-swim { animation: journey-shark-swim 13s ease-in-out infinite; }
-    .journey-bubble-rise { animation: journey-bubble-rise 5s ease-in infinite; transform-box: fill-box; transform-origin: center; }
-    .journey-seaweed { animation: journey-seaweed-sway 3.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
-    @keyframes journey-fish-swim { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(22px); } }
-    @keyframes journey-shark-swim { 0%, 100% { transform: translateX(0) scaleX(1); } 48% { transform: translateX(60px) scaleX(1); } 50% { transform: translateX(60px) scaleX(-1); } 98% { transform: translateX(0) scaleX(-1); } 100% { transform: translateX(0) scaleX(1); } }
-    @keyframes journey-bubble-rise { 0% { transform: translateY(0); opacity: .5; } 90% { opacity: .5; } 100% { transform: translateY(-70px); opacity: 0; } }
-    @keyframes journey-seaweed-sway { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
     /* Space theme ambient life — stars twinkle, a comet streaks across
        on a long loop, and loose asteroid chunks tumble slowly. */
     .journey-star-twinkle { animation: journey-twinkle 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
@@ -1633,27 +1601,6 @@
     .journey-rainbow { transform-box: fill-box; transform-origin: center bottom; }
     .journey-quest-done .journey-rainbow { animation: journey-rainbow 1.2s ease-out 1 both; }
     @keyframes journey-rainbow { from { transform: scale(.2); } to { transform: scale(1); } }
-    .journey-life-star { transform-box: fill-box; transform-origin: center; }
-    .journey-quest-done .journey-life-star path { animation: journey-star-spin 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-    @keyframes journey-star-spin { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.25); } }
-    .journey-theme-life .journey-foes-defeated .journey-foe { animation: journey-foe-solve .7s ease-out 1 forwards; }
-    @keyframes journey-foe-solve { 0% { transform: translateY(0) scale(1); opacity: 1; filter: none; } 40% { transform: translateY(-4px) scale(1.15); opacity: 1; filter: brightness(1.8); } 100% { transform: translateY(-22px) scale(.3); opacity: 0; filter: brightness(2.2); } }
-    /* Product Launch: the review stars light up with progress, the crowd
-       cheers and the product rockets off the stage at the finish, and
-       blockers are "fixed" (they float up in a sparkle). */
-    .journey-review-star { transition: fill .6s; }
-    .journey-review-star.is-lit { fill: #fbbf24; }
-    .journey-crowd { opacity: 0; transition: opacity .8s; }
-    .journey-quest-done .journey-crowd { opacity: 1; }
-    .journey-quest-done .journey-crowd-jump { animation: journey-crowd-jump .5s ease-in-out infinite alternate; }
-    @keyframes journey-crowd-jump { from { transform: translateY(0); } to { transform: translateY(-4px); } }
-    .journey-rocket-flame { opacity: 0; }
-    .journey-rocket-go { animation: journey-rocket-go 2.6s ease-in 1 both; }
-    .journey-rocket-go .journey-rocket-flame { opacity: 1; }
-    @keyframes journey-rocket-go { 0% { transform: translateY(0); } 15% { transform: translateY(2px); } 70% { transform: translateY(-120px); opacity: 1; } 71% { opacity: 0; transform: translateY(-120px); } 72% { transform: translateY(0); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
-    .journey-spot { transform-box: fill-box; transform-origin: center top; animation: journey-spot 4s ease-in-out infinite alternate; }
-    @keyframes journey-spot { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
-    .journey-theme-launch .journey-foes-defeated .journey-foe { animation: journey-foe-solve .7s ease-out 1 forwards; }
     .journey-deal-anim { animation: journey-deal-pop .8s cubic-bezier(.3,1.6,.5,1) 1 both; }
     @keyframes journey-deal-pop { from { opacity: 0; transform: scale(.2) rotate(-12deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
     @keyframes journey-firework { 0% { opacity: 1; transform: scale(.2); } 70% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
@@ -1688,7 +1635,7 @@
       .journey-avatar-bob, .journey-next-glow, .journey-blocked-glow,
       .journey-leg-front, .journey-leg-back, .journey-arm-front, .journey-arm-back, .journey-cape,
       .journey-ring-spin, .journey-ring-spin-rev, .journey-shine,
-      .journey-fish-swim, .journey-shark-swim, .journey-bubble-rise, .journey-seaweed,
+      
       .journey-star-twinkle, .journey-comet, .journey-asteroid,
       .journey-crowd-bob, .journey-flag-wave, .journey-speedline,
       .journey-sparkle, .journey-checkpoint-pop,
@@ -1696,8 +1643,8 @@
       .journey-task-popup-inner,
       .journey-flame, .journey-river-flow, .journey-frog-sac, .journey-dragon-breathe, .journey-dragon-wing,
       .journey-dragon-fire, .journey-dragon-hit, .journey-dragon-fall, .journey-slash .journey-arm-front,
-      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise, .journey-hq-beacon, .journey-deal-anim, .journey-topping, .journey-rainbow, .journey-life-star path, .journey-crowd-jump, .journey-rocket-go, .journey-spot,
-      .journey-foe, .journey-foes-defeated .journey-foe, .journey-theme-life .journey-foes-defeated .journey-foe, .journey-theme-launch .journey-foes-defeated .journey-foe { animation: none; }
+      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise, .journey-topping,
+      .journey-foe, .journey-foes-defeated .journey-foe { animation: none; }
       .journey-portcullis, .journey-princess-free { transition: none; }
     }
 
@@ -2832,18 +2779,10 @@
               <option value="schedule"> The Schedule</option>
             </select>
             <select id="journey-theme-select" onchange="setJourneyTheme(this.value)" title="Pick the Journey stage (2D or 3D is chosen with the toggle beside it)" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
-              <optgroup label="Sport &amp; adventure">
-                <option value="football"> Football</option>
-                <option value="castle"> Castle</option>
-                <option value="ocean"> Ocean</option>
-                <option value="space"> Space</option>
-              </optgroup>
-              <optgroup label="Work &amp; life">
-                <option value="corporate"> Corporate</option>
-                <option value="construction"> Construction</option>
-                <option value="life"> Life Path</option>
-                <option value="launch"> Product Launch</option>
-              </optgroup>
+              <option value="football"> Football</option>
+              <option value="space"> Space</option>
+              <option value="castle"> Castle</option>
+              <option value="construction"> Construction</option>
             </select>
             <div id="journey-view-bar" class="journey-view-bar hidden" role="group" aria-label="View"></div>
             <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started and untick its cleared blockers" aria-label="Reset">↺<span class="hidden sm:inline"> Reset</span></button>
