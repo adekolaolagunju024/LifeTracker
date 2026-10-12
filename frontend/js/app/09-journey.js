@@ -1026,6 +1026,7 @@ function updateJourneyLevelBadge(g) {
 }
 
 async function openJourneyTrophyCase() {
+  API.trackFeature('trophies');
   openModal('modal-journey-trophy');
   try {
     const g = await API.getJourneyGaming();

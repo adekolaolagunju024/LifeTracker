@@ -121,6 +121,7 @@ function buildMetrics(now = Date.now()) {
     weeks,
     funnel,
     cohorts,
+    features: require('./features').usage(iso(now - 30 * DAY), activeUsers(now - 30 * DAY)),
     engagement: {
       goals7: count("SELECT COUNT(*) AS n FROM projects WHERE parentId IS NULL AND createdAt >= ?", sinceWeek),
       tasksDone7: weeks[weeks.length - 1].tasksDone,

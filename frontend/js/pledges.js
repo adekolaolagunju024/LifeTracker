@@ -60,6 +60,7 @@ const Rewards = (() => {
 
   // ── Invite: the goal's private pledge link ──
   async function openInvite() {
+    API.trackFeature('pledges');
     if (!state) return;
     let link = state.link;
     if (!link) {
@@ -98,6 +99,7 @@ const Rewards = (() => {
 
   // ── Add one promised in person ──
   function openAdd() {
+    API.trackFeature('pledges');
     if (!state) return;
     const cur = state.currency || 'GBP';
     sheet(`<div class="dayplan-head"><div><p class="dayplan-kicker">Rewards</p><h3 id="sheet-title">Add a promised reward</h3>

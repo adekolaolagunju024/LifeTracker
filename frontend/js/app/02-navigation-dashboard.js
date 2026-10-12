@@ -18,6 +18,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
   }
 
   APP.currentPage      = id;
+  if (id === 'actions' || id === 'calendar') API.trackFeature(id);
   // The dashboard and Actions already say what's late, so the banner never
   // shows there, and once you've seen either it stays away for the day.
   if (id === 'dashboard' || id === 'actions') {

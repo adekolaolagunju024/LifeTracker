@@ -123,6 +123,7 @@ const Why = (() => {
   const TABS = [['you', 'heart', 'About you'], ['mentor', 'user', 'Mentor'], ['quotes', 'book', 'Quotes'], ['music', 'music', 'Music'], ['reminders', 'bell', 'Reminders']];
   let tab = (() => { try { return localStorage.getItem('wp-why-tab') || 'you'; } catch { return 'you'; } })();
   async function renderPage() {
+    API.trackFeature('why');
     const body = document.getElementById('why-body');
     body.innerHTML = '<p class="text-sm text-gray-400 py-10 text-center">Loading…</p>';
     try { await load(true); } catch (e) { body.innerHTML = `<p class="text-sm text-red-500">${esc(e.message || 'Could not load')}</p>`; return; }
@@ -202,6 +203,7 @@ const Why = (() => {
     log.scrollTop = log.scrollHeight;
   }
   async function interviewSend() {
+    API.trackFeature('why_coach');
     const input = document.getElementById('why-chat-in');
     const text = input.value.trim();
     if (!text || interview.busy) return;
@@ -470,6 +472,7 @@ const Why = (() => {
         const r = await API.searchMusic(q.trim());
         if (seq !== searchSeq) return;
         lastResults = r.results || [];
+        API.trackFeature('music_search');
         paintResults(r.provider);
       } catch { if (seq === searchSeq) box.innerHTML = '<p class="msearch-note">Search isn\'t available right now. Paste a link instead.</p>'; }
     }, 350);
@@ -628,6 +631,7 @@ const Music = (() => {
 
   // Plays queue[index] in the dock; links we can't embed open in a tab.
   function start(list, index = 0) {
+    API.trackFeature('music');
     queue = list.slice(); at = -1;
     go(index);
   }

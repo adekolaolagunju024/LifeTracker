@@ -642,6 +642,7 @@ const KANBAN_COLUMN_COLOR = { 'Not Started': '#6B7280', 'In Progress': '#C0642A'
 // applyGanttPageView is enough there — calling the heavier renderGantt
 // would just redraw Timeline/Kanban pointlessly while they're hidden.
 function setGanttPageView(mode) {
+  API.trackFeature(mode === 'journey' ? 'journey' : 'planner');
   setTimeout(() => syncBottomNav(APP.currentPage || 'gantt'), 0);
   try { localStorage.setItem('ganttPageView', mode); } catch { /* private mode etc */ }
   if (mode === 'journey') applyGanttPageView(mode);

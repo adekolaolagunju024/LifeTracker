@@ -37,6 +37,12 @@ const API = {
   getProfile:    ()        => request('GET',    '/profile'),
   updateProfile: (data)    => request('PUT',    '/profile', data),
   getMotivation: ()        => request('GET',    '/motivation'),
+  // Which features get used (backend/features.js): once a day each, quietly.
+  trackFeature: (feature) => {
+    const key = `wp-used:${feature}:${new Date().toISOString().slice(0, 10)}`;
+    try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch { /* private mode */ }
+    request('POST', '/admin/feature', { feature }).catch(() => {});
+  },
   // reward pledges (backend/routes/pledges.js)
   getPledges:     (projectId)  => request('GET',    `/pledges?projectId=${encodeURIComponent(projectId)}`),
   getPledgeSummary: ()         => request('GET',    '/pledges/summary'),

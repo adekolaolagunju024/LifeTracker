@@ -113,6 +113,7 @@ function closeWeeklyRecap() {
 }
 
 async function openWeeklyRecap() {
+  API.trackFeature('recap');
   closeWeeklyRecap();
   let data;
   try { data = await buildWeeklyRecap(); } catch (e) { showToast('❌ ' + (e.message || 'Could not build your week'), 'error'); return; }

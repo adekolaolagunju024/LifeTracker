@@ -220,6 +220,7 @@ const Reminders = (() => {
   }
 
   async function openSheet(taskId, title) {
+    API.trackFeature('reminder');
     let taskTitle = title;
     if (!taskTitle) { try { taskTitle = (await API.getTask(taskId)).title; } catch { taskTitle = 'this task'; } }
     const existing = forTask(taskId);
