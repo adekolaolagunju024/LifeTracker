@@ -283,6 +283,14 @@ function renderGanttStats(tasks, project) {
     stat(streak ? `${icon('flame')} ${streak}` : '—', 'Day streak'),
     stat(`${emojiIcon(paceIcon)} ${paceValue}`, paceLabel),
   ].join('<div class="w-px self-stretch bg-gray-100"></div>');
+  wrap.insertAdjacentHTML('beforeend', `<button type="button" class="pkey-btn ml-auto" onclick="PlannerKey.toggle(plannerKeyView())" aria-controls="planner-key" aria-expanded="false" title="What the colours and marks mean">${icon('info')}Key</button>`);
+}
+
+// Which key the planner shows: the Gantt chart's or the board's.
+function plannerKeyView() {
+  let mode = 'timeline';
+  try { mode = localStorage.getItem('ganttPageView') || 'timeline'; } catch { /* private mode */ }
+  return mode === 'kanban' ? 'kanban' : 'gantt';
 }
 
 async function renderGantt() {
@@ -299,9 +307,6 @@ async function renderGantt() {
     loadGanttWrapText();
     loadGanttPrintColumns();
 
-    let legendOpen = false;
-    try { legendOpen = localStorage.getItem('ganttLegendOpen') === '1'; } catch { /* private mode etc */ }
-    document.getElementById('gantt-legend').classList.toggle('hidden', !legendOpen);
 
     document.querySelectorAll('.gantt-view-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === APP.ganttViewMode));
 
@@ -434,11 +439,6 @@ async function renderGantt() {
       .filter(d => d >= start && d <= end)
       .map(d => `<div class="project-start-line" style="left:${posPct(d)}%"></div>`)
       .join('');
-
-    document.getElementById('gantt-project-badges').innerHTML = projectsWithStart.map(p => `
-      <span class="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1 cursor-pointer" onclick="editProject('${p.id}')" title="Edit project">
-        ${icon('goal')} ${esc(p.title)} starts ${formatDateShort(p.startDate)}
-      </span>`).join('');
 
     // Group rows by the task's actual project (which may be a top-level
     // project or one of its sub-folders) — MS Project style: a summary bar
@@ -605,22 +605,9 @@ async function renderGantt() {
     requestAnimationFrame(drawGanttDependencies);
     requestAnimationFrame(scrollGanttToToday);
 
-    const groupLegend = groupProjectIds
-      .map(id => projectById[id])
-      .filter(Boolean)
-      .map(p => `<span class="flex items-center gap-1.5"><span class="inline-block w-2.5 h-2.5 rounded-sm" style="background:${p.color}"></span>${esc(p.title)}</span>`)
-      .join('');
-
-    document.getElementById('gantt-legend-content').innerHTML = `
-      <div class="flex gap-4 text-xs text-gray-500 flex-wrap mb-1.5">${groupLegend}</div>
-      <div class="flex gap-4 text-xs text-gray-500 flex-wrap">
-        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-2 rounded-sm border-2" style="border-color:${PRIORITY_BORDER.High}"></span>High priority</span>
-        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-2 rounded-sm border-2" style="border-color:${PRIORITY_BORDER.Medium}"></span>Medium</span>
-        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-2 rounded-sm border-2" style="border-color:${PRIORITY_BORDER.Low}"></span>Low</span>
-        <span class="flex items-center gap-1.5"><span class="inline-block w-2 h-2 bg-gray-400 rounded-sm" style="transform:rotate(45deg)"></span>Due date only</span>
-        <span class="flex items-center gap-1.5"><span class="inline-block w-3 h-1.5 rounded-sm bg-gray-700"></span>Folder summary</span>
-        <span class="flex items-center gap-1.5"><span class="inline-block w-0.5 h-3 bg-red-500 rounded"></span>Today</span>
-      </div>`;
+    // The key's colour swatches: the goals and phases on screen.
+    PlannerKey.setGoals(groupProjectIds.map(id => projectById[id]).filter(Boolean));
+    PlannerKey.paint(plannerKeyView());
 
     renderKanbanBoard(dateSourceTasks, projectById);
   } catch (e) { console.error('Gantt error:', e); }
@@ -667,6 +654,8 @@ function applyGanttPageView(mode) {
   // which renderGantt()'s own pass (always the caller, except for this
   // direct journey switch) works out right after this runs.
   document.getElementById('gantt-stats-strip').classList.toggle('hidden', mode === 'journey');
+  if (mode === 'journey') document.getElementById('planner-key').classList.add('hidden');
+  else if (window.PlannerKey) PlannerKey.paint(mode === 'kanban' ? 'kanban' : 'gantt');
   if (mode === 'journey') document.getElementById('gantt-reset-btn').classList.add('hidden');
   // Zoom level and Print/Export only make sense for the timeline.
   document.getElementById('gantt-view-toggle').classList.toggle('hidden', mode !== 'timeline');

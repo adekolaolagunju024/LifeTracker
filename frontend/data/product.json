@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-12",
+      "title": "A key for the planner, and a proper sign-in page",
+      "text": "Tap Key on the Gantt chart, the board or the calendar to see what every colour, line and badge means. Signing in now has its own page, with what Waypoint does beside the form."
+    },
+    {
+      "date": "2026-10-12",
       "title": "A morning that gets you going",
       "text": "Start my day now lays out today as a timetable with a time and a length for each task, asks what's in your way, offers a song, and shows today's quote for a moment before your first task starts. Set a wake-up time in Settings and a good-morning notification opens it for you. The dashboard is lighter too: just your plan and one button."
     },

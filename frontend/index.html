@@ -553,6 +553,59 @@
     .dark .dayplan-blockers li { background: rgba(185,28,28,.15); border-color: rgba(248,113,113,.3); color: #FCA5A5; }
     .dark .dayplan-blockers small { color: #F8B4B4; }
     .dark .dayplan-more button { border-color: #3A4A63; color: #C9D6E2; }
+    /* The planner key (js/plannerKey.js) */
+    .pkey-btn { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; font-size: 12px; font-weight: 700; color: #3B4552; background: #F1F3F5; border-radius: 9px; padding: 6px 10px; }
+    .pkey-btn:hover { background: #E5E8EC; color: #0D1B2A; }
+    .pkey-btn[aria-expanded="true"] { background: #0A7E8C; color: #fff; }
+    .pkey-btn .ic { width: 14px; height: 14px; }
+    .pkey { background: #fff; border: 1px solid #E3E6EA; border-radius: 14px; padding: 14px 16px 6px; }
+    .pkey-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .pkey-head p { font-size: 13px; font-weight: 800; color: #0D1B2A; }
+    .pkey-close { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #6B7280; }
+    .pkey-close:hover { background: #F1F3F5; color: #0D1B2A; }
+    .pkey-close .ic { width: 16px; height: 16px; }
+    .pkey-grid { columns: 230px; column-gap: 28px; }
+    .pkey-group { margin-bottom: 14px; break-inside: avoid; display: inline-block; width: 100%; }
+    .pkey-group h4 { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #8A93A0; margin-bottom: 6px; }
+    .pkey-group ul { display: grid; gap: 6px; list-style: none; padding: 0; margin: 0; }
+    .pkey-item { display: flex; align-items: flex-start; gap: 10px; }
+    .pkey-sample { width: 68px; min-height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #5B6472; }
+    .pkey-sample .ic { width: 15px; height: 15px; }
+    .pkey-text { min-width: 0; font-size: 12.5px; line-height: 1.35; color: #1F2A37; }
+    .pkey-text b { font-weight: 700; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pkey-text small { display: block; font-size: 11.5px; color: #6B7280; }
+    .pkey-bar { display: block; width: 40px; height: 14px; border-radius: 3px; border: 2px solid; box-sizing: border-box; }
+    .pkey-diamond { display: block; width: 11px; height: 11px; border-radius: 2px; transform: rotate(45deg); }
+    .pkey-summary { position: relative; display: block; width: 40px; height: 7px; border-radius: 2px; }
+    .pkey-summary::before, .pkey-summary::after { content: ''; position: absolute; top: 4px; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 6px solid var(--c); }
+    .pkey-summary::before { left: -4px; } .pkey-summary::after { right: -4px; }
+    .pkey-vline { display: block; width: 2px; height: 18px; border-radius: 1px; }
+    .pkey-vline.today { background: #EF4444; }
+    .pkey-vline.start { width: 0; border-left: 2px dashed #10B981; }
+    .pkey-arrow { width: 36px; height: 12px; }
+    .pkey-dot { display: block; width: 9px; height: 9px; border-radius: 50%; }
+    .pkey-badge { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; line-height: 16px; border-radius: 4px; padding: 0 4px; border: 1px solid; }
+    .pkey-badge .ic { width: 11px; height: 11px; }
+    .pkey-badge.red { color: #B91C1C; background: #FEF2F2; border-color: #FEE2E2; }
+    .pkey-badge.green { color: #15803D; background: #F0FDF4; border-color: #DCFCE7; }
+    .pkey-badge.amber { color: #B45309; background: #FFFBEB; border-color: #FEF3C7; }
+    .pkey-pill { display: inline-flex; align-items: center; gap: 2px; font-size: 9px; font-weight: 700; border-radius: 999px; padding: 2px 6px; white-space: nowrap; }
+    .pkey-pill .ic { width: 10px; height: 10px; }
+    .pkey-pill.ok { background: #DCFCE7; color: #15803D; }
+    .pkey-pill.late { background: #FEE2E2; color: #B91C1C; }
+    .pkey-chip { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; font-weight: 700; border-radius: 4px; padding: 1px 6px; }
+    .pkey-chip .ic { width: 10px; height: 10px; }
+    .pkey-chip.done { text-decoration: line-through; opacity: .5; }
+    .pkey-today { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: #0A7E8C; color: #fff; font-size: 11px; font-weight: 700; }
+    .pkey-dots { display: inline-flex; gap: 3px; } .pkey-dots i { width: 6px; height: 6px; border-radius: 50%; }
+    .pkey-due { font-size: 11px; font-weight: 700; color: #5B6472; } .pkey-due.late { color: #DC2626; }
+    .pkey-prio i { display: block; width: 9px; height: 9px; border-radius: 50%; }
+    .dark .pkey { background: #111A2B; border-color: #24324A; }
+    .dark .pkey-head p, .dark .pkey-text { color: #E8EEF5; }
+    .dark .pkey-text small, .dark .pkey-group h4 { color: #94A3B8; }
+    .dark .pkey-btn { background: #1A2436; color: #C9D6E2; }
+    .dark .pkey-btn[aria-expanded="true"] { background: #0A7E8C; color: #fff; }
+    @media print { .pkey, .pkey-btn { display: none !important; } }
     .dark .dayplan { background: #111A2B; color: #E8EEF5; }
     .dark .dayplan-sub, .dark .dayplan-m, .dark .dayplan-when { color: #94A3B8; }
     .dark .dayplan-row { border-color: #24324A; }
@@ -1024,6 +1077,40 @@
     .modal-overlay.open { display: flex; }
     .onboarding-overlay { display: none; }
     .onboarding-overlay.open { display: flex; }
+    /* Sign in: a page of its own (brand panel + form) */
+    .auth-overlay { background: #F4F5F7; }
+    .auth-shell { min-height: 100%; display: grid; grid-template-columns: 1fr; align-content: start; }
+    .auth-brand { position: relative; overflow: hidden; color: #fff; background: radial-gradient(120% 90% at 0% 0%, #0A7E8C 0%, #0D1B2A 62%); padding: 22px 20px 26px; display: flex; flex-direction: column; gap: 18px; }
+    .auth-logo { display: inline-flex; align-items: center; gap: 10px; color: #fff; font-size: 20px; font-weight: 800; letter-spacing: -.01em; text-decoration: none; }
+    .auth-logo img { border-radius: 10px; }
+    .auth-logo b { color: #5EEAD4; font-weight: 800; }
+    .auth-headline { font-size: 24px; line-height: 1.15; font-weight: 900; letter-spacing: -.02em; max-width: 20ch; }
+    .auth-points, .auth-shot, .auth-foot { display: none; }
+    .auth-main { display: flex; flex-direction: column; align-items: center; padding: 24px 16px 32px; }
+    .auth-card { width: 100%; max-width: 400px; background: #fff; border: 1px solid #E3E6EA; border-radius: 20px; padding: 26px 22px; box-shadow: 0 20px 50px -24px rgba(13,27,42,.25); }
+    .auth-title { font-size: 24px; font-weight: 900; letter-spacing: -.02em; color: #0D1B2A; }
+    .auth-sub { font-size: 14px; color: #5B6472; margin: 4px 0 20px; }
+    .auth-card input[type="email"], .auth-card input[type="password"], .auth-card input[type="text"] { padding-top: 10px; padding-bottom: 10px; font-size: 15px; border-radius: 10px; }
+    .auth-card button[type="submit"] { padding-top: 11px; padding-bottom: 11px; font-size: 15px; border-radius: 10px; }
+    .auth-legal { margin-top: 16px; font-size: 12px; color: #8A93A0; }
+    .auth-legal a { color: inherit; } .auth-legal a:hover { color: #0A7E8C; }
+    @media (min-width: 1024px) {
+      .auth-shell { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); min-height: 100vh; align-content: stretch; }
+      .auth-brand { padding: 36px 48px; gap: 0; }
+      .auth-pitch { margin-top: auto; padding-top: 40px; }
+      .auth-headline { font-size: 40px; max-width: 16ch; }
+      .auth-points { display: grid; gap: 14px; margin-top: 26px; list-style: none; padding: 0; }
+      .auth-points li { display: flex; align-items: center; gap: 12px; font-size: 16px; color: rgba(255,255,255,.9); }
+      .auth-points .ic { width: 20px; height: 20px; color: #5EEAD4; flex-shrink: 0; }
+      .auth-shot { display: block; margin: 34px -48px 0 0; border-radius: 16px 0 0 16px; overflow: hidden; border: 1px solid rgba(255,255,255,.18); border-right: 0; box-shadow: 0 30px 70px -20px rgba(0,0,0,.5); }
+      .auth-shot img { display: block; width: 100%; height: auto; }
+      .auth-foot { display: block; margin-top: 22px; font-size: 13px; color: rgba(255,255,255,.6); }
+      .auth-main { justify-content: center; padding: 40px; }
+      .auth-card { padding: 34px 32px; }
+    }
+    .dark .auth-overlay { background: #0B1220; }
+    .dark .auth-card { background: #111A2B; border-color: #24324A; }
+    .dark .auth-title { color: #E8EEF5; } .dark .auth-sub { color: #94A3B8; }
     .auth-overlay { display: none; }
     .auth-overlay.open { display: flex; }
     .auth-view { display: none; }
@@ -2074,31 +2161,31 @@
 <body class="font-sans text-gray-900 min-h-screen">
 
 <!-- ═══ AUTH GATE ═══ -->
-<div class="auth-overlay fixed inset-0 z-[60] items-center justify-center p-5 overflow-hidden" id="auth-overlay">
-  <!-- HD video background -->
-  <!-- The HD video is only fetched on larger screens, and never with
-       "reduce motion" or Data Saver on: on a phone it was megabytes of
-       download before anyone could sign in. The still poster shows instead. -->
-  <video muted loop playsinline preload="none" id="auth-bg-video" class="absolute inset-0 w-full h-full object-cover" poster="https://images.pexels.com/videos/5809540/pexels-photo-5809540.jpeg"
-    data-src="https://videos.pexels.com/video-files/5809540/5809540-hd_1920_1080_30fps.mp4"></video>
-  <script>
-    (function () {
-      var v = document.getElementById('auth-bg-video');
-      var mq = function (q) { return window.matchMedia && window.matchMedia(q).matches; };
-      var saveData = navigator.connection && navigator.connection.saveData;
-      if (!v || saveData || mq('(prefers-reduced-motion: reduce)') || !mq('(min-width: 1024px)')) return;
-      v.src = v.dataset.src;
-      v.play().catch(function () {});
-    })();
-  </script>
-  <div class="absolute inset-0" style="background:linear-gradient(160deg, rgba(13,27,42,.88), rgba(10,126,140,.55))"></div>
+<!-- A page of its own: what Waypoint is on one side (on a phone, a short
+     header), the form on the other. Nothing of the app shows behind it. -->
+<div class="auth-overlay fixed inset-0 z-[60] overflow-y-auto" id="auth-overlay">
+  <div class="auth-shell">
+  <aside class="auth-brand">
+    <a href="/" class="auth-logo" aria-label="Waypoint home"><img src="/icons/icon-192.png" alt="" width="36" height="36"><span>Way<b>point</b></span></a>
+    <div class="auth-pitch">
+      <p class="auth-headline">Turn a goal into a plan you'll actually finish.</p>
+      <ul class="auth-points">
+        <li><span data-icon="sparkles"></span>Tell it your goal and get a phased plan with dates</li>
+        <li><span data-icon="sun"></span>Each morning, today as a timetable you can follow</li>
+        <li><span data-icon="gift"></span>Rewards from the people who believe in you</li>
+      </ul>
+    </div>
+    <figure class="auth-shot"><img src="/showcase/planner.webp" alt="The Planner showing a real plan as a timeline" width="1280" height="800" loading="lazy"></figure>
+    <p class="auth-foot">Free to start · Works on any phone or computer</p>
+  </aside>
 
-  <div class="relative bg-white/70 backdrop-blur-2xl rounded-2xl w-full max-w-sm shadow-2xl p-8" style="border:1px solid rgba(255,255,255,.4)">
-    <h1 class="text-xl font-black text-navy mb-1">Waypoint</h1>
+  <main class="auth-main">
+  <div class="auth-card">
 
     <!-- LOGIN -->
     <div class="auth-view active" id="auth-view-login">
-      <p class="text-gray-500 text-sm mb-5">Log in to continue.</p>
+      <h1 class="auth-title">Welcome back</h1>
+      <p class="auth-sub">Log in to pick up where you left off.</p>
 
       <div id="google-login-btn">
         <button type="button" onclick="startGoogleLogin()" id="google-login-only"
@@ -2120,12 +2207,12 @@
 
       <form onsubmit="return handleAuthLoginSubmit(event)">
         <div class="mb-3">
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Email</label>
+          <label for="auth-login-email" class="block text-xs font-semibold text-gray-600 mb-1">Email</label>
           <input type="email" id="auth-login-email" placeholder="you@example.com" autocomplete="username"
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         </div>
         <div class="mb-3">
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Password</label>
+          <label for="auth-login-password" class="block text-xs font-semibold text-gray-600 mb-1">Password</label>
           <input type="password" id="auth-login-password" placeholder="Password" autocomplete="current-password"
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         </div>
@@ -2144,10 +2231,11 @@
 
     <!-- FORGOT PASSWORD -->
     <div class="auth-view" id="auth-view-forgot">
-      <p class="text-gray-500 text-sm mb-5">Enter your email and we'll generate a reset link.</p>
+      <h1 class="auth-title">Reset your password</h1>
+      <p class="auth-sub">Enter your email and we'll send you a link to reset it.</p>
       <form onsubmit="return handleAuthForgotSubmit(event)">
         <div class="mb-4">
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Email</label>
+          <label for="auth-forgot-email" class="block text-xs font-semibold text-gray-600 mb-1">Email</label>
           <input type="email" id="auth-forgot-email" placeholder="you@example.com" autocomplete="username"
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         </div>
@@ -2160,7 +2248,8 @@
     <!-- RESET PASSWORD -->
     <!-- Two-step sign-in: the code from the authenticator app -->
     <div class="auth-view" id="auth-view-2fa">
-      <p class="text-gray-600 text-sm mb-5">Enter the 6-digit code from your authenticator app.</p>
+      <h1 class="auth-title">Two-step sign-in</h1>
+      <p class="auth-sub">Enter the 6-digit code from your authenticator app.</p>
       <form onsubmit="return handleAuth2faSubmit(event)">
         <div class="mb-4">
           <label for="auth-2fa-code" class="block text-xs font-semibold text-gray-600 mb-1">Code</label>
@@ -2175,15 +2264,16 @@
     </div>
 
     <div class="auth-view" id="auth-view-reset">
-      <p class="text-gray-500 text-sm mb-5">Choose a new password.</p>
+      <h1 class="auth-title">Choose a new password</h1>
+      <p class="auth-sub">At least 8 characters.</p>
       <form onsubmit="return handleAuthResetSubmit(event)">
         <div class="mb-3">
-          <label class="block text-xs font-semibold text-gray-600 mb-1">New Password</label>
+          <label for="auth-reset-password" class="block text-xs font-semibold text-gray-600 mb-1">New Password</label>
           <input type="password" id="auth-reset-password" placeholder="At least 8 characters" minlength="8" autocomplete="new-password"
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         </div>
         <div class="mb-4">
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Confirm New Password</label>
+          <label for="auth-reset-confirm" class="block text-xs font-semibold text-gray-600 mb-1">Confirm New Password</label>
           <input type="password" id="auth-reset-confirm" placeholder="Repeat password" autocomplete="new-password"
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         </div>
@@ -2195,7 +2285,8 @@
 
     <!-- REGISTER -->
     <div class="auth-view" id="auth-view-register">
-      <p class="text-gray-500 text-sm mb-5">Create an account to get started.</p>
+      <h1 class="auth-title">Create your account</h1>
+      <p class="auth-sub">Free to start. Your first plan takes about a minute.</p>
 
       <div id="google-register-btn">
         <button type="button" onclick="startGoogleLogin()" id="google-register-only"
@@ -2218,17 +2309,17 @@
 
       <form onsubmit="return handleAuthRegisterSubmit(event)">
         <div class="mb-3">
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Email</label>
+          <label for="auth-register-email" class="block text-xs font-semibold text-gray-600 mb-1">Email</label>
           <input type="email" id="auth-register-email" placeholder="you@example.com" autocomplete="username"
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         </div>
         <div class="mb-3">
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Password</label>
+          <label for="auth-register-password" class="block text-xs font-semibold text-gray-600 mb-1">Password</label>
           <input type="password" id="auth-register-password" placeholder="At least 8 characters" minlength="8" autocomplete="new-password"
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         </div>
         <div class="mb-4">
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Confirm Password</label>
+          <label for="auth-register-confirm" class="block text-xs font-semibold text-gray-600 mb-1">Confirm Password</label>
           <input type="password" id="auth-register-confirm" placeholder="Repeat password" autocomplete="new-password"
             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         </div>
@@ -2241,6 +2332,9 @@
       </form>
       <p class="text-xs text-gray-400 mt-4 text-center">Already have an account? <button onclick="showAuthView('login')" class="text-teal font-semibold hover:underline">Log in</button></p>
     </div>
+  </div>
+  <p class="auth-legal"><a href="/terms.html" target="_blank" rel="noopener">Terms</a> · <a href="/privacy.html" target="_blank" rel="noopener">Privacy</a></p>
+  </main>
   </div>
 </div>
 
@@ -2730,13 +2824,12 @@
               <div class="border-t border-gray-100 my-2"></div>
               <!-- Print/PDF works for whichever view (Timeline or Kanban) is
                    currently on screen, so it stays available in both — only
-                   the Legend (Timeline-only content), Export Image (doesn't
+                   Export Image (doesn't
                    know about Kanban yet), and the frozen-column toggles
                    below (Kanban has no such columns at all) are
                    Timeline-only. -->
               <button onclick="closeGanttFieldsMenu(); printGanttChart()" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded"><span class="ei" data-icon="printer"></span> Print / PDF</button>
               <div id="gantt-export-actions">
-                <button onclick="toggleGanttLegend()" id="gantt-legend-btn" class="w-full flex items-center gap-2 px-1 py-1.5 text-sm text-gray-700 hover:bg-gray-50 text-left rounded">ⓘ Toggle Legend</button>
                 <!-- Which frozen table columns actually appear in Print/PDF —
                      Task/Project always prints (it's the point of the page);
                      these four are optional so a printout can drop whichever
@@ -2763,17 +2856,11 @@
            showing a second, visually mismatched copy (see
            applyGanttPageView() in app.js). -->
       <div class="flex items-center gap-3 sm:gap-5 justify-between sm:justify-start bg-white rounded-xl border border-gray-200 px-4 py-2.5 mb-4" id="gantt-stats-strip"></div>
+      <!-- The key: what every mark on the chart or board means (js/plannerKey.js) -->
+      <div class="pkey hidden mb-4" id="planner-key" role="region" aria-label="Key"></div>
 
       <!-- ═══ TIMELINE (Gantt) VIEW ═══ -->
       <div id="gantt-timeline-view">
-      <!-- Project-start badges and the color/priority legend are
-           reference info, not controls — collapsed by default so they
-           don't compete with the chart itself; "ⓘ Legend" above expands
-           this. -->
-      <div class="hidden mb-3" id="gantt-legend">
-        <div class="flex flex-wrap gap-2 mb-2" id="gantt-project-badges"></div>
-        <div id="gantt-legend-content"></div>
-      </div>
       <p class="md:hidden text-[11px] text-gray-400 mb-2">↔ Swipe the chart to see the full timeline</p>
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" id="gantt-chart-card">
         <!-- Header: never scrolls vertically; its horizontal scrollLeft is kept
@@ -2936,8 +3023,10 @@
             <button onclick="setCalendarViewMode('year')" data-mode="year" class="calendar-view-btn flex-1 sm:flex-none px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Year</button>
           </div>
           <button onclick="goToCalendarToday()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Today</button>
+          <button type="button" class="pkey-btn" onclick="PlannerKey.toggle('calendar')" aria-controls="calendar-key" aria-expanded="false" title="What the colours and marks mean"><span data-icon="info"></span>Key</button>
         </div>
       </div>
+      <div class="pkey hidden mb-4" id="calendar-key" role="region" aria-label="Key"></div>
 
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="grid grid-cols-7 bg-gray-50 border-b border-gray-200" id="calendar-weekday-header">
@@ -4184,6 +4273,7 @@
 <script src="js/jarvis.js"></script>
 <script src="js/billing.js"></script>
 <script src="js/pledges.js"></script>
+<script src="js/plannerKey.js"></script>
 
 </body>
 </html>
