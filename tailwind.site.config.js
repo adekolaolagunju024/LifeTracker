@@ -3,7 +3,7 @@
 // in-browser Play CDN, which Tailwind says isn't for production: it ships
 // a large compiler script and paints unstyled content first.
 module.exports = {
-  content: ['./frontend/landing.html', './frontend/privacy.html', './frontend/terms.html'],
+  content: ['./frontend/landing.html', './frontend/privacy.html', './frontend/terms.html', './backend/landing.js'], // landing.js writes the stage cards, the tour and What's new
   theme: {
     extend: {
       fontFamily: { sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'] },

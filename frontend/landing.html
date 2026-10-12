@@ -116,6 +116,14 @@
       .tour-list button { flex-shrink: 0; }
     }
     @media (prefers-reduced-motion: reduce) { .js .tour-slide { transition: none; } .tour-on .tour-slide.on .tour-text > *, .tour-on .tour-slide.on .tour-shot { animation: none; } .tour-progress span.active::after { animation: none; width: 100%; } }
+    /* World cards: a 2D and a 3D picture, one switch */
+    .stage-shot { position: relative; }
+    .stage-shot img[data-v] { display: none; }
+    .stage-shot[data-view="2d"] img[data-v="2d"], .stage-shot[data-view="3d"] img[data-v="3d"] { display: block; }
+    .stage-views { display: none; }
+    .js .stage-views { display: flex; position: absolute; top: 10px; right: 10px; padding: 3px; gap: 2px; border-radius: 999px; background: rgba(13,27,42,.62); backdrop-filter: blur(6px); }
+    .stage-views button { border: 0; border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 800; color: rgba(255,255,255,.8); background: none; cursor: pointer; }
+    .stage-views button[aria-pressed="true"] { background: #fff; color: #0D1B2A; }
   </style>
 </head>
 <body class="bg-[#F4F5F7] font-sans text-gray-700 antialiased">
@@ -226,7 +234,7 @@
       <div class="reveal mx-auto max-w-2xl text-center">
         <p class="text-sm font-bold uppercase tracking-widest text-teal">The Journey · optional</p>
         <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-navy md:text-4xl">Like a game? Play your plan as one</h2>
-        <p class="mt-4 text-lg leading-relaxed text-gray-600">Pick a world. Each task is a stop on the road, and each blocker you name ("waiting on the landlord") shows up as an enemy your character has to deal with. Switch between 2D and full 3D any time.</p>
+        <p class="mt-4 text-lg leading-relaxed text-gray-600">Pick a world. Each task is a stop on the road, and each blocker you name ("waiting on the landlord") shows up as something your character has to deal with. Every world comes in 2D and full 3D: tap the switch on a card to see both.</p>
       </div>
       <div class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4"><!--@stages-->
       </div>
@@ -380,6 +388,14 @@
       entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
     }, { threshold: 0.12 });
     document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+    // World cards: switch a card between its 2D and 3D picture.
+    document.querySelectorAll('.stage-shot').forEach(card => {
+      const btns = card.querySelectorAll('.stage-views button');
+      const sync = () => btns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === card.dataset.view)));
+      btns.forEach(b => b.addEventListener('click', () => { card.dataset.view = b.dataset.v; sync(); }));
+      sync();
+    });
 
     // Feature slides: play by themselves like the dashboard's This week
     // card, pause on hover, focus or a background tab, and loop. A tap on

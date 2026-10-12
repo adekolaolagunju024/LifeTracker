@@ -182,14 +182,26 @@ async function capture({ base, cookie, projectId, ids }, outDir) {
       const scene = await page.$('#mountain-scene-wrap');
       if (scene) await save(scene, `stage-${stage}.webp`);
     }
-    await page.evaluate(() => { setJourneyTheme('construction'); setJourneyView('3d', 'overview'); });
-    try {
-      await page.waitForFunction(() => { const c = document.getElementById('mountain-scene'); return c._j3d && c._j3d._debug.state.ready; }, { timeout: 90000 });
-      await sleep(2500);
-    } catch {
-      await page.evaluate(() => setJourneyView('2d'));
-      await sleep(2000);
+    // ...then every stage in 3D from its overview camera, so the landing
+    // page can show both views. A stage that can't draw 3D here (no WebGL)
+    // keeps its committed picture.
+    const ready3d = async () => {
+      try {
+        await page.waitForFunction(() => { const c = document.getElementById('mountain-scene'); return c._j3d && c._j3d._debug.state.ready; }, { timeout: 90000 });
+        await sleep(2500);
+        return true;
+      } catch { return false; }
+    };
+    for (const stage of STAGES) {
+      await page.evaluate(s => { setJourneyTheme(s); setJourneyView('3d', 'overview'); }, stage);
+      if (!(await ready3d())) continue;
+      await hideChrome();
+      const scene = await page.$('#mountain-scene-wrap');
+      if (scene) await save(scene, `stage-${stage}-3d.webp`);
     }
+    // The Journey with its task list, in 3D on the build site
+    await page.evaluate(() => { setJourneyTheme('construction'); setJourneyView('3d', 'overview'); });
+    if (!(await ready3d())) { await page.evaluate(() => setJourneyView('2d')); await sleep(2000); }
     await hideChrome();
     const hud = await page.$('#journey-hud');
     if (hud) await save(hud, 'journey.webp');

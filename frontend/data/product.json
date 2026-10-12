@@ -1,29 +1,33 @@
 {
-  "_comment": "One source for what the public pages say about the app. The landing page is rendered from it on the server and the app's 'new version' notice reads it, so a change here (made in the same pull request as the feature) shows up everywhere. Add a whatsNew entry, newest first, for every change users will notice. The stages must match the Journey's stage picker (a test checks). The tour is the feature slides: the landing page plays all of them, and a new account's dashboard plays the ones with an action, with a button for each.",
+  "_comment": "One source for what the public pages say about the app. The landing page is rendered from it on the server and the app's 'new version' notice reads it, so a change here (made in the same pull request as the feature) shows up everywhere. Add a whatsNew entry, newest first, for every change users will notice. The stages must match the Journey's stage picker (a test checks). The tour is the feature slides: the landing page plays all of them, and a new account's dashboard plays the ones with an action, with a button for each. Each stage card opens in its `view` (2d or 3d), with a switch for the other.",
   "stages": [
     {
       "id": "football",
       "emoji": "⚽",
       "name": "Football",
-      "line": "Dribble past rival players and score at the goal."
+      "line": "Dribble past rival players and score at the goal.",
+      "view": "3d"
     },
     {
       "id": "space",
       "emoji": "🚀",
       "name": "Space",
-      "line": "Fly up beside asteroids and alien saucers and blast them."
+      "line": "Fly up beside asteroids and alien saucers and blast them.",
+      "view": "2d"
     },
     {
       "id": "castle",
       "emoji": "🏰",
       "name": "Castle",
-      "line": "A knight swings at giant frogs and black knights on the way to the dragon."
+      "line": "A knight swings at giant frogs and black knights on the way to the dragon.",
+      "view": "3d"
     },
     {
       "id": "construction",
       "emoji": "🏗️",
       "name": "Construction",
-      "line": "Watch the building go up phase by phase as tasks are done."
+      "line": "Watch the building go up phase by phase as tasks are done.",
+      "view": "2d"
     }
   ],
   "tour": [
