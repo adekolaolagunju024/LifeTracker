@@ -182,6 +182,18 @@ const API = {
   getStatusUpdates:   (taskId)       => request('GET',    `/tasks/${taskId}/status-updates`),
   addStatusUpdate:    (taskId, text, isBlocker) => request('POST', `/tasks/${taskId}/status-updates`, { text, isBlocker }),
   deleteStatusUpdate: (updateId)     => request('DELETE', `/tasks/status-updates/${updateId}`),
+  // ── NATURAL VOICE (backend/voice.js) ──
+  // Plain fetch, not request(): asked in the background, so a signed-out
+  // answer must not trigger request()'s reload-to-sign-in.
+  getVoices: async () => {
+    const res = await fetch('/api/voice', { credentials: 'same-origin' });
+    return res.ok ? res.json() : { available: false, voices: [] };
+  },
+  speakText: async (text, voice) => {
+    const res = await fetch('/api/voice/speak', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, voice }) });
+    if (!res.ok) { const e = new Error((await res.json().catch(() => ({}))).error || 'Voice failed'); e.status = res.status; throw e; }
+    return res.blob();
+  },
   // ── TODAY'S PLAN (backend/dayPlan.js) ──
   getDayPlan:  (date)        => request('GET', `/day/plan/${date}`),
   saveDayPlan: (date, items) => request('PUT', `/day/plan/${date}`, { items }),

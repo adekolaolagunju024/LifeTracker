@@ -183,6 +183,7 @@ app.use('/api/uploads',  require('./routes/uploads'));
 app.use('/api/push',     require('./routes/push'));
 app.use('/api/reminders', require('./routes/reminders'));
 app.use('/api/day',      require('./routes/day'));
+app.use('/api/voice',    require('./routes/voice'));
 app.use('/api/motivation', require('./routes/motivation'));
 app.use('/api/pledges', pledgeRoutes);
 app.use('/api/music', require('./routes/music'));
