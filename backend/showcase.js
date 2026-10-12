@@ -134,7 +134,8 @@ async function capture({ base, cookie, projectId, ids }, outDir) {
     await page.setViewport({ width: 1280, height: 800 });
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'language', { get: () => 'en-GB' });
-      try { localStorage.setItem('journeyView', '2d'); localStorage.setItem('journeyTheme', 'football'); } catch { /* storage off */ }
+      // Focus mode, as a new account starts: the plan without XP and levels.
+      try { localStorage.setItem('journeyView', '2d'); localStorage.setItem('journeyTheme', 'football'); localStorage.setItem('focusMode', '1'); } catch { /* storage off */ }
     });
     await page.goto(`${base}/app`, { waitUntil: 'networkidle0' });
     await page.waitForFunction(() => !document.getElementById('auth-overlay').classList.contains('open'), { timeout: 20000 });
@@ -150,7 +151,8 @@ async function capture({ base, cookie, projectId, ids }, outDir) {
     await page.evaluate(pickProject, projectId);
     await sleep(1500); await hideChrome();
     await save(page, 'planner.webp');
-    await page.evaluate(id => showPage('project-detail', id), projectId);
+    // A phase folder, where the tasks, dates and blockers are.
+    await page.evaluate(id => showPage('project-detail', id), ids.fitOutId);
     await sleep(1500); await hideChrome();
     await save(page, 'project.webp');
 
@@ -197,6 +199,7 @@ async function capture({ base, cookie, projectId, ids }, outDir) {
     const phone = await browser.newPage();
     await phone.setCookie({ name, value, url: base });
     await phone.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    await phone.evaluateOnNewDocument(() => { try { localStorage.setItem('focusMode', '1'); } catch { /* storage off */ } });
     await phone.goto(`${base}/app`, { waitUntil: 'networkidle0' });
     await sleep(1500);
     await phone.evaluate(() => document.querySelectorAll('.onboarding-overlay.open, #new-version-notice, #toast').forEach(el => el.remove()));

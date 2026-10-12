@@ -35,7 +35,9 @@
       "text": "Type or say what you want to finish. The assistant drafts a phased plan with dated tasks, and nothing changes until you approve it.",
       "bg": "linear-gradient(160deg,#0D1B2A,#0A7E8C)",
       "action": "plan",
-      "cta": "Plan a goal"
+      "cta": "Plan a goal",
+      "shot": "assistant",
+      "focus": "100% 18%"
     },
     {
       "id": "day",
@@ -45,7 +47,9 @@
       "text": "What's late, what's due and what's in progress, in one short list. It starts the first task as a focus session, then hands you the next.",
       "bg": "linear-gradient(160deg,#1B3A5C,#0A7E8C)",
       "action": "day",
-      "cta": "Start my day"
+      "cta": "Start my day",
+      "shot": "phone",
+      "focus": "50% 42%"
     },
     {
       "id": "blockers",
@@ -55,7 +59,9 @@
       "text": "Tick each blocker off as it's sorted. Tasks wait for the ones before them, and nothing is marked done while a blocker is still pending.",
       "bg": "linear-gradient(160deg,#7F1D1D,#C2410C)",
       "action": "actions",
-      "cta": "Open Actions"
+      "cta": "Open Actions",
+      "shot": "project",
+      "focus": "60% 62%"
     },
     {
       "id": "why",
@@ -101,7 +107,9 @@
       "text": "Your character walks your road in Football, Space, Castle or Construction, in 2D or 3D, clearing the blockers you name. The game layer is there when you want it.",
       "bg": "linear-gradient(160deg,#064E3B,#0A7E8C)",
       "action": "journey",
-      "cta": "See my Journey"
+      "cta": "See my Journey",
+      "shot": "journey",
+      "focus": "50% 50%"
     }
   ],
   "whatsNew": [
