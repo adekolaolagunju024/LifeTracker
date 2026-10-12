@@ -351,9 +351,8 @@ When the user wants something done in the app (open a page, project or task; sta
 If the user describes a new goal and you have enough to plan it, call propose_project. If the user asks for changes to the project they have open, and that project's plan is included below, call propose_edits. That includes deleting a task the user wants gone (it goes to Trash and can be restored), and a task's blockers (the obstacles in its way, listed under each task): adding one, renaming it, changing its count, ticking it off as cleared, or removing it. It also covers a task's progress target (a count such as 20 pages, set through updateTask's targetCount and targetUnit, or cleared with 0) and its predecessors (the tasks it waits on, shown as "waits on" in the plan): addPredecessor and removePredecessor. If the user asks for their music (play my music, put my workout playlist on, I need focus music) call focus_music with action play, naming the playlist if they did; to stop or pause it, action pause; if they paste a music link to keep, call focus_music with action save. Otherwise reply in one or two short sentences, asking a question if you need one. Never say you have made a change: you only propose changes, and the user approves them.`;
 
 router.post('/assistant', aiQuota('assistant'), async (req, res) => {
-  if (!isAIConfigured()) {
-    return res.status(503).json({ error: 'AI is not configured on this server.' });
-  }
+  // The request is checked first (and attachments read) so a bad request
+  // gets its own answer; whether AI is set up only matters for the call.
   const userId = req.session.userId;
   const incoming = Array.isArray(req.body.messages) ? req.body.messages : [];
   const cleaned = incoming
@@ -400,6 +399,7 @@ router.post('/assistant', aiQuota('assistant'), async (req, res) => {
       const blocks = await attachmentToContentBlocks(m.attachment);
       return { role: m.role, content: [...blocks, { type: 'text', text: text || '(see attached file)' }] };
     }));
+    if (!isAIConfigured()) return res.status(503).json({ error: 'AI is not configured on this server.' });
     const response = await callAI({ system, messages, tools, maxTokens: 4000 });
     if (response.type === 'tool_use' && response.name === 'propose_project') {
       return res.json({ type: 'proposal', proposal: response.input });
