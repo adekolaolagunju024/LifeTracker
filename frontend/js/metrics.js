@@ -126,8 +126,25 @@ const Metrics = (() => {
           ${tile('Invites sent', e.invites7)}
         </div>
       </div>
+      ${features(m.features, h.active30)}
       <p class="metric-note">Counts only: this page never shows who anyone is. "Active" means they used the app that day. Day-by-day activity is recorded from today, so the first weeks lean on finished tasks.</p>`;
     wireTips(box);
+  }
+
+  // Which features people use: of the people active in the last 30 days,
+  // how many used each one. The ones near the bottom are the candidates to
+  // hide or cut.
+  function features(list, active30) {
+    if (!list || !list.length) return '';
+    return `<div class="metric-card">
+      <p class="metric-card-title">Feature use <span>last 30 days, share of the ${active30} active ${active30 === 1 ? 'person' : 'people'}</span></p>
+      <div class="feat-use">${list.map(f => `<div class="feat-row ${f.share !== null && f.share < 5 ? 'low' : ''}">
+        <span class="feat-name">${esc(f.label)}</span>
+        <span class="feat-bar" aria-hidden="true"><i style="width:${f.share || 0}%"></i></span>
+        <span class="feat-num">${f.share === null ? '—' : f.share + '%'} <small>${f.people}</small></span>
+      </div>`).join('')}</div>
+      <p class="metric-note" style="margin-top:8px">Recorded from today, once a day per person. Under 5% after a few weeks (shown faded) means hide it or cut it.</p>
+    </div>`;
   }
 
   // A small tooltip that follows the hovered or focused bar.

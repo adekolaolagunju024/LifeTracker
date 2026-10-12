@@ -94,6 +94,7 @@ const Jarvis = (() => {
   const fmt = ms => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
   function startFocus({ taskId = null, title = '', minutes = 25, music = true, isBreak = false } = {}) {
+    API.trackFeature('focus');
     stopFocus(true);
     const total = Math.min(90, Math.max(5, minutes)) * 60000;
     // A new session keeps the size they last chose for the timer.
@@ -388,7 +389,7 @@ const Jarvis = (() => {
     pills.forEach(p => slot.appendChild(p));
     document.getElementById('dash-head')?.classList.add('hidden');
   }
-  const hear = () => brief && say(brief.spoken);
+  const hear = () => { API.trackFeature('listen'); if (brief) say(brief.spoken); };
 
   // ── Start my day: sort today, then get going ──
   // A short sheet: the tasks that matter today (late, due today, in
@@ -410,6 +411,7 @@ const Jarvis = (() => {
     return id ? { id, title: open.get(id).title } : null;
   }
   async function startDay() {
+    API.trackFeature('start_day');
     const plan = planGet();
     if (plan) {
       const nx = await nextInPlan().catch(() => null);

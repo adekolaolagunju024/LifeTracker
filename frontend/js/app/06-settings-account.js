@@ -969,6 +969,7 @@ async function renderSettingsOneDrive() {
   } catch (e) { console.error('OneDrive status error:', e); }
 }
 async function backupToOneDrive(format) {
+  API.trackFeature('backup');
   showToast('☁️ Saving to OneDrive…');
   try {
     const r = await API.backupToOneDrive(format);
@@ -994,6 +995,7 @@ const BACKUP_FNS = {
 const BACKUP_LABELS = { json: 'JSON backup', sheets: 'Google Sheet', excel: 'Excel workbook', pdf: 'PDF report', image: 'Image report' };
 
 async function backupAs(format) {
+  API.trackFeature('backup');
   showToast(`⏳ Creating ${BACKUP_LABELS[format]}…`);
   try {
     const result = await BACKUP_FNS[format](API)();

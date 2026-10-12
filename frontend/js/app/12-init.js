@@ -4,6 +4,7 @@
 
 // ── EXPORT / IMPORT ─────────────────────────────────────────────
 async function exportData() {
+  API.trackFeature('backup');
   try {
     const [profile, projects, tasks, why] = await Promise.all([
       API.getProfile(), API.getProjects(), API.getTasks(), API.getMotivation().catch(() => null),
@@ -171,6 +172,7 @@ document.addEventListener('keydown', e => {
 let reportProjectId = null;
 let reportShareUrl = null;
 async function openProgressReport(projectId) {
+  API.trackFeature('report');
   if (!projectId) return;
   reportProjectId = projectId;
   document.getElementById('report-heading').textContent = 'Progress report';

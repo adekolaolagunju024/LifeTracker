@@ -701,6 +701,15 @@
     .dark .chat-input, .dark .chat-cc-input { background: #0B1220; border-color: #24324A; color: #E8EEF5; }
     .dark .chat-email-row { background: rgba(94,234,212,.08); border-color: rgba(94,234,212,.25); }
     .dark .chat-day span { background: #1A2436; color: #94A3B8; }
+    .feat-use { display: grid; gap: 6px; margin-top: 10px; }
+    .feat-row { display: grid; grid-template-columns: minmax(120px, 200px) 1fr 64px; align-items: center; gap: 10px; font-size: 13px; }
+    .feat-row.low { opacity: .55; }
+    .feat-name { font-weight: 600; color: #1F2A37; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .feat-bar { height: 8px; border-radius: 4px; background: #EEF1F3; overflow: hidden; }
+    .feat-bar i { display: block; height: 100%; background: #0A7E8C; border-radius: 4px; }
+    .feat-num { text-align: right; font-weight: 800; color: #0D1B2A; font-variant-numeric: tabular-nums; }
+    .feat-num small { font-weight: 600; color: #9AA3AF; margin-left: 2px; }
+    .dark .feat-name { color: #C9D6E2; } .dark .feat-num { color: #E8EEF5; } .dark .feat-bar { background: #1A2436; }
     .why-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
     .why-talk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: #0A7E8C; background: #E6F4F5; border-radius: 999px; padding: 8px 14px; }
     .why-talk:hover { background: #D2ECEE; }

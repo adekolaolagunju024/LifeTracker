@@ -14,6 +14,7 @@ const Reports = (() => {
 
   // ── Portfolio ──
   async function openPortfolioPicker() {
+    API.trackFeature('portfolio');
     const list = document.getElementById('portfolio-projects');
     list.innerHTML = '<p class="text-sm text-gray-400">Loading projects…</p>';
     openModal('modal-portfolio');

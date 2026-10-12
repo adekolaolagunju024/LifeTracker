@@ -374,6 +374,7 @@ let assistantRecognition = null;
 // conversation; 🕘 History lists every saved chat, ＋ New starts one.
 // Each exchange is saved to the server (see saveAssistantChat).
 async function openAssistant(projectId, opts = {}) {
+  API.trackFeature('assistant');
   APP.assistantProjectId = projectId || null;
   APP.assistantTaskId = opts.taskId || null;
   APP.assistantTaskTitle = opts.taskTitle || '';

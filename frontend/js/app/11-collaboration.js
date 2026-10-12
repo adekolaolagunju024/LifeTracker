@@ -431,6 +431,7 @@ async function submitProjectChatMessage() {
   if ((!text && !attachment) || !projectId) return;
   try {
     const result = await API.addProjectMessage(projectId, text, attachment ? attachment.id : null, alsoEmail, ccEmails, APP_chatReplyTo?.id || null);
+    API.trackFeature('chat');
     input.value = '';
     clearTeamChatAttachment();
     cancelChatReply();

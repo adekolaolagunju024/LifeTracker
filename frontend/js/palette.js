@@ -136,6 +136,7 @@ function runPaletteItem(i) {
 }
 
 async function openPalette() {
+  API.trackFeature('palette');
   let wrap = document.getElementById('palette');
   if (!wrap) {
     wrap = document.createElement('div');
