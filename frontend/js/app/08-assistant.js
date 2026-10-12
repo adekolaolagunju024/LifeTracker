@@ -579,7 +579,7 @@ function deleteSavedAssistantChat(id) {
 
 function closeAssistant() {
   if (assistantRecognition) assistantRecognition.stop();
-  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  Voice.stop();
   closeModal('modal-assistant');
 }
 
@@ -599,7 +599,7 @@ function setAssistantAutoSend(on) {
 
 function setAssistantSpeak(on) {
   try { localStorage.setItem('assistantSpeak', on ? '1' : '0'); } catch {}
-  if (!on && 'speechSynthesis' in window) speechSynthesis.cancel();
+  if (!on) Voice.stop();
 }
 
 // Resolves when the reply has finished being spoken (or straight away when
@@ -662,7 +662,7 @@ async function toggleAssistantListening() {
   if (assistantRecognition) { assistantRecognition.stop(); return; }
   if (APP.assistantMicStarting) return;
   APP.assistantMicStarting = true;
-  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  Voice.stop();
   setAssistantListeningUI(true, 'Connecting your microphone…');
   if (navigator.vibrate) navigator.vibrate(30);
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {

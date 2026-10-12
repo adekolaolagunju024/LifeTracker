@@ -9,9 +9,13 @@
 // straight away. Anything that changes your data (finishing a task,
 // setting a reminder, adding a task) comes back as a button you tap.
 // ── The assistant's voice ──
-// Uses the voices the device has (no audio leaves it). The person picks
-// one, or "JARVIS-style": the calmest British voice we can find on this
-// device. Speed is theirs to set. Every place the assistant speaks uses it.
+// Two kinds. Natural voices (backend/voice.js) sound like a real person:
+// the text is sent to a speech service and comes back as audio. They're
+// offered when the server has a key, and are the default then. Device
+// voices are the ones built into the phone or computer (no audio leaves
+// it), with "JARVIS-style" picking the calmest British one. If a natural
+// voice can't be reached, the device voice takes over. Speed is theirs to
+// set. Every place the assistant speaks uses this.
 const Voice = (() => {
   const KEY = 'wp-voice';
   const prefs = () => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; } };
@@ -28,21 +32,44 @@ const Voice = (() => {
   function current() {
     const p = prefs();
     const voices = all();
-    if (!p.voice || p.voice === 'jarvis') return jarvisVoice();
+    if (!p.voice || p.voice === 'jarvis' || String(p.voice).startsWith('ai:')) return jarvisVoice();
     if (p.voice === 'default') return null;
     return voices.find(v => v.voiceURI === p.voice) || jarvisVoice();
   }
   const rate = () => Math.min(1.4, Math.max(0.7, Number(prefs().rate) || 1));
-  // Speaks text sentence by sentence (long single utterances get dropped by
-  // some browsers); resolves when done, or after a safety timeout.
-  function speak(text) {
+
+  // Natural voices: what the server offers, asked once.
+  let natural = null; let naturalOff = false;
+  async function loadNatural() {
+    if (natural) return natural;
+    if (!APP.currentUserId) return { available: false, voices: [] }; // not signed in yet: ask later
+    try { natural = await API.getVoices(); } catch { natural = { available: false, voices: [] }; }
+    return natural;
+  }
+  // The natural voice to use, or null for the device's.
+  function naturalChoice() {
+    if (naturalOff || !natural || !natural.available || !natural.voices.length) return null;
+    const p = prefs().voice;
+    if (!p) return natural.voices[0].id; // the default when it's there
+    if (String(p).startsWith('ai:')) { const id = p.slice(3); return natural.voices.some(v => v.id === id) ? id : natural.voices[0].id; }
+    return null;
+  }
+
+  let audio = null; let audioUrl = null;
+  function stop() {
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    if (audio) { audio.pause(); audio.onended = null; audio = null; }
+    if (audioUrl) { URL.revokeObjectURL(audioUrl); audioUrl = null; }
+  }
+  // Device voice: sentence by sentence (long single utterances get dropped
+  // by some browsers); resolves when done, or after a safety timeout.
+  function speakDevice(text) {
     return new Promise(resolve => {
-      if (!('speechSynthesis' in window) || !String(text || '').trim()) return resolve();
+      if (!('speechSynthesis' in window)) return resolve();
       const sentences = (String(text).match(/[^.!?]+[.!?]*/g) || [text]).map(x => x.trim()).filter(Boolean);
       let finished = false;
       const finish = () => { if (!finished) { finished = true; clearTimeout(guard); resolve(); } };
       const guard = setTimeout(finish, Math.max(4000, text.length * 95 / rate() + 3000));
-      speechSynthesis.cancel();
       const v = current();
       sentences.forEach((sentence, i) => {
         const u = new SpeechSynthesisUtterance(sentence);
@@ -53,30 +80,67 @@ const Voice = (() => {
       });
     });
   }
+  async function speakNatural(text, id) {
+    const blob = await API.speakText(text, id);
+    stop();
+    audioUrl = URL.createObjectURL(blob);
+    audio = new Audio(audioUrl);
+    audio.playbackRate = rate();
+    const mine = audio;
+    await mine.play();
+    await new Promise(resolve => {
+      const guard = setTimeout(resolve, Math.max(6000, text.length * 110 / rate() + 4000));
+      mine.onended = () => { clearTimeout(guard); resolve(); };
+      mine.onerror = () => { clearTimeout(guard); resolve(); };
+    });
+  }
+  async function speak(text) {
+    text = String(text || '').trim();
+    if (!text) return;
+    stop();
+    await loadNatural();
+    const id = naturalChoice();
+    if (id) {
+      try { await speakNatural(text, id); return; } catch (e) {
+        // Out of today's allowance, not set up, or audio blocked: the
+        // device voice carries on for the rest of this visit.
+        if (e && (e.status === 429 || e.status === 503)) naturalOff = true;
+      }
+    }
+    await speakDevice(text);
+  }
   // Settings → Appearance: the voice picker.
-  function renderSettings() {
+  async function renderSettings() {
     const sel = document.getElementById('voice-select');
     if (!sel) return;
-    if (!('speechSynthesis' in window)) { sel.closest('[data-voice-row]')?.classList.add('hidden'); return; }
+    await loadNatural();
+    const hasDevice = 'speechSynthesis' in window;
+    if (!hasDevice && !(natural && natural.available)) { sel.closest('[data-voice-row]')?.classList.add('hidden'); return; }
     const p = prefs();
     const voices = all();
     const english = voices.filter(v => /^en/i.test(v.lang));
     const others = voices.filter(v => !/^en/i.test(v.lang));
     const jv = jarvisVoice();
+    const nat = naturalChoice();
     const opt = v => `<option value="${esc(v.voiceURI)}" ${p.voice === v.voiceURI ? 'selected' : ''}>${esc(v.name)} (${esc(v.lang)})</option>`;
-    sel.innerHTML = `<option value="jarvis" ${!p.voice || p.voice === 'jarvis' ? 'selected' : ''}>JARVIS-style${jv ? `: ${esc(jv.name)}` : ''}</option>`
-      + `<option value="default" ${p.voice === 'default' ? 'selected' : ''}>This device's default</option>`
-      + (english.length ? `<optgroup label="English">${english.map(opt).join('')}</optgroup>` : '')
-      + (others.length ? `<optgroup label="Other languages">${others.map(opt).join('')}</optgroup>` : '');
+    sel.innerHTML = (natural && natural.available ? `<optgroup label="Natural voices">${natural.voices.map(v => `<option value="ai:${esc(v.id)}" ${nat === v.id ? 'selected' : ''}>${esc(v.label)}</option>`).join('')}</optgroup>` : '')
+      + (hasDevice ? `<optgroup label="This device's voices"><option value="jarvis" ${!nat && (!p.voice || p.voice === 'jarvis') ? 'selected' : ''}>JARVIS-style${jv ? `: ${esc(jv.name)}` : ''}</option>`
+        + `<option value="default" ${p.voice === 'default' ? 'selected' : ''}>This device's default</option></optgroup>`
+        + (english.length ? `<optgroup label="English">${english.map(opt).join('')}</optgroup>` : '')
+        + (others.length ? `<optgroup label="Other languages">${others.map(opt).join('')}</optgroup>` : '') : '');
+    const note = document.getElementById('voice-note');
+    if (note) note.textContent = natural && natural.available
+      ? 'Natural voices sound like a real person: what is read out is sent to a speech service to turn it into audio. Device voices stay on this device.'
+      : 'Uses the voices on this device.';
     const r = document.getElementById('voice-rate');
     r.value = String(rate());
     document.getElementById('voice-rate-out').textContent = `${rate().toFixed(1)}×`;
   }
-  function setVoice(value) { save({ ...prefs(), voice: value }); preview(); }
+  function setVoice(value) { naturalOff = false; save({ ...prefs(), voice: value }); preview(); }
   function setRate(value) { save({ ...prefs(), rate: Number(value) }); document.getElementById('voice-rate-out').textContent = `${Number(value).toFixed(1)}×`; }
   const preview = () => speak("Good morning. Here's your day. You're on a three-day streak. Shall we start with the first thing?");
   if ('speechSynthesis' in window) speechSynthesis.addEventListener?.('voiceschanged', renderSettings);
-  return { speak, renderSettings, setVoice, setRate, preview, current };
+  return { speak, stop, renderSettings, setVoice, setRate, preview, current };
 })();
 window.Voice = Voice;
 
