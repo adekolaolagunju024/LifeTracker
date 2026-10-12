@@ -101,9 +101,7 @@ const API = {
   getDriveStatus:     ()  => request('GET',  '/drive/status'),
   backupToDrive:      ()  => request('POST', '/drive/backup'),
   backupToSheets:     ()  => request('POST', '/drive/backup/sheets'),
-  backupToExcel:      ()  => request('POST', '/drive/backup/excel'),
   backupToPdf:        ()  => request('POST', '/drive/backup/pdf'),
-  backupToImage:      ()  => request('POST', '/drive/backup/image'),
   backupProjectToDrive: (projectId) => request('POST', `/drive/backup/project/${projectId}`),
   disconnectDrive:    ()  => request('POST', '/drive/disconnect'),
   connectDriveUrl:    ()  => '/api/drive/connect',
@@ -129,9 +127,6 @@ const API = {
   resetPassword:   (token, newPassword) => request('POST', '/auth/reset-password', { token, newPassword }),
   getGoogleLoginStatus: ()   => request('GET',  '/auth/google/status'),
   getMicrosoftLoginStatus: () => request('GET', '/auth/microsoft/status'),
-  getOneDriveStatus:  ()       => request('GET',  '/onedrive/status'),
-  disconnectOneDrive: ()       => request('POST', '/onedrive/disconnect'),
-  backupToOneDrive:   (format) => request('POST', '/onedrive/backup', { format }),
 
   // ── DATA IMPORT ──
   importData: (data) => request('POST', '/data/import', data),
