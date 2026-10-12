@@ -623,4 +623,21 @@ db.exec(`
   );
 `);
 
+// Today's plan (backend/dayPlan.js): the tasks picked for a day, each with
+// a start time and a length, so the day has a timetable and a pace to keep.
+// One row per person per day; the wake-up time and time zone live on the
+// profile so the morning notification lands at their local time.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS day_plans (
+    userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    date TEXT NOT NULL,
+    items TEXT NOT NULL DEFAULT '[]',
+    updatedAt TEXT NOT NULL,
+    PRIMARY KEY (userId, date)
+  );
+`);
+addColumnIfMissing('profile', "wakeTime TEXT");
+addColumnIfMissing('profile', "wakeTz TEXT");
+addColumnIfMissing('profile', "lastWakeSentDate TEXT");
+
 module.exports = db;

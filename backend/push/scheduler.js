@@ -148,6 +148,26 @@ async function checkTaskReminders(now = new Date()) {
   }
 }
 
+// 6. The wake-up notification: at the time someone chose, in their own
+// time zone, "Good morning, your day is ready". It opens Start my day.
+// Like task alarms it rings whether or not the general reminders are on:
+// setting a wake-up time is asking for it.
+async function checkWakeUps(now = new Date()) {
+  const dayPlan = require('../dayPlan');
+  const APP_URL = process.env.APP_URL || '';
+  for (const w of dayPlan.dueWakeUps(now)) {
+    try {
+      const plan = dayPlan.get(w.userId, w.date);
+      const first = plan && plan.items.length ? db.getTaskById(w.userId, plan.items[0].taskId) : null;
+      const body = plan && plan.items.length
+        ? `${plan.items.length} ${plan.items.length === 1 ? 'task' : 'tasks'} planned. First at ${plan.items[0].start}${first ? `: ${first.title}` : ''}.`
+        : 'Tap to plan today in a minute.';
+      await sendPushToUser(w.userId, { title: 'Good morning, your day is ready', body: withWhy(body, w.userId), url: `${APP_URL}/app?start=day`, tag: 'wake-up', urgent: true });
+      dayPlan.markWakeSent(w.userId, w.date);
+    } catch (e) { console.error(`Wake-up push failed for ${w.userId}:`, e.message); }
+  }
+}
+
 // Overdue alerts and focus nudges both want a frequent check (every 15
 // min); the due-today summary and streak nudge only want to fire once, near
 // the start/end of the day respectively. All four are no-ops for a user
@@ -156,6 +176,7 @@ async function checkTaskReminders(now = new Date()) {
 function startPushReminderScheduler() {
   cron.schedule('* * * * *', () => {
     checkTaskReminders().catch(e => console.error('Task reminder check failed:', e.message));
+    checkWakeUps().catch(e => console.error('Wake-up check failed:', e.message));
   });
   cron.schedule('*/15 * * * *', () => {
     checkOverdueAlerts().catch(e => console.error('Overdue check failed:', e.message));
@@ -173,4 +194,4 @@ function startPushReminderScheduler() {
   });
 }
 
-module.exports = { startPushReminderScheduler, checkTaskReminders, checkOverdueAlerts, checkDueTodayDigest, checkFocusNudges, checkStreakNudge };
+module.exports = { startPushReminderScheduler, checkTaskReminders, checkWakeUps, checkOverdueAlerts, checkDueTodayDigest, checkFocusNudges, checkStreakNudge };

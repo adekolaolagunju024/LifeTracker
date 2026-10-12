@@ -18,6 +18,7 @@ async function renderSettings() {
     previewProfile();
     showSettingsTab(APP.settingsTab || (() => { try { return localStorage.getItem('settingsTab'); } catch { return null; } })() || 'profile');
     setEmailDigestButton(p.emailDigestEnabled);
+    renderWakeSetting(p);
     setPushRemindersButton(p);
     setActivityEmailsButton(p.activityEmailsEnabled);
     setAiCheckInsButton(p.aiCheckInsEnabled);
@@ -210,6 +211,37 @@ async function toggleEmailDigest() {
     setEmailDigestButton(next);
     showToast(next ? '✅ Daily digest emails turned on' : 'Daily digest emails turned off');
   } catch (e) { showToast('❌ ' + (e.message || 'Failed to update'), 'error'); }
+}
+
+// ── GOOD-MORNING NOTIFICATION (backend/dayPlan.js) ──
+// A wake-up time in this device's time zone; the server sends "your day
+// is ready" then. It reaches the devices with Push Reminders on.
+async function renderWakeSetting(profile) {
+  let w = { time: null };
+  try { w = await API.getWake(); } catch { /* offline */ }
+  const on = !!w.time;
+  const btn = document.getElementById('wake-btn');
+  btn.classList.toggle('on', on);
+  btn.setAttribute('aria-checked', String(on));
+  btn.dataset.enabled = on ? '1' : '0';
+  if (w.time) document.getElementById('wake-time').value = w.time;
+  document.getElementById('wake-row').classList.toggle('hidden', !on);
+  const pushOn = profile ? !!profile.pushRemindersEnabled : true;
+  document.getElementById('wake-hint').textContent = on && !pushOn ? 'Turn on Push Reminders below so it reaches this device.' : '';
+}
+const deviceTz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return 'UTC'; } };
+async function toggleWake() {
+  const next = document.getElementById('wake-btn').dataset.enabled !== '1';
+  try {
+    await API.setWake(next ? (document.getElementById('wake-time').value || '07:00') : null, deviceTz());
+    await renderWakeSetting(APP.profile);
+    showToast(next ? `Good morning at ${document.getElementById('wake-time').value} it is` : 'Good-morning notification off');
+  } catch (e) { showToast(e.message || 'Could not save that', 'error'); }
+}
+async function saveWakeTime() {
+  const v = document.getElementById('wake-time').value;
+  if (!v) return;
+  try { await API.setWake(v, deviceTz()); showToast(`Good morning at ${v}`); } catch (e) { showToast(e.message || 'Could not save that', 'error'); }
 }
 
 // ── ACTIVITY EMAILS (instant per-event — assigned/mentioned/commented/invited) ──
@@ -581,6 +613,11 @@ async function afterAuth() {
   if (window.Billing) Billing.handleReturn(); // back from Stripe's checkout
   if (window.Why) Why.handleShare(); // shared in from another app (manifest share_target)
   if (window.Why) Why.handleMusicReturn(); // back from linking Spotify or YouTube
+  // Tapped the good-morning notification: straight into Start my day.
+  if (new URLSearchParams(location.search).get('start') === 'day') {
+    window.history.replaceState({}, '', window.location.pathname);
+    if (window.Jarvis) Jarvis.startDay();
+  }
 }
 
 // Pending project-share invites — checked once per login (not re-dismissed

@@ -493,6 +493,66 @@
       .dayplan { border-radius: 22px 22px 0 0; max-height: 88vh; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); }
       .dayplan-go { width: 100%; justify-content: center; }
     }
+    /* Start my day: steps, timetable, blockers, music, the fading quote */
+    .dayplan-steps { display: flex; gap: 6px; margin-top: 14px; list-style: none; padding: 0; }
+    .dayplan-steps li { flex: 1; font-size: 11.5px; font-weight: 800; color: #8A93A0; padding-top: 7px; border-top: 3px solid #E3E6EA; }
+    .dayplan-steps li.on { color: #0A7E8C; border-top-color: #0A7E8C; }
+    .dayplan-steps li.done { color: #5B6472; border-top-color: #9ACBD1; }
+    .dayplan-start { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; font-weight: 700; color: #3B4552; }
+    .dayplan-start input { border: 1px solid #E3E6EA; border-radius: 10px; padding: 6px 8px; font-size: 14px; font-weight: 700; color: #0D1B2A; }
+    .dayplan-tt { list-style: none; padding: 0; margin-top: 12px; display: grid; gap: 6px; }
+    .dayplan-slot { display: flex; align-items: center; gap: 10px; border: 1px solid #E3E6EA; border-radius: 14px; padding: 9px 10px 9px 12px; }
+    .dayplan-time { font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 800; color: #0A7E8C; width: 44px; flex-shrink: 0; }
+    .dayplan-blk { display: inline-flex; align-items: center; gap: 3px; color: #B91C1C; font-weight: 700; }
+    .dayplan-mins { border: 1px solid #E3E6EA; border-radius: 9px; padding: 5px 6px; font-size: 12.5px; font-weight: 700; color: #1F2A37; background: #fff; flex-shrink: 0; }
+    .dayplan-move { display: inline-flex; flex-direction: column; flex-shrink: 0; }
+    .dayplan-move button { width: 26px; height: 18px; display: flex; align-items: center; justify-content: center; color: #6B7280; border-radius: 6px; }
+    .dayplan-move button:hover:not(:disabled) { background: #F1F3F5; color: #0D1B2A; }
+    .dayplan-move button:disabled { opacity: .3; }
+    .dayplan-move .ic { width: 15px; height: 15px; }
+    .dayplan-drop { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: #9AA3AE; border-radius: 8px; flex-shrink: 0; }
+    .dayplan-drop:hover { background: #FDECEA; color: #B91C1C; }
+    .dayplan-drop .ic { width: 15px; height: 15px; }
+    .dayplan-end { margin-top: 8px; font-size: 13px; color: #5B6472; }
+    .dayplan-end b { color: #0D1B2A; }
+    .dayplan-label { display: block; margin-top: 14px; }
+    .dayplan-more { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .dayplan-more button { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; border: 1px dashed #C9D2DA; border-radius: 999px; padding: 6px 11px; font-size: 13px; font-weight: 600; color: #3B4552; }
+    .dayplan-more button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dayplan-more button:hover { border-color: #0A7E8C; color: #0A7E8C; }
+    .dayplan-tools { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+    .dayplan-back { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: #5B6472; padding: 8px 4px; }
+    .dayplan-back .ic, .dayplan-go .ic { width: 16px; height: 16px; }
+    .dayplan-blockers { list-style: none; padding: 0; margin-top: 16px; display: grid; gap: 6px; }
+    .dayplan-blockers li { display: flex; gap: 10px; align-items: flex-start; background: #FDECEA; border: 1px solid #F5C2BC; color: #8E1F14; border-radius: 12px; padding: 10px 12px; font-size: 14px; }
+    .dayplan-blockers li .ic { margin-top: 2px; }
+    .dayplan-blockers small { display: block; color: #9B4A40; font-size: 12px; font-weight: 600; }
+    .dayplan-clear { display: flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 14px; color: #3B4552; background: #F0FAF9; border-radius: 12px; padding: 12px 14px; }
+    .dayplan-addblk select { border: 1px solid #E3E6EA; border-radius: 12px; padding: 0 8px; font-size: 13px; max-width: 38%; background: #fff; }
+    .dayplan-songs { display: grid; gap: 8px; margin-top: 16px; }
+    .dayplan-songs button { display: flex; align-items: center; gap: 12px; border: 1px solid #E3E6EA; border-radius: 14px; padding: 12px 14px; font-size: 14px; font-weight: 700; text-align: left; transition: border-color .15s, background .15s; }
+    .dayplan-songs button span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dayplan-songs button:hover { border-color: #0A7E8C; background: #F0FAF9; }
+    .dayplan-songs .ic { color: #0A7E8C; }
+    .day-quote { position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px; background: linear-gradient(160deg, #0D1B2A, #0A7E8C); color: #fff; cursor: pointer; animation: dqin .7s ease both; }
+    .day-quote figure { max-width: 640px; text-align: center; animation: dqup 1s cubic-bezier(.2,.8,.2,1) .15s both; }
+    .day-quote blockquote { font-size: clamp(24px, 4.4vw, 40px); line-height: 1.25; font-weight: 800; letter-spacing: -.01em; }
+    .day-quote figcaption { margin-top: 18px; font-size: 15px; font-weight: 600; color: rgba(255,255,255,.75); }
+    .day-quote-skip { position: absolute; bottom: calc(28px + env(safe-area-inset-bottom)); font-size: 13px; color: rgba(255,255,255,.55); }
+    .day-quote.out { animation: dqout .6s ease forwards; }
+    @keyframes dqin { from { opacity: 0; } }
+    @keyframes dqup { from { opacity: 0; transform: translateY(16px); } }
+    @keyframes dqout { to { opacity: 0; } }
+    @media (prefers-reduced-motion: reduce) { .day-quote, .day-quote figure, .day-quote.out { animation: none; } }
+    @media (max-width: 640px) { .dayplan-slot { flex-wrap: wrap; } .dayplan-slot > .flex-1 { flex-basis: calc(100% - 100px); } .dayplan-mins { margin-left: 54px; } }
+    .dark .dayplan-steps li { border-top-color: #24324A; }
+    .dark .dayplan-slot, .dark .dayplan-songs button { border-color: #24324A; }
+    .dark .dayplan-mins, .dark .dayplan-start input, .dark .dayplan-addblk select { background: #0B1220; border-color: #24324A; color: #E8EEF5; }
+    .dark .dayplan-start, .dark .dayplan-end, .dark .dayplan-end b { color: #C9D6E2; }
+    .dark .dayplan-clear { background: rgba(94,234,212,.08); color: #C9D6E2; }
+    .dark .dayplan-blockers li { background: rgba(185,28,28,.15); border-color: rgba(248,113,113,.3); color: #FCA5A5; }
+    .dark .dayplan-blockers small { color: #F8B4B4; }
+    .dark .dayplan-more button { border-color: #3A4A63; color: #C9D6E2; }
     .dark .dayplan { background: #111A2B; color: #E8EEF5; }
     .dark .dayplan-sub, .dark .dayplan-m, .dark .dayplan-when { color: #94A3B8; }
     .dark .dayplan-row { border-color: #24324A; }
@@ -2977,6 +3037,23 @@
       <section class="settings-panel" role="tabpanel" id="settings-panel-notifications" aria-labelledby="settings-tab-notifications" data-settings-panel="notifications">
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5 settings-rows">
         <h3 class="flex items-center gap-2.5 text-sm font-bold text-navy pb-2"><span class="icon-badge" style="background:#C0642A22;color:#C0642A" data-icon="bell"></span> Notifications</h3>
+        <div class="py-3.5 border-b border-gray-100">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3 min-w-0">
+              <span class="icon-badge" style="background:#F59E0B22;color:#B45309" data-icon="sun"></span>
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-navy">Good-morning notification</p>
+                <p class="text-xs text-gray-400 mt-0.5">At the time you wake up: "Good morning, your day is ready". Tap it to open Start my day with today's plan.</p>
+              </div>
+            </div>
+            <button onclick="toggleWake()" class="ios-switch" id="wake-btn" role="switch" aria-label="Toggle the good-morning notification"><span class="ios-switch-knob"></span></button>
+          </div>
+          <div class="hidden mt-3 ml-[52px] flex items-center gap-2 flex-wrap text-xs text-gray-500" id="wake-row">
+            <label for="wake-time">I wake up at</label>
+            <input type="time" id="wake-time" value="07:00" onchange="saveWakeTime()" class="border border-gray-200 rounded-md px-1.5 py-1 text-xs focus:outline-none focus:border-teal">
+            <span id="wake-hint"></span>
+          </div>
+        </div>
         <div class="flex items-center justify-between py-3.5 border-b border-gray-100">
           <div class="flex items-center gap-3 min-w-0">
             <span class="icon-badge" style="background:#0A7E8C22;color:#0A7E8C" data-icon="mail"></span>

@@ -47,8 +47,8 @@
       "id": "day",
       "icon": "play",
       "name": "Start my day",
-      "title": "One tap sorts today",
-      "text": "What's late, what's due and what's in progress, in one short list. It starts the first task as a focus session, then hands you the next.",
+      "title": "Your day, planned to the minute",
+      "text": "A good-morning notification opens today's plan as a timetable: what's first, when, and for how long. Name what's in your way, pick a song, and today's quote fades as your first task starts.",
       "bg": "linear-gradient(160deg,#1B3A5C,#0A7E8C)",
       "action": "day",
       "cta": "Start my day",
@@ -117,6 +117,11 @@
     }
   ],
   "whatsNew": [
+    {
+      "date": "2026-10-12",
+      "title": "A morning that gets you going",
+      "text": "Start my day now lays out today as a timetable with a time and a length for each task, asks what's in your way, offers a song, and shows today's quote for a moment before your first task starts. Set a wake-up time in Settings and a good-morning notification opens it for you. The dashboard is lighter too: just your plan and one button."
+    },
     {
       "date": "2026-10-12",
       "title": "A guided start for new accounts",
