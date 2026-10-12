@@ -389,6 +389,7 @@ async function loadCalendarData() {
 }
 
 async function renderCalendar() {
+  if (window.PlannerKey) PlannerKey.paint('calendar');
   try {
     const { byDate, todayKey } = await loadCalendarData();
     document.querySelectorAll('.calendar-view-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === APP.calendarViewMode));

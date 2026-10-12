@@ -47,9 +47,8 @@ if (!process.env.SESSION_SECRET) {
 // headers are sent: other sites can't read the API from a visitor's browser.
 app.disable('x-powered-by');
 // Content Security Policy: everything loads from this site, except Google
-// Fonts, the sign-in screen's background video and its poster, and the
-// music services' embedded players. No plugins, no other site may frame
-// the app, and forms only post here. Scripts still allow inline code: the
+// Fonts and the music services' embedded players. No plugins, no other
+// site may frame the app, and forms only post here. Scripts still allow inline code: the
 // app's markup uses inline event handlers throughout, so moving those to
 // script files has to come before 'unsafe-inline' can be dropped.
 const CSP = [
@@ -57,8 +56,8 @@ const CSP = [
   "script-src 'self' 'unsafe-inline' https://open.spotify.com", // Spotify's embed API, for pause and play
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
-  "img-src 'self' data: blob: https://images.pexels.com https://*.mzstatic.com https://i.scdn.co https://mosaic.scdn.co https://image-cdn-ak.spotifycdn.com https://image-cdn-fa.spotifycdn.com https://i.ytimg.com https://yt3.ggpht.com",
-  "media-src 'self' blob: https://videos.pexels.com",
+  "img-src 'self' data: blob: https://*.mzstatic.com https://i.scdn.co https://mosaic.scdn.co https://image-cdn-ak.spotifycdn.com https://image-cdn-fa.spotifycdn.com https://i.ytimg.com https://yt3.ggpht.com",
+  "media-src 'self' blob:",
   "connect-src 'self' blob: data:", // 3D models unpack their textures through blob: URLs
   // The music services' own players for Your why.
   "frame-src 'self' https://open.spotify.com https://www.youtube-nocookie.com https://www.youtube.com https://embed.music.apple.com https://w.soundcloud.com https://widget.deezer.com",

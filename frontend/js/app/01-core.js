@@ -429,18 +429,6 @@ function closeProjectDetailMenu() {
   document.getElementById('detail-more-menu').classList.add('hidden');
 }
 
-// Gantt toolbar: legend is collapsed by default (remembered next time) so
-// reference info about colors/markers doesn't compete with the chart —
-// "too busy" otherwise, especially with several projects each adding a
-// color swatch. Export menu is a plain click-to-open dropdown, same
-// pattern as the sidebar's File menu, merging what used to be two
-// separate always-visible buttons (Print/PDF, Export Image) into one.
-function toggleGanttLegend() {
-  const el = document.getElementById('gantt-legend');
-  const open = el.classList.toggle('hidden') === false;
-  try { localStorage.setItem('ganttLegendOpen', open ? '1' : '0'); } catch { /* private mode etc */ }
-}
-
 // ── OPTIONAL CARD FIELDS (Gantt rows + Kanban cards) ──────────────
 // Which extra fields show on a task's Gantt row / Kanban card — everyone's
 // preference, persisted locally rather than per-project, same as
