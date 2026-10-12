@@ -28,7 +28,7 @@ test('registration with accepted terms succeeds and issues a session', async () 
 
 test('signed-out visitors see the landing page at /', async () => {
   const html = await (await fetch(`${server.base}/`)).text();
-  assert.match(html, /Turn a goal into a plan,/);
+  assert.match(html, /Turn a goal into a plan\s+<span class="text-teal">you'll actually finish/);
 });
 
 test('/app always serves the application shell', async () => {
