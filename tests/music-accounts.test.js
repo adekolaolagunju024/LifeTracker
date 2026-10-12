@@ -1,7 +1,9 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 
-// Spotify keys set, Google not: Spotify is offered, YouTube isn't.
+// Linking switched on, Spotify keys set, Google not: Spotify is offered,
+// YouTube isn't.
+process.env.MUSIC_LINKING = 'on';
 process.env.SPOTIFY_CLIENT_ID = 'sp-client';
 process.env.SPOTIFY_CLIENT_SECRET = 'sp-secret';
 delete process.env.GOOGLE_CLIENT_ID; delete process.env.GOOGLE_CLIENT_SECRET;

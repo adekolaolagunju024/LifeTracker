@@ -25,7 +25,6 @@ async function renderSettings() {
     APP.profile = p;
     loadReferralCard();
     renderSettingsDrive();
-    renderSettingsOneDrive();
     API.getMe().then(me => {
       document.getElementById('account-email').textContent = me.email;
       document.getElementById('set-display-email').textContent = me.email;
@@ -795,10 +794,24 @@ function deleteAccountConfirm() {
 async function checkOnboarding() {
   const profile = await API.getProfile();
   if (!profile.onboarded) {
+    startGameOffForNewcomers();
     startOnboarding();
     return true;
   }
   return false;
+}
+
+// A new account starts in Focus mode: the plan first, and XP, quests and
+// trophies are one switch away in Settings. Only when this device has
+// never had a choice saved, so nobody's own setting is overridden.
+function startGameOffForNewcomers() {
+  try {
+    if (localStorage.getItem('focusMode') !== null) return;
+    localStorage.setItem('focusMode', '1');
+  } catch { return; }
+  document.documentElement.classList.add('focus-mode');
+  syncFocusModeButton();
+  syncSoundButtons();
 }
 
 function startOnboarding() {
@@ -939,60 +952,12 @@ async function renderSettingsDrive() {
   } catch (e) { console.error('Settings Drive error:', e); }
 }
 
-// OneDrive (Microsoft): the same card, its own row.
-async function renderSettingsOneDrive() {
-  const textEl = document.getElementById('onedrive-text');
-  if (!textEl) return;
-  const subEl = document.getElementById('onedrive-sub');
-  const actionsEl = document.getElementById('onedrive-actions');
-  try {
-    const s = await API.getOneDriveStatus();
-    if (!s.configured) {
-      textEl.textContent = 'OneDrive backup isn\'t available yet.';
-      subEl.textContent = 'You can still download everything any time from Data and Trash.';
-      actionsEl.innerHTML = '';
-      return;
-    }
-    if (s.connected) {
-      textEl.textContent = `Connected${s.account ? ' as ' + s.account : ''}`;
-      subEl.textContent = (s.lastBackupAt ? `Last backup: ${new Date(s.lastBackupAt).toLocaleString()}. ` : '') + 'Saved to OneDrive → Apps → Waypoint.';
-      actionsEl.innerHTML = `
-        <button onclick="backupToOneDrive('json')" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">${icon('cloud')} Back up now</button>
-        <button onclick="backupToOneDrive('excel')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">${icon('book')} Excel (.xlsx)</button>
-        <button onclick="backupToOneDrive('pdf')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">${icon('file')} PDF report</button>
-        <button onclick="disconnectOneDriveConfirm()" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-semibold px-4 py-2 rounded-lg">Disconnect</button>`;
-    } else {
-      textEl.textContent = 'Not connected';
-      subEl.textContent = 'Back up to your Microsoft OneDrive (personal, work or school). Waypoint only gets its own app folder, never your other files.';
-      actionsEl.innerHTML = '<button onclick="window.location.href=\'/api/onedrive/connect\'" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Connect OneDrive</button>';
-    }
-  } catch (e) { console.error('OneDrive status error:', e); }
-}
-async function backupToOneDrive(format) {
-  API.trackFeature('backup');
-  showToast('☁️ Saving to OneDrive…');
-  try {
-    const r = await API.backupToOneDrive(format);
-    showToast(`✅ Saved ${r.name} to OneDrive`);
-    renderSettingsOneDrive();
-  } catch (e) { showToast('❌ ' + (e.message || 'OneDrive backup failed'), 'error'); }
-}
-function disconnectOneDriveConfirm() {
-  confirmAction('Disconnect OneDrive? Backups already saved stay in your OneDrive.', async () => {
-    await API.disconnectOneDrive();
-    showToast('OneDrive disconnected');
-    renderSettingsOneDrive();
-  });
-}
-
 const BACKUP_FNS = {
   json:   API => API.backupToDrive,
   sheets: API => API.backupToSheets,
-  excel:  API => API.backupToExcel,
   pdf:    API => API.backupToPdf,
-  image:  API => API.backupToImage,
 };
-const BACKUP_LABELS = { json: 'JSON backup', sheets: 'Google Sheet', excel: 'Excel workbook', pdf: 'PDF report', image: 'Image report' };
+const BACKUP_LABELS = { json: 'JSON backup', sheets: 'Google Sheet', pdf: 'PDF report' };
 
 async function backupAs(format) {
   API.trackFeature('backup');
@@ -1002,7 +967,6 @@ async function backupAs(format) {
     showToast(`✅ ${BACKUP_LABELS[format]} saved to Drive`);
     if (result.link) window.open(result.link, '_blank');
     renderSettingsDrive();
-    renderSettingsOneDrive();
   } catch (e) { showToast(`❌ ${BACKUP_LABELS[format]} failed — ${e.message}`, 'error'); }
 }
 
@@ -1011,17 +975,12 @@ function disconnectDriveConfirm() {
     await API.disconnectDrive();
     showToast('🔌 Google Drive disconnected');
     renderSettingsDrive();
-    renderSettingsOneDrive();
   });
 }
 
 function handleDriveRedirect() {
   const params = new URLSearchParams(window.location.search);
-  if (!params.has('drive') && !params.has('onedrive')) return;
-  if (params.get('onedrive') === 'connected') showToast('✅ OneDrive connected');
-  if (params.get('onedrive') === 'error') showToast('❌ OneDrive connection failed', 'error');
-  // Back from Microsoft: Settings opens on Connected apps next time.
-  if (params.has('onedrive')) { APP.settingsTab = 'apps'; window.history.replaceState({}, '', window.location.pathname); return; }
+  if (!params.has('drive')) return;
   if (params.get('drive') === 'connected') showToast('✅ Google Drive connected');
   if (params.get('drive') === 'error')     showToast('❌ Google Drive connection failed', 'error');
   window.history.replaceState({}, '', window.location.pathname);

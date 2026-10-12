@@ -153,12 +153,13 @@ function setJourneyCompetitor(value) {
 // the stage, and the toggle on the scene itself (2D · Follow cam ·
 // Overview) picks the view, the same toggle in 2D and 3D. Purely
 // cosmetic, same mechanics either way (see journeyGame.js's THEMES), and
-// one global preference rather than per-project. The old Road and Race
-// stages were retired; anyone who had one picked lands on Football. An
+// one global preference rather than per-project. Road, Race, Ocean,
+// Corporate, Life Path and Product Launch were retired to keep four stages
+// done well; anyone who had one picked lands on Football. An
 // older saved "football3d"-style choice splits into the stage and the 3D
 // view.
-const RETIRED_JOURNEY_THEMES = ['road', 'race'];
-const JOURNEY_STAGES = ['football', 'castle', 'ocean', 'space', 'corporate', 'construction', 'life', 'launch'];
+const RETIRED_JOURNEY_THEMES = ['road', 'race', 'ocean', 'corporate', 'life', 'launch'];
+const JOURNEY_STAGES = ['football', 'space', 'castle', 'construction'];
 function journeyPref(key) {
   try { return localStorage.getItem(key); } catch { return null; /* private mode etc */ }
 }

@@ -90,7 +90,6 @@ const API = {
 
   // ── AI INSIGHTS ──
   getAIStatus:   ()  => request('GET',  '/ai/status'),
-  getAIInsights: ()  => request('POST', '/ai/insights'),
   // saved chats with the assistant
   getAssistantConversations: ()        => request('GET',    '/ai/conversations'),
   getAssistantConversation:  (id)      => request('GET',    `/ai/conversations/${id}`),
@@ -101,9 +100,7 @@ const API = {
   getDriveStatus:     ()  => request('GET',  '/drive/status'),
   backupToDrive:      ()  => request('POST', '/drive/backup'),
   backupToSheets:     ()  => request('POST', '/drive/backup/sheets'),
-  backupToExcel:      ()  => request('POST', '/drive/backup/excel'),
   backupToPdf:        ()  => request('POST', '/drive/backup/pdf'),
-  backupToImage:      ()  => request('POST', '/drive/backup/image'),
   backupProjectToDrive: (projectId) => request('POST', `/drive/backup/project/${projectId}`),
   disconnectDrive:    ()  => request('POST', '/drive/disconnect'),
   connectDriveUrl:    ()  => '/api/drive/connect',
@@ -129,9 +126,6 @@ const API = {
   resetPassword:   (token, newPassword) => request('POST', '/auth/reset-password', { token, newPassword }),
   getGoogleLoginStatus: ()   => request('GET',  '/auth/google/status'),
   getMicrosoftLoginStatus: () => request('GET', '/auth/microsoft/status'),
-  getOneDriveStatus:  ()       => request('GET',  '/onedrive/status'),
-  disconnectOneDrive: ()       => request('POST', '/onedrive/disconnect'),
-  backupToOneDrive:   (format) => request('POST', '/onedrive/backup', { format }),
 
   // ── DATA IMPORT ──
   importData: (data) => request('POST', '/data/import', data),
@@ -198,16 +192,6 @@ const API = {
   getProjectMessages:   (projectId)       => request('GET',    `/projects/${projectId}/messages`),
   addProjectMessage:    (projectId, text, attachmentId, alsoEmail, ccEmails, replyToId) => request('POST', `/projects/${projectId}/messages`, { text, attachmentId, alsoEmail, ccEmails, replyToId }),
   deleteProjectMessage: (messageId)       => request('DELETE', `/projects/messages/${messageId}`),
-
-  // ── GO LIVE (embedded video walkthrough) ──
-  getLiveStatus:   (projectId) => request('GET',  `/projects/${projectId}/live`),
-  startLiveSession: (projectId) => request('POST', `/projects/${projectId}/live/start`),
-  endLiveSession:   (projectId) => request('POST', `/projects/${projectId}/live/end`),
-
-  // ── PROJECT STATUS (WhatsApp-style, 24h) ──
-  getStatuses:    (projectId)       => request('GET',    `/projects/${projectId}/statuses`),
-  addStatus:      (projectId, text, attachmentId) => request('POST', `/projects/${projectId}/statuses`, { text, attachmentId }),
-  deleteStatus:   (statusId)        => request('DELETE', `/projects/statuses/${statusId}`),
 
   // ── ATTACHMENTS (media/files in chat + comments) ──
   uploadAttachment: async (projectId, file) => {

@@ -12,11 +12,16 @@ const db = require('./db/connection');
 //   YouTube  GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET (the same Google app as
 //            Drive backup), redirect URI <APP_URL>/api/music/youtube/callback,
 //            with the YouTube Data API v3 turned on.
+//   MUSIC_LINKING=on  Linking is shelved until this is set, so the
+//            Connect buttons stay hidden even with the keys in place.
+//            Music search and anyone already linked keep working.
+
+const linkingOn = () => process.env.MUSIC_LINKING === 'on';
 
 const PROVIDERS = {
   spotify: {
     name: 'Spotify',
-    configured: () => !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET),
+    configured: () => linkingOn() && !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET),
     authUrl: 'https://accounts.spotify.com/authorize',
     tokenUrl: 'https://accounts.spotify.com/api/token',
     scope: 'playlist-read-private playlist-read-collaborative',
@@ -26,7 +31,7 @@ const PROVIDERS = {
   },
   youtube: {
     name: 'YouTube',
-    configured: () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    configured: () => linkingOn() && !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
     authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
     tokenUrl: 'https://oauth2.googleapis.com/token',
     scope: 'https://www.googleapis.com/auth/youtube.readonly',

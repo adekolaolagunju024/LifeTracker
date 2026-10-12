@@ -8,49 +8,30 @@
       "line": "Dribble past rival players and score at the goal."
     },
     {
-      "id": "castle",
-      "emoji": "🏰",
-      "name": "Castle",
-      "line": "A knight swings at giant frogs and black knights on the way to the dragon."
-    },
-    {
-      "id": "ocean",
-      "emoji": "🌊",
-      "name": "Ocean",
-      "line": "Dive past sharks and jellyfish swarms to the treasure."
-    },
-    {
       "id": "space",
       "emoji": "🚀",
       "name": "Space",
       "line": "Fly up beside asteroids and alien saucers and blast them."
     },
     {
-      "id": "corporate",
-      "emoji": "🏢",
-      "name": "Corporate",
-      "line": "Stamp red tape APPROVED on the road to the boardroom."
+      "id": "castle",
+      "emoji": "🏰",
+      "name": "Castle",
+      "line": "A knight swings at giant frogs and black knights on the way to the dragon."
     },
     {
       "id": "construction",
       "emoji": "🏗️",
       "name": "Construction",
       "line": "Watch the building go up phase by phase as tasks are done."
-    },
-    {
-      "id": "life",
-      "emoji": "🌱",
-      "name": "Life Path",
-      "line": "Grow up from a kid to a grown-up on the road to your dream home."
-    },
-    {
-      "id": "launch",
-      "emoji": "💡",
-      "name": "Product Launch",
-      "line": "Take an idea to a launch stage full of happy customers."
     }
   ],
   "whatsNew": [
+    {
+      "date": "2026-10-12",
+      "title": "Simpler, with less to learn",
+      "text": "One assistant does the planning everywhere, new accounts start with the plan and keep the game for when you want it, and four Journey worlds remain: Football, Space, Castle and Construction. Fewer extras means the parts you use every day are easier to find."
+    },
     {
       "date": "2026-10-12",
       "title": "A dashboard that says each thing once",
@@ -59,7 +40,7 @@
     {
       "date": "2026-10-12",
       "title": "A team chat that's quicker to use",
-      "text": "One + button for photos, files, a status or emailing the team. Paste or drop a photo in, see it before you send, and write as much as you need: the box grows with you."
+      "text": "One + button for photos, files or emailing the team. Paste or drop a photo in, see it before you send, and write as much as you need: the box grows with you."
     },
     {
       "date": "2026-10-12",

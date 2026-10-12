@@ -48,7 +48,7 @@ if (!process.env.SESSION_SECRET) {
 app.disable('x-powered-by');
 // Content Security Policy: everything loads from this site, except Google
 // Fonts, the sign-in screen's background video and its poster, and the
-// Jitsi room embedded for live calls. No plugins, no other site may frame
+// music services' embedded players. No plugins, no other site may frame
 // the app, and forms only post here. Scripts still allow inline code: the
 // app's markup uses inline event handlers throughout, so moving those to
 // script files has to come before 'unsafe-inline' can be dropped.
@@ -60,8 +60,8 @@ const CSP = [
   "img-src 'self' data: blob: https://images.pexels.com https://*.mzstatic.com https://i.scdn.co https://mosaic.scdn.co https://image-cdn-ak.spotifycdn.com https://image-cdn-fa.spotifycdn.com https://i.ytimg.com https://yt3.ggpht.com",
   "media-src 'self' blob: https://videos.pexels.com",
   "connect-src 'self' blob: data:", // 3D models unpack their textures through blob: URLs
-  // Jitsi for live calls; the music services' own players for Your why.
-  "frame-src 'self' https://meet.jit.si https://open.spotify.com https://www.youtube-nocookie.com https://www.youtube.com https://embed.music.apple.com https://w.soundcloud.com https://widget.deezer.com",
+  // The music services' own players for Your why.
+  "frame-src 'self' https://open.spotify.com https://www.youtube-nocookie.com https://www.youtube.com https://embed.music.apple.com https://w.soundcloud.com https://widget.deezer.com",
   "worker-src 'self'",
   "manifest-src 'self'",
   "object-src 'none'",
@@ -171,7 +171,6 @@ app.use('/api/profile',  require('./routes/profile'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/tasks',    require('./routes/tasks'));
 app.use('/api/drive',    require('./routes/drive'));
-app.use('/api/onedrive', require('./routes/onedrive'));
 app.use('/api/ai',       require('./routes/ai'));
 app.use('/api/reports',  require('./routes/reports'));
 app.use('/api/data',     require('./routes/data'));

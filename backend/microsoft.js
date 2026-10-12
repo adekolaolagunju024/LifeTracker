@@ -1,14 +1,13 @@
 const crypto = require('crypto');
 
 // Microsoft accounts: "Continue with Microsoft" (Outlook.com, Hotmail,
-// Live and work or school accounts) and OneDrive backup. The OAuth 2.0
+// Live and work or school accounts). The OAuth 2.0
 // authorisation-code flow of the Microsoft identity platform, done with
 // plain fetch, no SDK. Off until MICROSOFT_CLIENT_ID and
 // MICROSOFT_CLIENT_SECRET are set (see README → Microsoft).
 //
-// Redirect URIs to register on the Azure app (Web platform):
-//   https://<your domain>/api/auth/microsoft/callback   (sign-in)
-//   https://<your domain>/api/onedrive/callback         (OneDrive)
+// Redirect URI to register on the Azure app (Web platform):
+//   https://<your domain>/api/auth/microsoft/callback
 
 const TENANT = () => process.env.MICROSOFT_TENANT || 'common'; // personal + work accounts
 const AUTHORITY = () => `https://login.microsoftonline.com/${TENANT()}/oauth2/v2.0`;
@@ -18,9 +17,6 @@ const GRAPH = 'https://graph.microsoft.com/v1.0';
 const PERSONAL_TENANT = '9188040d-6c67-4c5b-b112-36a304b66dad';
 
 const SIGN_IN_SCOPES = ['openid', 'email', 'profile', 'User.Read'];
-// Only Waypoint's own app folder in OneDrive (Apps/Waypoint), never the
-// rest of someone's files.
-const ONEDRIVE_SCOPES = ['offline_access', 'User.Read', 'Files.ReadWrite.AppFolder'];
 
 const isConfigured = () => !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET);
 const callbackUrl = (req, path) => `${req.protocol}://${req.get('host')}${path}`;
@@ -92,4 +88,4 @@ async function graph(accessToken, path, opts = {}) {
   return data;
 }
 
-module.exports = { isConfigured, authUrl, checkState, exchangeCode, refreshAccess, readIdToken, identityFromClaims, graph, SIGN_IN_SCOPES, ONEDRIVE_SCOPES, PERSONAL_TENANT };
+module.exports = { isConfigured, authUrl, checkState, exchangeCode, refreshAccess, readIdToken, identityFromClaims, graph, SIGN_IN_SCOPES, PERSONAL_TENANT };

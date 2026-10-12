@@ -1327,35 +1327,15 @@
       --quest-text: #cdeeff; --quest-text-done: #4a5a7a; --quest-date: #6ea3c9; --quest-hover: rgba(125,211,252,.08);
       --quest-accent: #7dd3fc;
     }
-    .journey-quest-panel.theme-ocean, .journey-quest-panel.theme-ocean3d {
-      --quest-bg1: #0e4057; --quest-bg2: #082638; --quest-divider: rgba(255,255,255,.14);
-      --quest-text: #e3f8ff; --quest-text-done: #5f93a8; --quest-date: #8fc7dd; --quest-hover: rgba(255,255,255,.08);
-      --quest-accent: #67e8f9;
-    }
     .journey-quest-panel.theme-football, .journey-quest-panel.theme-football3d {
       --quest-bg1: #1a5c33; --quest-bg2: #0c3019; --quest-divider: rgba(255,255,255,.18);
       --quest-text: #eafff0; --quest-text-done: #5f9a76; --quest-date: #9fd9b4; --quest-hover: rgba(255,255,255,.1);
       --quest-accent: #fde047;
     }
-    .journey-quest-panel.theme-corporate, .journey-quest-panel.theme-corporate3d {
-      --quest-bg1: #1e293b; --quest-bg2: #0f172a; --quest-divider: rgba(148,163,184,.28);
-      --quest-text: #f1f5f9; --quest-text-done: #64748b; --quest-date: #94a3b8; --quest-hover: rgba(148,163,184,.1);
-      --quest-accent: #fbbf24;
-    }
     .journey-quest-panel.theme-construction, .journey-quest-panel.theme-construction3d {
       --quest-bg1: #3b2a1a; --quest-bg2: #1f160d; --quest-divider: rgba(250,204,21,.28);
       --quest-text: #fef3c7; --quest-text-done: #8a7a5c; --quest-date: #d6b98a; --quest-hover: rgba(250,204,21,.1);
       --quest-accent: #facc15;
-    }
-    .journey-quest-panel.theme-life, .journey-quest-panel.theme-life3d {
-      --quest-bg1: #3b2563; --quest-bg2: #241640; --quest-divider: rgba(244,114,182,.3);
-      --quest-text: #fdf4ff; --quest-text-done: #9d8bb8; --quest-date: #e9c6f2; --quest-hover: rgba(244,114,182,.1);
-      --quest-accent: #f9a8d4;
-    }
-    .journey-quest-panel.theme-launch, .journey-quest-panel.theme-launch3d {
-      --quest-bg1: #2e1065; --quest-bg2: #1a0b3d; --quest-divider: rgba(236,72,153,.3);
-      --quest-text: #faf5ff; --quest-text-done: #9a86c4; --quest-date: #d8b4fe; --quest-hover: rgba(236,72,153,.12);
-      --quest-accent: #f472b6;
     }
     .journey-quest-panel.theme-castle, .journey-quest-panel.theme-castle3d {
       --quest-bg1: #1c2547; --quest-bg2: #0d1326; --quest-divider: rgba(231,180,67,.28);
@@ -1464,18 +1444,6 @@
       8% { opacity: .9; } 35% { opacity: 0; }
       100% { transform: translateX(30px) rotate(18deg); opacity: 0; }
     }
-    /* Ocean theme ambient life (frontend/js/journeyGame.js' oceanDecorate)
-       — schooling fish and a patrolling shark drift sideways, bubbles
-       rise and fade, and seaweed sways from its base, so the scene
-       reads as a living reef rather than a static backdrop. */
-    .journey-fish-swim  { animation: journey-fish-swim 7s ease-in-out infinite; }
-    .journey-shark-swim { animation: journey-shark-swim 13s ease-in-out infinite; }
-    .journey-bubble-rise { animation: journey-bubble-rise 5s ease-in infinite; transform-box: fill-box; transform-origin: center; }
-    .journey-seaweed { animation: journey-seaweed-sway 3.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
-    @keyframes journey-fish-swim { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(22px); } }
-    @keyframes journey-shark-swim { 0%, 100% { transform: translateX(0) scaleX(1); } 48% { transform: translateX(60px) scaleX(1); } 50% { transform: translateX(60px) scaleX(-1); } 98% { transform: translateX(0) scaleX(-1); } 100% { transform: translateX(0) scaleX(1); } }
-    @keyframes journey-bubble-rise { 0% { transform: translateY(0); opacity: .5; } 90% { opacity: .5; } 100% { transform: translateY(-70px); opacity: 0; } }
-    @keyframes journey-seaweed-sway { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
     /* Space theme ambient life — stars twinkle, a comet streaks across
        on a long loop, and loose asteroid chunks tumble slowly. */
     .journey-star-twinkle { animation: journey-twinkle 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
@@ -1633,27 +1601,6 @@
     .journey-rainbow { transform-box: fill-box; transform-origin: center bottom; }
     .journey-quest-done .journey-rainbow { animation: journey-rainbow 1.2s ease-out 1 both; }
     @keyframes journey-rainbow { from { transform: scale(.2); } to { transform: scale(1); } }
-    .journey-life-star { transform-box: fill-box; transform-origin: center; }
-    .journey-quest-done .journey-life-star path { animation: journey-star-spin 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-    @keyframes journey-star-spin { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.25); } }
-    .journey-theme-life .journey-foes-defeated .journey-foe { animation: journey-foe-solve .7s ease-out 1 forwards; }
-    @keyframes journey-foe-solve { 0% { transform: translateY(0) scale(1); opacity: 1; filter: none; } 40% { transform: translateY(-4px) scale(1.15); opacity: 1; filter: brightness(1.8); } 100% { transform: translateY(-22px) scale(.3); opacity: 0; filter: brightness(2.2); } }
-    /* Product Launch: the review stars light up with progress, the crowd
-       cheers and the product rockets off the stage at the finish, and
-       blockers are "fixed" (they float up in a sparkle). */
-    .journey-review-star { transition: fill .6s; }
-    .journey-review-star.is-lit { fill: #fbbf24; }
-    .journey-crowd { opacity: 0; transition: opacity .8s; }
-    .journey-quest-done .journey-crowd { opacity: 1; }
-    .journey-quest-done .journey-crowd-jump { animation: journey-crowd-jump .5s ease-in-out infinite alternate; }
-    @keyframes journey-crowd-jump { from { transform: translateY(0); } to { transform: translateY(-4px); } }
-    .journey-rocket-flame { opacity: 0; }
-    .journey-rocket-go { animation: journey-rocket-go 2.6s ease-in 1 both; }
-    .journey-rocket-go .journey-rocket-flame { opacity: 1; }
-    @keyframes journey-rocket-go { 0% { transform: translateY(0); } 15% { transform: translateY(2px); } 70% { transform: translateY(-120px); opacity: 1; } 71% { opacity: 0; transform: translateY(-120px); } 72% { transform: translateY(0); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
-    .journey-spot { transform-box: fill-box; transform-origin: center top; animation: journey-spot 4s ease-in-out infinite alternate; }
-    @keyframes journey-spot { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
-    .journey-theme-launch .journey-foes-defeated .journey-foe { animation: journey-foe-solve .7s ease-out 1 forwards; }
     .journey-deal-anim { animation: journey-deal-pop .8s cubic-bezier(.3,1.6,.5,1) 1 both; }
     @keyframes journey-deal-pop { from { opacity: 0; transform: scale(.2) rotate(-12deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
     @keyframes journey-firework { 0% { opacity: 1; transform: scale(.2); } 70% { opacity: 1; } 100% { opacity: 0; transform: scale(1.5); } }
@@ -1688,7 +1635,7 @@
       .journey-avatar-bob, .journey-next-glow, .journey-blocked-glow,
       .journey-leg-front, .journey-leg-back, .journey-arm-front, .journey-arm-back, .journey-cape,
       .journey-ring-spin, .journey-ring-spin-rev, .journey-shine,
-      .journey-fish-swim, .journey-shark-swim, .journey-bubble-rise, .journey-seaweed,
+      
       .journey-star-twinkle, .journey-comet, .journey-asteroid,
       .journey-crowd-bob, .journey-flag-wave, .journey-speedline,
       .journey-sparkle, .journey-checkpoint-pop,
@@ -1696,8 +1643,8 @@
       .journey-task-popup-inner,
       .journey-flame, .journey-river-flow, .journey-frog-sac, .journey-dragon-breathe, .journey-dragon-wing,
       .journey-dragon-fire, .journey-dragon-hit, .journey-dragon-fall, .journey-slash .journey-arm-front,
-      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise, .journey-hq-beacon, .journey-deal-anim, .journey-topping, .journey-rainbow, .journey-life-star path, .journey-crowd-jump, .journey-rocket-go, .journey-spot,
-      .journey-foe, .journey-foes-defeated .journey-foe, .journey-theme-life .journey-foes-defeated .journey-foe, .journey-theme-launch .journey-foes-defeated .journey-foe { animation: none; }
+      .journey-slash-arc, .journey-princess-wave, .journey-firework, .journey-flag-rise, .journey-topping,
+      .journey-foe, .journey-foes-defeated .journey-foe { animation: none; }
       .journey-portcullis, .journey-princess-free { transition: none; }
     }
 
@@ -2832,18 +2779,10 @@
               <option value="schedule"> The Schedule</option>
             </select>
             <select id="journey-theme-select" onchange="setJourneyTheme(this.value)" title="Pick the Journey stage (2D or 3D is chosen with the toggle beside it)" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
-              <optgroup label="Sport &amp; adventure">
-                <option value="football"> Football</option>
-                <option value="castle"> Castle</option>
-                <option value="ocean"> Ocean</option>
-                <option value="space"> Space</option>
-              </optgroup>
-              <optgroup label="Work &amp; life">
-                <option value="corporate"> Corporate</option>
-                <option value="construction"> Construction</option>
-                <option value="life"> Life Path</option>
-                <option value="launch"> Product Launch</option>
-              </optgroup>
+              <option value="football"> Football</option>
+              <option value="space"> Space</option>
+              <option value="castle"> Castle</option>
+              <option value="construction"> Construction</option>
             </select>
             <div id="journey-view-bar" class="journey-view-bar hidden" role="group" aria-label="View"></div>
             <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started and untick its cleared blockers" aria-label="Reset">↺<span class="hidden sm:inline"> Reset</span></button>
@@ -2892,16 +2831,15 @@
         </div>
       </div>
 
-      <!-- AI Insights -->
+      <!-- Plan it for me: hands the list to the assistant -->
       <div class="bg-white border border-gray-200 rounded-2xl p-4 mb-6">
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div class="min-w-0">
             <p class="text-sm font-bold text-navy flex items-center gap-1.5"><span class="flex text-teal" data-icon="sparkles"></span>Not sure where to start?</p>
-            <p class="text-xs text-gray-500 mt-0.5">The assistant reads what's below and gives you a short order to do it in, with the next step for each. About 15 seconds.</p>
+            <p class="text-xs text-gray-500 mt-0.5">The assistant reads what's below and gives you a short order to do it in, with the next step for each. You can then ask it to move or add anything.</p>
           </div>
-          <button onclick="loadAIInsights()" id="ai-insights-btn" class="bg-teal/10 hover:bg-teal/20 text-teal text-xs font-bold px-4 py-2 rounded-lg whitespace-nowrap">Plan it for me</button>
+          <button onclick="planActionsWithAssistant()" class="bg-teal/10 hover:bg-teal/20 text-teal text-xs font-bold px-4 py-2 rounded-lg whitespace-nowrap">Plan it for me</button>
         </div>
-        <div class="hidden mt-4" id="ai-insights-body"></div>
       </div>
 
       <div id="action-list"></div>
@@ -3155,7 +3093,7 @@
             <span class="icon-badge" style="background:#0D1B2A22;color:#0D1B2A" data-icon="focus"></span>
             <div class="min-w-0">
               <p class="text-sm font-semibold text-navy">Focus mode</p>
-              <p class="text-xs text-gray-400 mt-0.5">Hide the game layer: XP, levels, daily quests, trophies, level-up moments and game sounds. Your plan, the Journey map, streak and reminders all stay. Saved on this device.</p>
+              <p class="text-xs text-gray-400 mt-0.5">Hide the game layer: XP, levels, daily quests, trophies, level-up moments and game sounds. Your plan, the Journey map, streak and reminders all stay. On for new accounts; turn it off to play. Saved on this device.</p>
             </div>
           </div>
           <button onclick="toggleFocusMode()" class="ios-switch" id="focus-mode-btn" role="switch" aria-label="Toggle focus mode"><span class="ios-switch-knob"></span></button>
@@ -3207,16 +3145,8 @@
           <p class="text-xs font-semibold text-gray-500 mt-5 mb-2 border-t border-gray-100 pt-4">Export a copy as…</p>
           <div class="flex gap-3 flex-wrap">
             <button onclick="backupAs('sheets')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="chart-column"></span> Google Sheet</button>
-            <button onclick="backupAs('excel')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="book"></span> Excel (.xlsx)</button>
             <button onclick="backupAs('pdf')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="file"></span> PDF Report</button>
-            <button onclick="backupAs('image')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="image"></span> Image Report</button>
           </div>
-        </div>
-        <div class="border-t border-gray-100 mt-5 pt-5">
-          <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Microsoft OneDrive</p>
-          <p class="text-sm text-gray-500 mb-1" id="onedrive-text">Checking connection…</p>
-          <p class="text-xs text-gray-400 mb-4" id="onedrive-sub"></p>
-          <div class="flex gap-3 flex-wrap" id="onedrive-actions"></div>
         </div>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 p-6 mb-5">
@@ -3969,27 +3899,10 @@
       <p class="font-bold text-navy truncate" id="team-chat-project-title"></p>
     </div>
     <div class="flex items-center gap-1 flex-shrink-0">
-      <button onclick="startGoLive()" id="btn-go-live" class="hidden text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-gray-100 text-base" title="Go live: a video walkthrough for the team" aria-label="Go live"><span class="ei" data-icon="video"></span></button>
       <button onclick="openShareProject(APP.chatProjectId)" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-base" title="Add members / manage access"><span class="ei" data-icon="users"></span></button>
       <button onclick="closeProjectChat()" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
     </div>
   </div>
-  <!-- Go Live — an embedded Jitsi Meet room so a site rep can broadcast a
-       walkthrough; everyone else watches here and comments in the same
-       chat below, rather than a separate live-only comment stream. -->
-  <div class="hidden flex-col border-b border-gray-100" id="live-session-area">
-    <div class="flex items-center justify-between px-6 py-2 bg-red-50 border-b border-red-100">
-      <span class="text-xs font-semibold text-red-600 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> <span id="live-session-label">Live</span></span>
-      <button onclick="endGoLiveConfirm()" id="btn-end-live" class="hidden text-xs font-semibold text-red-600 hover:text-red-700">End</button>
-    </div>
-    <div class="hidden" id="live-video-wrap" style="height:220px">
-      <iframe id="live-video-iframe" style="width:100%;height:100%;border:0" allow="camera; microphone; fullscreen; display-capture; autoplay"></iframe>
-    </div>
-    <button onclick="joinGoLive()" id="btn-join-live" class="hidden mx-6 my-2 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-2 rounded-lg">▶ Join</button>
-  </div>
-  <!-- Status tray — WhatsApp-style: a ring per teammate with an active
-       status (auto-expires after 24h), plus your own "+" to post one. -->
-  <div class="flex gap-3 px-6 py-3 border-b border-gray-100 overflow-x-auto" id="status-tray"></div>
   <div class="p-6 overflow-y-auto flex-1" id="team-chat-messages"></div>
   <div class="px-6 py-4 border-t border-gray-100">
     <div class="hidden items-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2" id="team-chat-reply-chip">
@@ -4019,7 +3932,6 @@
           <div class="chat-plus-menu hidden" id="chat-plus-menu" role="menu">
             <button type="button" role="menuitem" onclick="chatPick('team-chat-media-input')"><span class="ei" data-icon="camera"></span><span>Photo or video</span></button>
             <button type="button" role="menuitem" onclick="chatPick('team-chat-file-input')"><span class="ei" data-icon="paperclip"></span><span>File</span></button>
-            <button type="button" role="menuitem" onclick="closeChatPlus(); openStatusComposer()"><span class="ei" data-icon="circle-dot"></span><span>Post a status</span></button>
             <button type="button" role="menuitem" onclick="closeChatPlus(); chatToggleEmail()"><span class="ei" data-icon="mail"></span><span id="chat-email-item">Email this to the team</span></button>
           </div>
         </div>
@@ -4035,52 +3947,6 @@
     </div>
     <p class="hidden text-xs text-gray-400" id="team-chat-viewonly"><span class="ei" data-icon="eye"></span> View-only access — you can't post in this chat.</p>
   </div>
-</div>
-
-<!-- STATUS COMPOSER MODAL -->
-<div class="modal-overlay fixed inset-0 bg-black/50 z-[60] items-center justify-center p-5" id="modal-status-composer">
-  <div class="bg-white rounded-2xl w-full max-w-sm max-h-[90vh] flex flex-col shadow-2xl">
-    <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-      <h3 class="text-base font-bold text-navy">Add Status</h3>
-      <button onclick="closeModal('modal-status-composer')" class="text-gray-400 hover:text-gray-600 text-xl leading-none px-1" aria-label="Close" data-icon="close"></button>
-    </div>
-    <div class="p-6 space-y-3">
-      <input type="file" id="status-file-input" accept="image/*,video/*" class="hidden" onchange="onStatusFileSelected(this.files[0])">
-      <button onclick="document.getElementById('status-file-input').click()" id="status-file-picker-btn" class="w-full border-2 border-dashed border-gray-200 rounded-xl py-8 text-center text-gray-400 hover:border-teal hover:text-teal text-sm"><span class="ei" data-icon="camera"></span> Add a photo or video (optional)</button>
-      <div class="hidden relative" id="status-file-preview-wrap">
-        <img id="status-file-preview-img" class="hidden w-full rounded-xl max-h-64 object-cover">
-        <video id="status-file-preview-video" class="hidden w-full rounded-xl max-h-64" controls></video>
-        <button onclick="clearStatusAttachment()" class="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center" aria-label="Close" data-icon="close"></button>
-      </div>
-      <textarea id="status-text-input" rows="2" placeholder="Say something… (optional if you added a photo)"
-        class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal resize-none"></textarea>
-      <p class="text-xs text-gray-400">Visible to this project's team for 24 hours, then it disappears automatically.</p>
-    </div>
-    <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
-      <button onclick="closeModal('modal-status-composer')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Cancel</button>
-      <button onclick="submitStatus()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg">Post Status</button>
-    </div>
-  </div>
-</div>
-
-<!-- STATUS VIEWER — full-panel story view, one author's statuses at a time -->
-<div class="hidden fixed inset-0 bg-black z-[70] items-center justify-center" id="status-viewer">
-  <div class="absolute top-0 left-0 right-0 flex gap-1 p-2 z-10" id="status-viewer-progress"></div>
-  <div class="absolute top-4 left-4 right-14 flex items-center gap-2 z-10 text-white">
-    <span class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold flex-shrink-0" id="status-viewer-avatar"></span>
-    <div class="min-w-0">
-      <p class="text-sm font-bold truncate" id="status-viewer-name"></p>
-      <p class="text-xs text-white/60" id="status-viewer-time"></p>
-    </div>
-  </div>
-  <button onclick="closeStatusViewer()" class="absolute top-4 right-4 z-10 text-white/80 hover:text-white text-2xl leading-none" aria-label="Close" data-icon="close"></button>
-  <button onclick="statusViewerPrev()" class="absolute left-0 top-0 bottom-0 w-1/3 z-[5]" aria-label="Previous"></button>
-  <button onclick="statusViewerNext()" class="absolute right-0 top-0 bottom-0 w-1/3 z-[5]" aria-label="Next"></button>
-  <div class="w-full h-full flex items-center justify-center p-4" id="status-viewer-content"></div>
-  <div class="absolute bottom-6 left-0 right-0 flex justify-center px-6">
-    <p class="text-white text-sm text-center bg-black/40 rounded-lg px-4 py-2 max-w-md" id="status-viewer-caption"></p>
-  </div>
-  <button onclick="deleteStatusFromViewer()" id="status-viewer-delete-btn" class="hidden absolute bottom-6 right-6 z-10 text-white/70 hover:text-red-400 text-lg"><span class="ei" data-icon="trash"></span></button>
 </div>
 
 <!-- SHARE PROJECT MODAL -->
