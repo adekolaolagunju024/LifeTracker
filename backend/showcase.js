@@ -180,7 +180,7 @@ async function capture({ base, cookie, projectId, ids }, outDir) {
       const scene = await page.$('#mountain-scene-wrap');
       if (scene) await save(scene, `stage-${stage}.webp`);
     }
-    await page.evaluate(() => { setJourneyTheme('construction'); setJourneyView('3d', 'follow'); });
+    await page.evaluate(() => { setJourneyTheme('football'); setJourneyView('3d', 'follow'); });
     try {
       await page.waitForFunction(() => { const c = document.getElementById('mountain-scene'); return c._j3d && c._j3d._debug.state.ready; }, { timeout: 90000 });
       await sleep(2500);
