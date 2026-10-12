@@ -96,7 +96,7 @@ const Jarvis = (() => {
   function startFocus({ taskId = null, title = '', minutes = 25, music = true, isBreak = false } = {}) {
     API.trackFeature('focus');
     stopFocus(true);
-    const total = Math.min(90, Math.max(5, minutes)) * 60000;
+    const total = Math.min(240, Math.max(5, minutes)) * 60000;
     // A new session keeps the size they last chose for the timer.
     const prev = store.get('wp-focus-view') || {};
     focus = { taskId, title, total, ends: Date.now() + total, paused: null, isBreak, min: !!prev.min };
@@ -237,8 +237,7 @@ const Jarvis = (() => {
   function startNext() {
     const nx = focus && focus.next;
     if (!nx) { stopFocus(true); return; }
-    const plan = planGet();
-    startFocus({ taskId: nx.id, title: nx.title, minutes: plan ? plan.minutes : 25, music: true });
+    startFocus({ taskId: nx.id, title: nx.title, minutes: planMins(nx.id), music: true });
   }
   function takeBreak() {
     const nx = focus && focus.next;
@@ -311,10 +310,9 @@ const Jarvis = (() => {
   }
 
   // ── Today ──
-  // The top of the dashboard: the greeting, what's late or due, your
-  // streak, today's quote from Your why, and one tap to start the first
-  // thing (with your music), talk to the assistant, play your music, or
-  // hear it all read out.
+  // The top of the dashboard, kept light: the greeting, today's plan with
+  // the time of what's next, and one tap to Start my day. The quote, the
+  // music and reading the day out live in the morning flow instead.
   let brief = null;
   async function renderBriefing() {
     const box = document.getElementById('dash-brief');
@@ -334,7 +332,6 @@ const Jarvis = (() => {
     const hello = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
     const why = window.Why ? await Why.load().then(() => Why.get()).catch(() => null) : null;
     const quote = why && window.Why && Why.todaysQuote ? Why.todaysQuote() : null; // a different one each day
-    const music = why && why.playlists.length ? why.playlists[0] : null;
     const counts = [late.length && `${late.length} overdue`, todays.length && `${todays.length} due today`, blocked.length && `${blocked.length} blocked`].filter(Boolean);
     brief = {
       top,
@@ -347,11 +344,19 @@ const Jarvis = (() => {
       ].filter(Boolean).join(' '),
     };
     const dateText = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    // A plan made on another device (or last night) comes from the server.
+    if (!planGet()) {
+      try {
+        const sp = await API.getDayPlan(today);
+        if (sp && sp.items && sp.items.length) store.set(PLAN_KEY, { date: today, ids: sp.items.map(i => i.taskId), minutes: sp.items[0].minutes, mins: Object.fromEntries(sp.items.map(i => [i.taskId, i.minutes])), starts: Object.fromEntries(sp.items.map(i => [i.taskId, i.start])) });
+      } catch { /* offline */ }
+    }
     const plan = planGet();
     const planDone = plan ? plan.ids.filter(id => tasks.some(t => t.id === id && t.status === 'Completed')).length : 0;
     const planNext = plan ? await nextInPlan(tasks) : null;
     const taskLink = t => `<button type="button" onclick="openTaskDetail('${t.id}')">${esc(t.title)}</button>`;
-    const sum = plan ? (planNext ? `Today's plan: ${planDone} of ${plan.ids.length} done · Next: ${taskLink(planNext)}` : `Today's plan is done: ${planDone} of ${plan.ids.length}. Great work.`)
+    const at = planNext && plan.starts && plan.starts[planNext.id] ? ` at ${plan.starts[planNext.id]}` : '';
+    const sum = plan ? (planNext ? `Today's plan: ${planDone} of ${plan.ids.length} done · Next${at}: ${taskLink(planNext)}` : `Today's plan is done: ${planDone} of ${plan.ids.length}. Great work.`)
       : open.length ? '' // Your focus, right under this, lists what's first
         : 'Nothing open. A good day to plan the next goal.';
     const running = focus && !focus.done && !focus.isBreak;
@@ -364,10 +369,6 @@ const Jarvis = (() => {
     const pills = ['streak-badge', 'dash-level-pill'].map(id => document.getElementById(id)).filter(Boolean);
     const home = document.getElementById('dash-head-pills');
     if (home) pills.forEach(p => home.appendChild(p));
-    const line = quote ? `<figure class="brief-quote"><blockquote>“${esc(quote.text)}”</blockquote>${quote.source ? `<figcaption>${esc(quote.source)}</figcaption>` : ''}</figure>`
-      : why && why.why ? `<figure class="brief-quote"><blockquote>Remember why: ${esc(why.why)}</blockquote></figure>`
-        : `<button type="button" class="brief-add" onclick="showPage('why')">${icon('heart', 'tiny')} Add a quote or reason that keeps you going</button>`;
-    const tool = (onclick, ic, label, title, extra = '') => `<button type="button" class="brief-tool" onclick="${onclick}" title="${esc(title)}" aria-label="${esc(title)}" ${extra}>${icon(ic)}<span>${esc(label)}</span></button>`;
     box.innerHTML = `<div class="brief-card">
       <div class="brief-top">
         <p class="brief-date"><span class="brief-orb" aria-hidden="true"><span></span></span>${esc(dateText)}</p>
@@ -375,15 +376,7 @@ const Jarvis = (() => {
       </div>
       <p class="brief-hello">${esc(hello)}${name ? `, ${esc(name)}` : ''}.</p>
       ${sum ? `<p class="brief-sum">${sum}</p>` : ''}
-      ${line}
-      <div class="brief-actions">
-        ${mainBtn ? `<div class="brief-main">${mainBtn}${plan ? `<button type="button" class="brief-plan" onclick="Jarvis.openPlanner()" aria-label="Change today's plan" title="Change today's plan">${icon('list-checks')}</button>` : ''}</div>` : ''}
-        <div class="brief-tools">
-          ${tool('Jarvis.talk()', 'mic', 'Talk', 'Talk to your assistant (J)')}
-          ${music ? tool('Why.playMusic()', 'music', 'Music', `Play ${music.label || 'your music'}`) : tool("showPage('why')", 'music', 'Music', 'Add your music')}
-          ${tool('Jarvis.hear()', 'volume', 'Listen', 'Read today out loud')}
-        </div>
-      </div>
+      ${mainBtn ? `<div class="brief-actions"><div class="brief-main">${mainBtn}${plan ? `<button type="button" class="brief-plan" onclick="Jarvis.openPlanner()" aria-label="Change today's plan" title="Change today's plan">${icon('list-checks')}</button>` : ''}</div></div>` : ''}
     </div>`;
     const slot = box.querySelector('.brief-pills');
     pills.forEach(p => slot.appendChild(p));
@@ -415,15 +408,32 @@ const Jarvis = (() => {
     const plan = planGet();
     if (plan) {
       const nx = await nextInPlan().catch(() => null);
-      if (nx) { startFocus({ taskId: nx.id, title: nx.title, minutes: plan.minutes, music: true }); return; }
+      if (nx) { startFocus({ taskId: nx.id, title: nx.title, minutes: planMins(nx.id, plan), music: true }); return; }
     }
     openPlanner();
   }
+  // ── The morning: a timetable, blockers, a song, then go ──
+  // Start my day is three short steps. 1, Your day: the tasks for today
+  // as a timetable, each with a start time and a length, worked out from
+  // when you start (reorder, change lengths, add or drop). 2, Anything in
+  // the way: the blockers already on today's tasks, and room to add one.
+  // 3, A song to start: pick from your music or skip. Then today's quote
+  // shows for a moment and fades, and the first task starts. The plan is
+  // kept on the server (backend/dayPlan.js) so the evening report and the
+  // ghost can use it, and on this device so focus sessions chain.
+  const LENGTHS = [15, 30, 45, 60, 90, 120];
+  const toMin = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  const fromMin = m => `${String(Math.floor((m % 1440) / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  const lenText = m => (m < 60 ? `${m} min` : m % 60 ? `${Math.floor(m / 60)} h ${m % 60}` : `${m / 60} h`);
+  const planMins = (id, plan = planGet()) => (plan && plan.mins && plan.mins[id]) || (plan && plan.minutes) || 25;
+  const nextQuarter = () => { const d = new Date(); return fromMin(Math.ceil((d.getHours() * 60 + d.getMinutes()) / 15) * 15); };
+
   let planner = null;
   async function openPlanner() {
-    let tasks, projects;
+    let tasks, projects, saved = null;
     try { [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]); } catch { showToast('Could not load your tasks', 'error'); return; }
     const today = localDateKey(new Date());
+    try { saved = await API.getDayPlan(today); } catch { /* offline: start fresh */ }
     const soon = localDateKey(new Date(Date.now() + 3 * 86400000));
     const byId = Object.fromEntries(projects.map(p => [p.id, p]));
     const due = t => (t.endDate || '').slice(0, 10);
@@ -431,15 +441,20 @@ const Jarvis = (() => {
     const rank = t => (due(t) && due(t) < today ? 0 : due(t) === today ? 1 : t.status === 'In Progress' ? 2 : due(t) && due(t) <= soon ? 3 : 4);
     const open = tasks.filter(t => t.status !== 'Completed')
       .sort((a, b) => rank(a) - rank(b) || (due(a) || '9999').localeCompare(due(b) || '9999') || (a.priority === 'High' ? -1 : b.priority === 'High' ? 1 : 0));
-    const list = open.slice(0, 8);
-    const plan = planGet();
-    const chosen = new Set(plan ? plan.ids.filter(id => list.some(t => t.id === id))
-      : list.filter(t => !blocked(t) && rank(t) <= 2).slice(0, 3).map(t => t.id));
-    if (!chosen.size) list.filter(t => !blocked(t)).slice(0, 3).forEach(t => chosen.add(t.id));
+    const byTask = Object.fromEntries(open.map(t => [t.id, t]));
+    const guess = t => (t.priority === 'High' ? 60 : 30);
+    let items, start;
+    if (saved && saved.items && saved.items.length) {
+      items = saved.items.filter(i => byTask[i.taskId]).map(i => ({ id: i.taskId, minutes: i.minutes }));
+      start = saved.items[0].start;
+    } else {
+      items = open.filter(t => !blocked(t) && rank(t) <= 2).slice(0, 3).map(t => ({ id: t.id, minutes: guess(t) }));
+      if (!items.length) items = open.filter(t => !blocked(t)).slice(0, 3).map(t => ({ id: t.id, minutes: guess(t) }));
+      start = nextQuarter();
+    }
     const editable = id => { const r = (byId[id] || {}).role; return r === 'owner' || r === 'editor'; };
-    const home = list.find(t => editable(t.projectId))?.projectId || projects.find(p => p.role === 'owner' && !p.parentId)?.id;
-    planner = { list, chosen, byId, today, minutes: plan ? plan.minutes : (store.get('wp-focus-len') || 25), music: true, home };
-    const hasMusic = window.Why && Why.get && (Why.get() || { playlists: [] }).playlists.length;
+    const home = open.find(t => editable(t.projectId))?.projectId || projects.find(p => p.role === 'owner' && !p.parentId)?.id;
+    planner = { open, byTask, items, start, byId, today, home, step: 1, song: null, guess };
 
     document.getElementById('day-plan')?.remove();
     const el = document.createElement('div');
@@ -448,63 +463,112 @@ const Jarvis = (() => {
     el.innerHTML = `<div class="dayplan" role="dialog" aria-modal="true" aria-labelledby="dayplan-title">
       <div class="dayplan-head">
         <div><p class="dayplan-kicker">${esc(new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
-        <h3 id="dayplan-title">Let's sort today</h3>
-        <p class="dayplan-sub">Pick what you'll get done. We'll start with the first and hand you the next as you go.</p></div>
+        <h3 id="dayplan-title"></h3>
+        <p class="dayplan-sub" id="dayplan-sub"></p></div>
         <button type="button" class="dayplan-x" onclick="Jarvis.closePlanner()" aria-label="Close">${icon('close')}</button>
       </div>
-      <div class="dayplan-list" id="dayplan-list"></div>
-      ${home ? `<form class="dayplan-add" onsubmit="event.preventDefault(); Jarvis.plannerAdd()">
-        <input id="dayplan-new" maxlength="200" placeholder="Something else for today…" aria-label="Add a task for today">
-        <button type="submit">${icon('plus')}Add</button></form>` : ''}
-      <div class="dayplan-opts">
-        <span class="dayplan-label">Each session</span>
-        <div class="dayplan-len" role="radiogroup" aria-label="Session length">${[25, 45, 60].map(m => `<button type="button" role="radio" data-m="${m}" onclick="Jarvis.plannerLen(${m})">${m} min</button>`).join('')}</div>
-        ${hasMusic ? `<label class="dayplan-music"><input type="checkbox" id="dayplan-music" checked> ${icon('music', 'tiny')} Play my music</label>` : ''}
-      </div>
-      <div class="dayplan-foot">
-        <button type="button" class="dayplan-ai" onclick="Jarvis.plannerAsk()">${icon('sparkles', 'tiny')} Plan it with the assistant</button>
-        <button type="button" class="dayplan-go" id="dayplan-go" onclick="Jarvis.plannerGo()"></button>
-      </div>
+      <ol class="dayplan-steps" aria-label="Steps">${['Your day', 'Blockers', 'Music'].map((n, i) => `<li data-s="${i + 1}">${n}</li>`).join('')}</ol>
+      <div id="dayplan-body"></div>
+      <div class="dayplan-foot" id="dayplan-foot"></div>
     </div>`;
     el.addEventListener('click', e => { if (e.target === el) closePlanner(); });
     el.addEventListener('keydown', e => { if (e.key === 'Escape') closePlanner(); });
     document.body.appendChild(el);
     paintPlanner();
-    setTimeout(() => el.querySelector('#dayplan-go')?.focus(), 50);
+    setTimeout(() => el.querySelector('.dayplan-go')?.focus(), 50);
+  }
+  // Start times follow from the first one and each task's length.
+  function timesFor(P) {
+    let at = toMin(P.start);
+    return P.items.map(i => { const s = fromMin(at); at += i.minutes; return s; });
   }
   function paintPlanner() {
     const P = planner;
-    const box = document.getElementById('dayplan-list');
-    if (!P || !box) return;
-    const blocked = t => (t.obstacles || []).some(o => !o.resolved);
-    const due = t => (t.endDate || '').slice(0, 10);
-    // Ticked ones first, in the order they'll be done.
-    const rows = [...P.list.filter(t => P.chosen.has(t.id)), ...P.list.filter(t => !P.chosen.has(t.id))];
-    box.innerHTML = rows.length ? rows.map(t => {
-      const late = due(t) && due(t) < P.today;
-      const when = late ? 'Late, moves to today' : due(t) === P.today ? 'Today' : t.status === 'In Progress' ? 'In progress' : due(t) ? new Date(due(t) + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
-      const b = blocked(t);
-      const order = P.chosen.has(t.id) ? [...P.chosen].filter(id => rows.some(r => r.id === id)).indexOf(t.id) + 1 : 0;
-      return `<label class="dayplan-row ${P.chosen.has(t.id) ? 'on' : ''} ${b ? 'is-blocked' : ''}">
-        <input type="checkbox" ${P.chosen.has(t.id) ? 'checked' : ''} ${b ? 'disabled' : ''} onchange="Jarvis.plannerToggle('${t.id}')">
-        <span class="dayplan-n">${order || ''}</span>
-        <span class="min-w-0 flex-1"><span class="dayplan-t">${esc(t.title)}</span>
-        <span class="dayplan-m">${esc((P.byId[t.projectId] || {}).title || '')}${b ? ' · blocked, clear it first' : ''}</span></span>
-        <span class="dayplan-when ${late ? 'late' : ''}">${esc(when)}</span>
-      </label>`;
-    }).join('') : '<p class="dayplan-empty">Nothing open yet. Add the first thing you want to get done today.</p>';
-    document.querySelectorAll('#day-plan .dayplan-len button').forEach(b => b.setAttribute('aria-checked', String(Number(b.dataset.m) === P.minutes)));
-    const n = P.chosen.size;
-    const go = document.getElementById('dayplan-go');
-    go.disabled = !n;
-    go.innerHTML = `${icon('play')}${n ? `Start · ${n} ${n === 1 ? 'task' : 'tasks'}` : 'Pick at least one'}`;
+    const body = document.getElementById('dayplan-body');
+    if (!P || !body) return;
+    document.querySelectorAll('#day-plan .dayplan-steps li').forEach(li => {
+      const n = Number(li.dataset.s);
+      li.className = n === P.step ? 'on' : n < P.step ? 'done' : '';
+      if (n === P.step) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+    });
+    const title = document.getElementById('dayplan-title');
+    const sub = document.getElementById('dayplan-sub');
+    const foot = document.getElementById('dayplan-foot');
+    const blockedNow = t => (t.obstacles || []).filter(o => !o.resolved);
+    const proj = t => esc((P.byId[t.projectId] || {}).title || '');
+    if (P.step === 1) {
+      title.textContent = P.items.length ? "Here's your day" : "Let's plan your day";
+      sub.textContent = 'Times follow from when you start and how long each takes. Move things up or down, or change a length.';
+      const times = timesFor(P);
+      const end = P.items.length ? fromMin(toMin(P.start) + P.items.reduce((n, i) => n + i.minutes, 0)) : null;
+      const rest = P.open.filter(t => !P.items.some(i => i.id === t.id)).slice(0, 6);
+      body.innerHTML = `
+        <label class="dayplan-start">${icon('clock', 'tiny')}Start at <input type="time" id="dayplan-start" value="${P.start}" onchange="Jarvis.plannerStart(this.value)"></label>
+        <ol class="dayplan-tt">${P.items.map((it, i) => {
+          const t = P.byTask[it.id];
+          const b = blockedNow(t).length;
+          return `<li class="dayplan-slot">
+            <span class="dayplan-time">${times[i]}</span>
+            <span class="min-w-0 flex-1"><span class="dayplan-t">${esc(t.title)}</span>
+            <span class="dayplan-m">${proj(t)}${b ? ` · <b class="dayplan-blk">${icon('blocker', 'tiny')}${b} ${b === 1 ? 'blocker' : 'blockers'}</b>` : ''}</span></span>
+            <select class="dayplan-mins" aria-label="How long for ${esc(t.title)}" onchange="Jarvis.plannerLen(${i}, this.value)">${[...new Set([...LENGTHS, it.minutes])].sort((a, z) => a - z).map(m => `<option value="${m}" ${m === it.minutes ? 'selected' : ''}>${lenText(m)}</option>`).join('')}</select>
+            <span class="dayplan-move">
+              <button type="button" onclick="Jarvis.plannerMove(${i}, -1)" ${i ? '' : 'disabled'} aria-label="Earlier">${icon('chevron_up')}</button>
+              <button type="button" onclick="Jarvis.plannerMove(${i}, 1)" ${i < P.items.length - 1 ? '' : 'disabled'} aria-label="Later">${icon('chevron_down')}</button>
+            </span>
+            <button type="button" class="dayplan-drop" onclick="Jarvis.plannerToggle('${it.id}')" aria-label="Take ${esc(t.title)} out of today">${icon('close')}</button>
+          </li>`;
+        }).join('') || '<li class="dayplan-empty">Nothing planned yet. Add something below.</li>'}</ol>
+        ${end ? `<p class="dayplan-end">${P.items.length} ${P.items.length === 1 ? 'task' : 'tasks'} · done by about <b>${end}</b></p>` : ''}
+        ${rest.length ? `<p class="dayplan-label">Add from your list</p><div class="dayplan-more">${rest.map(t => `<button type="button" onclick="Jarvis.plannerToggle('${t.id}')">${icon('plus', 'tiny')}<span>${esc(t.title)}</span></button>`).join('')}</div>` : ''}
+        ${P.home ? `<form class="dayplan-add" onsubmit="event.preventDefault(); Jarvis.plannerAdd()">
+          <input id="dayplan-new" maxlength="200" placeholder="Something new for today…" aria-label="Add a new task for today">
+          <button type="submit">${icon('plus')}Add</button></form>` : ''}`;
+      foot.innerHTML = `<div class="dayplan-tools">
+          <button type="button" class="dayplan-ai" onclick="Jarvis.plannerHear()">${icon('volume', 'tiny')} Read my day out</button>
+          <button type="button" class="dayplan-ai" onclick="Jarvis.plannerAsk()">${icon('sparkles', 'tiny')} Plan it with the assistant</button>
+        </div>
+        <button type="button" class="dayplan-go" onclick="Jarvis.plannerStep(2)" ${P.items.length ? '' : 'disabled'}>Next ${icon('chevron_right')}</button>`;
+    } else if (P.step === 2) {
+      title.textContent = 'Anything in your way today?';
+      sub.textContent = 'Name what could hold you up, so you can deal with it early.';
+      const known = P.items.flatMap(it => blockedNow(P.byTask[it.id]).map(o => ({ o, t: P.byTask[it.id] })));
+      body.innerHTML = `${known.length ? `<ul class="dayplan-blockers">${known.map(({ o, t }) => `<li>${icon('blocker', 'tiny')}<span><b>${esc(o.name)}</b>${o.count > 1 ? ` ×${o.count}` : ''}<small>${esc(t.title)}</small></span></li>`).join('')}</ul>`
+        : `<p class="dayplan-clear">${icon('check', 'tiny')}No blockers on today's tasks yet.</p>`}
+        <form class="dayplan-add dayplan-addblk" onsubmit="event.preventDefault(); Jarvis.plannerBlocker()">
+          <select id="dayplan-blk-task" aria-label="Which task">${P.items.map(it => `<option value="${it.id}">${esc(P.byTask[it.id].title)}</option>`).join('')}</select>
+          <input id="dayplan-blk" maxlength="120" placeholder="e.g. Waiting on a reply" aria-label="What's in the way">
+          <button type="submit">${icon('plus')}Add</button>
+        </form>`;
+      foot.innerHTML = `<button type="button" class="dayplan-back" onclick="Jarvis.plannerStep(1)">${icon('chevron_left')}Back</button>
+        <button type="button" class="dayplan-go" onclick="Jarvis.plannerStep(3)">${known.length ? 'Next' : 'Nothing, next'} ${icon('chevron_right')}</button>`;
+    } else {
+      title.textContent = 'Start with a song?';
+      sub.textContent = 'It plays while you work on the first task.';
+      const lists = (window.Why && Why.get && (Why.get() || {}).playlists) || [];
+      body.innerHTML = lists.length ? `<div class="dayplan-songs">${lists.slice(0, 4).map((l, i) => `<button type="button" onclick="Jarvis.plannerGo(${i})">${icon('music')}<span>${esc(l.label || 'My music')}</span>${icon('play', 'tiny')}</button>`).join('')}</div>`
+        : `<p class="dayplan-clear">${icon('music', 'tiny')}No music saved yet. You can add some in Your why later.</p>`;
+      foot.innerHTML = `<button type="button" class="dayplan-back" onclick="Jarvis.plannerStep(2)">${icon('chevron_left')}Back</button>
+        <button type="button" class="dayplan-go" onclick="Jarvis.plannerGo(-1)">${icon('play')}${lists.length ? 'No music, start' : 'Start my day'}</button>`;
+    }
   }
+  function plannerStep(n) { if (planner && (n === 1 || planner.items.length)) { planner.step = n; paintPlanner(); document.querySelector('#day-plan .dayplan-go')?.focus(); } }
+  function plannerStart(v) { if (planner && /^\d{2}:\d{2}$/.test(v)) { planner.start = v; paintPlanner(); } }
   function plannerToggle(id) {
-    if (!planner) return;
-    if (planner.chosen.has(id)) planner.chosen.delete(id); else planner.chosen.add(id);
+    const P = planner;
+    if (!P) return;
+    const i = P.items.findIndex(x => x.id === id);
+    if (i >= 0) P.items.splice(i, 1);
+    else if (P.byTask[id]) P.items.push({ id, minutes: P.guess(P.byTask[id]) });
     paintPlanner();
   }
-  function plannerLen(m) { if (planner) { planner.minutes = m; paintPlanner(); } }
+  function plannerLen(i, m) { if (planner && planner.items[i]) { planner.items[i].minutes = Number(m); paintPlanner(); } }
+  function plannerMove(i, d) {
+    const L = planner && planner.items;
+    if (!L || !L[i] || !L[i + d]) return;
+    [L[i], L[i + d]] = [L[i + d], L[i]];
+    paintPlanner();
+  }
   async function plannerAdd() {
     const input = document.getElementById('dayplan-new');
     const title = input.value.trim();
@@ -512,38 +576,87 @@ const Jarvis = (() => {
     input.disabled = true;
     try {
       const t = await API.addTask({ projectId: planner.home, title, status: 'Not Started', priority: 'Medium', startDate: planner.today, endDate: planner.today });
-      planner.list.unshift(t);
-      planner.chosen.add(t.id);
-      input.value = '';
+      planner.open.unshift(t);
+      planner.byTask[t.id] = t;
+      planner.items.push({ id: t.id, minutes: 30 });
       paintPlanner();
-    } catch (e) { showToast(e.message || 'Could not add that', 'error'); }
-    input.disabled = false; input.focus();
+      document.getElementById('dayplan-new')?.focus();
+    } catch (e) { showToast(e.message || 'Could not add that', 'error'); input.disabled = false; }
+  }
+  async function plannerBlocker() {
+    const P = planner;
+    const input = document.getElementById('dayplan-blk');
+    const taskId = document.getElementById('dayplan-blk-task').value;
+    const name = input.value.trim();
+    if (!P || !name || !P.byTask[taskId]) return;
+    input.disabled = true;
+    try {
+      const o = await API.addObstacle(taskId, name, 1);
+      const t = P.byTask[taskId];
+      t.obstacles = [...(t.obstacles || []), { ...o, name, resolved: false }];
+      paintPlanner();
+      document.getElementById('dayplan-blk')?.focus();
+    } catch (e) { showToast(e.message || 'Could not add that blocker', 'error'); input.disabled = false; }
+  }
+  function plannerHear() {
+    const P = planner;
+    if (!P || !P.items.length) return;
+    API.trackFeature('listen');
+    const times = timesFor(P);
+    say(`Here's your day. ${P.items.map((it, i) => `At ${times[i]}, ${P.byTask[it.id].title}, ${lenText(it.minutes).replace('min', 'minutes').replace(' h', ' hours')}.`).join(' ')}`);
   }
   function plannerAsk() {
     closePlanner();
-    if (typeof paletteAsk === 'function') paletteAsk("Help me plan my day. Look at what's late, due and in progress, and tell me what to do first, second and third."); // eslint-disable-line no-undef
+    if (typeof paletteAsk === 'function') paletteAsk("Help me plan my day. Look at what's late, due and in progress, and tell me what to do first, second and third, with a time for each."); // eslint-disable-line no-undef
     else openAssistant();
   }
   function closePlanner() { document.getElementById('day-plan')?.remove(); planner = null; }
-  async function plannerGo() {
+  async function plannerGo(song) {
     const P = planner;
-    if (!P || !P.chosen.size) return;
-    const btn = document.getElementById('dayplan-go');
-    btn.disabled = true;
-    const ids = [...P.chosen];
-    const chosen = ids.map(id => P.list.find(t => t.id === id)).filter(Boolean);
+    if (!P || !P.items.length) return;
+    document.querySelectorAll('#day-plan button').forEach(b => { b.disabled = true; });
+    const times = timesFor(P);
+    const items = P.items.map((it, i) => ({ taskId: it.id, start: times[i], minutes: it.minutes }));
     // Late ones they kept move to today.
     const editable = t => { const r = (P.byId[t.projectId] || {}).role; return r === 'owner' || r === 'editor'; };
-    const late = chosen.filter(t => (t.endDate || '').slice(0, 10) && t.endDate.slice(0, 10) < P.today && editable(t));
-    await Promise.all(late.map(t => API.updateTask(t.id, { endDate: P.today }).catch(() => null)));
-    store.set(PLAN_KEY, { date: P.today, ids, minutes: P.minutes });
-    store.set('wp-focus-len', P.minutes);
-    const music = !!document.getElementById('dayplan-music')?.checked;
+    const late = P.items.map(it => P.byTask[it.id]).filter(t => (t.endDate || '').slice(0, 10) && t.endDate.slice(0, 10) < P.today && editable(t));
+    await Promise.all([
+      ...late.map(t => API.updateTask(t.id, { endDate: P.today }).catch(() => null)),
+      API.saveDayPlan(P.today, items).catch(() => null),
+    ]);
+    store.set(PLAN_KEY, { date: P.today, ids: items.map(i => i.taskId), minutes: items[0].minutes, mins: Object.fromEntries(items.map(i => [i.taskId, i.minutes])), starts: Object.fromEntries(items.map(i => [i.taskId, i.start])) });
+    const first = P.byTask[items[0].taskId];
+    const firstMins = items[0].minutes;
     closePlanner();
-    const first = chosen[0];
-    startFocus({ taskId: first.id, title: first.title, minutes: P.minutes, music });
-    say(`Today: ${ids.length} ${ids.length === 1 ? 'thing' : 'things'}. First up: ${first.title}. Let's go.`);
+    if (song >= 0 && window.Why) Why.playMusic(song).catch?.(() => {});
+    await showQuote();
+    startFocus({ taskId: first.id, title: first.title, minutes: firstMins, music: false });
+    say(`Today: ${items.length} ${items.length === 1 ? 'thing' : 'things'}, done by about ${fromMin(toMin(items[0].start) + items.reduce((n, i) => n + i.minutes, 0))}. First up: ${first.title}. Let's go.`);
     if (APP.currentPage === 'dashboard' && typeof renderDashboard === 'function') renderDashboard(); // eslint-disable-line no-undef
+  }
+  // Today's quote, full screen for a moment, then it fades and the day
+  // begins. A tap skips it. Nothing to show, nothing waits.
+  function showQuote() {
+    const why = window.Why && Why.get ? Why.get() : null;
+    const q = window.Why && Why.todaysQuote ? Why.todaysQuote() : null;
+    const text = q ? q.text : why && why.why ? `Remember why: ${why.why}` : '';
+    if (!text) return Promise.resolve();
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    return new Promise(resolve => {
+      const el = document.createElement('div');
+      el.className = 'day-quote';
+      el.setAttribute('role', 'status');
+      el.innerHTML = `<figure><blockquote>“${esc(text.replace(/^Remember why: /, ''))}”</blockquote>${q && q.source ? `<figcaption>${esc(q.source)}</figcaption>` : text.startsWith('Remember why') ? '<figcaption>Your why</figcaption>' : ''}</figure><p class="day-quote-skip">Tap to start</p>`;
+      document.body.appendChild(el);
+      let done = false;
+      const finish = () => {
+        if (done) return; done = true;
+        el.classList.add('out');
+        setTimeout(() => { el.remove(); resolve(); }, reduce ? 0 : 600);
+      };
+      el.addEventListener('click', finish);
+      setTimeout(finish, reduce ? 3500 : 4200);
+    });
   }
 
   // ── Always one key away ──
@@ -560,6 +673,6 @@ const Jarvis = (() => {
     talk();
   });
 
-  return { startFocus, stopFocus, togglePause, toggleMin, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, hear, startDay, talk, isFocusing: () => !!focus };
+  return { startFocus, stopFocus, togglePause, toggleMin, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, hear, startDay, talk, isFocusing: () => !!focus };
 })();
 window.Jarvis = Jarvis;
