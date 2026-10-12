@@ -6,7 +6,7 @@ const path = require('path');
 // screenshots, see backend/showcase.js) and the "What's new" log. Both are
 // read once per process, so a deploy that changes them changes the page.
 const FRONTEND = path.join(__dirname, '../frontend');
-const { emojiIcon } = require('../frontend/js/icons.js');
+const { icon, emojiIcon } = require('../frontend/js/icons.js');
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const longDate = iso => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 
@@ -40,7 +40,26 @@ function sections(product) {
           <p class="mt-2 font-bold text-white">${esc(n.title)}</p>
           <p class="mt-2 text-sm leading-relaxed text-white/70">${esc(n.text)}</p>
         </li>`).join('');
+  // The feature tour: one slide per feature, in the style of the app's
+  // "This week" card. Every slide is in the page, so it reads without JS.
+  const tour = product.tour || [];
+  const tourHtml = `
+        <div class="tour-player" id="tour-player" role="region" aria-roledescription="carousel" aria-label="What Waypoint does">
+          <div class="tour-progress" aria-hidden="true">${tour.map(() => '<span></span>').join('')}</div>${tour.map((t, i) => `
+          <article class="tour-slide" id="tour-${esc(t.id)}" style="background:${esc(t.bg)}" aria-roledescription="slide" aria-label="${i + 1} of ${tour.length}: ${esc(t.name)}">
+            <span class="tour-bg" aria-hidden="true">${icon(t.icon)}</span>
+            <span class="tour-ic" aria-hidden="true">${icon(t.icon)}</span>
+            <p class="tour-kicker">${esc(t.name)}</p>
+            <h3 class="tour-big">${esc(t.title)}</h3>
+            <p class="tour-sub">${esc(t.text)}</p>
+          </article>`).join('')}
+          <button type="button" class="tour-nav prev" aria-label="Previous feature"></button><button type="button" class="tour-nav next" aria-label="Next feature"></button>
+        </div>
+        <div class="tour-list" role="group" aria-label="Pick a feature">${tour.map((t, i) => `
+          <button type="button" data-i="${i}" aria-controls="tour-${esc(t.id)}">${icon(t.icon)}<span>${esc(t.name)}</span></button>`).join('')}
+        </div>`;
   return {
+    tour: tourHtml,
     stages,
     whatsnew: whatsNew,
     stagecount: String(product.stages.length),

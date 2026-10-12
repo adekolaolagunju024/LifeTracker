@@ -389,6 +389,22 @@ test("the landing page's stages match the Journey's stage picker", async () => {
   assert.deepEqual(product.stages.map(s => s.id), picker);
 });
 
+test('the feature tour plays on the landing page, and every app action it names exists', async () => {
+  const product = require('../frontend/data/product.json');
+  const { ICON_PATHS } = require('../frontend/js/icons.js');
+  const html = await (await fetch(`${server.base}/`)).text();
+  assert.ok(product.tour.length >= 4);
+  for (const t of product.tour) {
+    assert.ok(t.id && t.name && t.title && t.text && t.bg, `tour entry ${t.id} is complete`);
+    assert.ok(ICON_PATHS[t.icon], `tour icon ${t.icon} exists`);
+    assert.match(html, new RegExp(`id="tour-${t.id}"`));
+  }
+  // The app's newcomer slides only use actions recap.js knows how to run.
+  const recap = require('fs').readFileSync(require('path').join(__dirname, '../frontend/js/recap.js'), 'utf8');
+  const known = recap.slice(recap.indexOf('const TOUR_ACTIONS'), recap.indexOf('};', recap.indexOf('const TOUR_ACTIONS')));
+  for (const t of product.tour.filter(x => x.action)) assert.match(known, new RegExp(`\\n  ${t.action}:`), `action ${t.action}`);
+});
+
 const signUp = async () => sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true })));
 const authed = (cookie, method = 'GET', body) => ({ method, headers: { Cookie: cookie, ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
 
