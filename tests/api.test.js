@@ -56,7 +56,7 @@ test('unauthenticated API access is refused', async () => {
 });
 
 test('AI endpoints require a session', async () => {
-  const res = await fetch(`${server.base}/api/ai/insights`, json({}));
+  const res = await fetch(`${server.base}/api/ai/assistant`, json({ messages: [] }));
   assert.equal(res.status, 401);
 });
 

@@ -6,7 +6,7 @@
 const Billing = (() => {
   const money = p => (p ? new Intl.NumberFormat(undefined, { style: 'currency', currency: p.currency.toUpperCase(), minimumFractionDigits: p.amount % 100 ? 2 : 0 }).format(p.amount / 100) : '');
   const PERKS = [
-    ['sparkles', 'Ten times the daily AI: your assistant, the Your why coach and AI insights'],
+    ['sparkles', 'Ten times the daily AI: your assistant and the Your why coach'],
     ['heart', 'Support an independent app built to get people to their goals'],
     ['star', 'First to get new Pro features as they arrive'],
   ];

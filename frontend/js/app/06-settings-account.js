@@ -794,10 +794,24 @@ function deleteAccountConfirm() {
 async function checkOnboarding() {
   const profile = await API.getProfile();
   if (!profile.onboarded) {
+    startGameOffForNewcomers();
     startOnboarding();
     return true;
   }
   return false;
+}
+
+// A new account starts in Focus mode: the plan first, and XP, quests and
+// trophies are one switch away in Settings. Only when this device has
+// never had a choice saved, so nobody's own setting is overridden.
+function startGameOffForNewcomers() {
+  try {
+    if (localStorage.getItem('focusMode') !== null) return;
+    localStorage.setItem('focusMode', '1');
+  } catch { return; }
+  document.documentElement.classList.add('focus-mode');
+  syncFocusModeButton();
+  syncSoundButtons();
 }
 
 function startOnboarding() {

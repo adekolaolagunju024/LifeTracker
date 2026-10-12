@@ -2831,16 +2831,15 @@
         </div>
       </div>
 
-      <!-- AI Insights -->
+      <!-- Plan it for me: hands the list to the assistant -->
       <div class="bg-white border border-gray-200 rounded-2xl p-4 mb-6">
         <div class="flex items-center justify-between flex-wrap gap-3">
           <div class="min-w-0">
             <p class="text-sm font-bold text-navy flex items-center gap-1.5"><span class="flex text-teal" data-icon="sparkles"></span>Not sure where to start?</p>
-            <p class="text-xs text-gray-500 mt-0.5">The assistant reads what's below and gives you a short order to do it in, with the next step for each. About 15 seconds.</p>
+            <p class="text-xs text-gray-500 mt-0.5">The assistant reads what's below and gives you a short order to do it in, with the next step for each. You can then ask it to move or add anything.</p>
           </div>
-          <button onclick="loadAIInsights()" id="ai-insights-btn" class="bg-teal/10 hover:bg-teal/20 text-teal text-xs font-bold px-4 py-2 rounded-lg whitespace-nowrap">Plan it for me</button>
+          <button onclick="planActionsWithAssistant()" class="bg-teal/10 hover:bg-teal/20 text-teal text-xs font-bold px-4 py-2 rounded-lg whitespace-nowrap">Plan it for me</button>
         </div>
-        <div class="hidden mt-4" id="ai-insights-body"></div>
       </div>
 
       <div id="action-list"></div>
@@ -3094,7 +3093,7 @@
             <span class="icon-badge" style="background:#0D1B2A22;color:#0D1B2A" data-icon="focus"></span>
             <div class="min-w-0">
               <p class="text-sm font-semibold text-navy">Focus mode</p>
-              <p class="text-xs text-gray-400 mt-0.5">Hide the game layer: XP, levels, daily quests, trophies, level-up moments and game sounds. Your plan, the Journey map, streak and reminders all stay. Saved on this device.</p>
+              <p class="text-xs text-gray-400 mt-0.5">Hide the game layer: XP, levels, daily quests, trophies, level-up moments and game sounds. Your plan, the Journey map, streak and reminders all stay. On for new accounts; turn it off to play. Saved on this device.</p>
             </div>
           </div>
           <button onclick="toggleFocusMode()" class="ios-switch" id="focus-mode-btn" role="switch" aria-label="Toggle focus mode"><span class="ios-switch-knob"></span></button>
