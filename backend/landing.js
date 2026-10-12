@@ -47,11 +47,13 @@ function sections(product) {
         <div class="tour-player" id="tour-player" role="region" aria-roledescription="carousel" aria-label="What Waypoint does">
           <div class="tour-progress" aria-hidden="true">${tour.map(() => '<span></span>').join('')}</div>${tour.map((t, i) => `
           <article class="tour-slide" id="tour-${esc(t.id)}" style="background:${esc(t.bg)}" aria-roledescription="slide" aria-label="${i + 1} of ${tour.length}: ${esc(t.name)}">
-            <span class="tour-bg" aria-hidden="true">${icon(t.icon)}</span>
-            <span class="tour-ic" aria-hidden="true">${icon(t.icon)}</span>
-            <p class="tour-kicker">${esc(t.name)}</p>
-            <h3 class="tour-big">${esc(t.title)}</h3>
-            <p class="tour-sub">${esc(t.text)}</p>
+            ${t.shot ? '' : `<span class="tour-bg" aria-hidden="true">${icon(t.icon)}</span>`}
+            <div class="tour-text">
+              <p class="tour-kicker"><span class="tour-ic" aria-hidden="true">${icon(t.icon)}</span>${esc(t.name)}</p>
+              <h3 class="tour-big">${esc(t.title)}</h3>
+              <p class="tour-sub">${esc(t.text)}</p>
+            </div>
+            ${t.shot ? `<div class="tour-shot"><img src="/showcase/${esc(t.shot)}.webp" alt="" width="1280" height="800" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} style="object-position:${esc(t.focus || '50% 0')}"></div>` : ''}
           </article>`).join('')}
           <button type="button" class="tour-nav prev" aria-label="Previous feature"></button><button type="button" class="tour-nav next" aria-label="Next feature"></button>
         </div>

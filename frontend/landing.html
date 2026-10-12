@@ -67,27 +67,32 @@
     .demo-blocker .ic { width: 15px; height: 15px; }
     .demo-walker .ic { color: #0A7E8C; } .demo-flag .ic { color: #5B6472; } .demo-foe .ic { color: #B91C1C; }
     .stage-ic { color: #0A7E8C; display: inline-flex; } .stage-ic .ic { width: 18px; height: 18px; }
-    /* Feature tour: the dashboard's "This week" slides */
-    .tour { display: grid; gap: 20px; }
-    @media (min-width: 900px) { .tour { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); align-items: stretch; } }
-    .tour-player { position: relative; border-radius: 24px; overflow: hidden; color: #fff; box-shadow: 0 30px 70px -28px rgba(13,27,42,.45); }
-    .tour-slide { position: relative; min-height: 340px; padding: 44px 28px 28px; display: flex; flex-direction: column; justify-content: flex-end; }
+    /* Feature slides in the hero: the dashboard's "This week" cards */
+    .tour { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .tour-player { position: relative; border-radius: 26px; overflow: hidden; color: #fff; box-shadow: 0 34px 80px -30px rgba(13,27,42,.55); }
+    .tour-slide { position: relative; display: flex; flex-direction: column; min-height: 300px; padding: 40px 26px 26px; overflow: hidden; }
     .tour-slide + .tour-slide { margin-top: 2px; }
-    .js .tour-player { min-height: 360px; }
+    .js .tour-player { height: 470px; }
     .js .tour-slide { position: absolute; inset: 0; margin: 0; opacity: 0; visibility: hidden; transition: opacity .5s ease, visibility .5s; }
     .js .tour-slide.on { opacity: 1; visibility: visible; }
-    .tour-slide .tour-bg { position: absolute; right: -24px; top: 30px; color: rgba(255,255,255,.1); pointer-events: none; }
-    .tour-slide .tour-bg .ic { width: 220px; height: 220px; stroke-width: 1.4; }
-    .tour-ic { width: 46px; height: 46px; border-radius: 14px; background: rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center; }
-    .tour-ic .ic { width: 24px; height: 24px; }
-    .tour-kicker { margin-top: 18px; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.75); }
-    .tour-big { margin-top: 8px; font-size: 34px; line-height: 1.08; font-weight: 900; letter-spacing: -.02em; max-width: 20ch; }
-    .tour-sub { margin-top: 12px; font-size: 16px; line-height: 1.55; color: rgba(255,255,255,.88); max-width: 46ch; }
-    .tour-on .tour-slide.on > * { animation: tourin .6s cubic-bezier(.2,.8,.2,1) both; }
-    .tour-on .tour-slide.on > :nth-child(3) { animation-delay: .08s; } .tour-on .tour-slide.on > :nth-child(4) { animation-delay: .16s; } .tour-on .tour-slide.on > :nth-child(5) { animation-delay: .24s; }
+    .tour-text { position: relative; z-index: 1; }
+    .tour-slide:not(:has(.tour-shot)) .tour-text { margin-top: auto; }
+    .tour-bg { position: absolute; right: -30px; top: 40px; color: rgba(255,255,255,.1); pointer-events: none; }
+    .tour-bg .ic { width: 240px; height: 240px; stroke-width: 1.3; }
+    .tour-kicker { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.8); }
+    .tour-ic { width: 32px; height: 32px; border-radius: 10px; background: rgba(255,255,255,.16); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .tour-ic .ic { width: 17px; height: 17px; }
+    .tour-big { margin-top: 12px; font-size: 30px; line-height: 1.08; font-weight: 900; letter-spacing: -.02em; }
+    .tour-sub { margin-top: 10px; font-size: 15.5px; line-height: 1.5; color: rgba(255,255,255,.88); max-width: 48ch; }
+    .tour-shot { position: relative; margin: 20px -26px -26px 26px; flex: 1; min-height: 150px; border-radius: 14px 0 0 0; overflow: hidden; box-shadow: 0 -10px 40px rgba(0,0,0,.3); border: 1px solid rgba(255,255,255,.25); border-right: 0; border-bottom: 0; }
+    .tour-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #fff; }
+    .tour-on .tour-slide.on .tour-text > * { animation: tourin .6s cubic-bezier(.2,.8,.2,1) both; }
+    .tour-on .tour-slide.on .tour-text > :nth-child(2) { animation-delay: .08s; } .tour-on .tour-slide.on .tour-text > :nth-child(3) { animation-delay: .16s; }
+    .tour-on .tour-slide.on .tour-shot { animation: tourshot .8s cubic-bezier(.2,.8,.2,1) .1s both; }
     @keyframes tourin { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    @keyframes tourshot { from { opacity: 0; transform: translate(24px, 24px); } to { opacity: 1; transform: none; } }
     .tour-progress { display: none; }
-    .js .tour-progress { position: absolute; top: 16px; left: 16px; right: 16px; display: flex; gap: 4px; z-index: 3; }
+    .js .tour-progress { position: absolute; top: 16px; left: 18px; right: 18px; display: flex; gap: 4px; z-index: 3; }
     .tour-progress span { flex: 1; height: 3px; border-radius: 3px; background: rgba(255,255,255,.3); overflow: hidden; position: relative; }
     .tour-progress span::after { content: ''; position: absolute; inset: 0; width: 0; background: #fff; }
     .tour-progress span.done::after { width: 100%; }
@@ -98,17 +103,19 @@
     .js .tour-nav { display: block; position: absolute; top: 0; bottom: 0; width: 30%; z-index: 2; background: none; border: 0; cursor: pointer; }
     .tour-nav.prev { left: 0; } .tour-nav.next { right: 0; width: 70%; }
     .tour-list { display: none; }
-    .js .tour-list { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
-    .tour-list button { display: flex; align-items: center; gap: 10px; flex-shrink: 0; border: 1px solid #E3E6EA; background: #fff; border-radius: 14px; padding: 10px 14px; font-weight: 700; font-size: 14px; color: #1F2A37; text-align: left; transition: border-color .2s, background .2s, box-shadow .2s; }
-    .tour-list button .ic { width: 18px; height: 18px; color: #0A7E8C; }
-    .tour-list button[aria-current="true"] { border-color: #0A7E8C; background: #E6F4F5; color: #075E68; box-shadow: 0 0 0 3px rgba(10,126,140,.12); }
-    @media (min-width: 900px) {
-      .js .tour-list { flex-direction: column; overflow: visible; padding: 0; }
-      .tour-list button { width: 100%; padding: 13px 16px; }
-      .tour-list button:hover { border-color: rgba(10,126,140,.5); }
+    .js .tour-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tour-list button { display: inline-flex; align-items: center; gap: 7px; border: 1px solid #E3E6EA; background: #fff; border-radius: 999px; padding: 7px 13px; font-weight: 700; font-size: 13px; color: #1F2A37; transition: border-color .2s, background .2s, box-shadow .2s; }
+    .tour-list button .ic { width: 15px; height: 15px; color: #0A7E8C; }
+    .tour-list button:hover { border-color: rgba(10,126,140,.5); }
+    .tour-list button[aria-current="true"] { border-color: #0A7E8C; background: #0A7E8C; color: #fff; box-shadow: 0 6px 16px -6px rgba(10,126,140,.6); }
+    .tour-list button[aria-current="true"] .ic { color: #fff; }
+    @media (max-width: 640px) {
+      .js .tour-player { height: 440px; }
+      .tour-big { font-size: 25px; } .tour-sub { font-size: 14.5px; }
+      .js .tour-list { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -20px; padding: 2px 20px 4px; }
+      .tour-list button { flex-shrink: 0; }
     }
-    @media (max-width: 899px) { .tour-list { order: 2; } .tour-big { font-size: 28px; } }
-    @media (prefers-reduced-motion: reduce) { .js .tour-slide { transition: none; } .tour-on .tour-slide.on > * { animation: none; } .tour-progress span.active::after { animation: none; width: 100%; } }
+    @media (prefers-reduced-motion: reduce) { .js .tour-slide { transition: none; } .tour-on .tour-slide.on .tour-text > *, .tour-on .tour-slide.on .tour-shot { animation: none; } .tour-progress span.active::after { animation: none; width: 100%; } }
   </style>
 </head>
 <body class="bg-[#F4F5F7] font-sans text-gray-700 antialiased">
@@ -123,7 +130,7 @@
         <span class="text-xl font-extrabold tracking-tight"><span class="text-navy">Way</span><span class="text-teal">point</span></span>
       </a>
       <div class="flex items-center gap-5 text-sm">
-        <a href="#features" class="hidden font-semibold text-gray-600 hover:text-navy md:inline">Features</a>
+        <a href="#how" class="hidden font-semibold text-gray-600 hover:text-navy md:inline">How it works</a>
         <a href="#tour" class="hidden font-semibold text-gray-600 hover:text-navy md:inline">Tour</a>
         <a href="#stages" class="hidden font-semibold text-gray-600 hover:text-navy md:inline">The game</a>
         <a href="#new" class="hidden font-semibold text-gray-600 hover:text-navy md:inline">What's new</a>
@@ -144,20 +151,14 @@
         </p>
         <div class="mt-8 flex flex-wrap items-center gap-4">
           <a href="/app" class="rounded-xl bg-teal px-6 py-3.5 text-base font-bold text-white shadow-xl shadow-teal/30 hover:brightness-110">Start free</a>
-          <a href="#features" class="rounded-xl border border-gray-300 bg-white px-6 py-3.5 text-base font-bold text-navy hover:border-teal">See what it does</a>
+          <a href="#try" class="rounded-xl border border-gray-300 bg-white px-6 py-3.5 text-base font-bold text-navy hover:border-teal">Try it, no sign-up</a>
         </div>
         <p class="mt-5 text-sm text-gray-500">Works in any browser, on Android, and on iPhone once added to your Home Screen.</p>
       </div>
 
-      <div class="relative">
-        
-        <div class="shot relative overflow-hidden rounded-[24px] border border-navy bg-navy">
-          <div class="flex items-center gap-1.5 border-b border-white/10 bg-navy/60 px-4 py-3">
-            <span class="h-2.5 w-2.5 rounded-full bg-white/20"></span><span class="h-2.5 w-2.5 rounded-full bg-white/20"></span><span class="h-2.5 w-2.5 rounded-full bg-white/20"></span>
-          </div>
-          <img src="/showcase/journey.webp" alt="A real plan as a build site: each phase of the project is a stage of the building, with the tasks, dates and blockers listed beside it" width="1280" height="800" fetchpriority="high" class="w-full bg-navy">
-        </div>
-        <img src="/showcase/phone.webp" alt="Waypoint on a phone" width="390" height="844" class="float-y shot absolute -bottom-10 -left-6 hidden w-36 rounded-[1.6rem] border-4 border-white sm:block lg:-left-14 lg:w-44">
+      <!-- The feature slides, the same story-style cards as the app's
+           "This week" card, one per feature (product.json → tour). -->
+      <div class="tour"><!--@tour-->
       </div>
     </div>
   </header>
@@ -168,21 +169,6 @@
       <p class="proof"><span data-icon="mic"></span>Plans from a sentence, typed or spoken</p>
       <p class="proof"><span data-icon="play"></span>Start my day sorts today in one tap</p>
       <p class="proof"><span data-icon="shield"></span>You approve every change the AI suggests</p>
-    </div>
-  </section>
-
-  <!-- Features -->
-  <section id="features" class="scroll-mt-6 bg-white py-20">
-    <div class="mx-auto max-w-6xl px-5">
-      <div class="reveal mx-auto max-w-2xl text-center">
-        <p class="text-sm font-bold uppercase tracking-widest text-teal">Built to get you moving</p>
-        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-navy md:text-4xl">The features that keep a plan alive</h2>
-        <p class="mt-4 text-gray-600">The same slides that greet you on your dashboard. Tap through, or let them play.</p>
-      </div>
-      <!-- The same story-style slides as the app's "This week" card, one
-           per feature (frontend/data/product.json → tour). -->
-      <div class="tour reveal mt-14"><!--@tour-->
-      </div>
     </div>
   </section>
 
