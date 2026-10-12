@@ -559,15 +559,12 @@ function showMountainCelebration() {
   // or switched projects in that window.
   if (!mountainState || APP.ganttProjectFilter !== mountainState.projectId) return;
   const competitor = competitorFraction();
+  const title = mountainState.project.title;
   let message;
-  if (competitor.frac === null) {
-    message = `You finished every task in "${mountainState.project.title}". Great work!`;
-  } else if (competitor.frac < 0.97) {
-    message = `You finished "${mountainState.project.title}" before ${competitor.label} — you won the race!`;
-  } else {
-    message = `You finished "${mountainState.project.title}". You made it — that's what counts!`;
-  }
-  showJourneyAchievement(mountainState.project.title, { message, heading: `${JOURNEY_META.doneLabel}!`, emoji: JOURNEY_META.doneEmoji });
+  if (competitor.frac === null) message = `Every task in “${title}” is done. Take a moment with this one.`;
+  else if (competitor.frac < 0.97) message = `You finished “${title}” before ${competitor.label}. You won the race.`;
+  else message = `You finished “${title}”. However long it took, you made it.`;
+  showJourneyAchievement(title, { message, heading: 'You reached the target!', emoji: '🏆', projectId: mountainState.project.id });
 }
 
 // ── SCREEN-WIDE CELEBRATIONS ──────────────────────────────────
@@ -721,22 +718,77 @@ function fireBalloons(count) {
 // (avatar at the goal, confetti, balloons) *is* the celebration, so this
 // just confirms it from a corner instead of a full-screen sheet that
 // would cover that up. Slides in, auto-dismisses, or closed with its ×.
+// A short line of what it took (tasks, days, against the deadline) and
+// any rewards just earned fill in once they've loaded. It stays a while,
+// with a bar showing how long, and holds still while you're on it.
+const JA_MS = 12000;
 let _jaDismissTimer = null;
-function showJourneyAchievement(title, { message, heading, emoji } = {}) {
+let _jaLeft = JA_MS;
+let _jaStarted = 0;
+function showJourneyAchievement(title, { message, heading, emoji, projectId = null } = {}) {
   if (!celebrationsEnabled()) return;
   const banner = document.getElementById('journey-achieve-banner');
   if (!banner) return;
   document.getElementById('journey-achieve-emoji').innerHTML = emojiIcon(emoji || '🏆');
-  document.getElementById('journey-achieve-heading').textContent = heading || 'Project Complete!';
-  document.getElementById('journey-achieve-message').textContent = message || `You finished every task in "${title}". Incredible work.`;
-  banner.classList.add('show');
+  document.getElementById('journey-achieve-heading').textContent = heading || 'You reached the target!';
+  document.getElementById('journey-achieve-message').textContent = message || `Every task in “${title}” is done. Incredible work.`;
+  ['journey-achieve-stats', 'journey-achieve-reward'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  banner.classList.remove('counting', 'paused');
+  void banner.offsetWidth; // restart the countdown bar
+  banner.style.setProperty('--ja-ms', `${JA_MS}ms`);
+  banner.classList.add('show', 'counting');
   clearTimeout(_jaDismissTimer);
-  _jaDismissTimer = setTimeout(dismissJourneyAchievement, 7000);
+  _jaLeft = JA_MS; _jaStarted = Date.now();
+  _jaDismissTimer = setTimeout(dismissJourneyAchievement, JA_MS);
+  if (projectId) fillJourneyAchievement(projectId);
+}
+async function fillJourneyAchievement(projectId) {
+  try {
+    const [allProjects, allTasks] = await Promise.all([API.getProjects(), API.getTasks()]);
+    const project = allProjects.find(p => p.id === projectId);
+    const tree = tasksInProjectTree(projectId, allProjects, allTasks);
+    const DAY = 86400000;
+    const starts = tree.map(t => t.startDate).filter(Boolean).sort();
+    const days = Math.max(1, Math.ceil((Date.now() - Date.parse((project && project.startDate) || starts[0] || (project && project.createdAt) || Date.now())) / DAY));
+    const due = tree.map(t => (t.endDate || '').slice(0, 10)).filter(Boolean).sort().pop();
+    const diff = due ? Math.round((Date.parse(`${due}T23:59:59`) - Date.now()) / DAY) : null;
+    const bits = [`<b>${tree.length}</b> ${tree.length === 1 ? 'task' : 'tasks'}`, `<b>${days}</b> ${days === 1 ? 'day' : 'days'}`];
+    if (diff !== null) bits.push(diff > 0 ? `<b>${diff}</b> ${diff === 1 ? 'day' : 'days'} early` : diff === 0 ? '<b>right on time</b>' : `<b>${-diff}</b> ${-diff === 1 ? 'day' : 'days'} over`);
+    const stats = document.getElementById('journey-achieve-stats');
+    stats.innerHTML = bits.join(' · ');
+    stats.classList.remove('hidden');
+  } catch { /* the card stands without the numbers */ }
+  try {
+    const { pledges } = await API.getPledges(projectId);
+    const earned = pledges.filter(p => p.status === 'earned');
+    if (earned.length) {
+      const el = document.getElementById('journey-achieve-reward');
+      el.innerHTML = `${icon('gift')}<span>You've earned ${esc(earned[0].text)} from ${esc(earned[0].name)}${earned.length > 1 ? ` and ${earned.length - 1} more` : ''}</span>`;
+      el.classList.remove('hidden');
+    }
+  } catch { /* not the owner, or offline */ }
+}
+function pauseJourneyAchievement(pause) {
+  const banner = document.getElementById('journey-achieve-banner');
+  if (!banner || !banner.classList.contains('show')) return;
+  if (pause && !banner.classList.contains('paused')) {
+    clearTimeout(_jaDismissTimer);
+    _jaLeft = Math.max(1500, _jaLeft - (Date.now() - _jaStarted));
+    banner.classList.add('paused');
+  } else if (!pause && banner.classList.contains('paused')) {
+    banner.classList.remove('paused');
+    _jaStarted = Date.now();
+    _jaDismissTimer = setTimeout(dismissJourneyAchievement, _jaLeft);
+  }
 }
 function dismissJourneyAchievement() {
   clearTimeout(_jaDismissTimer);
   const banner = document.getElementById('journey-achieve-banner');
-  if (banner) banner.classList.remove('show');
+  if (banner) banner.classList.remove('show', 'counting', 'paused');
+}
+function planNextAfterTarget() {
+  const title = mountainState && mountainState.project && mountainState.project.title;
+  paletteAsk(title ? `I just finished "${title}". Help me plan what's next.` : 'I just finished a goal. Help me plan what is next.');
 }
 
 // ── PROJECT COMPLETE OVERLAY ────────────────────────────────────

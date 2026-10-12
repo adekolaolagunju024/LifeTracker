@@ -608,7 +608,43 @@
     .pc-actions .ic { width: 17px; height: 17px; }
     .pc-close { margin-top: 12px; font-size: 13px; font-weight: 700; color: #9FB3C8; padding: 6px 12px; }
     .pc-close:hover { color: #fff; }
-    .ja-summary { margin-left: 44px; font-size: 12px; font-weight: 800; color: #0A7E8C; }
+    /* Journey's "you reached the target" card */
+    .journey-achieve { background: #fff; border: 1px solid #E3E6EA; border-radius: 20px; box-shadow: 0 24px 60px rgba(13,27,42,.22); padding: 16px 16px 14px; overflow: hidden; }
+    .ja-x { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; color: #9AA3AF; }
+    .ja-x:hover { background: #F1F3F5; color: #0D1B2A; }
+    .ja-x .ic { width: 16px; height: 16px; }
+    .ja-top { display: flex; align-items: center; gap: 12px; padding-right: 28px; }
+    .ja-badge { width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #fff; background: radial-gradient(circle at 35% 30%, #FDE68A, #F59E0B 60%, #D97706); box-shadow: 0 0 0 4px #FEF3C7, 0 8px 20px rgba(217,119,6,.35); }
+    .ja-badge .ic { width: 24px; height: 24px; }
+    .journey-achieve.show .ja-badge { animation: japop .6s cubic-bezier(.34,1.56,.64,1) both .1s; }
+    @keyframes japop { from { transform: scale(.4) rotate(-12deg); opacity: 0; } to { transform: none; opacity: 1; } }
+    .ja-kicker { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #B45309; }
+    .ja-heading { font-size: 18px; font-weight: 800; letter-spacing: -.01em; color: #0D1B2A; line-height: 1.25; }
+    .ja-message { margin-top: 10px; font-size: 14px; line-height: 1.5; color: #3B4552; }
+    .ja-stats { margin-top: 8px; font-size: 12px; font-weight: 700; color: #5B6472; }
+    .ja-stats b { color: #0D1B2A; }
+    .ja-reward { margin-top: 8px; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #92400E; background: #FFFBF4; border: 1px solid #FCD9A8; border-radius: 10px; padding: 7px 10px; }
+    .ja-reward .ic { width: 15px; height: 15px; color: #C2410C; flex-shrink: 0; }
+    .ja-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    .ja-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; font-weight: 800; border-radius: 12px; padding: 9px 12px; flex: 1 1 auto; }
+    .ja-actions .ic { width: 15px; height: 15px; }
+    .ja-primary { background: #0A7E8C; color: #fff; }
+    .ja-primary:hover { background: #086C78; }
+    .ja-secondary { background: #F1F3F5; color: #1F2A37; }
+    .ja-secondary:hover { background: #E6E9EC; }
+    .ja-timer { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #F1F3F5; }
+    .ja-timer span { display: block; height: 100%; width: 100%; background: #0A7E8C; transform-origin: left; }
+    .journey-achieve.counting .ja-timer span { animation: jatimer var(--ja-ms, 12000ms) linear forwards; }
+    .journey-achieve.paused .ja-timer span { animation-play-state: paused; }
+    @keyframes jatimer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+    @media (max-width: 640px) { .journey-achieve { top: 70px !important; right: 12px !important; left: 12px; width: auto !important; } }
+    @media (prefers-reduced-motion: reduce) { .journey-achieve.show .ja-badge { animation: none; } }
+    .dark .journey-achieve { background: #111A2B; border-color: #24324A; }
+    .dark .ja-heading, .dark .ja-stats b { color: #E8EEF5; }
+    .dark .ja-message, .dark .ja-stats { color: #A8B3C2; }
+    .dark .ja-secondary { background: #1A2436; color: #E8EEF5; }
+    .dark .ja-reward { background: rgba(253,186,116,.08); border-color: rgba(253,186,116,.35); color: #FDBA74; }
+    .dark .ja-x:hover { background: #1A2436; color: #fff; }
     @media (prefers-reduced-motion: reduce) { .pc-ring { animation: none; } }
     /* Your plan */
     .plan-card { border-radius: 18px; padding: 18px 20px; background: #fff; border: 1px solid #E3E6EA; }
@@ -4108,14 +4144,23 @@
      confirms it off to the side rather than covering it up. Slides in,
      dismissible by its own × or a wait, never captures clicks outside its
      own small box. -->
-<div class="journey-achieve bg-white rounded-2xl shadow-2xl border border-gray-100 p-4 flex items-start gap-3 flex-wrap" id="journey-achieve-banner">
-  <div class="text-3xl leading-none flex-shrink-0" id="journey-achieve-emoji"><span class="ei" data-icon="goal"></span></div>
-  <div class="min-w-0 flex-1">
-    <h4 class="text-sm font-black text-navy" id="journey-achieve-heading">Reached the target!</h4>
-    <p class="text-xs text-gray-600 mt-0.5 leading-snug" id="journey-achieve-message"></p>
+<div class="journey-achieve" id="journey-achieve-banner" role="status" aria-live="polite" onmouseenter="pauseJourneyAchievement(true)" onmouseleave="pauseJourneyAchievement(false)" onfocusin="pauseJourneyAchievement(true)">
+  <button type="button" class="ja-x" onclick="dismissJourneyAchievement()" aria-label="Close" title="Close"><span class="ei" data-icon="close"></span></button>
+  <div class="ja-top">
+    <div class="ja-badge" id="journey-achieve-emoji" aria-hidden="true"><span class="ei" data-icon="trophy"></span></div>
+    <div class="min-w-0 flex-1">
+      <p class="ja-kicker">Goal complete</p>
+      <h4 class="ja-heading" id="journey-achieve-heading">You reached the target!</h4>
+    </div>
   </div>
-  <button onclick="dismissJourneyAchievement()" class="text-gray-400 hover:text-gray-600 text-lg leading-none flex-shrink-0" title="Dismiss" aria-label="Close" data-icon="close"></button>
-  <button type="button" class="ja-summary" id="journey-achieve-summary" onclick="dismissJourneyAchievement(); showProjectCompleteOverlay(mountainState.project.title, { projectId: mountainState.project.id })">See your summary</button>
+  <p class="ja-message" id="journey-achieve-message"></p>
+  <p class="ja-stats hidden" id="journey-achieve-stats"></p>
+  <p class="ja-reward hidden" id="journey-achieve-reward"></p>
+  <div class="ja-actions">
+    <button type="button" class="ja-primary" id="journey-achieve-summary" onclick="dismissJourneyAchievement(); showProjectCompleteOverlay(mountainState.project.title, { projectId: mountainState.project.id })"><span class="ei" data-icon="trophy"></span>See your summary</button>
+    <button type="button" class="ja-secondary" onclick="dismissJourneyAchievement(); planNextAfterTarget()"><span class="ei" data-icon="sparkles"></span>Plan what's next</button>
+  </div>
+  <div class="ja-timer" aria-hidden="true"><span id="journey-achieve-timer"></span></div>
 </div>
 
 <!-- Screen-wide celebration layers — fire from anywhere a task (or a whole
