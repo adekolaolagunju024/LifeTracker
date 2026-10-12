@@ -1,4 +1,4 @@
-/* global APP, API, esc, showToast, localDateKey, ProgressMath, icon */
+/* global APP, API, esc, showToast, localDateKey, ProgressMath, icon, openAssistant, Jarvis, showPage, setGanttPageView */
 // ── MY WEEK IN REVIEW ───────────────────────────────────────────
 // A short full-screen story of the last seven days, in the spirit of
 // Spotify Wrapped or Strava's year in sport: tasks finished (against the
@@ -54,6 +54,7 @@ async function buildWeeklyRecap() {
   const [title, titleIcon] = recapTitleFor(done.length);
   return {
     name: ((APP.profile && APP.profile.name) || '').trim() !== 'Your Name' ? ((APP.profile && APP.profile.name) || '').split(' ')[0] : '',
+    everDone: tasks.some(t => t.status === 'Completed'),
     done: done.length, prev: donePrev.length, bestDay, foes: foes.reduce((n, o) => n + (o.count || 1), 0), foeNames: foes.slice(0, 3).map(o => o.name),
     streak: (APP.profile && APP.profile.currentStreak) || 0, longest: (APP.profile && APP.profile.longestStreak) || 0,
     level: gaming ? gaming.level : null, quests: gaming && gaming.daily ? gaming.daily : null, top, next, title, titleIcon,
@@ -203,13 +204,19 @@ async function renderDashboardRecap() {
   if (!box) return;
   let data;
   try { data = await buildWeeklyRecap(); } catch { box.classList.add('hidden'); return; }
+  // Nothing finished yet: a week in review would be all zeros, so the card
+  // shows what Waypoint can do instead, a button on each slide.
+  const tour = data.everDone ? [] : await gettingStartedSlides();
+  const starting = tour.length > 0;
   // No title card (the box says what it is) and no share buttons.
-  const slides = recapSlides(data).slice(1)
+  const slides = starting ? tour : recapSlides(data).slice(1)
     .map(s => (s.final ? { ...s, html: s.html.replace(/<div class="recap-actions">[\s\S]*<\/div>$/, '') } : s));
   if (dashRecap) clearTimeout(dashRecap.timer);
   box.classList.remove('hidden');
+  box.classList.toggle('is-tour', !!starting);
+  box.setAttribute('aria-label', starting ? 'Getting started with Waypoint, as slides' : 'Your week so far, as slides');
   box.innerHTML = `<div class="recap-progress">${slides.map(() => '<span></span>').join('')}</div>
-    <button type="button" class="recap-expand" onclick="openWeeklyRecap()" aria-label="Play my week full screen" title="Full screen">${icon('expand')}</button>
+    ${starting ? '' : `<button type="button" class="recap-expand" onclick="openWeeklyRecap()" aria-label="Play my week full screen" title="Full screen">${icon('expand')}</button>`}
     <div class="recap-body"></div>
     <button type="button" class="recap-nav recap-prev" aria-label="Previous slide"></button><button type="button" class="recap-nav recap-next" aria-label="Next slide"></button>`;
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -219,6 +226,31 @@ async function renderDashboardRecap() {
   box.onmouseenter = () => { dashRecap.paused = true; box.classList.add('paused'); clearTimeout(dashRecap.timer); };
   box.onmouseleave = () => { dashRecap.paused = reduce; box.classList.remove('paused'); showMiniRecapSlide(dashRecap.index); };
   showMiniRecapSlide(0);
+}
+
+// The feature tour from frontend/data/product.json, the same slides the
+// landing page plays. Only the ones with something to tap are used here.
+let tourCache = null;
+async function gettingStartedSlides() {
+  if (!tourCache) {
+    try { tourCache = ((await (await fetch('/data/product.json')).json()).tour || []).filter(t => t.action && TOUR_ACTIONS[t.action]); } catch { return []; }
+  }
+  return tourCache.map((t, i) => ({
+    bg: t.bg,
+    html: `<p class="recap-kicker">Getting started · ${i + 1} of ${tourCache.length}</p><p class="recap-big">${esc(t.title)}</p><p class="recap-sub">${esc(t.text)}</p><button type="button" class="recap-go" onclick="tourGo('${esc(t.action)}')">${icon(t.icon)}${esc(t.cta || t.name)}</button>`,
+  }));
+}
+const TOUR_ACTIONS = {
+  plan: () => openAssistant(),
+  day: () => Jarvis.startDay(),
+  journey: async () => { await showPage('gantt'); setGanttPageView('journey'); },
+  actions: () => showPage('actions'),
+  why: () => showPage('why'),
+  projects: () => showPage('projects'),
+};
+function tourGo(action) {
+  API.trackFeature('tour');
+  (TOUR_ACTIONS[action] || (() => {}))();
 }
 
 function showMiniRecapSlide(i) {

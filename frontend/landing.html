@@ -67,6 +67,48 @@
     .demo-blocker .ic { width: 15px; height: 15px; }
     .demo-walker .ic { color: #0A7E8C; } .demo-flag .ic { color: #5B6472; } .demo-foe .ic { color: #B91C1C; }
     .stage-ic { color: #0A7E8C; display: inline-flex; } .stage-ic .ic { width: 18px; height: 18px; }
+    /* Feature tour: the dashboard's "This week" slides */
+    .tour { display: grid; gap: 20px; }
+    @media (min-width: 900px) { .tour { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); align-items: stretch; } }
+    .tour-player { position: relative; border-radius: 24px; overflow: hidden; color: #fff; box-shadow: 0 30px 70px -28px rgba(13,27,42,.45); }
+    .tour-slide { position: relative; min-height: 340px; padding: 44px 28px 28px; display: flex; flex-direction: column; justify-content: flex-end; }
+    .tour-slide + .tour-slide { margin-top: 2px; }
+    .js .tour-player { min-height: 360px; }
+    .js .tour-slide { position: absolute; inset: 0; margin: 0; opacity: 0; visibility: hidden; transition: opacity .5s ease, visibility .5s; }
+    .js .tour-slide.on { opacity: 1; visibility: visible; }
+    .tour-slide .tour-bg { position: absolute; right: -24px; top: 30px; color: rgba(255,255,255,.1); pointer-events: none; }
+    .tour-slide .tour-bg .ic { width: 220px; height: 220px; stroke-width: 1.4; }
+    .tour-ic { width: 46px; height: 46px; border-radius: 14px; background: rgba(255,255,255,.16); display: flex; align-items: center; justify-content: center; }
+    .tour-ic .ic { width: 24px; height: 24px; }
+    .tour-kicker { margin-top: 18px; font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.75); }
+    .tour-big { margin-top: 8px; font-size: 34px; line-height: 1.08; font-weight: 900; letter-spacing: -.02em; max-width: 20ch; }
+    .tour-sub { margin-top: 12px; font-size: 16px; line-height: 1.55; color: rgba(255,255,255,.88); max-width: 46ch; }
+    .tour-on .tour-slide.on > * { animation: tourin .6s cubic-bezier(.2,.8,.2,1) both; }
+    .tour-on .tour-slide.on > :nth-child(3) { animation-delay: .08s; } .tour-on .tour-slide.on > :nth-child(4) { animation-delay: .16s; } .tour-on .tour-slide.on > :nth-child(5) { animation-delay: .24s; }
+    @keyframes tourin { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    .tour-progress { display: none; }
+    .js .tour-progress { position: absolute; top: 16px; left: 16px; right: 16px; display: flex; gap: 4px; z-index: 3; }
+    .tour-progress span { flex: 1; height: 3px; border-radius: 3px; background: rgba(255,255,255,.3); overflow: hidden; position: relative; }
+    .tour-progress span::after { content: ''; position: absolute; inset: 0; width: 0; background: #fff; }
+    .tour-progress span.done::after { width: 100%; }
+    .tour-progress span.active::after { animation: tourfill linear forwards; animation-duration: inherit; }
+    .tour-player.paused .tour-progress span.active::after { animation-play-state: paused; }
+    @keyframes tourfill { to { width: 100%; } }
+    .tour-nav { display: none; }
+    .js .tour-nav { display: block; position: absolute; top: 0; bottom: 0; width: 30%; z-index: 2; background: none; border: 0; cursor: pointer; }
+    .tour-nav.prev { left: 0; } .tour-nav.next { right: 0; width: 70%; }
+    .tour-list { display: none; }
+    .js .tour-list { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+    .tour-list button { display: flex; align-items: center; gap: 10px; flex-shrink: 0; border: 1px solid #E3E6EA; background: #fff; border-radius: 14px; padding: 10px 14px; font-weight: 700; font-size: 14px; color: #1F2A37; text-align: left; transition: border-color .2s, background .2s, box-shadow .2s; }
+    .tour-list button .ic { width: 18px; height: 18px; color: #0A7E8C; }
+    .tour-list button[aria-current="true"] { border-color: #0A7E8C; background: #E6F4F5; color: #075E68; box-shadow: 0 0 0 3px rgba(10,126,140,.12); }
+    @media (min-width: 900px) {
+      .js .tour-list { flex-direction: column; overflow: visible; padding: 0; }
+      .tour-list button { width: 100%; padding: 13px 16px; }
+      .tour-list button:hover { border-color: rgba(10,126,140,.5); }
+    }
+    @media (max-width: 899px) { .tour-list { order: 2; } .tour-big { font-size: 28px; } }
+    @media (prefers-reduced-motion: reduce) { .js .tour-slide { transition: none; } .tour-on .tour-slide.on > * { animation: none; } .tour-progress span.active::after { animation: none; width: 100%; } }
   </style>
 </head>
 <body class="bg-[#F4F5F7] font-sans text-gray-700 antialiased">
@@ -215,53 +257,11 @@
       <div class="reveal mx-auto max-w-2xl text-center">
         <p class="text-sm font-bold uppercase tracking-widest text-teal">Built to get you moving</p>
         <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-navy md:text-4xl">The features that keep a plan alive</h2>
+        <p class="mt-4 text-gray-600">The same slides that greet you on your dashboard. Tap through, or let them play.</p>
       </div>
-      <div class="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="feat-ic" data-icon="play"></div>
-          <h3 class="mt-4 font-bold text-navy">Start my day</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">One tap sorts today: what's late, what's due, what's in progress. It starts the first task as a focus session with your music, then hands you the next.</p>
-        </div>
-        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="feat-ic" data-icon="heart"></div>
-          <h3 class="mt-4 font-bold text-navy">Your why, when you need it</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">Your reason, your mentor, the quotes that move you (from the sources you choose) and your music, found in a two-minute chat and shown when you'd give up.</p>
-        </div>
-        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="feat-ic" data-icon="gift"></div>
-          <h3 class="mt-4 font-bold text-navy">Rewards from people who believe in you</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">Send a private link and a parent, boss, coach or friend can promise a reward for finishing: cash or anything else. It's marked earned the moment you finish.</p>
-        </div>
-        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="feat-ic" data-icon="mic"></div>
-          <h3 class="mt-4 font-bold text-navy">An assistant you can talk to</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">Create a goal or change a plan by voice: add, move or delete tasks, link them in order, set targets and blockers. You approve every change first, and your chats are saved.</p>
-        </div>
-        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="feat-ic" data-icon="blocker"></div>
-          <h3 class="mt-4 font-bold text-navy">Blockers you can see</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">Name what's in the way and tick each one off as it's sorted. A task can't be marked done while a blocker is still pending.</p>
-        </div>
-        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="feat-ic" data-icon="link"></div>
-          <h3 class="mt-4 font-bold text-navy">Tasks in the right order</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">Make a task wait for another to finish, like MS Project. It unlocks the moment its predecessor is done.</p>
-        </div>
-        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="feat-ic" data-icon="flame"></div>
-          <h3 class="mt-4 font-bold text-navy">Streaks and reminders</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">A daily streak, alerts when something goes overdue, a morning list of what's due, and an evening nudge when your streak is at risk.</p>
-        </div>
-        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="feat-ic" data-icon="calendar_check"></div>
-          <h3 class="mt-4 font-bold text-navy">Weekly check-in</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">A short note on each goal: what's on track, what's stalled, and one next step. It reads your progress and never rewrites your plan.</p>
-        </div>
-        <div class="reveal rounded-2xl border border-gray-200 p-6 transition hover:-translate-y-0.5 hover:border-teal/40 hover:shadow-lg">
-          <div class="feat-ic" data-icon="users"></div>
-          <h3 class="mt-4 font-bold text-navy">Plan together</h3>
-          <p class="mt-2 text-sm leading-relaxed text-gray-600">Invite people as viewers, commenters or editors. Comments with @mentions, a chat per project with photos and files, and private goals stay private.</p>
-        </div>
+      <!-- The same story-style slides as the app's "This week" card, one
+           per feature (frontend/data/product.json → tour). -->
+      <div class="tour reveal mt-14"><!--@tour-->
       </div>
     </div>
   </section>
@@ -394,6 +394,42 @@
       entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
     }, { threshold: 0.12 });
     document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+
+    // Feature slides: play by themselves like the dashboard's This week
+    // card, pause on hover, focus or a background tab, and loop. A tap on
+    // the right moves on, on the left goes back; the list jumps straight
+    // to a feature.
+    (() => {
+      const player = document.getElementById('tour-player');
+      if (!player) return;
+      const slides = [...player.querySelectorAll('.tour-slide')];
+      const bars = [...player.querySelectorAll('.tour-progress span')];
+      const picks = [...document.querySelectorAll('.tour-list button')];
+      const MS = 5200;
+      const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let at = 0, timer = null, held = still, seen = false;
+      player.classList.add('tour-on');
+      function show(i) {
+        at = (i + slides.length) % slides.length;
+        slides.forEach((s, j) => { s.classList.toggle('on', j === at); s.setAttribute('aria-hidden', String(j !== at)); });
+        bars.forEach((b, j) => { b.classList.toggle('done', j < at); b.classList.remove('active'); b.style.animationDuration = MS + 'ms'; });
+        void player.offsetWidth; if (bars[at]) bars[at].classList.add('active');
+        picks.forEach((p, j) => p.setAttribute('aria-current', String(j === at)));
+        const list = picks[at] && picks[at].parentElement;
+        if (list && list.scrollWidth > list.clientWidth) list.scrollTo({ left: picks[at].offsetLeft - list.offsetLeft - 16, behavior: still ? 'auto' : 'smooth' });
+        clearTimeout(timer);
+        if (!held && seen) timer = setTimeout(() => (document.hidden ? show(at) : show(at + 1)), MS);
+      }
+      const hold = on => { held = on || still; player.classList.toggle('paused', held); show(at); };
+      player.querySelector('.tour-nav.prev').addEventListener('click', () => show(at - 1));
+      player.querySelector('.tour-nav.next').addEventListener('click', () => show(at + 1));
+      picks.forEach((p, j) => p.addEventListener('click', () => show(j)));
+      player.addEventListener('mouseenter', () => hold(true));
+      player.addEventListener('mouseleave', () => hold(false));
+      // Only starts playing once someone has scrolled to it.
+      new IntersectionObserver(es => { if (es[0].isIntersecting && !seen) { seen = true; show(at); } }, { threshold: 0.3 }).observe(player);
+      show(0);
+    })();
 
     // Tour tabs: swap the screenshot and its caption.
     const TOUR = {

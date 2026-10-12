@@ -9,6 +9,7 @@ const db = require('./db/connection');
 // days, how many of the active people used each one. Counts only.
 const FEATURES = {
   start_day: 'Start my day',
+  tour: 'Getting started slides',
   focus: 'Focus session',
   assistant: 'Assistant',
   listen: 'Listen (read aloud)',

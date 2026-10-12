@@ -1,5 +1,5 @@
 {
-  "_comment": "One source for what the public pages say about the app. The landing page is rendered from it on the server and the app's 'new version' notice reads it, so a change here (made in the same pull request as the feature) shows up everywhere. Add a whatsNew entry, newest first, for every change users will notice. The stages must match the Journey's stage picker (a test checks).",
+  "_comment": "One source for what the public pages say about the app. The landing page is rendered from it on the server and the app's 'new version' notice reads it, so a change here (made in the same pull request as the feature) shows up everywhere. Add a whatsNew entry, newest first, for every change users will notice. The stages must match the Journey's stage picker (a test checks). The tour is the feature slides: the landing page plays all of them, and a new account's dashboard plays the ones with an action, with a button for each.",
   "stages": [
     {
       "id": "football",
@@ -26,7 +26,90 @@
       "line": "Watch the building go up phase by phase as tasks are done."
     }
   ],
+  "tour": [
+    {
+      "id": "plan",
+      "icon": "sparkles",
+      "name": "Plan with the assistant",
+      "title": "Tell it your goal",
+      "text": "Type or say what you want to finish. The assistant drafts a phased plan with dated tasks, and nothing changes until you approve it.",
+      "bg": "linear-gradient(160deg,#0D1B2A,#0A7E8C)",
+      "action": "plan",
+      "cta": "Plan a goal"
+    },
+    {
+      "id": "day",
+      "icon": "play",
+      "name": "Start my day",
+      "title": "One tap sorts today",
+      "text": "What's late, what's due and what's in progress, in one short list. It starts the first task as a focus session, then hands you the next.",
+      "bg": "linear-gradient(160deg,#1B3A5C,#0A7E8C)",
+      "action": "day",
+      "cta": "Start my day"
+    },
+    {
+      "id": "journey",
+      "icon": "map",
+      "name": "Play your plan",
+      "title": "Your plan, as a game",
+      "text": "Your character walks your road in Football, Space, Castle or Construction, in 2D or 3D, clearing the blockers you name. The game layer is there when you want it.",
+      "bg": "linear-gradient(160deg,#064E3B,#0A7E8C)",
+      "action": "journey",
+      "cta": "See my Journey"
+    },
+    {
+      "id": "blockers",
+      "icon": "blocker",
+      "name": "Blockers you can see",
+      "title": "Name what's in the way",
+      "text": "Tick each blocker off as it's sorted. Tasks wait for the ones before them, and nothing is marked done while a blocker is still pending.",
+      "bg": "linear-gradient(160deg,#7F1D1D,#C2410C)",
+      "action": "actions",
+      "cta": "Open Actions"
+    },
+    {
+      "id": "why",
+      "icon": "heart",
+      "name": "Your why",
+      "title": "Remember why you started",
+      "text": "Your reason, your mentor, quotes from the sources you choose and your music, found in a two minute chat and shown when you'd give up.",
+      "bg": "linear-gradient(160deg,#4C1D95,#BE185D)",
+      "action": "why",
+      "cta": "Find my why"
+    },
+    {
+      "id": "rewards",
+      "icon": "gift",
+      "name": "Rewards",
+      "title": "Rewards from people who believe in you",
+      "text": "Send a private link and a parent, boss, coach or friend can promise a reward for finishing. It's marked earned the moment you do.",
+      "bg": "linear-gradient(160deg,#9A3412,#F59E0B)",
+      "action": "projects",
+      "cta": "Open a goal"
+    },
+    {
+      "id": "streak",
+      "icon": "flame",
+      "name": "Streaks and check-ins",
+      "title": "Keep the streak alive",
+      "text": "A daily streak, alarm style reminders, a morning list of what's due and a weekly note on what's on track and what's stalled.",
+      "bg": "linear-gradient(160deg,#134E4A,#0D9488)"
+    },
+    {
+      "id": "together",
+      "icon": "users",
+      "name": "Plan together",
+      "title": "Bring your people in",
+      "text": "Invite viewers, commenters or editors. Comments with @mentions and a chat per goal with photos and files. Private goals stay private.",
+      "bg": "linear-gradient(160deg,#0D1B2A,#1B3A5C)"
+    }
+  ],
   "whatsNew": [
+    {
+      "date": "2026-10-12",
+      "title": "A guided start for new accounts",
+      "text": "Until you finish your first task, the This week card on your dashboard plays short slides of what Waypoint can do, each with a button to try it. The same slides now play on the home page."
+    },
     {
       "date": "2026-10-12",
       "title": "Simpler, with less to learn",
