@@ -22,6 +22,19 @@ const Race = (() => {
   const placeHtml = n => `<span class="place">${cup(n)}${ordinal(n)}</span>`;
   const placeText = n => ordinal(n);
 
+  // Who leads a group, and the words that follow from it: a coach's squad
+  // of players, a trainer's clients, a teacher's class of pupils…
+  const ROLES = {
+    coach: { label: 'Coach', kind: 'Squad', group: 'squad', people: 'players' },
+    trainer: { label: 'Trainer', kind: 'Client group', group: 'clients', people: 'clients' },
+    teacher: { label: 'Teacher', kind: 'Class', group: 'class', people: 'pupils' },
+    manager: { label: 'Manager', kind: 'Team', group: 'team', people: 'team members' },
+    leader: { label: 'Team leader', kind: 'Team', group: 'team', people: 'members' },
+    organiser: { label: 'Organiser', kind: 'Group', group: 'group', people: 'members' },
+  };
+  const roleOf = c => ROLES[c && c.leaderRole] || ROLES.leader;
+  const kindOf = c => (c.mode === 'together' ? roleOf(c).kind : 'Race');
+
   function dialog(html) {
     close();
     lastFocus = document.activeElement;
@@ -42,38 +55,44 @@ const Race = (() => {
     el.remove();
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
-  const head = title => `<div class="fb-head"><h2 id="race-title">${icon('flag')}${esc(title)}</h2><button type="button" class="fb-x" aria-label="Close" onclick="Race.close()">${icon('close')}</button></div>`;
+  const head = (title, ic = 'flag') => `<div class="fb-head"><h2 id="race-title">${icon(ic)}${esc(title)}</h2><button type="button" class="fb-x" aria-label="Close" onclick="Race.close()">${icon('close')}</button></div>`;
 
   // ── Making one ──
-  // A race (first to finish wins) or together (a class or team: everyone
-  // aims to finish; the organiser can run it without taking part, and
-  // chooses how names show to everyone).
+  // Team up: lead a group (a squad, clients, a class, a team: everyone aims
+  // to finish; the leader can run it without taking part, and chooses how
+  // names show) or race friends (first to finish wins).
   async function openCreate(projectId) {
     if (!projectId) return;
     let name = '';
     try { name = (await API.getProfile()).name || ''; } catch { /* a blank name is fine */ }
     const min = dayKey(Date.now() + 86400000);
-    const form = dialog(`${head('Make a challenge')}
-      <div class="seg race-mode" role="radiogroup" aria-label="Kind of challenge">
-        <button type="button" role="radio" data-mode="race" aria-checked="true">${icon('flag', 'tiny')}Race</button>
-        <button type="button" role="radio" data-mode="together" aria-checked="false">${icon('users', 'tiny')}Class or team</button>
+    const form = dialog(`${head('Team up', 'users')}
+      <div class="seg race-mode" role="radiogroup" aria-label="How you team up">
+        <button type="button" role="radio" data-mode="together" aria-checked="true">${icon('users', 'tiny')}Lead a group</button>
+        <button type="button" role="radio" data-mode="race" aria-checked="false">${icon('flag', 'tiny')}Race friends</button>
       </div>
+      <div class="together-only"><label for="race-role">You're the</label>
+        <select id="race-role">${Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === 'leader' ? ' selected' : ''}>${r.label}</option>`).join('')}</select></div>
       <p class="fb-note" id="race-mode-note"></p>
       <label for="race-end">Finish by</label>
       <input type="date" id="race-end" min="${min}" value="${dayKey(Date.now() + 14 * 86400000)}" required>
       <div class="race-only"><label for="race-stake">What's riding on it? <span class="opt">(optional)</span></label>
       <input type="text" id="race-stake" maxlength="140" placeholder="e.g. Loser buys dinner"></div>
       <div class="together-only hidden">
-        <label class="race-check"><input type="checkbox" id="race-organise"> I'm organising this, not taking part</label>
+        <label class="race-check"><input type="checkbox" id="race-organise"> I'm leading, not taking part</label>
         <label for="race-names">How names show to everyone</label>
         <select id="race-names"><option value="names">Their names</option><option value="first">First names only</option><option value="animals">Animal names (e.g. Swift Otter)</option></select>
       </div>
       <div id="race-name-wrap"><label for="race-name">Your name on the road</label>
       <input type="text" id="race-name" maxlength="24" value="${esc(name)}" placeholder="e.g. Ade"></div>
       <p class="fb-note race-only">A stake is a promise between you. Waypoint never takes or pays out money.</p>
-      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">${icon('flag', 'tiny')}<span id="race-make-label">Make the race</span></button></div>`);
-    let mode = 'race';
+      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">${icon('users', 'tiny')}<span id="race-make-label">Set up the team</span></button></div>`);
+    let mode = 'together';
+    let organiseTouched = false;
     const paint = () => {
+      const role = ROLES[form.querySelector('#race-role').value] || ROLES.leader;
+      // A coach, trainer or teacher usually leads without doing the steps.
+      if (!organiseTouched) form.querySelector('#race-organise').checked = ['Coach', 'Trainer', 'Teacher'].includes(role.label);
       form.querySelectorAll('.race-mode button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
       form.querySelectorAll('.race-only').forEach(el => el.classList.toggle('hidden', mode !== 'race'));
       form.querySelectorAll('.together-only').forEach(el => el.classList.toggle('hidden', mode !== 'together'));
@@ -81,11 +100,12 @@ const Race = (() => {
       form.querySelector('#race-name-wrap').classList.toggle('hidden', organising);
       form.querySelector('#race-mode-note').textContent = mode === 'race'
         ? "Everyone who joins gets their own copy of this goal's steps. First to tick them all off wins."
-        : 'Everyone gets their own copy and aims to finish by the date. You see who is on track and can nudge anyone behind. They join with a link or a code.';
-      form.querySelector('#race-make-label').textContent = mode === 'race' ? 'Make the race' : 'Make the challenge';
+        : `Your ${role.people} each get their own copy of the steps and aim to finish by the date. You see who is on track and can nudge anyone behind. They join with a link or a code.`;
+      form.querySelector('#race-make-label').textContent = mode === 'race' ? 'Make the race' : `Set up the ${role.kind.toLowerCase()}`;
     };
     form.querySelectorAll('.race-mode button').forEach(b => { b.onclick = () => { mode = b.dataset.mode; paint(); }; });
-    form.querySelector('#race-organise').onchange = paint;
+    form.querySelector('#race-organise').onchange = () => { organiseTouched = true; paint(); };
+    form.querySelector('#race-role').onchange = paint;
     paint();
     form.addEventListener('submit', async e => {
       e.preventDefault();
@@ -96,7 +116,7 @@ const Race = (() => {
       btn.disabled = true;
       try {
         const race = await API.createRace({
-          projectId, mode, organiserOnly: organising, nameMode: form.querySelector('#race-names').value,
+          projectId, mode, organiserOnly: organising, nameMode: form.querySelector('#race-names').value, leaderRole: form.querySelector('#race-role').value,
           endsAt: new Date(`${form.querySelector('#race-end').value}T23:59:00`).toISOString(),
           stake: mode === 'race' ? form.querySelector('#race-stake').value : '', displayName,
         });
@@ -114,9 +134,9 @@ const Race = (() => {
     const me = race.players.find(p => p.you);
     const together = race.mode === 'together';
     const code = race.joinCode ? race.joinCode.replace(/(...)(...)/, '$1 $2') : '';
-    const form = dialog(`${head(isNew ? (together ? 'Your challenge is ready' : 'Your race is ready') : 'Invite people')}
+    const form = dialog(`${head(isNew ? (together ? `Your ${roleOf(race).group} is ready` : 'Your race is ready') : 'Invite people', together ? 'users' : 'flag')}
       <p class="fb-note">Send the link${code ? ', or read out the code' : ''}. They'll see <b>${esc(race.title)}</b>${race.stake ? `, the stake (${esc(race.stake)})` : ''} and the finish date, ${esc(when(race.endsAt))}.</p>
-      ${code ? `<div class="race-code" aria-label="Join code ${esc(race.joinCode.split('').join(' '))}"><small>Join code</small><b>${esc(code)}</b><span>Challenges › Join with a code</span></div>` : ''}
+      ${code ? `<div class="race-code" aria-label="Join code ${esc(race.joinCode.split('').join(' '))}"><small>Join code</small><b>${esc(code)}</b><span>Teams › Join with a code</span></div>` : ''}
       <div class="race-link"><input type="text" id="race-link" readonly value="${esc(url)}" aria-label="Join link"><button type="button" class="fb-cancel" id="race-copy">${icon('copy', 'tiny')}Copy</button></div>
       <div class="fb-foot">${navigator.share ? `<button type="button" class="fb-cancel" id="race-share">${icon('send', 'tiny')}Share</button>` : ''}
         <button type="submit" class="fb-send">${icon('play', 'tiny')}${me ? (together ? 'Go to my copy' : 'Go to my race') : 'See who has joined'}</button></div>`);
@@ -160,27 +180,28 @@ const Race = (() => {
     if (!p || !p.title) { showToast('That link is not valid any more', 'error'); return; }
     joinCard(p, token);
   }
-  // From a code typed on the Challenges page.
+  // From a code typed on the Teams page.
   async function joinWithCode(code) {
     const clean = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (clean.length !== 6) { showToast('A join code has 6 letters and numbers', 'error'); return; }
     let p;
-    try { p = await API.previewRaceCode(clean); } catch (err) { showToast(err.message || "That code doesn't match a race or class", 'error'); return; }
+    try { p = await API.previewRaceCode(clean); } catch (err) { showToast(err.message || "That code doesn't match a team or race", 'error'); return; }
     joinCard(p, p.token);
   }
   async function joinCard(p, token) {
     let name = '';
     try { name = (await API.getProfile()).name || ''; } catch { /* blank */ }
     const together = p.mode === 'together';
-    const namesNote = p.nameMode === 'animals' ? 'Classmates see you by an animal name; the organiser sees your name.'
+    const role = roleOf(p);
+    const namesNote = p.nameMode === 'animals' ? `The others see you by an animal name; the ${role.label.toLowerCase()} sees your name.`
       : p.nameMode === 'first' ? 'Others see your first name only.' : 'Everyone sees the name you give here.';
-    const form = dialog(`${head(together ? `${p.owner} invited you` : `${p.owner} challenged you`)}
+    const form = dialog(`${head(together ? `${role.label} ${p.owner} invited you to the ${role.group}` : `${p.owner} challenged you to a race`, together ? 'users' : 'flag')}
       <div class="race-invite"><span class="race-invite-ic">${esc(p.icon || '🏁')}</span><div><b>${esc(p.title)}</b><small>${p.taskCount} steps · finish by ${esc(when(p.endsAt))} · ${p.players} ${p.players === 1 ? 'person' : 'people'} so far</small></div></div>
       ${p.stake ? `<p class="race-stake">${icon('gift', 'tiny')}<span>Riding on it: <b>${esc(p.stake)}</b></span></p>` : ''}
       <label for="race-name">Your name</label>
       <input type="text" id="race-name" maxlength="24" value="${esc(name)}" placeholder="e.g. Sam" required>
       <p class="fb-note">You get your own copy of the steps. ${together ? namesNote : 'Everyone sees how far along you are.'} No one sees your other goals.</p>
-      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Not now</button><button type="submit" class="fb-send" ${p.full ? 'disabled' : ''}>${icon('flag', 'tiny')}${p.full ? 'It is full' : together ? 'Join' : 'Join the race'}</button></div>`);
+      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Not now</button><button type="submit" class="fb-send" ${p.full ? 'disabled' : ''}>${icon(together ? 'users' : 'flag', 'tiny')}${p.full ? 'It is full' : together ? `Join the ${role.group}` : 'Join the race'}</button></div>`);
     form.addEventListener('submit', async e => {
       e.preventDefault();
       const btn = form.querySelector('.fb-send');
@@ -197,12 +218,12 @@ const Race = (() => {
     });
   }
 
-  // ── The Challenges page: your races and classes, and joining by code ──
+  // ── The Teams page: groups you lead or are in, races, joining by code ──
   let detailId = null;
   async function renderPage() {
     const box = document.getElementById('challenges-body');
     if (!box) return;
-    detailId = null; // the Challenges link always opens on the list
+    detailId = null; // the Teams link always opens on the list
     box.innerHTML = '<p class="text-sm text-gray-400 py-6">Loading…</p>';
     let list = [];
     try { list = await API.listRaces(); } catch { list = []; }
@@ -213,13 +234,13 @@ const Race = (() => {
         : c.yourPlace ? `You finished ${placeHtml(c.yourPlace)}` : c.winner ? `${esc(c.winner.name)} won` : me ? `You're ${ordinal(c.players.indexOf(me) + 1)} of ${c.players.length}` : `${c.players.length} racing`;
       return `<button type="button" class="ch-card" onclick="Race.openDetail('${c.id}')">
         <span class="ch-ic">${esc(c.icon || '🏁')}</span>
-        <span class="ch-main"><b>${esc(c.title)}</b><small>${c.mode === 'together' ? (c.owner && c.organiserOnly ? 'You organise' : 'Class or team') : 'Race'} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}</small></span>
+        <span class="ch-main"><b>${esc(c.title)}</b><small>${kindOf(c)}${c.mode === 'together' && c.owner ? ' · you lead' : ''} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}</small></span>
         <span class="ch-line">${line}</span>${icon('chevron_right', 'tiny')}</button>`;
     };
     box.innerHTML = `<form class="ch-join" id="ch-join-form"><label for="join-code">Got a code?</label>
         <div><input type="text" id="join-code" maxlength="9" autocomplete="off" autocapitalize="characters" placeholder="e.g. K7M 2QP"><button type="submit">Join</button></div></form>
       ${list.length ? `<div class="ch-list">${list.map(card).join('')}</div>`
-        : `<div class="ch-empty"><p><b>No races or classes yet.</b></p><p>Open any goal and choose <b>⋯ › Race a friend</b> to race someone, or to run a challenge for a class or team.</p></div>`}`;
+        : `<div class="ch-empty"><p><b>No teams yet.</b></p><p>Open any goal and choose <b>Team up</b>: lead a squad, class, team or your clients through it, or race friends to the finish.</p></div>`}`;
     document.getElementById('ch-join-form').addEventListener('submit', e => { e.preventDefault(); joinWithCode(document.getElementById('join-code').value); });
   }
   const ago = iso => {
@@ -227,7 +248,7 @@ const Race = (() => {
     const d = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
     return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`;
   };
-  // One race or class: the scoreboard; for the organiser, a table with
+  // One group or race: the scoreboard; for the leader, a table with
   // when each person last ticked a step, and Remind those behind.
   async function openDetail(id) {
     detailId = id;
@@ -238,9 +259,9 @@ const Race = (() => {
     const me = c.players.find(p => p.you);
     const together = c.mode === 'together';
     const pct = c.group.players ? Math.round((c.group.finished / c.group.players) * 100) : 0;
-    box.innerHTML = `<button type="button" class="ch-back" onclick="Race.backToList()">${icon('back', 'tiny')}All challenges</button>
+    box.innerHTML = `<button type="button" class="ch-back" onclick="Race.backToList()">${icon('back', 'tiny')}All teams</button>
       <div class="ch-head"><span class="ch-ic big">${esc(c.icon || '🏁')}</span><div class="min-w-0"><h3>${esc(c.title)}</h3>
-        <p>${together ? 'Class or team' : 'Race'} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}${c.stake ? ` · <span class="race-strip-stake">${esc(c.stake)}</span>` : ''}</p></div></div>
+        <p>${kindOf(c)}${together && c.owner ? ` · you're the ${roleOf(c).label.toLowerCase()}` : ''} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}${c.stake ? ` · <span class="race-strip-stake">${esc(c.stake)}</span>` : ''}</p></div></div>
       <div class="ch-actions">
         <button type="button" onclick="Race.inviteFor('${c.id}')">${icon('user-plus', 'tiny')}Invite · <b>${esc(c.joinCode.replace(/(...)(...)/, '$1 $2'))}</b></button>
         ${me ? `<button type="button" onclick="playJourneyFor('${me.projectId}')">${icon('play', 'tiny')}My Journey</button>` : ''}
@@ -256,7 +277,7 @@ const Race = (() => {
           <td><span class="ch-steps"><i style="width:${Math.round(p.frac * 100)}%"></i></span><span class="num">${p.done}/${p.total}</span></td>
           <td><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></td>
           ${c.owner ? `<td class="ago">${esc(ago(p.lastStepAt))}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
-        : `<div class="ch-empty"><p><b>No one has joined yet.</b></p><p>Share the link or read out the code <b>${esc(c.joinCode)}</b>. People join from <b>Challenges › Join with a code</b>.</p></div>`}`;
+        : `<div class="ch-empty"><p><b>No one has joined yet.</b></p><p>Share the link or read out the code <b>${esc(c.joinCode)}</b>. People join from <b>Teams › Join with a code</b>.</p></div>`}`;
   }
   function backToList() { detailId = null; renderPage(); }
   async function inviteFor(id) { try { showShare(await API.getRace(id), false); } catch (err) { showToast(err.message || 'Could not open it', 'error'); } }
@@ -312,7 +333,7 @@ const Race = (() => {
   function rivals() {
     if (!current) return null;
     const leader = current.players[0];
-    // Together (a class or team) has no winner, so no places and no leader.
+    // A group has no winner, so no places and no leader.
     const racing = current.mode !== 'together';
     return current.players.filter(p => !p.you).map(p => {
       const isLeader = racing && !p.finished && p === leader && p.frac > 0;

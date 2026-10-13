@@ -49,8 +49,9 @@ conn.exec(`
 // Phase 2, classes and teams: "together" (everyone aims to finish; no
 // winner) beside "race"; an organiser (a teacher) who runs it without a
 // copy of their own; a short join code to read out in class; and how
-// names show to everyone (names, first names, or animals).
-for (const col of ["mode TEXT NOT NULL DEFAULT 'race'", 'organiserOnly INTEGER NOT NULL DEFAULT 0', 'joinCode TEXT', "nameMode TEXT NOT NULL DEFAULT 'names'", 'lastNudgeAt TEXT']) {
+// names show to everyone (names, first names, or animals). A group says
+// who leads it (a coach, trainer, teacher, manager…), which sets its words.
+for (const col of ["mode TEXT NOT NULL DEFAULT 'race'", 'organiserOnly INTEGER NOT NULL DEFAULT 0', 'joinCode TEXT', "nameMode TEXT NOT NULL DEFAULT 'names'", 'lastNudgeAt TEXT', 'leaderRole TEXT']) {
   try { conn.exec(`ALTER TABLE challenges ADD COLUMN ${col}`); } catch { /* already there */ }
 }
 conn.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_challenges_code ON challenges(joinCode) WHERE joinCode IS NOT NULL');
@@ -86,7 +87,8 @@ const DAY = 86400000;
 const clean = (s, max) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, max);
 const dateKey = ms => new Date(ms).toISOString().slice(0, 10);
 
-function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, organiserOnly, nameMode }) {
+const LEADER_ROLES = ['coach', 'trainer', 'teacher', 'manager', 'leader', 'organiser'];
+function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, organiserOnly, nameMode, leaderRole }) {
   const top = db.topLevelProjectId(projectId);
   const project = db.getProjectById(userId, top);
   if (!project) throw Object.assign(new Error('Goal not found'), { status: 404 });
@@ -109,10 +111,11 @@ function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, 
     mode: mode === 'together' ? 'together' : 'race',
     organiserOnly: mode === 'together' && organiserOnly ? 1 : 0,
     nameMode: ['names', 'first', 'animals'].includes(nameMode) ? nameMode : 'names',
+    leaderRole: mode === 'together' ? (LEADER_ROLES.includes(leaderRole) ? leaderRole : 'leader') : null,
     joinCode: newCode(),
   };
-  conn.prepare(`INSERT INTO challenges (id, ownerId, title, icon, template, taskCount, stake, startsAt, endsAt, joinToken, createdAt, mode, organiserOnly, nameMode, joinCode)
-    VALUES (@id, @ownerId, @title, @icon, @template, @taskCount, @stake, @startsAt, @endsAt, @joinToken, @createdAt, @mode, @organiserOnly, @nameMode, @joinCode)`).run(c);
+  conn.prepare(`INSERT INTO challenges (id, ownerId, title, icon, template, taskCount, stake, startsAt, endsAt, joinToken, createdAt, mode, organiserOnly, nameMode, leaderRole, joinCode)
+    VALUES (@id, @ownerId, @title, @icon, @template, @taskCount, @stake, @startsAt, @endsAt, @joinToken, @createdAt, @mode, @organiserOnly, @nameMode, @leaderRole, @joinCode)`).run(c);
   if (!c.organiserOnly) addMember(c, userId, displayName);
   return c;
 }
@@ -155,7 +158,7 @@ function preview(token) {
   if (!c) return null;
   const owner = (db.getProfile(c.ownerId) || {}).name || 'A friend';
   const players = conn.prepare('SELECT COUNT(*) AS n FROM challenge_members WHERE challengeId = ?').get(c.id).n;
-  return { id: c.id, title: c.title, icon: c.icon, stake: c.stake, endsAt: c.endsAt, taskCount: c.taskCount, owner, players, full: players >= maxFor(c), mode: c.mode, nameMode: c.nameMode, token: c.joinToken };
+  return { id: c.id, title: c.title, icon: c.icon, stake: c.stake, endsAt: c.endsAt, taskCount: c.taskCount, owner, players, full: players >= maxFor(c), mode: c.mode, nameMode: c.nameMode, leaderRole: c.leaderRole || null, token: c.joinToken };
 }
 
 // The same, from the short code read out in class.
@@ -223,7 +226,7 @@ function standings(c, viewerId) {
   const steps = players.reduce((a, p) => a + p.done, 0);
   return {
     id: c.id, title: c.title, icon: c.icon, stake: c.stake, startsAt: c.startsAt, endsAt: c.endsAt, taskCount: c.taskCount,
-    mode: c.mode, nameMode: c.nameMode, organiserOnly: !!c.organiserOnly,
+    mode: c.mode, nameMode: c.nameMode, organiserOnly: !!c.organiserOnly, leaderRole: c.leaderRole || (c.mode === 'together' ? 'leader' : null),
     expected, over: now > end, winner: winner ? { name: winner.name, you: winner.you, finishedAt: winner.finishedAt } : null,
     yourPlace: (players.find(p => p.you) || {}).place || null,
     group: { finished: players.filter(p => p.finished).length, players: players.length, stepsPct: players.length ? Math.round((steps / (players.length * c.taskCount)) * 100) : 0, behind: players.filter(p => p.pace === 'behind').length },

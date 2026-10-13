@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Team up: for coaches, trainers, teachers and managers",
+      "text": "Race a friend is now Team up. Lead a group comes first: say whether you are a coach, trainer, teacher or manager, and your squad, clients, class or team each get their own copy of the goal while you watch who is on track. Racing friends is still there as the second choice, and Challenges is now called Teams."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Fits tablets and small laptops",
       "text": "Toolbars, the project header and the task filters wrap instead of running off the side. Kanban columns stay readable and scroll, and the Journey puts its task list under the game when the screen is narrow. The pale haze down the right edge and an empty box above the Journey are gone."
     },

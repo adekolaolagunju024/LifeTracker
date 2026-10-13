@@ -53,7 +53,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
     gantt: 'Planner',       actions: 'Actions',
     settings: 'Settings',   calendar: 'Calendar',
     chats: 'Chats',         metrics: 'Metrics',
-    why: 'Your why',        challenges: 'Challenges',
+    why: 'Your why',        challenges: 'Teams',
   };
   document.getElementById('topbar-title').textContent =
     projectId ? '' : (titles[id] || id);
