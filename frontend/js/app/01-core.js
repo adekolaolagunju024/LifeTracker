@@ -62,25 +62,31 @@ function showToast(msg, type = 'success') {
 // (deleting goes to Trash, so Undo just restores). Stays 8 seconds; a
 // newer one replaces it.
 let _undoTimer = null;
-function showUndoToast(msg, undo) {
+function showUndoToast(msg, undo, label = 'Undo') {
   let bar = document.getElementById('undo-toast');
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'undo-toast';
     bar.setAttribute('role', 'status');
-    bar.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 z-[1001] flex items-center gap-3 bg-navy text-white text-sm font-medium pl-4 pr-2 py-2 rounded-xl shadow-2xl max-w-[92vw]';
+    bar.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 z-[1004] flex items-center gap-3 bg-navy text-white text-sm font-medium pl-4 pr-2 py-2 rounded-xl shadow-2xl max-w-[92vw]';
     document.body.appendChild(bar);
   }
   const { name, text } = iconFromMessage(msg, 'trash');
-  bar.innerHTML = `${icon(name)}<span class="min-w-0 truncate"></span><button type="button" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-teal-300 font-bold text-xs uppercase tracking-wide px-3 py-1.5 rounded-lg">Undo</button>`;
+  bar.innerHTML = `${icon(name)}<span class="min-w-0 truncate"></span><button type="button" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-teal-300 font-bold text-xs uppercase tracking-wide px-3 py-1.5 rounded-lg"></button>`;
   bar.children[1].textContent = text;
+  bar.lastElementChild.textContent = label;
   const hide = () => { clearTimeout(_undoTimer); bar.remove(); };
   bar.lastElementChild.onclick = async () => {
     hide();
-    try { await undo(); showToast('↩️ Undone'); } catch (e) { showToast('❌ ' + (e.message || 'Could not undo'), 'error'); }
+    try { await undo(); if (label === 'Undo') showToast('↩️ Undone'); } catch (e) { showToast('❌ ' + (e.message || 'Could not undo'), 'error'); }
   };
   clearTimeout(_undoTimer);
   _undoTimer = setTimeout(hide, 8000);
+}
+// The same bar with any action ("Start"), for a quick yes; ignoring it is
+// the no. Stays 8 seconds, then goes.
+function showActionToast(msg, label, action) {
+  showUndoToast(msg, action, label);
 }
 // Re-renders whatever is showing tasks, after a delete or an undo.
 function refreshTaskViews(projectId) {
@@ -295,6 +301,41 @@ function syncPredecessorSnapshots(task) {
     syncPredecessorSnapshots(saved && saved.id ? saved : { id, ...data });
     return saved;
   };
+}
+// Blockers can be ticked off at any time: they clear when the world says
+// so (the call back comes), not when work starts. When the last one on a
+// task that hasn't started goes, offer to start it there and then.
+{
+  const update = API.updateObstacle;
+  API.updateObstacle = async (id, changes) => {
+    const result = await update(id, changes);
+    if (changes && changes.resolved === true && result && result.taskId) offerStartWhenClear(result.taskId);
+    return result;
+  };
+}
+async function offerStartWhenClear(taskId) {
+  let t;
+  try { t = await API.getTask(taskId); } catch { return; }
+  if (!t || t.status !== 'Not Started') return;
+  if ((t.obstacles || []).some(o => !o.resolved) || waitingOn(t).length) return;
+  showActionToast(`✅ All clear. Start "${t.title}" now?`, 'Start', async () => {
+    try { await API.updateTask(taskId, { status: 'In Progress' }); } catch (e) { taskErrorToast(e, 'Could not start it'); return; }
+    showToast(`▶️ "${t.title}" is under way`);
+    refreshAfterStart(taskId);
+  });
+}
+// Every loaded view takes the new status without a reload.
+function refreshAfterStart(taskId) {
+  (blockerTasks.get(taskId) || []).forEach(x => { x.status = 'In Progress'; });
+  if (mountainState) mountainState.tasks.filter(x => x.id === taskId).forEach(x => { x.status = 'In Progress'; });
+  if (mountainState && mountainState.tasks.some(x => x.id === taskId)) { renderMountainScene(); renderMountainTaskList(); }
+  if (APP.currentPage === 'project-detail' && APP.currentProjectId) renderTaskTable(APP.currentProjectId);
+  else if (APP.currentPage === 'gantt') renderGantt();
+  else if (APP.currentPage === 'actions') renderActions();
+  else if (APP.currentPage === 'dashboard') renderDashboard();
+  if (APP_currentDetailTaskId === taskId) openTaskDetail(taskId);
+  if (typeof DayRoad !== 'undefined') DayRoad.refresh();
+  updateSidebar();
 }
 function taskGateMessage(t, nextStatus) {
   if (!t || nextStatus === 'Not Started') return '';

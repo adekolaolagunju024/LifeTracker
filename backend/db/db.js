@@ -1382,7 +1382,7 @@ function updateObstacle(userId, obstacleId, changes = {}) {
   let resolvedAt = row.resolvedAt || null;
   if (changes.resolved !== undefined) resolvedAt = changes.resolved ? (resolvedAt || new Date().toISOString()) : null;
   db.prepare('UPDATE task_obstacles SET name = ?, count = ?, resolvedAt = ? WHERE id = ?').run(name, count, resolvedAt, obstacleId);
-  return { id: obstacleId, name, count, resolved: !!resolvedAt };
+  return { id: obstacleId, taskId: row.taskId, name, count, resolved: !!resolvedAt };
 }
 function deleteObstacle(userId, obstacleId) {
   const row = db.prepare('SELECT taskId FROM task_obstacles WHERE id = ?').get(obstacleId);

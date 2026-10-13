@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Clear the last blocker, start the task",
+      "text": "Blockers can be ticked off whenever they clear, even before you've started the task. Tick the last one on a task you haven't begun and Waypoint asks if you'd like to start it now: one tap and it's In Progress."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Play today's road as a game",
       "text": "Full view on today's road now has a Game mode. Your day becomes a Journey world, one stop per task, with you and the Pacer racing along it. Pick the world and switch between 2D and 3D right there; the list of today's stops sits underneath. Prefer it plain? Road mode is one tap away, and Waypoint remembers which you chose."
     },
