@@ -116,23 +116,29 @@ function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, 
   };
   conn.prepare(`INSERT INTO challenges (id, ownerId, title, icon, template, taskCount, stake, startsAt, endsAt, joinToken, createdAt, mode, organiserOnly, nameMode, leaderRole, joinCode)
     VALUES (@id, @ownerId, @title, @icon, @template, @taskCount, @stake, @startsAt, @endsAt, @joinToken, @createdAt, @mode, @organiserOnly, @nameMode, @leaderRole, @joinCode)`).run(c);
-  if (!c.organiserOnly) addMember(c, userId, displayName);
+  // The maker takes part on the goal they already have, not a duplicate of
+  // it. Only a race where they've already ticked steps gets them a fresh
+  // copy, so everyone starts level; and a goal already in another race or
+  // group keeps its place there.
+  const started = tasks.some(t => t.status === 'Completed');
+  const elsewhere = conn.prepare('SELECT 1 FROM challenge_members WHERE projectId = ?').get(top);
+  if (!c.organiserOnly) addMember(c, userId, displayName, (c.mode === 'together' || !started) && !elsewhere ? top : null);
   return c;
 }
 
 // A fresh copy of the goal for one player, with the due dates spread
-// evenly from now to the deadline.
-function addMember(c, userId, displayName) {
+// evenly from now to the deadline; or, for the maker, their own goal.
+function addMember(c, userId, displayName, ownProjectId = null) {
   const template = JSON.parse(c.template);
   const now = Date.now();
   const end = Date.parse(c.endsAt);
-  const project = db.createProject(userId, {
+  const project = ownProjectId ? { id: ownProjectId } : db.createProject(userId, {
     id: crypto.randomUUID(), title: `${template.title} · race`, description: c.stake ? `Race stake: ${c.stake}` : '',
     icon: template.icon, color: template.color, type: template.type, isGoal: true,
     startDate: dateKey(now), createdAt: new Date(now).toISOString(),
   });
   const n = template.tasks.length;
-  template.tasks.forEach((t, i) => {
+  if (!ownProjectId) template.tasks.forEach((t, i) => {
     db.createTask(userId, {
       id: crypto.randomUUID(), projectId: project.id, title: t.title, priority: t.priority, notes: t.notes,
       status: 'Not Started', startDate: dateKey(now + (end - now) * (i / n)), endDate: dateKey(now + (end - now) * ((i + 1) / n)),

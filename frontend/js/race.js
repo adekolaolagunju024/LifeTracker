@@ -65,6 +65,11 @@ const Race = (() => {
     if (!projectId) return;
     let name = '';
     try { name = (await API.getProfile()).name || ''; } catch { /* a blank name is fine */ }
+    // You take part on this goal as it is (no duplicate), unless it's a
+    // race and you've already ticked steps: then a fresh copy, so everyone
+    // starts level.
+    let ticked = 0;
+    try { ticked = (await API.getTasks()).filter(t => t.projectId === projectId && t.status === 'Completed').length; } catch { /* none */ }
     const min = dayKey(Date.now() + 86400000);
     const form = dialog(`${head('Team up', 'users')}
       <div class="seg race-mode" role="radiogroup" aria-label="How you team up">
@@ -99,8 +104,8 @@ const Race = (() => {
       const organising = mode === 'together' && form.querySelector('#race-organise').checked;
       form.querySelector('#race-name-wrap').classList.toggle('hidden', organising);
       form.querySelector('#race-mode-note').textContent = mode === 'race'
-        ? "Everyone who joins gets their own copy of this goal's steps. First to tick them all off wins."
-        : `Your ${role.people} each get their own copy of the steps and aim to finish by the date. You see who is on track and can nudge anyone behind. They join with a link or a code.`;
+        ? `Everyone who joins gets their own copy of this goal's steps. First to tick them all off wins. ${ticked ? `You've ticked ${ticked} already, so you'll race on a fresh copy and everyone starts level.` : 'You race on this goal as it is.'}`
+        : `Your ${role.people} each get their own copy of the steps and aim to finish by the date. You see who is on track and can nudge anyone behind. They join with a link or a code.${organising ? '' : ' You take part on this goal as it is.'}`;
       form.querySelector('#race-make-label').textContent = mode === 'race' ? 'Make the race' : `Set up the ${role.kind.toLowerCase()}`;
     };
     form.querySelectorAll('.race-mode button').forEach(b => { b.onclick = () => { mode = b.dataset.mode; paint(); }; });
@@ -139,7 +144,7 @@ const Race = (() => {
       ${code ? `<div class="race-code" aria-label="Join code ${esc(race.joinCode.split('').join(' '))}"><small>Join code</small><b>${esc(code)}</b><span>Teams › Join with a code</span></div>` : ''}
       <div class="race-link"><input type="text" id="race-link" readonly value="${esc(url)}" aria-label="Join link"><button type="button" class="fb-cancel" id="race-copy">${icon('copy', 'tiny')}Copy</button></div>
       <div class="fb-foot">${navigator.share ? `<button type="button" class="fb-cancel" id="race-share">${icon('send', 'tiny')}Share</button>` : ''}
-        <button type="submit" class="fb-send">${icon('play', 'tiny')}${me ? (together ? 'Go to my copy' : 'Go to my race') : 'See who has joined'}</button></div>`);
+        <button type="submit" class="fb-send">${icon('play', 'tiny')}${me ? (together ? 'Go to my goal' : 'Go to my race') : 'See who has joined'}</button></div>`);
     form.querySelector('#race-copy').onclick = async () => {
       try { await navigator.clipboard.writeText(url); showToast('🔗 Link copied'); } catch { form.querySelector('#race-link').select(); }
     };
@@ -467,7 +472,7 @@ const Race = (() => {
   async function leave() {
     if (!current) return;
     const form = dialog(`${head('Leave the race?')}
-      <p class="fb-note">You'll come off the road and the scoreboard. Your copy of the goal and its tasks stay yours.</p>
+      <p class="fb-note">You'll come off the road and the scoreboard. The goal and its tasks stay yours.</p>
       <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Stay in</button><button type="submit" class="fb-send">Leave</button></div>`);
     form.addEventListener('submit', async e => {
       e.preventDefault();
