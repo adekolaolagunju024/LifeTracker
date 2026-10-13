@@ -1,4 +1,4 @@
-/* global API, APP, esc, icon, DayRoad, showToast, showPage, openTaskDetail, Why, Music, localDateKey, openAssistant, toggleAssistantListening, Reminders, taskGateMessage, taskErrorToast, Sfx */
+/* global API, APP, esc, icon, DayRoad, showToast, showPage, openTaskDetail, Why, Music, localDateKey, openAssistant, toggleAssistantListening, Reminders, taskGateMessage, taskErrorToast, showGateCard, Sfx */
 // ── YOUR PERSONAL ASSISTANT ─────────────────────────────────────
 // The assistant as a personal assistant, not only a chat window: it briefs
 // you each morning, acts around the app when you ask (backend/ai/day.js),
@@ -384,7 +384,7 @@ const Jarvis = (() => {
     try {
       const task = await API.getTask(id);
       const gate = taskGateMessage(task, 'Completed');
-      if (gate) { showToast(gate, 'error'); return; }
+      if (gate) { showGateCard(task, 'Completed'); return; }
       await API.updateTask(id, { status: 'Completed' });
       // Straight on to what's next on today's plan, if there is one.
       const nx = await nextInPlan().catch(() => null);
@@ -394,7 +394,7 @@ const Jarvis = (() => {
       } else stopFocus(true);
       if (window.DayRoad) DayRoad.refresh();
       if (APP.currentPage === 'dashboard' && typeof renderDashboard === 'function') renderDashboard(); // eslint-disable-line no-undef
-    } catch (e) { taskErrorToast(e, 'Could not finish that task'); }
+    } catch (e) { taskErrorToast(e, 'Could not finish that task', { taskId: id, status: 'Completed' }); }
   }
   function startNext() {
     const nx = focus && focus.next;

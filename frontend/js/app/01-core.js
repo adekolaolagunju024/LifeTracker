@@ -49,13 +49,14 @@ function shadeColor(hex, amount) {
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   // A leading emoji ("❌ Could not save") becomes the matching line icon.
-  const { name, text } = iconFromMessage(msg, type === 'error' ? 'error' : 'done');
+  const { name, text } = iconFromMessage(msg, type === 'error' ? 'error' : type === 'warn' ? 'blocker' : 'done');
   t.innerHTML = `${icon(name)}<span></span>`;
   t.lastElementChild.textContent = text;
   t.classList.toggle('is-error', type === 'error');
-  t.style.background = type === 'error' ? '#B03020' : '#0D1B2A';
+  t.classList.toggle('is-warn', type === 'warn');
+  t.style.background = type === 'error' ? '#B03020' : type === 'warn' ? '#7A4A05' : '#0D1B2A';
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2800);
+  setTimeout(() => t.classList.remove('show'), type === 'warn' ? 5000 : 2800);
 }
 
 // A bar at the foot of the screen with one or more buttons: Undo, for
@@ -291,7 +292,11 @@ async function tickBlocker(taskId, obstacleId, checkbox) {
     showToast('❌ ' + (e.message || 'Could not update that blocker'), 'error');
     return;
   }
-  // Every cached copy of the task (board, table, Journey) takes the change.
+  applyBlockerChange(taskId, obstacleId, resolved);
+}
+// Every cached copy of the task (board, table, Journey) takes a blocker
+// ticked or unticked anywhere, and the views showing it redraw.
+function applyBlockerChange(taskId, obstacleId, resolved) {
   const copies = new Set(blockerTasks.get(taskId) || []);
   if (mountainState) mountainState.tasks.filter(x => x.id === taskId).forEach(x => copies.add(x));
   let name = '';
@@ -353,6 +358,7 @@ function syncPredecessorSnapshots(task) {
   };
 }
 async function afterBlockerCleared(obstacle) {
+  if (document.getElementById('gate-card')) return; // the "not yet" card offers its own next step
   const taskId = obstacle.taskId;
   let t;
   try { t = await API.getTask(taskId); } catch { return; }
@@ -361,7 +367,7 @@ async function afterBlockerCleared(obstacle) {
   const canWatch = t.status !== 'Completed' && typeof DayRoad !== 'undefined' && DayRoad.canReplay(taskId);
   const watch = { label: 'Watch', run: () => DayRoad.replayKnockout(taskId, obstacle.id) };
   const start = { label: 'Start', run: async () => {
-    try { await API.updateTask(taskId, { status: 'In Progress' }); } catch (e) { taskErrorToast(e, 'Could not start it'); return; }
+    try { await API.updateTask(taskId, { status: 'In Progress' }); } catch (e) { taskErrorToast(e, 'Could not start it', { taskId, status: 'In Progress' }); return; }
     showToast(`▶️ "${t.title}" is under way`);
     refreshAfterStart(taskId);
   } };
@@ -369,14 +375,15 @@ async function afterBlockerCleared(obstacle) {
   else if (canWatch) showActionToast(`⚔️ Watch "${obstacle.name}" get knocked out on today's road`, [watch]);
 }
 // Every loaded view takes the new status without a reload.
-function refreshAfterStart(taskId) {
-  (blockerTasks.get(taskId) || []).forEach(x => { x.status = 'In Progress'; });
-  if (mountainState) mountainState.tasks.filter(x => x.id === taskId).forEach(x => { x.status = 'In Progress'; });
+function refreshAfterStart(taskId, status = 'In Progress') {
+  (blockerTasks.get(taskId) || []).forEach(x => { x.status = status; });
+  if (mountainState) mountainState.tasks.filter(x => x.id === taskId).forEach(x => { x.status = status; });
   if (mountainState && mountainState.tasks.some(x => x.id === taskId)) { renderMountainScene(); renderMountainTaskList(); }
   if (APP.currentPage === 'project-detail' && APP.currentProjectId) renderTaskTable(APP.currentProjectId);
   else if (APP.currentPage === 'gantt') renderGantt();
   else if (APP.currentPage === 'actions') renderActions();
   else if (APP.currentPage === 'dashboard') renderDashboard();
+  else if (APP.currentPage === 'calendar') renderCalendar();
   if (APP_currentDetailTaskId === taskId) openTaskDetail(taskId);
   if (typeof DayRoad !== 'undefined') DayRoad.refresh();
   updateSidebar();
@@ -389,9 +396,120 @@ function taskGateMessage(t, nextStatus) {
   if (nextStatus === 'Completed' && pending.length) return `⚔️ Clear the blockers on "${t.title}" first: ${pending.map(o => `"${o.name}"`).join(', ')}.`;
   return '';
 }
-function taskErrorToast(e, fallback) {
-  const icon = e && e.code === 'BLOCKERS_PENDING' ? '⚔️ ' : e && e.code === 'WAITING_ON_PREDECESSORS' ? '🔗 ' : '❌ ';
-  showToast(icon + ((e && e.message) || fallback), 'error');
+// A failed save. When the server said "not yet" (blockers in the way, or
+// waiting on another task) and we know which task, that's the "not yet"
+// card below rather than an error; without a task, an amber warning.
+function taskErrorToast(e, fallback, ctx = {}) {
+  const gate = e && (e.code === 'BLOCKERS_PENDING' || e.code === 'WAITING_ON_PREDECESSORS');
+  if (gate && ctx.taskId) { showGateCard(ctx.taskId, ctx.status || 'Completed'); return; }
+  if (gate) { showToast((e.code === 'BLOCKERS_PENDING' ? '⚔️ ' : '🔗 ') + e.message, 'warn'); return; }
+  showToast('❌ ' + ((e && e.message) || fallback || 'Something went wrong'), 'error');
+}
+
+// ── "NOT YET" CARDS ─────────────────────────────────────────────
+// Ticking off a task that still has blockers, or starting one that waits
+// on another task, isn't an error: it's "not yet". This card says what's
+// in the way and lets you deal with it there and then: tick each blocker
+// as it's sorted (then Mark as done finishes what you were doing), or
+// open the task it's waiting on. Amber, with an icon and words, so it
+// reads as a heads-up rather than a failure.
+let gateState = null; // { t, status }
+async function showGateCard(taskOrId, status = 'Completed') {
+  const id = typeof taskOrId === 'string' ? taskOrId : taskOrId && taskOrId.id;
+  if (!id) return;
+  let t = typeof taskOrId === 'object' ? taskOrId : null;
+  try { t = await API.getTask(id); } catch { /* keep what we were given */ }
+  if (!t) return;
+  // Anyone who can comment on the project can tick its blockers off.
+  const proj = await API.getProject(t.projectId).catch(() => null);
+  const canTick = !proj || ['owner', 'editor', 'commenter'].includes(proj.role);
+  gateState = { t, status, canTick, opener: document.activeElement };
+  document.getElementById('gate-card')?.remove();
+  const el = document.createElement('div');
+  el.id = 'gate-card';
+  el.className = 'gate-overlay';
+  el.addEventListener('click', e => { if (e.target === el) closeGateCard(); });
+  el.addEventListener('keydown', e => { if (e.key === 'Escape') closeGateCard(); });
+  document.body.appendChild(el);
+  paintGateCard();
+  el.querySelector('.gate-primary, .gate-secondary')?.focus();
+}
+function closeGateCard() {
+  const el = document.getElementById('gate-card');
+  if (!el) return;
+  el.remove();
+  const back = gateState && gateState.opener;
+  gateState = null;
+  if (back && back.focus && document.contains(back)) back.focus();
+}
+function paintGateCard() {
+  const el = document.getElementById('gate-card');
+  if (!el || !gateState) return;
+  const { t, status, canTick: canEdit } = gateState;
+  const waiting = waitingOn(t);
+  const pending = (t.obstacles || []).filter(o => !o.resolved);
+  const verb = status === 'Completed' ? 'marked done' : 'started';
+  let kind, title, text, list = '', actions;
+  if (waiting.length) {
+    kind = 'wait';
+    title = waiting.length === 1 ? 'Waiting on another task' : `Waiting on ${waiting.length} tasks`;
+    text = `“${esc(t.title)}” can’t be ${verb} until ${waiting.length === 1 ? 'this is' : 'these are'} finished.`;
+    list = waiting.map(p => `<li><span class="gate-li-ic">${icon('link')}</span><span class="gate-li-name">${esc(p.title)}<small>${esc({ 'Not Started': 'To do', 'In Progress': 'Doing' }[p.status] || p.status || '')}</small></span>
+      <button type="button" class="gate-mini" onclick="closeGateCard(); openTaskDetail('${p.id}')">Open</button></li>`).join('');
+    actions = `<button type="button" class="gate-secondary" onclick="closeGateCard()">Got it</button>`;
+  } else if (pending.length && status === 'Completed') {
+    kind = 'block';
+    title = pending.length === 1 ? 'Clear 1 blocker first' : `Clear ${pending.length} blockers first`;
+    text = `“${esc(t.title)}” can’t be ${verb} while ${pending.length === 1 ? 'this is' : 'these are'} in the way.${canEdit ? ' Tick each one off when it’s sorted.' : ''}`;
+    list = (t.obstacles || []).map(o => `<li class="${o.resolved ? 'is-done' : ''}"><label>
+        <input type="checkbox" ${o.resolved ? 'checked disabled' : ''} ${canEdit ? '' : 'disabled'} onchange="gateTick('${o.id}', this)" aria-label="${esc(o.name)} cleared">
+        <span class="gate-li-name">${esc(o.name)}${(o.count || 1) > 1 ? ` <small>×${o.count}</small>` : ''}</span>${o.resolved ? `<span class="gate-ok">${icon('check', 'tiny')}Cleared</span>` : ''}</label></li>`).join('');
+    actions = `<button type="button" class="gate-secondary" onclick="closeGateCard()">Not now</button>
+      <button type="button" class="gate-secondary" onclick="closeGateCard(); openTaskDetail('${t.id}')">Open task</button>`;
+  } else {
+    kind = 'clear';
+    title = 'All clear';
+    text = `Nothing is in the way of “${esc(t.title)}” now.`;
+    actions = `<button type="button" class="gate-secondary" onclick="closeGateCard()">Later</button>
+      <button type="button" class="gate-primary" onclick="gateRetry()">${icon(status === 'Completed' ? 'check' : 'play')}${status === 'Completed' ? 'Mark as done' : 'Start it'}</button>`;
+  }
+  el.innerHTML = `<div class="gate-card is-${kind}" role="alertdialog" aria-modal="true" aria-labelledby="gate-title" aria-describedby="gate-text">
+    <div class="gate-head"><span class="gate-ic" aria-hidden="true">${icon(kind === 'wait' ? 'link' : kind === 'block' ? 'blocker' : 'check')}</span>
+      <div class="min-w-0"><p class="gate-kicker">${kind === 'clear' ? 'Ready' : 'Not yet'}</p><h3 id="gate-title">${title}</h3></div>
+      <button type="button" class="gate-x" onclick="closeGateCard()" aria-label="Close">${icon('close')}</button></div>
+    <p id="gate-text" class="gate-text">${text}</p>
+    ${list ? `<ul class="gate-list">${list}</ul>` : ''}
+    <div class="gate-foot">${actions}</div>
+  </div>`;
+}
+async function gateTick(obstacleId, box) {
+  if (!gateState) return;
+  box.disabled = true;
+  try { await API.updateObstacle(obstacleId, { resolved: true }); } catch (e) {
+    box.checked = false; box.disabled = false;
+    showToast('❌ ' + (e.message || 'Could not update that blocker'), 'error');
+    return;
+  }
+  const o = (gateState.t.obstacles || []).find(x => x.id === obstacleId);
+  if (o) o.resolved = true;
+  applyBlockerChange(gateState.t.id, obstacleId, true);
+  paintGateCard();
+  document.querySelector('#gate-card .gate-primary, #gate-card input:not([disabled])')?.focus();
+}
+// "Mark as done" (or "Start it") once nothing is in the way any more.
+async function gateRetry() {
+  if (!gateState) return;
+  const { t, status } = gateState;
+  closeGateCard();
+  try {
+    const saved = await API.updateTask(t.id, { status });
+    if (status === 'Completed') {
+      if (saved && saved.journeyReward && typeof announceJourneyReward === 'function') announceJourneyReward(saved.journeyReward);
+      else if (window.Sfx) Sfx.play('complete');
+    }
+    showToast(status === 'Completed' ? `✅ “${t.title}” done` : `▶️ “${t.title}” is under way`);
+    refreshAfterStart(t.id, status);
+  } catch (e) { taskErrorToast(e, 'Could not update that task'); }
 }
 // A small "waiting on" marker for task rows and cards.
 function waitingBadge(t) {

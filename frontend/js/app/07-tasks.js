@@ -144,7 +144,7 @@ async function setDetailStatus(status) {
       else Sfx.play('complete');
       showToast('✅ Done!');
     }
-  } catch (e) { taskErrorToast(e, 'Could not change the status'); return; }
+  } catch (e) { taskErrorToast(e, 'Could not change the status', { taskId: id, status }); return; }
   await openTaskDetail(id);
   rerenderCurrentPage();
 }

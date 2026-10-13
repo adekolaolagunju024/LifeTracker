@@ -226,7 +226,7 @@ function renderDashboardBento(tasks, allProjects) {
 async function completeFromDashboard(taskId, checkbox) {
   const task = await API.getTask(taskId).catch(() => null);
   const gate = taskGateMessage(task, 'Completed');
-  if (gate) { checkbox.checked = false; showToast(gate, 'error'); return; }
+  if (gate) { checkbox.checked = false; showGateCard(task, 'Completed'); return; }
   checkbox.disabled = true;
   try {
     await API.updateTask(taskId, { status: 'Completed' });
@@ -234,7 +234,7 @@ async function completeFromDashboard(taskId, checkbox) {
     setTimeout(renderDashboard, 900);
   } catch (e) {
     checkbox.checked = false; checkbox.disabled = false;
-    taskErrorToast(e, 'Could not complete that task');
+    taskErrorToast(e, 'Could not complete that task', { taskId, status: 'Completed' });
   }
 }
 // The focus card's Play: straight into that project's Journey.

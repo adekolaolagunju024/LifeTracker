@@ -275,7 +275,7 @@ async function bulkDeleteConfirm() {
 
 async function updateTaskStatus(id, status, projectId) {
   const before = await API.getTask(id);
-  try { await API.updateTask(id, { status }); } catch (e) { taskErrorToast(e, 'Could not update the status'); renderTaskTable(projectId); return; }
+  try { await API.updateTask(id, { status }); } catch (e) { taskErrorToast(e, 'Could not update the status', { taskId: id, status }); renderTaskTable(projectId); return; }
   if (before.status !== 'Completed' && status === 'Completed' && before.recurrence && before.recurrence !== 'none') {
     showToast('✅ Completed — next occurrence scheduled');
   }
@@ -308,7 +308,7 @@ async function updateGanttTaskStatus(id, status) {
       showToast('✅ Status updated');
     }
   } catch (e) {
-    taskErrorToast(e);
+    taskErrorToast(e, 'Could not update the status', { taskId: id, status });
   }
   renderGantt();
 }

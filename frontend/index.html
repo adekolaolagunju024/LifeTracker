@@ -722,6 +722,44 @@
     .dark .dayrep-chart-wrap, .dark .dayrep-table th { border-color: #22304A; } .dark .dayrep-table td { border-color: #1B2740; }
     .dark .dayrep-chart .g { stroke: #1B2740; } .dark .dayrep-chart .dot { stroke: #111A2B; }
     .dark .dayrep-carry label { background: #16213A; } .dark .dayroad-reportbtn { background: rgba(94,234,212,.08); color: #5EEAD4; }
+    /* "Not yet" cards (showGateCard in js/app/01-core.js): a heads-up, not an error */
+    .gate-overlay { position: fixed; inset: 0; z-index: 1003; background: rgba(13,27,42,.45); display: flex; align-items: center; justify-content: center; padding: 16px; animation: gatefade .15s ease both; }
+    @keyframes gatefade { from { opacity: 0; } }
+    @keyframes gaterise { from { transform: translateY(12px); opacity: 0; } }
+    .gate-card { width: min(440px, 100%); background: #fff; border-radius: 18px; box-shadow: 0 24px 60px rgba(13,27,42,.28); padding: 18px 18px 14px; border-top: 4px solid #D97706; animation: gaterise .2s ease both; }
+    .gate-card.is-wait { border-top-color: #B45309; } .gate-card.is-clear { border-top-color: #15803D; }
+    .gate-head { display: flex; align-items: flex-start; gap: 12px; }
+    .gate-ic { flex-shrink: 0; width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #FEF3C7; color: #B45309; }
+    .gate-card.is-clear .gate-ic { background: #DCFCE7; color: #15803D; }
+    .gate-ic .ic { width: 20px; height: 20px; }
+    .gate-head > .min-w-0 { flex: 1; }
+    .gate-kicker { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #B45309; }
+    .gate-card.is-clear .gate-kicker { color: #15803D; }
+    .gate-head h3 { font-size: 18px; font-weight: 900; color: #0D1B2A; line-height: 1.2; }
+    .gate-x { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; color: #6B7280; flex-shrink: 0; }
+    .gate-x:hover { background: #F1F3F5; color: #0D1B2A; }
+    .gate-text { font-size: 14px; color: #374151; line-height: 1.5; margin: 10px 0 0; }
+    .gate-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; }
+    .gate-list li { display: flex; align-items: center; gap: 10px; border: 1px solid #FDE68A; background: #FFFBEB; border-radius: 12px; padding: 9px 12px; }
+    .gate-list li label { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
+    .gate-list li.is-done { border-color: #BBF7D0; background: #F0FDF4; }
+    .gate-list li.is-done .gate-li-name { color: #6B7280; text-decoration: line-through; }
+    .gate-list input { width: 18px; height: 18px; accent-color: #15803D; flex-shrink: 0; }
+    .gate-li-ic { color: #B45309; display: flex; } .gate-li-ic .ic { width: 16px; height: 16px; }
+    .gate-li-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: #1F2937; overflow-wrap: anywhere; }
+    .gate-li-name small { display: block; font-size: 12px; font-weight: 600; color: #8A93A0; }
+    .gate-ok { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 700; color: #15803D; }
+    .gate-mini { font-size: 12px; font-weight: 700; color: #0A7E8C; background: #F0FAF9; border-radius: 8px; padding: 6px 10px; flex-shrink: 0; }
+    .gate-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+    .gate-secondary, .gate-primary { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; border-radius: 11px; padding: 10px 16px; }
+    .gate-secondary { background: #F1F3F5; color: #1F2937; } .gate-secondary:hover { background: #E5E8EC; }
+    .gate-primary { background: #0A7E8C; color: #fff; } .gate-primary:hover { background: #086A76; }
+    .gate-primary .ic { width: 16px; height: 16px; }
+    @media (max-width: 640px) { .gate-overlay { align-items: flex-end; padding: 0; } .gate-card { width: 100%; border-radius: 20px 20px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom)); } .gate-foot > * { flex: 1; justify-content: center; } }
+    .dark .gate-card { background: #111A2B; } .dark .gate-head h3, .dark .gate-li-name { color: #E8EEF5; } .dark .gate-text { color: #B6C2D1; }
+    .dark .gate-list li { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.3); } .dark .gate-list li.is-done { background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.3); }
+    .dark .gate-ic { background: rgba(245,158,11,.15); color: #FBBF24; } .dark .gate-secondary { background: #1A2436; color: #E8EEF5; } .dark .gate-x:hover { background: #1A2436; }
+    @media (prefers-reduced-motion: reduce) { .gate-overlay, .gate-card { animation: none; } }
     /* The project picker (js/projectPicker.js) */
     .pp-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; overflow: hidden; }
     .pp-btn { display: inline-flex; align-items: center; gap: 8px; text-align: left; min-width: 0; cursor: pointer; }
