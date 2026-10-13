@@ -274,6 +274,7 @@ async function tickBlocker(taskId, obstacleId, checkbox) {
   if (mountainState && mountainState.tasks.some(x => x.id === taskId)) { renderMountainScene(); renderMountainTaskList(); }
   if (APP_currentDetailTaskId === taskId) refreshObstacles(taskId);
   if (APP.currentPage === 'actions') renderActions();
+  if (typeof DayRoad !== 'undefined') DayRoad.render(); // today's road and its game scene
   if (resolved && name) showToast(`⚔️ "${name}" cleared!`);
 }
 // ── Task gates: a task can't start until its predecessors are done, and
