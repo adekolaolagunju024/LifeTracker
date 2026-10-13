@@ -53,7 +53,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
     gantt: 'Planner',       actions: 'Actions',
     settings: 'Settings',   calendar: 'Calendar',
     chats: 'Chats',         metrics: 'Metrics',
-    why: 'Your why',
+    why: 'Your why',        challenges: 'Challenges',
   };
   document.getElementById('topbar-title').textContent =
     projectId ? '' : (titles[id] || id);
@@ -68,6 +68,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
   if (id === 'chats')          renderChats();
   if (id === 'metrics' && window.Metrics) Metrics.render();
   if (id === 'why' && window.Why) Why.renderPage();
+  if (id === 'challenges' && window.Race) Race.renderPage();
 
   updateSidebar();
   updateBackButton();

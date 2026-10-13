@@ -183,6 +183,13 @@ app.get('/api/race-preview/:token', (req, res) => {
   if (!p) return res.status(404).json({ error: 'That race link is not valid any more' });
   res.json(p);
 });
+// The same from a class code (signed in only: a short code shouldn't be
+// guessable into a preview by strangers).
+app.get('/api/race-code/:code', requireAuth, (req, res) => {
+  const p = require('./challenges').previewByCode(req.params.code);
+  if (!p) return res.status(404).json({ error: "That code doesn't match a race or class" });
+  res.json(p);
+});
 
 // ── AUTH GATE — everything else under /api requires a logged-in session ──
 app.use('/api', requireAuth);

@@ -636,7 +636,7 @@ async function checkPendingInvites() {
 
 // ── NOTIFICATION BELL (invites + assigned tasks + chat/comment activity) ──
 function notificationCount(data) {
-  return data.invites.length + data.assignedTasks.length + data.chatActivity.length + data.commentActivity.length;
+  return data.invites.length + data.assignedTasks.length + data.chatActivity.length + data.commentActivity.length + (data.challengeNudges || []).length;
 }
 
 async function refreshNotificationBadge() {
@@ -697,6 +697,13 @@ function renderNotificationsList(data) {
     <button onclick="closeNotifications(); showPage('project-detail','${c.projectId}'); openProjectChat('${c.projectId}');" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
       <span class="text-lg leading-none flex-shrink-0">${icon('chat')}</span>
       <span class="text-sm text-navy min-w-0">${c.count} new message${c.count === 1 ? '' : 's'} in ${esc(c.projectIcon || '')} <strong>${esc(c.projectTitle)}</strong> chat</span>
+    </button>`));
+
+  // A nudge from the organiser of a class or team you're in.
+  (data.challengeNudges || []).forEach(n => rows.push(`
+    <button onclick="closeNotifications(); showPage('challenges'); setTimeout(() => Race.openDetail('${n.challengeId}'), 200);" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
+      <span class="text-lg leading-none flex-shrink-0">${icon('flag')}</span>
+      <span class="text-sm text-navy min-w-0">${esc(n.text)}</span>
     </button>`));
 
   data.commentActivity.forEach(c => rows.push(`

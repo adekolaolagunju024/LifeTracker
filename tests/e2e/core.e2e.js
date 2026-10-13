@@ -116,7 +116,7 @@ test('phone: no page scrolls sideways', { skip: !CHROME && 'no Chrome found (set
   await page.goto(`${server.base}/app`, { waitUntil: 'networkidle0' });
   await waitFor(page, () => typeof APP !== 'undefined' && APP.currentPage === 'dashboard', null, 'the dashboard');
   const wide = [];
-  for (const id of ['dashboard', 'projects', 'gantt', 'actions', 'calendar', 'chats', 'why', 'settings']) {
+  for (const id of ['dashboard', 'projects', 'gantt', 'actions', 'calendar', 'chats', 'why', 'challenges', 'settings']) {
     await page.evaluate(p => showPage(p), id);
     await sleep(700);
     const w = await page.evaluate(() => document.documentElement.scrollWidth);
@@ -144,7 +144,7 @@ test('every button and field on the main pages has a name', { skip: !CHROME && '
   await page.evaluate(async email => { await API.register(email, 'testpass123', true); await API.updateProfile({ onboarded: true }); }, `e2e_a11y_${Date.now()}@example.com`);
   await page.goto(`${server.base}/app`, { waitUntil: 'networkidle0' });
   await waitFor(page, () => typeof APP !== 'undefined' && APP.currentPage === 'dashboard', null, 'the dashboard');
-  for (const id of ['dashboard', 'projects', 'gantt', 'actions', 'calendar', 'why', 'settings']) {
+  for (const id of ['dashboard', 'projects', 'gantt', 'actions', 'calendar', 'why', 'challenges', 'settings']) {
     await page.evaluate(p => showPage(p), id);
     await sleep(700);
     missing.push(...await unnamed(id));
