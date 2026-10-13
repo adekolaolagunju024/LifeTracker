@@ -764,6 +764,10 @@
     .dayroad-replay { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #0A7E8C; background: #F0FAF9; border-radius: 9px; padding: 6px 10px; }
     .dayroad-replay:hover { background: #E0F4F2; }
     .dayroad-caption { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); max-width: calc(100% - 24px); background: rgba(13,27,42,.88); color: #fff; font-size: 13px; font-weight: 700; padding: 7px 12px; border-radius: 10px; z-index: 5; text-align: center; pointer-events: none; animation: gatefade .2s ease both; }
+    .dayroad-playgate { position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: rgba(13,27,42,.28); animation: gatefade .2s ease both; }
+    .dayroad-playgate button { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 900; color: #fff; background: #0A7E8C; border-radius: 999px; padding: 12px 22px; box-shadow: 0 10px 30px rgba(13,27,42,.35); }
+    .dayroad-playgate button:hover { background: #086A76; } .dayroad-playgate button .ic { width: 18px; height: 18px; }
+    .dayroad-playgate small { font-size: 12.5px; font-weight: 700; color: #fff; background: rgba(13,27,42,.6); padding: 3px 10px; border-radius: 999px; }
     .dark .dayroad-replay { background: rgba(94,234,212,.08); color: #5EEAD4; }
     .voice-row.is-off { opacity: .45; }
     /* Start my day: the start time (jarvis.js startPicker) */
