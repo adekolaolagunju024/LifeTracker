@@ -496,7 +496,7 @@ async function renderGantt() {
         summaryBar = `
           <div class="gantt-summary-bar" style="left:${gMin}%;width:${Math.max(0.6, gMax - gMin)}%;background:${dark}"
             title="${esc(groupTitle)}: ${catStart} → ${catEnd}${canEditGroup ? ' (drag to shift every task in this folder)' : ''}"
-            ${canEditGroup ? `onmousedown="ganttSummaryMouseDown(event,'${groupId}')"` : ''}></div>
+            ${canEditGroup ? `onmousedown="ganttSummaryMouseDown(event,'${groupId}')" ontouchstart="ganttSummaryMouseDown(event,'${groupId}')"` : ''}></div>
           <div class="gantt-summary-cap" style="left:${gMin}%;border-top:7px solid ${dark}"></div>
           <div class="gantt-summary-cap" style="left:${gMax}%;border-top:7px solid ${dark}"></div>`;
       }
@@ -536,18 +536,18 @@ async function renderGantt() {
           const barLeft  = Math.max(0, ((ts - start) / 86400000 / totalDays) * 100);
           const barWidth = Math.max(0.8, Math.min(100 - barLeft, ((te - ts) / 86400000 / totalDays) * 100 + 0.5));
           marker = `
-            <div class="gantt-bar" style="left:${barLeft}%;width:${barWidth}%;background:${fillColor};border:2px solid ${borderColor}"
-              title="${esc(t.title)} [${t.priority} priority]: ${t.startDate} → ${t.endDate}${canEditGroup ? ' (drag to move, edges to resize, click to edit)' : ''}"
-              ${canEditGroup ? `onmousedown="ganttBarMouseDown(event,'${t.id}','move')"` : ''}>
-              ${canEditGroup ? `<span class="gantt-resize-handle" style="left:0" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-left')"></span>` : ''}
+            <div class="gantt-bar ${canEditGroup ? 'can-drag' : ''}" data-start="${t.startDate}" data-end="${t.endDate}" style="left:${barLeft}%;width:${barWidth}%;background:${fillColor};border:2px solid ${borderColor}"
+              title="${esc(t.title)} [${t.priority} priority]: ${t.startDate} → ${t.endDate}${canEditGroup ? ' (drag to move, drag an end to change its date, click to open)' : ''}"
+              ${canEditGroup ? `onmousedown="ganttBarMouseDown(event,'${t.id}','move')" ontouchstart="ganttBarMouseDown(event,'${t.id}','move')"` : ''}>
+              ${canEditGroup ? `<span class="gantt-resize-handle is-left" aria-hidden="true" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-left')" ontouchstart="ganttBarMouseDown(event,'${t.id}','resize-left')"></span>` : ''}
               <span class="gantt-bar-label">${pendingFoes(t) && t.status !== 'Completed' ? `${icon('blocker', 'tiny')}${pendingFoes(t)} ` : ''}${esc(t.title)}</span>
-              ${canEditGroup ? `<span class="gantt-resize-handle" style="right:0" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-right')"></span>` : ''}
+              ${canEditGroup ? `<span class="gantt-resize-handle is-right" aria-hidden="true" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-right')" ontouchstart="ganttBarMouseDown(event,'${t.id}','resize-right')"></span>` : ''}
             </div>`;
         } else if (te) {
           const pctPos = posPct(te);
-          marker = `<div class="gantt-milestone" style="left:${pctPos}%;background:${fillColor};border:2px solid ${borderColor}"
-            title="${esc(t.title)} [${t.priority} priority]: due ${t.endDate}${canEditGroup ? ' (drag to move, click to edit)' : ''}"
-            ${canEditGroup ? `onmousedown="ganttBarMouseDown(event,'${t.id}','milestone')"` : ''}></div>`;
+          marker = `<div class="gantt-milestone" data-end="${t.endDate}" style="left:${pctPos}%;background:${fillColor};border:2px solid ${borderColor}"
+            title="${esc(t.title)} [${t.priority} priority]: due ${t.endDate}${canEditGroup ? ' (drag to move, click to open)' : ''}"
+            ${canEditGroup ? `onmousedown="ganttBarMouseDown(event,'${t.id}','milestone')" ontouchstart="ganttBarMouseDown(event,'${t.id}','milestone')"` : ''}></div>`;
         }
 
         rowsHTML += `
@@ -1061,111 +1061,169 @@ function drawGanttDependencies() {
 window.addEventListener('resize', () => { if (APP.currentPage === 'gantt') requestAnimationFrame(drawGanttDependencies); });
 
 // ── GANTT DRAG-TO-MOVE / RESIZE ───────────────────────────────────
+// Drag a bar to move it, drag either end to change its start or due date,
+// drag a due-date diamond to move it, or drag a folder's summary bar to
+// shift every task in it. Works with a mouse, and on a phone or tablet
+// with a short press first (so an ordinary swipe still scrolls the
+// chart). The bar snaps to whole days as it moves, a label above it shows
+// the new dates, and the toast after it offers Undo. A plain click or tap
+// opens the task instead.
 let ganttDrag = null;
+let ganttLastTouch = 0;
 
 function addDaysToDateStr(dateStr, days) {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
+  const d = new Date(`${String(dateStr).slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+const ganttPointX = e => (e.touches && e.touches[0] ? e.touches[0].clientX : e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : e.clientX);
+const ganttPointY = e => (e.touches && e.touches[0] ? e.touches[0].clientY : e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : e.clientY);
 
 function ganttBarMouseDown(e, taskId, mode) {
-  e.preventDefault();
-  e.stopPropagation();
-  const totalDays = parseFloat(document.getElementById('gantt-rows').dataset.totalDays);
-  const barEl  = mode === 'milestone' ? e.currentTarget : e.currentTarget.closest('.gantt-bar');
-  const areaEl = barEl.closest('.gantt-bar-area');
-
-  ganttDrag = {
-    taskId, mode, totalDays,
-    startX: e.clientX,
-    moved: 0,
-    areaWidth: areaEl.getBoundingClientRect().width,
-    origLeftPct: parseFloat(barEl.style.left),
-    origWidthPct: mode === 'milestone' ? 0 : parseFloat(barEl.style.width),
-    barEl,
-  };
-  document.addEventListener('mousemove', ganttMouseMove);
-  document.addEventListener('mouseup', ganttMouseUp);
+  const barEl = mode === 'milestone' ? e.currentTarget : e.currentTarget.closest('.gantt-bar');
+  ganttDragStart(e, { taskId, mode, barEl, start: barEl.dataset.start || '', end: barEl.dataset.end || '' });
+}
+function ganttSummaryMouseDown(e, groupId) {
+  const barEl = e.currentTarget;
+  const capEls = [...barEl.closest('.gantt-bar-area').querySelectorAll('.gantt-summary-cap')];
+  ganttDragStart(e, { mode: 'summary', groupId, barEl, capEls, capOrigLeft: capEls.map(el => parseFloat(el.style.left)) });
 }
 
-// Dragging a folder's summary bar shifts every task directly in that
-// project by the same number of days — a bulk move, since most imported
-// goals only have a due date and the individual diamonds are small,
-// fiddly targets.
-function ganttSummaryMouseDown(e, groupId) {
-  e.preventDefault();
+function ganttDragStart(e, info) {
+  const touch = e.type === 'touchstart';
+  if (!touch && Date.now() - ganttLastTouch < 800) return; // the mouse event a tap also fires
   e.stopPropagation();
-  const totalDays = parseFloat(document.getElementById('gantt-rows').dataset.totalDays);
-  const barEl  = e.currentTarget;
-  const areaEl = barEl.closest('.gantt-bar-area');
-  const capEls = [...areaEl.querySelectorAll('.gantt-summary-cap')];
-
+  if (!touch) e.preventDefault();
+  else ganttLastTouch = Date.now();
+  const areaEl = info.barEl.closest('.gantt-bar-area');
   ganttDrag = {
-    mode: 'summary', groupId, totalDays,
-    startX: e.clientX,
-    moved: 0,
+    ...info, touch, active: !touch,
+    totalDays: parseFloat(document.getElementById('gantt-rows').dataset.totalDays),
+    startX: ganttPointX(e), startY: ganttPointY(e), moved: 0, days: 0,
     areaWidth: areaEl.getBoundingClientRect().width,
-    origLeftPct: parseFloat(barEl.style.left),
-    barEl,
-    capEls,
-    capOrigLeft: capEls.map(el => parseFloat(el.style.left)),
+    origLeftPct: parseFloat(info.barEl.style.left),
+    origWidthPct: info.mode === 'milestone' || info.mode === 'summary' ? parseFloat(info.barEl.style.width) || 0 : parseFloat(info.barEl.style.width),
   };
-  document.addEventListener('mousemove', ganttMouseMove);
-  document.addEventListener('mouseup', ganttMouseUp);
+  if (touch) {
+    // Hold still for a moment to pick the bar up; moving first is a scroll.
+    ganttDrag.hold = setTimeout(() => {
+      if (!ganttDrag) return;
+      ganttDrag.active = true;
+      ganttDrag.barEl.classList.add('gantt-dragging');
+      try { navigator.vibrate && navigator.vibrate(10); } catch { /* not supported */ }
+      ganttDragTip();
+    }, 260);
+    document.addEventListener('touchmove', ganttMouseMove, { passive: false });
+    document.addEventListener('touchend', ganttMouseUp);
+    document.addEventListener('touchcancel', ganttMouseUp);
+  } else {
+    info.barEl.classList.add('gantt-dragging');
+    document.addEventListener('mousemove', ganttMouseMove);
+    document.addEventListener('mouseup', ganttMouseUp);
+  }
+}
+
+// The new dates, in a label just above the bar while it moves.
+function ganttDragTip() {
+  const d = ganttDrag;
+  let tip = document.getElementById('gantt-drag-tip');
+  if (!d || !d.active) { if (tip) tip.remove(); return; }
+  if (!tip) { tip = document.createElement('div'); tip.id = 'gantt-drag-tip'; tip.setAttribute('role', 'status'); document.body.appendChild(tip); }
+  const fmt = iso => (iso ? formatDateShort(iso) : '');
+  const sign = d.days > 0 ? '+' : '';
+  const shift = d.days ? ` (${sign}${d.days} day${Math.abs(d.days) === 1 ? '' : 's'})` : '';
+  tip.textContent = d.mode === 'summary' ? `Shift every task${shift || ' by 0 days'}`
+    : d.mode === 'milestone' ? `Due ${fmt(addDaysToDateStr(d.end, d.days))}${shift}`
+      : d.mode === 'resize-left' ? `Starts ${fmt(addDaysToDateStr(d.start, d.days))}${shift}`
+        : d.mode === 'resize-right' ? `Due ${fmt(addDaysToDateStr(d.end, d.days))}${shift}`
+          : `${fmt(addDaysToDateStr(d.start, d.days))} → ${fmt(addDaysToDateStr(d.end, d.days))}`;
+  const r = d.barEl.getBoundingClientRect();
+  tip.style.left = `${Math.max(8, Math.min(window.innerWidth - tip.offsetWidth - 8, r.left + r.width / 2 - tip.offsetWidth / 2))}px`;
+  tip.style.top = `${Math.max(8, r.top - tip.offsetHeight - 8)}px`;
 }
 
 function ganttMouseMove(e) {
-  if (!ganttDrag) return;
   const d = ganttDrag;
-  const deltaX = e.clientX - d.startX;
+  if (!d) return;
+  const deltaX = ganttPointX(e) - d.startX;
+  if (!d.active) {
+    // A touch that moves before the hold is up is a scroll: let it go.
+    if (Math.abs(deltaX) > 8 || Math.abs(ganttPointY(e) - d.startY) > 8) ganttDragEnd();
+    return;
+  }
+  if (e.cancelable) e.preventDefault();
   d.moved = Math.max(d.moved, Math.abs(deltaX));
-  const deltaPct   = (deltaX / d.areaWidth) * 100;
-  const minWidthPct = 100 / d.totalDays;
+  // Snap to whole days as it moves.
+  d.days = Math.round((deltaX / d.areaWidth) * d.totalDays);
+  const dayPct = 100 / d.totalDays;
+  const deltaPct = d.days * dayPct;
 
   if (d.mode === 'move' || d.mode === 'milestone') {
     d.barEl.style.left = (d.origLeftPct + deltaPct) + '%';
   } else if (d.mode === 'resize-left') {
-    const maxLeft = d.origLeftPct + d.origWidthPct - minWidthPct;
-    const newLeft = Math.min(maxLeft, d.origLeftPct + deltaPct);
-    d.barEl.style.left  = newLeft + '%';
-    d.barEl.style.width = (d.origWidthPct - (newLeft - d.origLeftPct)) + '%';
+    const days = Math.min(d.days, Math.round(d.origWidthPct / dayPct) - 1);
+    d.days = days;
+    d.barEl.style.left = (d.origLeftPct + days * dayPct) + '%';
+    d.barEl.style.width = (d.origWidthPct - days * dayPct) + '%';
   } else if (d.mode === 'resize-right') {
-    d.barEl.style.width = Math.max(minWidthPct, d.origWidthPct + deltaPct) + '%';
+    const days = Math.max(d.days, 1 - Math.round(d.origWidthPct / dayPct));
+    d.days = days;
+    d.barEl.style.width = Math.max(dayPct, d.origWidthPct + days * dayPct) + '%';
   } else if (d.mode === 'summary') {
     d.barEl.style.left = (d.origLeftPct + deltaPct) + '%';
     d.capEls.forEach((el, i) => { el.style.left = (d.capOrigLeft[i] + deltaPct) + '%'; });
   }
+  ganttDragTip();
+}
+
+function ganttDragEnd() {
+  const d = ganttDrag;
+  if (d) { clearTimeout(d.hold); d.barEl.classList.remove('gantt-dragging'); }
+  ganttDrag = null;
+  ganttDragTip();
+  document.removeEventListener('mousemove', ganttMouseMove);
+  document.removeEventListener('mouseup', ganttMouseUp);
+  document.removeEventListener('touchmove', ganttMouseMove);
+  document.removeEventListener('touchend', ganttMouseUp);
+  document.removeEventListener('touchcancel', ganttMouseUp);
+  return d;
+}
+
+// Shift every task in a folder by some days (a summary bar's drag, and
+// its undo).
+async function shiftGanttGroup(groupId, days) {
+  const groupTasks = (await API.getTasks()).filter(t => t.projectId === groupId);
+  let lastError = null, moved = 0;
+  for (const t of groupTasks) {
+    const patch = {};
+    if (t.startDate) patch.startDate = addDaysToDateStr(t.startDate, days);
+    if (t.endDate) patch.endDate = addDaysToDateStr(t.endDate, days);
+    if (!Object.keys(patch).length) continue;
+    try { await API.updateTask(t.id, patch); moved++; } catch (err) { lastError = err.message; }
+  }
+  if (lastError) throw new Error(lastError);
+  return moved;
 }
 
 async function ganttMouseUp(e) {
-  document.removeEventListener('mousemove', ganttMouseMove);
-  document.removeEventListener('mouseup', ganttMouseUp);
-  if (!ganttDrag) return;
-  const d = ganttDrag;
-  ganttDrag = null;
+  const d = ganttDragEnd();
+  if (!d) return;
 
-  // Negligible movement means this was a click, not a drag — edit instead
-  // (a summary bar has no single task to edit, so a plain click does nothing).
-  if (d.moved < 4) { if (d.mode !== 'summary') editTask(d.taskId); return; }
-
-  const deltaDays = Math.round(((e.clientX - d.startX) / d.areaWidth) * d.totalDays);
-  if (deltaDays === 0) { renderGantt(); return; }
+  // No real movement (or a touch that never got picked up) is a click or
+  // a tap: open the task (a summary bar has no single task to open).
+  if (!d.active || d.moved < 4) {
+    if (e && e.type === 'touchcancel') return;
+    if (d.mode !== 'summary') editTask(d.taskId);
+    else if (d.active) renderGantt();
+    return;
+  }
+  const days = d.days;
+  if (days === 0) { renderGantt(); return; }
 
   if (d.mode === 'summary') {
     try {
-      const allTasks = await API.getTasks();
-      const groupTasks = allTasks.filter(t => t.projectId === d.groupId);
-      let lastError = null;
-      for (const t of groupTasks) {
-        const patch = {};
-        if (t.startDate) patch.startDate = addDaysToDateStr(t.startDate, deltaDays);
-        if (t.endDate)   patch.endDate   = addDaysToDateStr(t.endDate, deltaDays);
-        if (!Object.keys(patch).length) continue;
-        try { await API.updateTask(t.id, patch); } catch (err) { lastError = err.message; }
-      }
-      if (lastError) showToast('❌ ' + lastError, 'error');
-      else showToast(`✅ Shifted ${groupTasks.length} task${groupTasks.length === 1 ? '' : 's'}`);
+      const n = await shiftGanttGroup(d.groupId, days);
+      showUndoToast(`📅 Shifted ${n} task${n === 1 ? '' : 's'} by ${days > 0 ? '+' : ''}${days} day${Math.abs(days) === 1 ? '' : 's'}`, async () => { await shiftGanttGroup(d.groupId, -days); renderGantt(); });
     } catch (err) {
       showToast('❌ ' + err.message, 'error');
     }
@@ -1175,19 +1233,25 @@ async function ganttMouseUp(e) {
 
   try {
     const task = await API.getTask(d.taskId);
+    const before = { startDate: task.startDate || null, endDate: task.endDate || null };
     const patch = {};
     if (d.mode === 'move') {
-      patch.startDate = addDaysToDateStr(task.startDate, deltaDays);
-      patch.endDate   = addDaysToDateStr(task.endDate, deltaDays);
+      patch.startDate = addDaysToDateStr(task.startDate, days);
+      patch.endDate = addDaysToDateStr(task.endDate, days);
     } else if (d.mode === 'resize-left') {
-      patch.startDate = addDaysToDateStr(task.startDate, deltaDays);
-    } else if (d.mode === 'resize-right') {
-      patch.endDate = addDaysToDateStr(task.endDate, deltaDays);
-    } else if (d.mode === 'milestone') {
-      patch.endDate = addDaysToDateStr(task.endDate, deltaDays);
+      patch.startDate = addDaysToDateStr(task.startDate, days);
+    } else if (d.mode === 'resize-right' || d.mode === 'milestone') {
+      patch.endDate = addDaysToDateStr(task.endDate, days);
     }
     await API.updateTask(d.taskId, patch);
-    showToast('✅ Dates updated');
+    const what = d.mode === 'move' ? `${formatDateShort(patch.startDate)} → ${formatDateShort(patch.endDate)}`
+      : d.mode === 'resize-left' ? `starts ${formatDateShort(patch.startDate)}` : `due ${formatDateShort(patch.endDate)}`;
+    showUndoToast(`📅 "${task.title}" ${what}`, async () => {
+      const back = {};
+      Object.keys(patch).forEach(k => { back[k] = before[k]; });
+      await API.updateTask(d.taskId, back);
+      renderGantt();
+    });
   } catch (err) {
     showToast('❌ ' + err.message, 'error');
   }

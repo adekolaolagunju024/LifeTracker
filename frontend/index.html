@@ -1339,7 +1339,15 @@
     .gantt-bar { position: absolute; height: 20px; border-radius: 3px; min-width: 4px; display: flex; align-items: center; overflow: visible; box-sizing: border-box; z-index: 3; cursor: grab; }
     .gantt-bar:active { cursor: grabbing; }
     .gantt-bar-label { pointer-events: none; }
-    .gantt-resize-handle { position: absolute; top: 0; bottom: 0; width: 7px; cursor: ew-resize; z-index: 4; }
+    /* The ends of a bar you can drag: a grip shows on hover (always on a
+       touch screen, a little wider there), so resizing is discoverable. */
+    .gantt-resize-handle { position: absolute; top: -2px; bottom: -2px; width: min(10px, 30%); cursor: ew-resize; z-index: 4; display: flex; align-items: center; justify-content: center; touch-action: none; }
+    .gantt-resize-handle.is-left { left: -2px; } .gantt-resize-handle.is-right { right: -2px; }
+    .gantt-resize-handle::after { content: ''; width: 3px; height: 10px; border-radius: 2px; background: rgba(255,255,255,.9); box-shadow: 0 0 0 1px rgba(13,27,42,.35); opacity: 0; transition: opacity .15s; }
+    .gantt-bar.can-drag:hover .gantt-resize-handle::after, .gantt-bar.gantt-dragging .gantt-resize-handle::after { opacity: 1; }
+    @media (pointer: coarse) { .gantt-resize-handle { width: min(16px, 30%); } .gantt-resize-handle::after { opacity: .85; } }
+    .gantt-bar.gantt-dragging, .gantt-milestone.gantt-dragging, .gantt-summary-bar.gantt-dragging { box-shadow: 0 6px 18px rgba(13,27,42,.3); z-index: 9; cursor: grabbing; }
+    #gantt-drag-tip { position: fixed; z-index: 1006; background: #0D1B2A; color: #fff; font-size: 12px; font-weight: 700; padding: 5px 9px; border-radius: 8px; pointer-events: none; white-space: nowrap; box-shadow: 0 6px 18px rgba(13,27,42,.25); }
     .gantt-bar-label { font-size: 10px; color: #fff; font-weight: 600; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #EF4444; z-index: 5; pointer-events: none; }
     .project-start-line { position: absolute; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(180deg,#059669 0 6px,transparent 6px 10px); z-index: 5; pointer-events: none; }
@@ -3063,7 +3071,7 @@
            its game panel, so this one hides itself there instead of
            showing a second, visually mismatched copy (see
            applyGanttPageView() in app.js). -->
-      <div class="flex items-center gap-3 sm:gap-5 justify-between sm:justify-start bg-white rounded-xl border border-gray-200 px-4 py-2.5 mb-4" id="gantt-stats-strip"></div>
+      <div class="flex flex-wrap items-center gap-x-2.5 gap-y-2 sm:gap-5 justify-between sm:justify-start bg-white rounded-xl border border-gray-200 px-3 sm:px-4 py-2.5 mb-4" id="gantt-stats-strip"></div>
       <!-- The key: what every mark on the chart or board means (js/plannerKey.js) -->
       <div class="pkey hidden mb-4" id="planner-key" role="region" aria-label="Key"></div>
 
@@ -3225,12 +3233,12 @@
           <button onclick="changeCalendarPeriod(1)" aria-label="Next" class="bg-gray-100 hover:bg-gray-200 text-gray-700 w-8 h-8 rounded-lg font-bold">›</button>
         </div>
         <div class="flex items-center gap-2 w-full sm:w-auto">
-          <div class="flex flex-1 sm:flex-none gap-1 bg-gray-100 rounded-lg p-1" id="calendar-view-toggle">
-            <button onclick="setCalendarViewMode('week')" data-mode="week" class="calendar-view-btn flex-1 sm:flex-none px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Week</button>
-            <button onclick="setCalendarViewMode('month')" data-mode="month" class="calendar-view-btn flex-1 sm:flex-none px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Month</button>
-            <button onclick="setCalendarViewMode('year')" data-mode="year" class="calendar-view-btn flex-1 sm:flex-none px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Year</button>
+          <div class="flex flex-1 min-w-0 sm:flex-none gap-1 bg-gray-100 rounded-lg p-1" id="calendar-view-toggle">
+            <button onclick="setCalendarViewMode('week')" data-mode="week" class="calendar-view-btn flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Week</button>
+            <button onclick="setCalendarViewMode('month')" data-mode="month" class="calendar-view-btn flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Month</button>
+            <button onclick="setCalendarViewMode('year')" data-mode="year" class="calendar-view-btn flex-1 sm:flex-none px-2 sm:px-3 py-1.5 rounded-md text-xs font-semibold transition-all">Year</button>
           </div>
-          <button onclick="goToCalendarToday()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg">Today</button>
+          <button onclick="goToCalendarToday()" class="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg">Today</button>
           <button type="button" class="pkey-btn" onclick="PlannerKey.toggle('calendar')" aria-controls="calendar-key" aria-expanded="false" title="What the colours and marks mean"><span data-icon="info"></span>Key</button>
         </div>
       </div>
