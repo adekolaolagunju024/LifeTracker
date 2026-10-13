@@ -58,11 +58,12 @@ function showToast(msg, type = 'success') {
   setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-// A toast with an Undo button, for actions that are easy to take back
-// (deleting goes to Trash, so Undo just restores). Stays 8 seconds; a
-// newer one replaces it.
+// A bar at the foot of the screen with one or more buttons: Undo, for
+// actions that are easy to take back (deleting goes to Trash, so Undo just
+// restores), or a quick yes ("Start", "Watch") where ignoring it is the no.
+// Stays 8 seconds; a newer one replaces it.
 let _undoTimer = null;
-function showUndoToast(msg, undo, label = 'Undo') {
+function showActionToast(msg, actions, fallbackIcon = 'done') {
   let bar = document.getElementById('undo-toast');
   if (!bar) {
     bar = document.createElement('div');
@@ -71,22 +72,26 @@ function showUndoToast(msg, undo, label = 'Undo') {
     bar.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 z-[1004] flex items-center gap-3 bg-navy text-white text-sm font-medium pl-4 pr-2 py-2 rounded-xl shadow-2xl max-w-[92vw]';
     document.body.appendChild(bar);
   }
-  const { name, text } = iconFromMessage(msg, 'trash');
-  bar.innerHTML = `${icon(name)}<span class="min-w-0 truncate"></span><button type="button" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-teal-300 font-bold text-xs uppercase tracking-wide px-3 py-1.5 rounded-lg"></button>`;
+  const { name, text } = iconFromMessage(msg, fallbackIcon);
+  bar.innerHTML = `${icon(name)}<span class="min-w-0 truncate"></span><span class="flex-shrink-0 flex gap-1.5"></span>`;
   bar.children[1].textContent = text;
-  bar.lastElementChild.textContent = label;
   const hide = () => { clearTimeout(_undoTimer); bar.remove(); };
-  bar.lastElementChild.onclick = async () => {
-    hide();
-    try { await undo(); if (label === 'Undo') showToast('↩️ Undone'); } catch (e) { showToast('❌ ' + (e.message || 'Could not undo'), 'error'); }
-  };
+  actions.forEach(({ label, run }) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'bg-white/10 hover:bg-white/20 text-teal-300 font-bold text-xs uppercase tracking-wide px-3 py-1.5 rounded-lg';
+    b.textContent = label;
+    b.onclick = async () => {
+      hide();
+      try { await run(); } catch (e) { showToast('❌ ' + (e.message || 'That didn\'t work'), 'error'); }
+    };
+    bar.lastElementChild.appendChild(b);
+  });
   clearTimeout(_undoTimer);
   _undoTimer = setTimeout(hide, 8000);
 }
-// The same bar with any action ("Start"), for a quick yes; ignoring it is
-// the no. Stays 8 seconds, then goes.
-function showActionToast(msg, label, action) {
-  showUndoToast(msg, action, label);
+function showUndoToast(msg, undo) {
+  showActionToast(msg, [{ label: 'Undo', run: async () => { await undo(); showToast('↩️ Undone'); } }], 'trash');
 }
 // Re-renders whatever is showing tasks, after a delete or an undo.
 function refreshTaskViews(projectId) {
@@ -305,25 +310,32 @@ function syncPredecessorSnapshots(task) {
 }
 // Blockers can be ticked off at any time: they clear when the world says
 // so (the call back comes), not when work starts. When the last one on a
-// task that hasn't started goes, offer to start it there and then.
+// task that hasn't started goes, offer to start it there and then. And if
+// the task is on today's road (and the game layer is on), offer to watch
+// the knockout there; inside today's road Game view it plays on its own.
 {
   const update = API.updateObstacle;
   API.updateObstacle = async (id, changes) => {
     const result = await update(id, changes);
-    if (changes && changes.resolved === true && result && result.taskId) offerStartWhenClear(result.taskId);
+    if (changes && changes.resolved === true && result && result.taskId) afterBlockerCleared(result);
     return result;
   };
 }
-async function offerStartWhenClear(taskId) {
+async function afterBlockerCleared(obstacle) {
+  const taskId = obstacle.taskId;
   let t;
   try { t = await API.getTask(taskId); } catch { return; }
-  if (!t || t.status !== 'Not Started') return;
-  if ((t.obstacles || []).some(o => !o.resolved) || waitingOn(t).length) return;
-  showActionToast(`✅ All clear. Start "${t.title}" now?`, 'Start', async () => {
+  if (!t) return;
+  const canStart = t.status === 'Not Started' && !(t.obstacles || []).some(o => !o.resolved) && !waitingOn(t).length;
+  const canWatch = t.status !== 'Completed' && typeof DayRoad !== 'undefined' && DayRoad.canReplay(taskId);
+  const watch = { label: 'Watch', run: () => DayRoad.replayKnockout(taskId, obstacle.id) };
+  const start = { label: 'Start', run: async () => {
     try { await API.updateTask(taskId, { status: 'In Progress' }); } catch (e) { taskErrorToast(e, 'Could not start it'); return; }
     showToast(`▶️ "${t.title}" is under way`);
     refreshAfterStart(taskId);
-  });
+  } };
+  if (canStart) showActionToast(`✅ All clear. Start "${t.title}" now?`, canWatch ? [watch, start] : [start]);
+  else if (canWatch) showActionToast(`⚔️ Watch "${obstacle.name}" get knocked out on today's road`, [watch]);
 }
 // Every loaded view takes the new status without a reload.
 function refreshAfterStart(taskId) {

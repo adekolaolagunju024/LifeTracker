@@ -1,4 +1,4 @@
-/* global API, DayPace, blockerChecklist, celebrationsEnabled, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
+/* global API, DayPace, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
 // ── TODAY'S ROAD ────────────────────────────────────────────────
 // Today's plan as a road: a stop for each task, You moving as you finish
 // them, and the Pacer keeping to the timetable by the clock (the maths is
@@ -82,11 +82,13 @@ const DayRoad = (() => {
   // Pacer racing you to the finish. The last choice is remembered; with
   // the game layer on, Game is where it starts.
   const MODE_KEY = 'dayroadMode';
-  const fullMode = () => { try { return localStorage.getItem(MODE_KEY) || (game() ? 'game' : 'road'); } catch { return 'road'; } };
+  let modeOverride = null; // 'game' while replaying a knockout, without changing the saved choice
+  const fullMode = () => { if (modeOverride) return modeOverride; try { return localStorage.getItem(MODE_KEY) || (game() ? 'game' : 'road'); } catch { return 'road'; } };
   const STAGES = [['football', 'Football'], ['space', 'Space'], ['castle', 'Castle'], ['construction', 'Construction']];
-  function openFull() {
+  function openFull(mode = null) {
     API.trackFeature && API.trackFeature('journey');
     closeFull();
+    modeOverride = mode;
     const el = document.createElement('div');
     el.id = 'dayroad-full';
     el.className = 'dayroad-overlay';
@@ -106,6 +108,7 @@ const DayRoad = (() => {
     el.querySelector('.dayroad-x')?.focus();
   }
   function setMode(m) {
+    modeOverride = null;
     try { localStorage.setItem(MODE_KEY, m); } catch { /* private mode */ }
     const el = document.getElementById('dayroad-full');
     if (el) paintFull(el, state());
@@ -197,9 +200,41 @@ const DayRoad = (() => {
   }
   const fmt = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
   function closeFull() {
+    modeOverride = null;
     const scene = document.getElementById('dayroad-scene');
     if (scene && typeof JourneyGame !== 'undefined') JourneyGame.destroy(scene);
     document.getElementById('dayroad-full')?.remove();
+  }
+
+  // A blocker ticked somewhere else (task panel, board, Journey) on one of
+  // today's tasks: the "Watch" button replays its knockout here. The scene
+  // opens with that blocker still standing, waits until it's drawn (a 3D
+  // world needs its character loaded), then clears it, so the character
+  // deals with it in front of you.
+  const watchingGame = () => !!document.getElementById('dayroad-full') && fullMode() === 'game';
+  function canReplay(taskId) {
+    const r = state();
+    return game() && !watchingGame() && !!r && r.items.some(i => i.taskId === taskId && !i.done);
+  }
+  const sceneReady = box => {
+    const j = box && box._j3d;
+    if (!j) return !!(box && box.querySelector('svg'));
+    return !j._debug || !!(j._debug.state && j._debug.state.ready);
+  };
+  async function replayKnockout(taskId, obstacleId) {
+    await refresh();
+    const t = tasks.find(x => x.id === taskId);
+    const o = t && (t.obstacles || []).find(x => x.id === obstacleId);
+    if (o) o.resolved = false;
+    if (typeof closeTaskDetail === 'function') closeTaskDetail(); // Watch is often pressed from the task panel
+    openFull('game');
+    if (!o) return;
+    const box = document.getElementById('dayroad-scene');
+    for (let waited = 0; waited < 30000 && !sceneReady(box); waited += 250) await new Promise(res => setTimeout(res, 250));
+    await new Promise(res => setTimeout(res, 700)); // let the opening settle first
+    if (!document.getElementById('dayroad-scene')) return; // closed meanwhile
+    o.resolved = true;
+    render();
   }
 
   // The Pacer moves every minute; tasks are re-read every few.
@@ -208,6 +243,6 @@ const DayRoad = (() => {
     if (Date.now() - loadedAt > 4 * 60000) refresh(); else render();
   }, 60000);
 
-  return { refresh, render, state, openFull, closeFull, setMode, setWorld, setView };
+  return { refresh, render, state, openFull, closeFull, setMode, setWorld, setView, canReplay, replayKnockout };
 })();
 window.DayRoad = DayRoad;
