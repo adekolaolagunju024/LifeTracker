@@ -25,7 +25,7 @@ function findBrowser() {
   return found;
 }
 
-const esc = s => String(s ?? '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const ProgressMath = require('../../frontend/js/progressMath');
 
 function reportHtml(snapshot) {

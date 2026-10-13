@@ -7,7 +7,7 @@ const path = require('path');
 // read once per process, so a deploy that changes them changes the page.
 const FRONTEND = path.join(__dirname, '../frontend');
 const { icon, emojiIcon } = require('../frontend/js/icons.js');
-const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const longDate = iso => new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 
 // The landing page's try-it demo plays the real starter templates

@@ -6,7 +6,7 @@ const db = require('../db/db');
 // in-app preview, the PDF, printing and the public share link alike.
 
 const DAY = 86400000;
-const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const isoDay = d => d.toISOString().slice(0, 10);
 const atNoon = iso => new Date(`${iso}T12:00:00Z`);
 const longDate = iso => atNoon(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });

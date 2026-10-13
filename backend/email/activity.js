@@ -2,7 +2,7 @@ const db = require('../db/db');
 const { getTransporter } = require('./mailer');
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
-const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 function wrapEmailHtml({ heading, bodyHtml }) {
   return `<!doctype html><html><body style="margin:0;padding:0;background:#F3F4F6;font-family:-apple-system,Segoe UI,Arial,sans-serif;">
