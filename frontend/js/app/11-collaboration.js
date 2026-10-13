@@ -572,6 +572,7 @@ async function populateProjectSelect(selectedId) {
   document.getElementById('task-start').min = _projectStartDates[selectedId] || '';
 
   document.getElementById('task-project').innerHTML = projectOptionsHTML(allProjects, selectedId);
+  ProjectPicker.attach(document.getElementById('task-project'), allProjects);
 }
 
 async function saveTask() {

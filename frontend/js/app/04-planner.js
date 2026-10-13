@@ -310,6 +310,7 @@ async function renderGantt() {
     const filterChildrenOf = pid => projects.filter(p => p.parentId === pid);
     const filterSel = document.getElementById('gantt-project-filter');
     filterSel.innerHTML = projectOptionsHTML(projects, APP.ganttProjectFilter, 'All Projects');
+    ProjectPicker.attach(filterSel, projects);
     const allowedGroupIds = projectScope(projects, APP.ganttProjectFilter);
     applyGanttPageView(pageView);
     loadGanttColWidths();
@@ -635,6 +636,7 @@ function defaultJourneyProject(projects) {
 function syncProjectPickerForView(mode) {
   const all = document.querySelector('#gantt-project-filter option[value=""]');
   if (all) { all.hidden = mode === 'journey'; all.disabled = mode === 'journey'; }
+  ProjectPicker.close();
 }
 
 function applyGanttPageView(mode) {

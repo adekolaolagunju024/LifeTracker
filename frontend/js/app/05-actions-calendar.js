@@ -364,6 +364,7 @@ async function loadCalendarData() {
 
   APP.calendarProjectFilter = validProjectFilter(APP.calendarProjectFilter, projects);
   document.getElementById('calendar-project-filter').innerHTML = projectOptionsHTML(projects, APP.calendarProjectFilter, 'All Projects');
+  ProjectPicker.attach(document.getElementById('calendar-project-filter'), projects);
   const allowedIds = projectScope(projects, APP.calendarProjectFilter);
 
   const byDate = {};

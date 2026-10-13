@@ -120,7 +120,7 @@
     {
       "date": "2026-10-13",
       "title": "One project picker that follows you",
-      "text": "Pick a project on the Planner and the Calendar shows the same one, and Waypoint remembers it next time. The Journey always opens on a real project instead of an empty scene, sub-folders are marked under their project, and shared projects say so."
+      "text": "Pick a project on the Planner and the Calendar shows the same one, and Waypoint remembers it next time. The Journey always opens on a real project instead of an empty scene, and the picker itself is new: each project with its icon and colour, its sub-folders indented beneath it, and projects shared with you in their own section. The planner keys are laid out more cleanly too."
     },
     {
       "date": "2026-10-13",
