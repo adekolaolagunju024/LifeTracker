@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "1st, 2nd, 3rd and a race report",
+      "text": "Races now give finishing places with medals on everyone's name tag, your place when you finish, and a race report with a podium, everyone's times and who owes the stake."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Challenges for a class or team",
       "text": "Teachers and team leads can set one goal for everyone, share a 6-character code, and watch the class progress together, with names, first names or animal names. Nudge anyone who's behind with one tap."
     },

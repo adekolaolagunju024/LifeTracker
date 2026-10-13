@@ -385,6 +385,7 @@ function renderMountainScene() {
     // Everyone else in the race, if this goal is your copy in one.
     rivals: window.Race && Race.current() && Race.current().players.length > 1 ? Race.rivals() : null,
     youColor: window.Race && Race.youColor(),
+    youBadge: window.Race && Race.youBadge(),
     celebrationsEnabled: celebrationsEnabled(),
     // Called once, by journeyGame.js/journey3d.js, right as the finish
     // celebration actually starts on screen (which may be well after
@@ -563,12 +564,17 @@ function resetGanttProjectProgress() {
 // competitor race looked like — rather than its own separate small
 // in-scene modal, so finishing a project reads the same way everywhere,
 // not just inside Journey.
-function showMountainCelebration() {
+async function showMountainCelebration() {
   // onSummit now fires after a real delay (long enough for the scene's
   // own celebration to play) instead of a near-immediate one, so it's
   // worth guarding against the user having since left the Journey tab
   // or switched projects in that window.
   if (!mountainState || APP.ganttProjectFilter !== mountainState.projectId) return;
+  // In a race (Race a friend) the message is your finishing place.
+  if (window.Race && Race.current()) {
+    const placed = await Race.finishMessage(mountainState.project.id);
+    if (placed) { showJourneyAchievement(mountainState.project.title, { ...placed, projectId: mountainState.project.id }); return; }
+  }
   const competitor = competitorFraction();
   const title = mountainState.project.title;
   let message;
@@ -840,6 +846,7 @@ async function showProjectCompleteOverlay(title, { projectId = null, message, he
   setTimeout(() => overlay.querySelector('.pc-primary')?.focus(), 400);
   fillProjectCompleteStats(projectId);
   if (window.Rewards) Rewards.fillCelebration(projectId);
+  if (window.Race && projectId) Race.fillCelebration(projectId); // your place, if this goal was a race
 }
 async function fillProjectCompleteStats(projectId) {
   try {

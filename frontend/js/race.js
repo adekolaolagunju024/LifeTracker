@@ -1,4 +1,4 @@
-/* global icon, esc, API, APP, showToast, showPage, playJourneyFor, renderMountainScene, mountainState */
+/* global icon, esc, API, APP, showToast, showActionToast, fireBigScreenConfetti, showPage, playJourneyFor, renderMountainScene, mountainState */
 // ── RACE A FRIEND ───────────────────────────────────────────────
 // Make a race from one of your goals, share the link, and everyone who
 // joins races their own copy (backend/challenges.js). On the Journey every
@@ -13,6 +13,9 @@ const Race = (() => {
   const dayKey = d => new Date(d).toISOString().slice(0, 10);
   const when = iso => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   const linkFor = token => `${location.origin}/app?race=${token}`;
+  const ordinal = n => `${n}${(n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'}`;
+  // A finishing place: medals for the podium, then 4th, 5th…
+  const placeText = n => `${({ 1: '🥇 ', 2: '🥈 ', 3: '🥉 ' })[n] || ''}${ordinal(n)}`;
 
   function dialog(html) {
     close();
@@ -202,7 +205,7 @@ const Race = (() => {
       const me = c.players.find(p => p.you);
       const line = c.mode === 'together'
         ? `${c.group.finished} of ${c.group.players} finished · ${c.group.stepsPct}% of steps`
-        : c.winner ? (c.winner.you ? 'You won' : `${esc(c.winner.name)} won`) : me ? `You're ${ordinal(c.players.indexOf(me) + 1)} of ${c.players.length}` : `${c.players.length} racing`;
+        : c.yourPlace ? `You finished ${placeText(c.yourPlace)}` : c.winner ? `${esc(c.winner.name)} won` : me ? `You're ${ordinal(c.players.indexOf(me) + 1)} of ${c.players.length}` : `${c.players.length} racing`;
       return `<button type="button" class="ch-card" onclick="Race.openDetail('${c.id}')">
         <span class="ch-ic">${esc(c.icon || '🏁')}</span>
         <span class="ch-main"><b>${esc(c.title)}</b><small>${c.mode === 'together' ? (c.owner && c.organiserOnly ? 'You organise' : 'Class or team') : 'Race'} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}</small></span>
@@ -214,7 +217,6 @@ const Race = (() => {
         : `<div class="ch-empty"><p><b>No races or classes yet.</b></p><p>Open any goal and choose <b>⋯ › Race a friend</b> to race someone, or to run a challenge for a class or team.</p></div>`}`;
     document.getElementById('ch-join-form').addEventListener('submit', e => { e.preventDefault(); joinWithCode(document.getElementById('join-code').value); });
   }
-  const ordinal = n => `${n}${['th', 'st', 'nd', 'rd'][(n % 100 >= 11 && n % 100 <= 13) ? 0 : Math.min(n % 10, 4) % 4] || 'th'}`;
   const ago = iso => {
     if (!iso) return 'no steps yet';
     const d = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
@@ -237,13 +239,14 @@ const Race = (() => {
       <div class="ch-actions">
         <button type="button" onclick="Race.inviteFor('${c.id}')">${icon('user-plus', 'tiny')}Invite · <b>${esc(c.joinCode.replace(/(...)(...)/, '$1 $2'))}</b></button>
         ${me ? `<button type="button" onclick="playJourneyFor('${me.projectId}')">${icon('play', 'tiny')}My Journey</button>` : ''}
+        ${!together && (c.winner || c.over) ? `<button type="button" onclick="Race.openReport('${c.id}')">${icon('trophy', 'tiny')}Race report</button>` : ''}
         ${c.owner ? `<button type="button" id="ch-remind" onclick="Race.remind('${c.id}')" ${c.group.behind || c.players.some(p => !p.finished && p.done === 0) ? '' : 'disabled'}>${icon('bell', 'tiny')}Remind those behind</button>` : ''}
         ${me ? `<button type="button" class="quiet" onclick="Race.leaveFrom('${c.id}')">Leave</button>` : ''}
       </div>
       ${together ? `<div class="ch-group"><div class="ch-group-top"><b>${c.group.finished} of ${c.group.players} finished</b><span>${c.group.stepsPct}% of all steps done${c.group.behind ? ` · ${c.group.behind} behind` : ''}</span></div>
         <div class="ch-bar" role="img" aria-label="${pct}% finished"><i style="width:${pct}%"></i></div></div>` : ''}
       ${c.players.length ? `<div class="ch-table-wrap"><table class="ch-table"><thead><tr><th>${together ? '' : '#'}</th><th>Name</th><th>Steps</th><th>Pace</th>${c.owner ? '<th>Last step</th>' : ''}</tr></thead>
-        <tbody>${c.players.map((p, i) => `<tr class="${p.you ? 'you' : ''}"><td class="pos">${together ? '' : i + 1}</td>
+        <tbody>${c.players.map((p, i) => `<tr class="${p.you ? 'you' : ''}"><td class="pos">${together ? '' : p.place ? placeText(p.place) : i + 1}</td>
           <td><span class="dot" style="background:${esc(p.color)}"></span>${p.you ? `You${c.owner ? '' : ''}` : esc(p.name)}</td>
           <td><span class="ch-steps"><i style="width:${Math.round(p.frac * 100)}%"></i></span><span class="num">${p.done}/${p.total}</span></td>
           <td><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></td>
@@ -281,6 +284,7 @@ const Race = (() => {
     if (typeof mountainState === 'undefined' || !mountainState || mountainState.projectId !== projectId) return null;
     current = race;
     paintStrip(strip);
+    announcePlace();
     if (race) {
       poll = setInterval(async () => {
         if (!document.getElementById('mountain-scene')?.offsetParent || !current) return;
@@ -290,9 +294,10 @@ const Race = (() => {
         const moved = fresh.players.filter(p => !p.you && (current.players.find(q => q.userId === p.userId) || {}).done < p.done);
         current = fresh;
         paintStrip(document.getElementById('journey-race'));
+        announcePlace();
         if (JSON.stringify(fresh.players.map(p => [p.name, p.done])) !== before) {
           renderMountainScene();
-          moved.forEach(p => showToast(p.finished ? `🏁 ${p.name} finished the race` : `${p.name} is on step ${p.done} of ${p.total}`));
+          moved.forEach(p => showToast(p.finished ? `${p.place ? placeText(p.place) : '🏁'} ${p.name} finished` : `${p.name} is on step ${p.done} of ${p.total}`));
         }
       }, 45000);
     }
@@ -302,11 +307,15 @@ const Race = (() => {
   function rivals() {
     if (!current) return null;
     const leader = current.players[0];
-    // Together (a class or team) has no winner, so no one is marked 1st.
+    // Together (a class or team) has no winner, so no places and no leader.
     const racing = current.mode !== 'together';
-    return current.players.filter(p => !p.you).map(p => ({ name: p.name, color: p.color, frac: p.frac, finished: p.finished, leader: racing && p === leader && p.frac > 0 }));
+    return current.players.filter(p => !p.you).map(p => {
+      const isLeader = racing && !p.finished && p === leader && p.frac > 0;
+      return { name: p.name, color: p.color, frac: p.frac, finished: p.finished, leader: isLeader, badge: p.place ? placeText(p.place) : isLeader ? 'leading' : '' };
+    });
   }
   const youColor = () => (current && (current.players.find(p => p.you) || {}).color) || null;
+  const youBadge = () => (current && current.yourPlace ? placeText(current.yourPlace) : '');
 
   function paintStrip(strip) {
     if (!strip) return;
@@ -316,14 +325,118 @@ const Race = (() => {
     const midnight = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
     const daysLeft = Math.round((midnight(r.endsAt) - midnight(Date.now())) / 86400000);
     const head2 = r.mode === 'together' ? `${icon('users', 'tiny')}<b>${r.group.finished} of ${r.group.players} finished</b> · ${r.over ? 'ended' : daysLeft <= 0 ? 'ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}`
-      : r.winner ? `${icon('trophy', 'tiny')}<b>${r.winner.you ? 'You won!' : `${esc(r.winner.name)} won`}</b>`
+      : r.winner ? `${icon('trophy', 'tiny')}<b>${r.winner.you ? 'You won! 🥇' : `${esc(r.winner.name)} won`}</b>${r.yourPlace && r.yourPlace > 1 ? ` · you finished ${placeText(r.yourPlace)}` : ''}`
       : r.over ? `${icon('flag', 'tiny')}<b>Time's up</b>` : `${icon('flag', 'tiny')}<b>Race</b> · ${daysLeft <= 0 ? 'ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}`;
     strip.classList.remove('hidden');
     strip.innerHTML = `<div class="race-strip-top"><span class="race-strip-title">${head2}${r.stake ? ` <span class="race-strip-stake">· ${esc(r.stake)}</span>` : ''}</span>
-        <span class="race-strip-actions"><button type="button" onclick="Race.invite()">${icon('user-plus', 'tiny')}Invite</button><button type="button" onclick="Race.leave()">Leave</button></span></div>
-      <ol class="race-board">${r.players.map((p, i) => `<li class="${p.you ? 'you' : ''}"><span class="pos">${r.mode === 'together' ? '' : i + 1}</span><i style="background:${esc(p.color)}"></i><b>${p.you ? 'You' : esc(p.name)}</b>
+        <span class="race-strip-actions">${r.mode !== 'together' && (r.winner || r.over) ? `<button type="button" onclick="Race.openReport('${r.id}')">${icon('trophy', 'tiny')}Race report</button>` : ''}<button type="button" onclick="Race.invite()">${icon('user-plus', 'tiny')}Invite</button><button type="button" onclick="Race.leave()">Leave</button></span></div>
+      <ol class="race-board">${r.players.map((p, i) => `<li class="${p.you ? 'you' : ''}"><span class="pos">${r.mode === 'together' ? '' : p.place ? placeText(p.place) : i + 1}</span><i style="background:${esc(p.color)}"></i><b>${p.you ? 'You' : esc(p.name)}</b>
         <span class="steps">${p.done}/${p.total}</span><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></li>`).join('')}</ol>`;
   }
+  // Your finishing place, said once per race (with confetti on the podium),
+  // then the report a tap away.
+  function announcePlace() {
+    const r = current;
+    if (!r || r.mode === 'together' || !r.yourPlace) return;
+    const key = `wp-race-placed:${r.id}`;
+    try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch { /* say it anyway */ }
+    if (r.yourPlace <= 3 && typeof fireBigScreenConfetti === 'function') fireBigScreenConfetti();
+    showActionToast(`${placeText(r.yourPlace)}! You finished ${r.yourPlace === 1 ? 'first' : ordinal(r.yourPlace)} in ${r.title}`, [{ label: 'Race report', run: () => openReport(r.id) }]);
+  }
+
+  // ── The race report: a podium and the full scoreboard ──
+  // Places, when each person finished and how long they took from joining,
+  // and the stake with whose turn it is. Shareable as text.
+  const took = (from, to) => {
+    const m = Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 60000));
+    const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
+    return d ? `${d}d ${h}h` : h ? `${h}h ${mm}m` : `${mm}m`;
+  };
+  const at = iso => new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  async function openReport(id) {
+    let r;
+    try { r = await API.getRace(id); } catch (err) { showToast(err.message || 'Could not open the report', 'error'); return; }
+    const finishers = r.players.filter(p => p.finished);
+    const still = r.players.filter(p => !p.finished);
+    const done = !still.length || r.over;
+    const nameOf = p => (p.you ? 'You' : esc(p.name));
+    const podium = [2, 1, 3].map(n => finishers.find(p => p.place === n)).map((p, i) => {
+      const n = [2, 1, 3][i];
+      return `<div class="rr-step rr-${n}${p ? '' : ' empty'}"><span class="rr-medal">${({ 1: '🥇', 2: '🥈', 3: '🥉' })[n]}</span>
+        <b>${p ? nameOf(p) : '–'}</b><small>${p ? took(p.joinedAt, p.finishedAt) : ''}</small><i style="${p ? `background:${esc(p.color)}` : ''}">${ordinal(n)}</i></div>`;
+    }).join('');
+    // Whose turn the stake is: the last to finish once it's over.
+    const last = done && r.players.length > 1 ? r.players[r.players.length - 1] : null;
+    const rows = r.players.map((p, i) => `<tr class="${p.you ? 'you' : ''}">
+        <td class="pos">${p.place ? placeText(p.place) : `<span class="dnf">${r.over ? 'DNF' : '–'}</span>`}</td>
+        <td><span class="dot" style="background:${esc(p.color)}"></span>${nameOf(p)}</td>
+        <td class="num">${p.done}/${p.total}</td>
+        <td class="rr-when">${p.finished ? esc(at(p.finishedAt)) : r.over ? 'Did not finish' : 'Still racing'}</td>
+        <td class="num">${p.finished ? took(p.joinedAt, p.finishedAt) : r.over ? 'DNF' : 'racing'}</td></tr>`).join('');
+    const text = `${r.title} race${done ? ' results' : ' so far'}: ${r.players.map((p, i) => `${p.place ? ordinal(p.place) : r.over ? 'DNF' : `${p.done}/${p.total}`} ${p.you ? 'me' : p.name}${p.finished ? ` (${took(p.joinedAt, p.finishedAt)})` : ''}`).join(', ')}${r.stake ? `. Stake: ${r.stake}` : ''}`;
+    const form = dialog(`${head('Race report')}
+      <div class="rr-title"><span>${esc(r.icon || '🏁')}</span><div><b>${esc(r.title)}</b><small>Started ${esc(when(r.startsAt))} · finish by ${esc(when(r.endsAt))} · ${r.players.length} ${r.players.length === 1 ? 'racer' : 'racers'}${done ? '' : ` · ${still.length} still racing`}</small></div></div>
+      <div class="rr-podium" aria-label="Podium">${podium}</div>
+      ${r.stake ? `<p class="race-stake">${icon('gift', 'tiny')}<span>Riding on it: <b>${esc(r.stake)}</b>${last ? ` · <b>${last.you ? "that's you" : `over to ${esc(last.name)}`}</b>` : ''}</span></p>` : ''}
+      <div class="ch-table-wrap"><table class="ch-table rr-table"><thead><tr><th>Place</th><th>Name</th><th>Steps</th><th class="rr-when">Finished</th><th>Took</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="fb-foot"><button type="button" class="fb-cancel" id="rr-copy">${icon('copy', 'tiny')}Copy results</button>${navigator.share ? `<button type="button" class="fb-cancel" id="rr-share">${icon('send', 'tiny')}Share</button>` : ''}<button type="submit" class="fb-send">Done</button></div>`);
+    form.classList.add('race-report');
+    form.querySelector('#rr-copy').onclick = async () => { try { await navigator.clipboard.writeText(text); showToast('📋 Results copied'); } catch { showToast(text); } };
+    const share = form.querySelector('#rr-share');
+    if (share) share.onclick = () => navigator.share({ title: `${r.title}: race results`, text }).catch(() => {});
+    form.addEventListener('submit', e => { e.preventDefault(); close(); });
+  }
+
+  // The "you did it" celebration for a goal that was your copy in a race:
+  // your place, out of how many, and who won; in a class, how many of the
+  // group have finished. It counts as the place announcement.
+  async function fillCelebration(projectId) {
+    let r = null;
+    try { r = await API.getRaceForProject(projectId); } catch { return; }
+    if (!r) return;
+    const el = id => document.getElementById(id);
+    const msg = el('project-complete-message');
+    if (!msg) return;
+    old(); // a previous race line, if the sheet was shown before
+    const line = document.createElement('div');
+    line.id = 'project-complete-race';
+    line.className = 'pc-race';
+    if (r.mode === 'together') {
+      line.innerHTML = `${icon('users', 'tiny')}<span>You're one of <b>${r.group.finished} of ${r.group.players}</b> to finish ${esc(r.title)}.</span>`;
+    } else if (r.yourPlace) {
+      const place = r.yourPlace;
+      el('project-complete-heading').textContent = place === 1 ? 'You won the race!' : `You finished ${ordinal(place)}!`;
+      const others = r.players.length - 1;
+      line.innerHTML = `${icon('trophy', 'tiny')}<span><b>${placeText(place)}</b> of ${r.players.length} in the race${place > 1 && r.winner ? `. ${esc(r.winner.name)} won` : others ? `. ${others} still behind you` : ''}.</span>
+        <button type="button" onclick="dismissProjectCompleteOverlay(); Race.openReport('${r.id}')">Race report</button>`;
+      try { localStorage.setItem(`wp-race-placed:${r.id}`, '1'); } catch { /* fine */ }
+    } else return;
+    msg.insertAdjacentElement('afterend', line);
+    function old() { document.getElementById('project-complete-race')?.remove(); }
+  }
+
+  // The Journey's "you reached the target" message in a race: your place,
+  // out of how many, who won. Null when it isn't a race you've finished.
+  async function finishMessage(projectId) {
+    let r = null;
+    try { r = await API.getRaceForProject(projectId); } catch { return null; }
+    if (!r) return null;
+    current = r;
+    paintStrip(document.getElementById('journey-race'));
+    if (r.mode === 'together') {
+      return { heading: 'You finished!', emoji: '🏁', message: `You're one of ${r.group.finished} of ${r.group.players} to finish “${r.title}”.` };
+    }
+    if (!r.yourPlace) return null;
+    try { localStorage.setItem(`wp-race-placed:${r.id}`, '1'); } catch { /* fine */ }
+    const place = r.yourPlace;
+    if (place <= 3 && typeof fireBigScreenConfetti === 'function') fireBigScreenConfetti();
+    return {
+      heading: place === 1 ? 'You won the race!' : `You finished ${ordinal(place)}!`,
+      emoji: '🏆', // the medal is in the message (the badge draws icons, not every emoji)
+      message: `${placeText(place)} of ${r.players.length} in “${r.title}”.${place > 1 && r.winner ? ` ${r.winner.name} won.` : ''}${r.stake && place === 1 ? ` Riding on it: ${r.stake}.` : ''}`,
+    };
+  }
+
   function invite() { if (current) showShare(current, false); }
   async function leave() {
     if (!current) return;
@@ -342,6 +455,6 @@ const Race = (() => {
     });
   }
 
-  return { openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;

@@ -141,3 +141,24 @@ test('a class: the teacher organises without a copy, students join by code, see 
   const bell = await (await call(s2, 'GET', '/api/notifications')).json();
   assert.ok(bell.challengeNudges.some(n => n.challengeId === cls.id));
 });
+
+test('finishing places: 1st, 2nd and 3rd go by who ticked their last step first', async () => {
+  const [a, b, c, d] = [await signUp(), await signUp(), await signUp(), await signUp()];
+  const goal = await goalWithTasks(a, ['One', 'Two']);
+  const race = await (await call(a, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), displayName: 'Ana' })).json();
+  const copies = { a: race.players[0].projectId };
+  for (const [k, who, name] of [['b', b, 'Ben'], ['c', c, 'Cleo'], ['d', d, 'Dev']]) {
+    copies[k] = (await (await call(who, 'POST', `/api/challenges/join/${race.joinToken}`, { displayName: name })).json()).projectId;
+  }
+  // Cleo first, then Ana, then Ben; Dev doesn't finish.
+  await finish(c, copies.c);
+  await new Promise(r => setTimeout(r, 15));
+  await finish(a, copies.a);
+  await new Promise(r => setTimeout(r, 15));
+  await finish(b, copies.b);
+  const board = await (await call(d, 'GET', `/api/challenges/${race.id}`)).json();
+  assert.deepEqual(board.players.map(p => [p.name, p.place || null]), [['Cleo', 1], ['Ana', 2], ['Ben', 3], ['Dev', null]]);
+  assert.equal(board.winner.name, 'Cleo');
+  assert.equal(board.yourPlace, null);
+  assert.equal((await (await call(b, 'GET', `/api/challenges/${race.id}`)).json()).yourPlace, 3);
+});

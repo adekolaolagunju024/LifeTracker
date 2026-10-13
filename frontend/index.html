@@ -952,6 +952,28 @@
     .dark .ch-table tr.you td { background: rgba(94,234,212,.08); }
     .dark .ch-table td, .dark .ch-table th { border-color: #1F2A3C; }
     .dark .ch-bar, .dark .ch-table .ch-steps { background: #1F2A3C; }
+    /* Your race place on the "You did it" sheet */
+    .pc-race { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 10px auto 0; padding: 8px 12px; border-radius: 12px; background: #FDF3E1; color: #7A4505; font-size: 14px; max-width: 420px; }
+    .pc-race button { font-size: 12px; font-weight: 700; color: #fff; background: #0A7E8C; border-radius: 999px; padding: 4px 10px; }
+    .dark .pc-race { background: rgba(245,185,92,.12); color: #F5B95C; }
+    /* The race report (js/race.js openReport): podium and full scoreboard */
+    .race-report { width: min(560px, 100%); }
+    .rr-title { display: flex; align-items: center; gap: 10px; }
+    .rr-title > span { font-size: 28px; line-height: 1; }
+    .rr-title b { display: block; font-size: 16px; color: #0D1B2A; }
+    .rr-title small { color: #556270; font-size: 12px; }
+    .rr-podium { display: grid; grid-template-columns: repeat(3, 1fr); align-items: end; gap: 8px; padding-top: 6px; }
+    .rr-step { display: grid; justify-items: center; gap: 2px; text-align: center; min-width: 0; }
+    .rr-step b { font-size: 13px; color: #0D1B2A; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rr-step small { font: 600 11px ui-monospace, monospace; color: #556270; min-height: 14px; }
+    .rr-medal { font-size: 26px; line-height: 1; }
+    .rr-step i { display: grid; place-items: center; width: 100%; border-radius: 10px 10px 4px 4px; color: #fff; font: 800 15px system-ui, sans-serif; font-style: normal; background: #CBD5DD; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
+    .rr-1 i { height: 78px; } .rr-2 i { height: 58px; } .rr-3 i { height: 42px; }
+    .rr-step.empty { opacity: .45; }
+    .rr-table td { font-size: 12.5px; }
+    .rr-table .dnf { font: 700 11px ui-monospace, monospace; color: #8A94A3; }
+    @media (max-width: 639px) { .rr-table .rr-when { display: none; } }
+    .dark .rr-title b, .dark .rr-step b { color: #E6EDF3; }
     /* The race scoreboard above the Journey */
     .race-strip { background: #fff; border: 1px solid #E3E6EA; border-radius: 16px; padding: 10px 12px; margin-bottom: 10px; display: grid; gap: 8px; }
     .race-strip-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #0D1B2A; }
