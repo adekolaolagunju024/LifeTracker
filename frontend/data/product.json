@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Replay your day",
+      "text": "Replay my day, in the Game view of today's road, plays your whole day back from the start: every blocker you knocked out and every task you finished, in the order they happened. Finish a task anywhere, even by dragging it to Completed, and you can Watch your character reach its stop. Ticked blockers now stay on cards and table rows, crossed out."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Clearer messages when a task is not ready yet",
       "text": "Try to finish a task that still has blockers and you now get a proper card instead of a red error: it lists what's in the way with a tick box for each, so you can clear them there and then and tap Mark as done. A task waiting on another one shows which, with a button to open it."
     },

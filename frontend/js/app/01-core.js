@@ -268,9 +268,10 @@ function obstacleBadge(t) {
 // variant 'quest' uses the Journey panel's own themed styles.
 const blockerTasks = new Map(); // task id -> the task objects rendered with a checklist
 function blockerChecklist(t, canEdit, variant) {
-  // Cards and table rows list only what's still in the way; the ⚔️ badge
-  // beside them opens the full list, cleared ones included.
-  const obs = variant === 'quest' ? (t.obstacles || []) : (t.obstacles || []).filter(o => !o.resolved);
+  // Ticked ones stay, crossed out, so it's clear what was cleared (and one
+  // that's back in the way can be unticked); the list goes once the task
+  // is done or every blocker is removed.
+  const obs = t.obstacles || [];
   if (!obs.length || t.status === 'Completed') return '';
   // Kept newest last: a later render's copy is the one to redraw from.
   if (!blockerTasks.has(t.id)) blockerTasks.set(t.id, new Set());
@@ -367,6 +368,7 @@ function syncPredecessorSnapshots(task) {
   API.updateTask = async (id, data) => {
     const saved = await update(id, data);
     syncPredecessorSnapshots(saved && saved.id ? saved : { id, ...data });
+    if (data && data.status === 'Completed') afterTaskDone(id, saved);
     return saved;
   };
 }
@@ -399,6 +401,14 @@ async function afterBlockerCleared(obstacle) {
   } };
   if (canStart) showActionToast(`✅ All clear. Start "${t.title}" now?`, canWatch ? [watch, start] : [start]);
   else if (canWatch) showActionToast(`⚔️ Watch "${obstacle.name}" get knocked out on today's road`, [watch]);
+}
+// A task on today's plan finished anywhere (ticked, dragged to Completed
+// on the board, from the task panel), with the game layer on: offer to
+// watch it on today's road, where the character walks on to its stop.
+function afterTaskDone(taskId, saved) {
+  if (document.getElementById('gate-card') || typeof DayRoad === 'undefined' || !DayRoad.canWatchFinish(taskId)) return;
+  const title = (saved && saved.title) || 'That task';
+  setTimeout(() => showActionToast(`✅ “${title}” done. Watch it on today's road`, [{ label: 'Watch', run: () => DayRoad.replayFinish(taskId) }]), 600);
 }
 // Every loaded view takes the new status without a reload.
 function refreshAfterStart(taskId, status = 'In Progress') {
