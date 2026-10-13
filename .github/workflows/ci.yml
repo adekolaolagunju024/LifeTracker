@@ -17,3 +17,17 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      # The core flows in a real browser (tests/e2e): sign up, plan today,
+      # focus, finish, add a task, at phone and desktop widths, plus no
+      # sideways scrolling on a phone and a name on every control.
+      - name: Browser tests
+        run: npm run test:e2e
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+      - name: Screenshots from a stuck browser test
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-screenshots
+          path: test-results/
+          if-no-files-found: ignore
