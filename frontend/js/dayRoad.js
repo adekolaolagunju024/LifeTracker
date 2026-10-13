@@ -1,4 +1,4 @@
-/* global API, DayPace, DayReport, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
+/* global API, DayPace, showToast, DayReport, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
 // ── TODAY'S ROAD ────────────────────────────────────────────────
 // Today's plan as a road: a stop for each task, You moving as you finish
 // them, and the Pacer keeping to the timetable by the clock (the maths is
@@ -188,6 +188,7 @@ const DayRoad = (() => {
     const gameBody = r => `<div class="dayroad-gamebar">
         <label class="dayroad-world">${icon(CHAR[stage] || 'map', 'tiny')}<select onchange="DayRoad.setWorld(this.value)" aria-label="World">${STAGES.map(([k, n]) => `<option value="${k}" ${k === stage ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
         ${can3d() ? `<div class="dayroad-dims" role="group" aria-label="2D or 3D"><button type="button" aria-pressed="${!view3d()}" onclick="DayRoad.setView('2d')">2D</button><button type="button" aria-pressed="${view3d()}" onclick="DayRoad.setView('3d')">3D</button></div>` : ''}
+        <button type="button" class="dayroad-replay" id="dayroad-replay" onclick="DayRoad.replayDay()" title="Watch today again: every blocker cleared and task finished, in order">${replaying ? `${icon('pause', 'tiny')}Stop` : `${icon('play', 'tiny')}Replay my day`}</button>
         <span class="dayroad-legend"><i class="you">${icon(CHAR[stage] || 'footprints', 'tiny')}</i>You <i class="pacer">${icon('timer', 'tiny')}</i>The Pacer</span>
       </div>
       <div class="dayroad-scene-wrap world-${stage}"><div id="dayroad-scene" class="dayroad-scene" aria-label="Today's plan as a ${esc(stage)} world: ${r.done} of ${r.n} tasks done. ${esc(r.text)}" role="img"></div></div>`;
@@ -205,49 +206,143 @@ const DayRoad = (() => {
   }
   const fmt = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
   function closeFull() {
+    if (replaying) { replaying.stopped = true; replaying = null; }
     modeOverride = null;
     const scene = document.getElementById('dayroad-scene');
     if (scene && typeof JourneyGame !== 'undefined') JourneyGame.destroy(scene);
     document.getElementById('dayroad-full')?.remove();
   }
 
-  // A blocker ticked somewhere else (task panel, board, Journey) on one of
-  // today's tasks: the "Watch" button replays its knockout here. The scene
-  // opens with that blocker still standing, waits until it's drawn (a 3D
-  // world needs its character loaded), then clears it, so the character
-  // deals with it in front of you.
+  // ── Watching it happen ──
+  // Three replays in the Game view, all the same way: the scene opens
+  // with the day as it was before, waits until it's drawn (a 3D world
+  // needs its character loaded), then plays the changes one at a time,
+  // each with a caption, so the character deals with them in front of you.
+  //   · a blocker ticked somewhere else: its knockout (the Watch button)
+  //   · a task finished somewhere else: the walk to its stop (Watch)
+  //   · Replay my day: every blocker cleared and task finished today, in
+  //     the order they happened, from the start to where you are now.
   const watchingGame = () => !!document.getElementById('dayroad-full') && fullMode() === 'game';
+  const inPlan = taskId => { const r = state(); return !!r && r.items.some(i => i.taskId === taskId); };
   function canReplay(taskId) {
     const r = state();
     return game() && !watchingGame() && !!r && r.items.some(i => i.taskId === taskId && !i.done);
   }
+  const canWatchFinish = taskId => game() && !watchingGame() && inPlan(taskId);
   const sceneReady = box => {
     const j = box && box._j3d;
     if (!j) return !!(box && box.querySelector('svg'));
     return !j._debug || !!(j._debug.state && j._debug.state.ready);
   };
-  async function replayKnockout(taskId, obstacleId) {
+  const wait = ms => new Promise(res => setTimeout(res, ms));
+  let replaying = null; // { stopped }
+  function caption(text) {
+    const wrap = document.querySelector('#dayroad-full .dayroad-scene-wrap');
+    if (!wrap) return;
+    let c = wrap.querySelector('.dayroad-caption');
+    if (!text) { if (c) c.remove(); return; }
+    if (!c) { c = document.createElement('p'); c.className = 'dayroad-caption'; c.setAttribute('role', 'status'); wrap.appendChild(c); }
+    c.textContent = text;
+  }
+  function paintReplayButton() {
+    const b = document.getElementById('dayroad-replay');
+    if (b) b.innerHTML = replaying ? `${icon('pause', 'tiny')}Stop` : `${icon('play', 'tiny')}Replay my day`;
+  }
+  // prepare() sets the day back to how it was and returns the steps to
+  // play, [{ text, apply }], or null to call it off.
+  async function play(prepare) {
+    stopReplay();
     await refresh();
-    const t = tasks.find(x => x.id === taskId);
-    const o = t && (t.obstacles || []).find(x => x.id === obstacleId);
-    if (o) o.resolved = false;
+    const run = { stopped: false };
+    replaying = run;
+    const steps = prepare();
+    if (!steps) { replaying = null; return; }
     if (typeof closeTaskDetail === 'function') closeTaskDetail(); // Watch is often pressed from the task panel
-    openFull('game');
-    if (!o) return;
+    if (!watchingGame()) openFull('game'); else render();
+    paintReplayButton();
     const box = document.getElementById('dayroad-scene');
-    for (let waited = 0; waited < 30000 && !sceneReady(box); waited += 250) await new Promise(res => setTimeout(res, 250));
-    await new Promise(res => setTimeout(res, 700)); // let the opening settle first
-    if (!document.getElementById('dayroad-scene')) return; // closed meanwhile
-    o.resolved = true;
-    render();
+    for (let waited = 0; waited < 30000 && !sceneReady(box); waited += 250) await wait(250);
+    await wait(700); // let the opening settle first
+    const gap = box && box._j3d ? 3400 : 1700; // a 3D character takes longer to get there
+    for (const s of steps) {
+      if (run.stopped || !document.getElementById('dayroad-scene')) break;
+      s.apply();
+      caption(s.text);
+      render();
+      await wait(gap);
+    }
+    if (replaying !== run) return;
+    replaying = null;
+    if (steps.length > 1 && !run.stopped) caption('That brings you up to now');
+    paintReplayButton();
+    setTimeout(() => { if (!replaying) caption(''); }, 2500);
+    await refresh(); // back to the real day
+  }
+  function stopReplay() {
+    if (!replaying) return;
+    replaying.stopped = true;
+    replaying = null;
+    caption('');
+    paintReplayButton();
+    refresh();
+  }
+  const clock = iso => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} · `; };
+
+  function replayKnockout(taskId, obstacleId) {
+    return play(() => {
+      const t = tasks.find(x => x.id === taskId);
+      const o = t && (t.obstacles || []).find(x => x.id === obstacleId);
+      if (!o) return [];
+      o.resolved = false;
+      return [{ text: `Cleared “${o.name}”`, apply: () => { o.resolved = true; } }];
+    });
+  }
+  function replayFinish(taskId) {
+    return play(() => {
+      const t = tasks.find(x => x.id === taskId);
+      if (!t) return [];
+      t.status = 'In Progress';
+      return [{ text: `Finished “${t.title}”`, apply: () => { t.status = 'Completed'; } }];
+    });
+  }
+  // Every blocker cleared and every task finished today on the plan, in
+  // order: blockers by when they were ticked, tasks by when they were
+  // done (a blocker with no time goes just before its task's finish).
+  function replayDay() {
+    if (replaying) { stopReplay(); return; }
+    return play(() => {
+      const r = state();
+      if (!r) return null;
+      const today = localDateKey(new Date());
+      const events = [];
+      r.items.forEach((it, k) => {
+        const t = it.task;
+        const doneAt = t.status === 'Completed' && t.completedAt ? Date.parse(t.completedAt) : null;
+        (t.obstacles || []).filter(o => o.resolved).forEach(o => {
+          const at = o.resolvedAt ? Date.parse(o.resolvedAt) : (doneAt != null ? doneAt - 1 : Infinity);
+          events.push({ at, k, kind: 'blocker', t, o });
+        });
+        if (t.status === 'Completed') events.push({ at: doneAt != null ? doneAt : Infinity, k, kind: 'done', t });
+      });
+      if (!events.length) { if (typeof showToast === 'function') showToast("Nothing cleared or finished yet today. Replay once you've made a start."); return null; }
+      events.sort((a, b) => a.at - b.at || a.k - b.k || (a.kind === 'blocker' ? -1 : 1));
+      // Back to the start of the day.
+      r.items.forEach(it => { it.task.status = 'Not Started'; (it.task.obstacles || []).forEach(o => { if (o.resolved) o.resolved = false; }); });
+      const when = e => (e.at !== Infinity && localDateKey(new Date(e.at)) === today ? clock(new Date(e.at).toISOString()) : '');
+      return events.map(e => ({
+        text: e.kind === 'blocker' ? `${when(e)}Cleared “${e.o.name}”` : `${when(e)}Finished “${e.t.title}”`,
+        apply: () => { if (e.kind === 'blocker') e.o.resolved = true; else e.t.status = 'Completed'; },
+      }));
+    });
   }
 
   // The Pacer moves every minute; tasks are re-read every few.
   setInterval(() => {
+    if (replaying) return; // a replay owns the scene until it's done
     if (!document.querySelector('[data-dayroad]:not(:empty), #dayroad-full')) return;
     if (Date.now() - loadedAt > 4 * 60000) refresh(); else render();
   }, 60000);
 
-  return { refresh, render, state, openFull, closeFull, setMode, setWorld, setView, canReplay, replayKnockout };
+  return { refresh, render, state, openFull, closeFull, setMode, setWorld, setView, canReplay, canWatchFinish, replayKnockout, replayFinish, replayDay };
 })();
 window.DayRoad = DayRoad;

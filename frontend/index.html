@@ -760,6 +760,11 @@
     .dark .gate-list li { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.3); } .dark .gate-list li.is-done { background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.3); }
     .dark .gate-ic { background: rgba(245,158,11,.15); color: #FBBF24; } .dark .gate-secondary { background: #1A2436; color: #E8EEF5; } .dark .gate-x:hover { background: #1A2436; }
     @media (prefers-reduced-motion: reduce) { .gate-overlay, .gate-card { animation: none; } }
+    /* Replays on today's road (js/dayRoad.js): the button and the caption */
+    .dayroad-replay { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #0A7E8C; background: #F0FAF9; border-radius: 9px; padding: 6px 10px; }
+    .dayroad-replay:hover { background: #E0F4F2; }
+    .dayroad-caption { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); max-width: calc(100% - 24px); background: rgba(13,27,42,.88); color: #fff; font-size: 13px; font-weight: 700; padding: 7px 12px; border-radius: 10px; z-index: 5; text-align: center; pointer-events: none; animation: gatefade .2s ease both; }
+    .dark .dayroad-replay { background: rgba(94,234,212,.08); color: #5EEAD4; }
     /* The project picker (js/projectPicker.js) */
     .pp-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; overflow: hidden; }
     .pp-btn { display: inline-flex; align-items: center; gap: 8px; text-align: left; min-width: 0; cursor: pointer; }
