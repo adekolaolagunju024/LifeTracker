@@ -885,6 +885,8 @@ const Music = (() => {
   }
   const isPlaying = () => !!dock();
 
-  return { embedFor, start, go, next, prev, hide, show, toggleMin, toggleLib, togglePause, setPaused, seek, cycleRepeat, stop, isPlaying, restore, isPaused: () => !!(current && current.paused), repeatMode: () => repeat, _ended: ended };
+  // What's playing, for the focus timer's music row.
+  const now = () => (current && queue[at] ? { label: queue[at].label || current.service, service: current.service, paused: !!current.paused, many: queue.length > 1 } : null);
+  return { embedFor, start, go, next, prev, hide, show, toggleMin, toggleLib, togglePause, setPaused, seek, cycleRepeat, stop, isPlaying, restore, now, isPaused: () => !!(current && current.paused), repeatMode: () => repeat, _ended: ended };
 })();
 window.Music = Music;

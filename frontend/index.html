@@ -606,6 +606,106 @@
     .dark .pkey-btn { background: #1A2436; color: #C9D6E2; }
     .dark .pkey-btn[aria-expanded="true"] { background: #0A7E8C; color: #fff; }
     @media print { .pkey, .pkey-btn { display: none !important; } }
+    /* Today's road: you against the ghost (js/dayRoad.js) */
+    .droad { margin-top: 2px; }
+    .droad-track { position: relative; height: 26px; margin: 6px 12px 4px; }
+    .droad-track::before { content: ''; position: absolute; left: 0; right: 0; top: 11px; height: 4px; border-radius: 2px; background: var(--road, #D7DEE5); }
+    .droad-fill { position: absolute; left: 0; top: 11px; height: 4px; border-radius: 2px; background: var(--fill, #0A7E8C); transition: width .6s ease; }
+    .droad-stop { position: absolute; top: 8px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--stop, #fff); border: 2px solid var(--road, #C6CFD8); box-sizing: border-box; }
+    .droad-stop.done { background: var(--fill, #0A7E8C); border-color: var(--fill, #0A7E8C); }
+    .droad-stop.blk { border-color: #DC2626; }
+    .droad-stop em { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--muted, #6B7280); white-space: nowrap; }
+    .droad-you, .droad-ghost { position: absolute; top: 1px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: left .6s ease; }
+    .droad-you { z-index: 3; background: var(--fill, #0A7E8C); color: #fff; box-shadow: 0 0 0 3px var(--ring, #fff), 0 4px 10px rgba(0,0,0,.2); }
+    .droad-track.plain .droad-you { width: 14px; height: 14px; margin-left: -7px; top: 6px; }
+    .droad-ghost { z-index: 2; color: var(--ghost, #64748B); background: var(--ghostbg, rgba(255,255,255,.85)); border: 1.5px dashed var(--ghost, #94A3B8); opacity: .9; }
+    .droad-you .ic, .droad-ghost .ic { width: 14px; height: 14px; }
+    .droad-track.world-football { --road: #86C77A; --fill: #15803D; --stop: #F0FDF4; }
+    .droad-track.world-space { --road: #A5A0D8; --fill: #6D28D9; --stop: #F5F3FF; }
+    .droad-track.world-castle { --road: #B9A88A; --fill: #7C5A2E; --stop: #FFFBEB; }
+    .droad-track.world-construction { --road: #E5C88F; --fill: #D97706; --stop: #FFFBEB; }
+    .droad-line { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; font-size: 12px; color: #6B7280; padding: 0 2px; }
+    .droad-state { font-weight: 800; color: #0D1B2A; }
+    .droad-state.ahead, .droad-state.done { color: #15803D; } .droad-state.behind { color: #B45309; } .droad-state.on { color: #0A7E8C; }
+    .droad-full { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #0A7E8C; border-radius: 8px; padding: 3px 6px; }
+    .droad-full:hover { background: rgba(10,126,140,.1); }
+    .droad-full .ic { width: 13px; height: 13px; }
+    .droad-card { margin: 10px 0 2px; background: #F6F8FA; border: 1px solid #E8ECF0; border-radius: 14px; padding: 6px 10px 8px; }
+    /* The focus timer grows into a panel: timer, road, music */
+    .focus-hud.has-extra { flex-direction: column; align-items: stretch; gap: 6px; border-radius: 22px; padding: 8px 10px 10px; width: min(460px, calc(100vw - 24px)); }
+    .focus-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .focus-hud.has-extra .focus-row .focus-hud-main { flex: 1; }
+    .focus-hud.has-extra .focus-title { max-width: none; }
+    .focus-hud.is-done .focus-extra { margin-top: 8px; }
+    .focus-extra { display: grid; gap: 6px; }
+    .focus-extra .droad { background: rgba(255,255,255,.06); border-radius: 14px; padding: 4px 8px 6px; --road: rgba(255,255,255,.22); --stop: #0D1B2A; --ring: #0D1B2A; --muted: rgba(255,255,255,.6); --ghost: #CBD5E1; --ghostbg: rgba(13,27,42,.9); }
+    .focus-extra .droad-track.plain { --fill: #5EEAD4; }
+    .focus-extra .droad-line { color: rgba(255,255,255,.7); }
+    .focus-extra .droad-state { color: #fff; } .focus-extra .droad-state.ahead, .focus-extra .droad-state.done { color: #86EFAC; } .focus-extra .droad-state.behind { color: #FCD34D; } .focus-extra .droad-state.on { color: #5EEAD4; }
+    .focus-extra .droad-full { color: #5EEAD4; } .focus-extra .droad-full:hover { background: rgba(94,234,212,.12); }
+    .focus-music { display: flex; align-items: center; gap: 6px; min-width: 0; background: rgba(255,255,255,.06); border-radius: 14px; padding: 5px 6px 5px 10px; }
+    .focus-music.adding { display: block; padding: 6px; }
+    .fm-ic { color: #5EEAD4; display: flex; } .fm-ic .ic { width: 15px; height: 15px; }
+    .fm-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fm-name.muted { color: rgba(255,255,255,.55); font-weight: 600; }
+    .fm-btn { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; font-size: 12px; font-weight: 700; color: #0D1B2A; background: #5EEAD4; border-radius: 999px; padding: 5px 10px; }
+    .fm-btn:hover { background: #99F6E4; }
+    .fm-play { flex: 1; min-width: 0; justify-content: flex-start; background: rgba(255,255,255,.1); color: #fff; } .fm-play:hover { background: rgba(255,255,255,.16); }
+    .fm-play span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fm-btn .ic { width: 13px; height: 13px; }
+    .fm-icon { width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: rgba(255,255,255,.1); }
+    .fm-icon:hover { background: rgba(255,255,255,.18); } .fm-icon .ic { width: 15px; height: 15px; }
+    .fm-search { display: flex; gap: 6px; }
+    .fm-search input { flex: 1; min-width: 0; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 7px 10px; color: #fff; font-size: 13px; }
+    .fm-search input::placeholder { color: rgba(255,255,255,.5); }
+    .fm-search input:focus { outline: 2px solid #5EEAD4; outline-offset: -1px; }
+    .fm-results { display: grid; gap: 2px; margin-top: 6px; max-height: 220px; overflow-y: auto; }
+    .fm-hit { display: flex; align-items: center; gap: 10px; text-align: left; padding: 6px; border-radius: 10px; color: #fff; }
+    .fm-hit:hover { background: rgba(255,255,255,.1); }
+    .fm-hit img, .fm-art { width: 34px; height: 34px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,.1); display: flex; align-items: center; justify-content: center; }
+    .fm-hit b { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fm-hit small { display: block; font-size: 11.5px; color: rgba(255,255,255,.6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .fm-hit > .ic { width: 15px; height: 15px; color: #5EEAD4; flex-shrink: 0; }
+    .fm-note { font-size: 12px; color: rgba(255,255,255,.6); padding: 6px; }
+    .focus-hud.is-min[data-pace]:not([data-pace=""])::after { content: ''; position: absolute; top: 3px; right: 3px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #0D1B2A; background: #5EEAD4; }
+    .focus-hud.is-min[data-pace="ahead"]::after, .focus-hud.is-min[data-pace="done"]::after { background: #22C55E; }
+    .focus-hud.is-min[data-pace="behind"]::after { background: #F59E0B; }
+    /* Full size */
+    .dayroad-overlay { position: fixed; inset: 0; z-index: 95; background: rgba(13,27,42,.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .dayroad-sheet { width: min(620px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: #fff; color: #0D1B2A; border-radius: 22px; padding: 20px 20px 16px; box-shadow: 0 30px 80px rgba(5,10,20,.35); }
+    .dayroad-head { display: flex; align-items: flex-start; justify-content: space-between; }
+    .dayroad-kicker { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #0A7E8C; }
+    .dayroad-head h3 { font-size: 22px; font-weight: 900; letter-spacing: -.015em; }
+    .dayroad-x { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #6B7280; } .dayroad-x:hover { background: #F1F3F5; }
+    .droad-track.big { height: 54px; margin: 22px 16px 10px; }
+    .droad-track.big .droad-stop em { top: 24px; }
+    .droad-track.big::before, .droad-track.big .droad-fill { top: 14px; height: 6px; border-radius: 3px; }
+    .droad-track.big .droad-stop { top: 10px; width: 14px; height: 14px; margin-left: -7px; }
+    .droad-track.big .droad-you, .droad-track.big .droad-ghost { top: 1px; width: 32px; height: 32px; margin-left: -16px; }
+    .droad-track.big.plain .droad-you { width: 18px; height: 18px; margin-left: -9px; top: 8px; }
+    .droad-track.big .droad-you .ic, .droad-track.big .droad-ghost .ic { width: 18px; height: 18px; }
+    .dayroad-sum { font-size: 13.5px; color: #5B6472; margin: 8px 0 14px; }
+    .dayroad-list { list-style: none; padding: 0; display: grid; gap: 4px; }
+    .dayroad-list li { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 12px; }
+    .dayroad-list li.next { background: #F0FAF9; }
+    .dayroad-list li.done .dayroad-task b { color: #8A93A0; text-decoration: line-through; }
+    .dayroad-time { width: 48px; flex-shrink: 0; font-size: 14px; font-weight: 800; color: #0A7E8C; font-variant-numeric: tabular-nums; }
+    .dayroad-time small { display: block; font-size: 11px; font-weight: 600; color: #8A93A0; }
+    .dayroad-dot { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 2px solid #D7DEE5; color: #0A7E8C; }
+    .dayroad-list li.done .dayroad-dot { background: #0A7E8C; border-color: #0A7E8C; color: #fff; }
+    .dayroad-list li.next .dayroad-dot { border-color: #0A7E8C; }
+    .dayroad-dot .ic { width: 14px; height: 14px; }
+    .dayroad-task { flex: 1; min-width: 0; text-align: left; }
+    .dayroad-task b { display: block; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dayroad-task small { display: flex; align-items: center; gap: 3px; font-size: 12px; color: #6B7280; } .dayroad-task small.blk { color: #B91C1C; font-weight: 700; }
+    .dayroad-ghosthere { color: #64748B; display: flex; } .dayroad-ghosthere .ic { width: 18px; height: 18px; }
+    .dayroad-note { display: flex; align-items: center; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #EEF0F2; font-size: 12.5px; color: #6B7280; }
+    .dayroad-empty { margin: 16px 0 12px; color: #5B6472; }
+    .dayroad-go { display: inline-flex; align-items: center; gap: 6px; background: #0A7E8C; color: #fff; font-weight: 800; border-radius: 12px; padding: 10px 16px; }
+    @media (max-width: 640px) { .dayroad-overlay { align-items: flex-end; padding: 0; } .dayroad-sheet { border-radius: 22px 22px 0 0; max-height: 88vh; } }
+    .dark .droad-card { background: #0B1220; border-color: #24324A; } .dark .droad-state { color: #E8EEF5; }
+    .dark .dayroad-sheet { background: #111A2B; color: #E8EEF5; } .dark .dayroad-list li.next { background: rgba(94,234,212,.08); }
+    @media (prefers-reduced-motion: reduce) { .droad-fill, .droad-you, .droad-ghost { transition: none; } }
     .dark .dayplan { background: #111A2B; color: #E8EEF5; }
     .dark .dayplan-sub, .dark .dayplan-m, .dark .dayplan-when { color: #94A3B8; }
     .dark .dayplan-row { border-color: #24324A; }
@@ -4274,6 +4374,8 @@
 <script src="js/billing.js"></script>
 <script src="js/pledges.js"></script>
 <script src="js/plannerKey.js"></script>
+<script src="js/dayPace.js"></script>
+<script src="js/dayRoad.js"></script>
 
 </body>
 </html>
