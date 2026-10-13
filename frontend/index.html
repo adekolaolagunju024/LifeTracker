@@ -702,6 +702,27 @@
     .dayroad-note { display: flex; align-items: center; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #EEF0F2; font-size: 12.5px; color: #6B7280; }
     .dayroad-empty { margin: 16px 0 12px; color: #5B6472; }
     .dayroad-go { display: inline-flex; align-items: center; gap: 6px; background: #0A7E8C; color: #fff; font-weight: 800; border-radius: 12px; padding: 10px 16px; }
+    /* Today's road, Game view: today's plan in your Journey world */
+    .dayroad-headr { display: flex; align-items: center; gap: 8px; }
+    .dayroad-modes, .dayroad-dims { display: inline-flex; background: #F1F3F5; border-radius: 11px; padding: 3px; }
+    .dayroad-modes button, .dayroad-dims button { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: #5B6472; padding: 6px 11px; border-radius: 8px; }
+    .dayroad-modes button[aria-pressed="true"], .dayroad-dims button[aria-pressed="true"] { background: #fff; color: #0D1B2A; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .dayroad-modes .ic { width: 14px; height: 14px; }
+    .dayroad-sheet.is-game { width: min(980px, 100%); }
+    .dayroad-gamebar { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin: 14px 0 10px; }
+    .dayroad-world { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #E3E6EA; border-radius: 10px; padding: 0 4px 0 10px; color: #0A7E8C; }
+    .dayroad-world select { border: 0; background: none; font-size: 13px; font-weight: 700; color: #0D1B2A; padding: 7px 4px; }
+    .dayroad-legend { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #5B6472; }
+    .dayroad-legend i { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+    .dayroad-legend i.you { background: #0A7E8C; color: #fff; } .dayroad-legend i.pacer { margin-left: 6px; border: 1.5px dashed #94A3B8; color: #64748B; }
+    .dayroad-legend .ic { width: 13px; height: 13px; }
+    .dayroad-scene-wrap { position: relative; height: min(52vh, 440px); min-height: 280px; border-radius: 16px; overflow: hidden; background: linear-gradient(180deg, #8fd3fb 0%, #c7e9fd 55%, #fff3da 100%); }
+    .dayroad-scene-wrap.world-space { background: linear-gradient(180deg, #1b1340 0%, #3b2a7a 100%); }
+    .dayroad-scene { position: absolute; inset: 0; }
+    .dayroad-scene [role="group"][aria-label="View"] { display: none !important; }
+    .dark .dayroad-modes, .dark .dayroad-dims { background: #1A2436; } .dark .dayroad-modes button[aria-pressed="true"], .dark .dayroad-dims button[aria-pressed="true"] { background: #24324A; color: #fff; }
+    .dark .dayroad-world { border-color: #24324A; } .dark .dayroad-world select { color: #E8EEF5; }
+    @media (max-width: 640px) { .dayroad-scene-wrap { height: 46vh; min-height: 240px; } .dayroad-legend { margin-left: 0; } .dayroad-head { flex-wrap: wrap; gap: 8px; } }
     @media (max-width: 640px) { .dayroad-overlay { align-items: flex-end; padding: 0; } .dayroad-sheet { border-radius: 22px 22px 0 0; max-height: 88vh; } }
     .dark .droad-card { background: #0B1220; border-color: #24324A; } .dark .droad-state { color: #E8EEF5; }
     .dark .dayroad-sheet { background: #111A2B; color: #E8EEF5; } .dark .dayroad-list li.next { background: rgba(94,234,212,.08); }
