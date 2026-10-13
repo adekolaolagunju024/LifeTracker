@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Set your start time your way",
+      "text": "Start my day now has a proper start-time picker: nudge it 15 minutes either way, pick from a list, type any custom time, or tap Now to start this minute. Switch between 12-hour (9:30 am) and 24-hour (09:30) times, and set any custom length for a task."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Turn the assistant's voice off",
       "text": "Prefer it quiet? Settings, Appearance, Assistant's voice now has an on and off switch. Off, the assistant won't speak on its own; tap a Listen button whenever you do want something read out."
     },

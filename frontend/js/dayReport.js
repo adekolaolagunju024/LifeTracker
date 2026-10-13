@@ -1,4 +1,4 @@
-/* global API, DayPace, DayRoad, icon, esc, localDateKey, showToast */
+/* global API, DayPace, clockText, DayRoad, icon, esc, localDateKey, showToast */
 // ── HOW TODAY WENT ──────────────────────────────────────────────
 // The end-of-day report for today's plan: a headline, You against the
 // Pacer as two lines across the day (the maths is DayPace.lines in
@@ -10,6 +10,7 @@ const DayReport = (() => {
   const minOf = d => d.getHours() * 60 + d.getMinutes();
   const nowMin = () => minOf(new Date());
   const hhmm = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(Math.round(m) % 60).padStart(2, '0')}`;
+  const show = (m, short) => clockText(hhmm(m), short); // as the person reads times
   const tomorrowKey = () => { const d = new Date(); d.setDate(d.getDate() + 1); return localDateKey(d); };
   let view = null; // { r, L, tomorrow }
 
@@ -47,7 +48,7 @@ const DayReport = (() => {
     const over = nowMin() >= r.planEnd;
     return {
       big: `${r.done} of ${r.n} done${over ? '' : ' so far'}`,
-      small: over ? `${left} ${left === 1 ? 'task' : 'tasks'} left. Move ${left === 1 ? 'it' : 'them'} to tomorrow below.` : `${r.text}. The plan ends at ${hhmm(r.planEnd)}.`,
+      small: over ? `${left} ${left === 1 ? 'task' : 'tasks'} left. Move ${left === 1 ? 'it' : 'them'} to tomorrow below.` : `${r.text}. The plan ends at ${show(r.planEnd)}.`,
     };
   }
 
@@ -68,8 +69,8 @@ const DayReport = (() => {
     const row = (it, k) => {
       const t = L.tasks[k];
       const verdict = t.finished == null ? (view.moved.has(it.taskId) ? '<em class="moved">Moved to tomorrow</em>' : '<em>Not done</em>')
-        : `<em class="${t.diff >= 5 ? 'early' : t.diff <= -5 ? 'late' : 'ontime'}">${hhmm(t.finished)} · ${t.diff >= 5 ? `${DayPace.minutesText(t.diff)} early` : t.diff <= -5 ? `${DayPace.minutesText(-t.diff)} late` : 'on time'}</em>`;
-      return `<tr><td class="t"><div class="tt">${icon(t.finished == null ? 'circle' : 'check', 'tiny')}<span>${esc(it.task.title)}<small>${hhmm(t.start)}–${hhmm(t.end)}</small></span></div></td><td class="slot">${hhmm(t.start)}–${hhmm(t.end)}</td><td>${verdict}</td></tr>`;
+        : `<em class="${t.diff >= 5 ? 'early' : t.diff <= -5 ? 'late' : 'ontime'}">${show(t.finished)} · ${t.diff >= 5 ? `${DayPace.minutesText(t.diff)} early` : t.diff <= -5 ? `${DayPace.minutesText(-t.diff)} late` : 'on time'}</em>`;
+      return `<tr><td class="t"><div class="tt">${icon(t.finished == null ? 'circle' : 'check', 'tiny')}<span>${esc(it.task.title)}<small>${show(t.start)}–${show(t.end)}</small></span></div></td><td class="slot">${show(t.start)}–${show(t.end)}</td><td>${verdict}</td></tr>`;
     };
     el.innerHTML = `<div class="dayroad-sheet dayrep" role="dialog" aria-modal="true" aria-labelledby="dayrep-title">
       <div class="dayroad-head"><div><p class="dayroad-kicker">${esc(date)}</p><h3 id="dayrep-title">How today went</h3></div>
@@ -108,18 +109,18 @@ const DayReport = (() => {
     const grid = Array.from({ length: L.n + 1 }, (_, v) => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" class="g"/><text x="${m.l - 8}" y="${y(v) + 4}" class="ax" text-anchor="end">${v}</text>`).join('');
     const step = (L.to - L.from) > 360 ? 120 : 60;
     const ticks = [];
-    for (let t = Math.ceil(L.from / step) * step; t <= L.to; t += step) ticks.push(`<text x="${x(t)}" y="${H - 8}" class="ax" text-anchor="middle">${hhmm(t)}</text>`);
+    for (let t = Math.ceil(L.from / step) * step; t <= L.to; t += step) ticks.push(`<text x="${x(t)}" y="${H - 8}" class="ax" text-anchor="middle">${show(t, true)}</text>`);
     const lastYou = L.you[L.you.length - 1], lastPacer = L.pacer[L.pacer.length - 1];
     // Direct labels at the line ends, nudged apart when they'd collide.
     let ly = y(lastYou[1]), lp = y(lastPacer[1]);
     if (Math.abs(ly - lp) < 14) { if (ly <= lp) { ly -= 7; lp += 7; } else { ly += 7; lp -= 7; } }
     const nowX = L.now >= L.from && L.now <= L.to ? x(L.now) : null;
-    box.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(`You finished ${L.done} of ${L.n} tasks; the Pacer kept to the plan from ${hhmm(L.from)} to ${hhmm(view.r.planEnd)}.`)}">
+    box.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(`You finished ${L.done} of ${L.n} tasks; the Pacer kept to the plan from ${show(L.from)} to ${show(view.r.planEnd)}.`)}">
       ${grid}${ticks.join('')}
       ${nowX != null ? `<line x1="${nowX}" x2="${nowX}" y1="${m.t}" y2="${H - m.b}" class="now"/><text x="${nowX - 4}" y="${H - m.b - 6}" class="ax" text-anchor="end">now</text>` : ''}
       <path d="${path(L.pacer)}" class="pacer"/>
       <path d="${path(L.you)}" class="you"/>
-      ${L.tasks.map(t => t.finished).filter(t => t != null).sort((a, b) => a - b).map((t, c) => `<circle cx="${x(t)}" cy="${y(c + 1)}" r="4" class="dot"><title>${esc(`Task ${c + 1} done at ${hhmm(t)}`)}</title></circle>`).join('')}
+      ${L.tasks.map(t => t.finished).filter(t => t != null).sort((a, b) => a - b).map((t, c) => `<circle cx="${x(t)}" cy="${y(c + 1)}" r="4" class="dot"><title>${esc(`Task ${c + 1} done at ${show(t)}`)}</title></circle>`).join('')}
       <text x="${x(lastYou[0]) + 6}" y="${ly + 4}" class="lbl">You</text>
       <text x="${x(lastPacer[0]) + 6}" y="${lp + 4}" class="lbl">Pacer</text>
       <line class="cross" y1="${m.t}" y2="${H - m.b}" x1="-10" x2="-10"/>
@@ -133,7 +134,7 @@ const DayReport = (() => {
       cross.setAttribute('x1', px); cross.setAttribute('x2', px);
       const you = DayPace.valueAt(L.you, t), pacer = DayPace.valueAt(L.pacer, t);
       tip.hidden = false;
-      tip.innerHTML = `<b>${hhmm(t)}</b><span><i class="you"></i>You ${t > Math.max(L.now, L.you[L.you.length - 1][0]) ? '–' : Math.floor(you)}</span><span><i class="pacer"></i>Pacer ${pacer.toFixed(1).replace(/\.0$/, '')}</span>`;
+      tip.innerHTML = `<b>${show(t)}</b><span><i class="you"></i>You ${t > Math.max(L.now, L.you[L.you.length - 1][0]) ? '–' : Math.floor(you)}</span><span><i class="pacer"></i>Pacer ${pacer.toFixed(1).replace(/\.0$/, '')}</span>`;
       tip.style.left = `${Math.min(px + 10, W - 130)}px`;
     };
     const leave = () => { tip.hidden = true; cross.setAttribute('x1', -10); cross.setAttribute('x2', -10); };

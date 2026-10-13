@@ -502,7 +502,7 @@
     .dayplan-start input { border: 1px solid #E3E6EA; border-radius: 10px; padding: 6px 8px; font-size: 14px; font-weight: 700; color: #0D1B2A; }
     .dayplan-tt { list-style: none; padding: 0; margin-top: 12px; display: grid; gap: 6px; }
     .dayplan-slot { display: flex; align-items: center; gap: 10px; border: 1px solid #E3E6EA; border-radius: 14px; padding: 9px 10px 9px 12px; }
-    .dayplan-time { font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 800; color: #0A7E8C; width: 44px; flex-shrink: 0; }
+    .dayplan-time { font-variant-numeric: tabular-nums; font-size: 14px; font-weight: 800; color: #0A7E8C; min-width: 44px; white-space: nowrap; flex-shrink: 0; }
     .dayplan-blk { display: inline-flex; align-items: center; gap: 3px; color: #B91C1C; font-weight: 700; }
     .dayplan-mins { border: 1px solid #E3E6EA; border-radius: 9px; padding: 5px 6px; font-size: 12.5px; font-weight: 700; color: #1F2A37; background: #fff; flex-shrink: 0; }
     .dayplan-move { display: inline-flex; flex-direction: column; flex-shrink: 0; }
@@ -766,6 +766,21 @@
     .dayroad-caption { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); max-width: calc(100% - 24px); background: rgba(13,27,42,.88); color: #fff; font-size: 13px; font-weight: 700; padding: 7px 12px; border-radius: 10px; z-index: 5; text-align: center; pointer-events: none; animation: gatefade .2s ease both; }
     .dark .dayroad-replay { background: rgba(94,234,212,.08); color: #5EEAD4; }
     .voice-row.is-off { opacity: .45; }
+    /* Start my day: the start time (jarvis.js startPicker) */
+    .dp-start { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin-top: 14px; }
+    .dp-start-l { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #3B4552; }
+    .dp-step { display: inline-flex; align-items: center; border: 1px solid #E3E6EA; border-radius: 12px; overflow: hidden; background: #fff; }
+    .dp-step > button { width: 36px; height: 38px; font-size: 18px; font-weight: 800; color: #0A7E8C; }
+    .dp-step > button:hover { background: #F0FAF9; }
+    .dp-step select, .dp-step .dp-custom { border: 0; border-left: 1px solid #E3E6EA; border-right: 1px solid #E3E6EA; height: 38px; padding: 0 10px; font-size: 15px; font-weight: 800; color: #0D1B2A; background: #fff; min-width: 108px; text-align: center; }
+    .dp-now { display: inline-flex; align-items: center; gap: 5px; height: 38px; padding: 0 12px; border-radius: 12px; font-size: 13px; font-weight: 800; color: #fff; background: #0A7E8C; }
+    .dp-now:hover { background: #086A76; }
+    .dp-fmt { display: inline-flex; background: #F1F3F5; border-radius: 10px; padding: 3px; }
+    .dp-fmt button { font-size: 12px; font-weight: 800; color: #6B7280; padding: 6px 10px; border-radius: 8px; }
+    .dp-fmt button[aria-pressed="true"] { background: #fff; color: #0D1B2A; box-shadow: 0 1px 2px rgba(13,27,42,.12); }
+    .dayplan-mins-custom { width: 76px; }
+    .dark .dp-step, .dark .dp-step select, .dark .dp-step .dp-custom { background: #0B1220; border-color: #24324A; color: #E8EEF5; }
+    .dark .dp-fmt { background: #1A2436; } .dark .dp-fmt button[aria-pressed="true"] { background: #0B1220; color: #E8EEF5; } .dark .dp-start-l { color: #C9D6E2; }
     /* The project picker (js/projectPicker.js) */
     .pp-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; overflow: hidden; }
     .pp-btn { display: inline-flex; align-items: center; gap: 8px; text-align: left; min-width: 0; cursor: pointer; }
@@ -817,7 +832,7 @@
     .dayroad-list li { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 12px; }
     .dayroad-list li.next { background: #F0FAF9; }
     .dayroad-list li.done .dayroad-task b { color: #8A93A0; text-decoration: line-through; }
-    .dayroad-time { width: 48px; flex-shrink: 0; font-size: 14px; font-weight: 800; color: #0A7E8C; font-variant-numeric: tabular-nums; }
+    .dayroad-time { min-width: 48px; white-space: nowrap; flex-shrink: 0; font-size: 14px; font-weight: 800; color: #0A7E8C; font-variant-numeric: tabular-nums; }
     .dayroad-time small { display: block; font-size: 11px; font-weight: 600; color: #8A93A0; }
     .dayroad-dot { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border: 2px solid #D7DEE5; color: #0A7E8C; }
     .dayroad-list li.done .dayroad-dot { background: #0A7E8C; border-color: #0A7E8C; color: #fff; }
