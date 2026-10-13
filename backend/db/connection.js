@@ -364,6 +364,19 @@ db.exec(`
   );
 `);
 
+// "Report a problem" from inside the app: what they wrote, the page they
+// were on and their browser, for the owner to read and reply to.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS feedback (
+    id TEXT PRIMARY KEY,
+    userId TEXT,
+    message TEXT NOT NULL,
+    page TEXT,
+    userAgent TEXT,
+    createdAt TEXT NOT NULL
+  );
+`);
+
 // Status updates: a short, timestamped "here's why" note a teammate posts
 // against a task — separate from the general discussion in task_comments
 // so "why is this still In Progress" stays scannable on its own instead of

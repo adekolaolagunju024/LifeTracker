@@ -17,8 +17,8 @@ function getTransporter() {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const from = process.env.RESEND_FROM_EMAIL || 'Waypoint <onboarding@resend.dev>';
   return {
-    sendMail: async ({ to, subject, html }) => {
-      const { error } = await resend.emails.send({ from, to, subject, html });
+    sendMail: async ({ to, subject, html, replyTo }) => {
+      const { error } = await resend.emails.send({ from, to, subject, html, ...(replyTo ? { replyTo } : {}) });
       if (error) throw new Error(error.message || 'Resend send failed');
     },
   };

@@ -198,6 +198,7 @@ app.use('/api/reminders', require('./routes/reminders'));
 app.use('/api/day',      require('./routes/day'));
 app.use('/api/voice',    require('./routes/voice'));
 app.use('/api/motivation', require('./routes/motivation'));
+app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/pledges', pledgeRoutes);
 app.use('/api/music', require('./routes/music'));
 app.use('/api/billing', billingRoutes.router);
