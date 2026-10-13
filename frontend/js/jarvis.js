@@ -289,6 +289,10 @@ const Jarvis = (() => {
       if (t) t.textContent = fmt(left);
       if (focus.hidden && window.TopDock) TopDock.set('focus', `<button type="button" onclick="Jarvis.showTimer()" title="${esc(focus.title || 'Focus')}. Show the timer" aria-label="Show the focus timer, ${fmt(left)} left">${icon(focus.paused != null ? 'pause' : 'timer')}${fmt(left)}</button>`);
     };
+    // Today's road in full view, a tap away from the timer. The panel only
+    // shows its own small copy where there's room (not on the dashboard,
+    // not on a phone), so this is the way in from everywhere.
+    const roadBtn = window.DayRoad && DayRoad.state() ? `<button type="button" class="focus-btn" onclick="DayRoad.openFull()" aria-label="Open today's road in full view" title="Today's road">${icon('map')}</button>` : '';
     const min = focus.min && !focus.done;
     const hidden = focus.hidden && !focus.done;
     const extra = !min && !hidden;
@@ -306,11 +310,11 @@ const Jarvis = (() => {
         ${focus.taskId && !min ? '<span class="focus-action" id="focus-action"></span>' : ''}
       </div>
       <span class="focus-time">${fmt(focus.paused != null ? focus.paused : focus.ends - Date.now())}</span>
-      ${min ? `<button type="button" class="focus-btn" onclick="Jarvis.toggleMin()" aria-label="Show the focus timer" title="Show">${icon('maximize-2')}</button>
+      ${min ? `${roadBtn}<button type="button" class="focus-btn" onclick="Jarvis.toggleMin()" aria-label="Show the focus timer" title="Show">${icon('maximize-2')}</button>
       <button type="button" class="focus-btn" onclick="Jarvis.hideTimer()" aria-label="Hide the timer. It keeps counting and comes back when time is up" title="Hide (keeps counting)">${icon('eye-off')}</button>` : `
-      <button type="button" class="focus-btn" onclick="Jarvis.togglePause()" aria-label="${focus.paused != null ? 'Resume' : 'Pause'}">${icon(focus.paused != null ? 'play' : 'pause')}</button>
+      ${roadBtn}<button type="button" class="focus-btn" onclick="Jarvis.togglePause()" aria-label="${focus.paused != null ? 'Resume' : 'Pause'}">${icon(focus.paused != null ? 'play' : 'pause')}</button>
       <button type="button" class="focus-btn" onclick="Jarvis.toggleMin()" aria-label="Minimise the focus timer" title="Minimise (keeps counting)">${icon('minimize-2')}</button>
-      <button type="button" class="focus-btn" onclick="Jarvis.hideTimer()" aria-label="Hide the timer. It keeps counting" title="Hide (keeps counting)">${icon('eye-off')}</button>
+      <button type="button" class="focus-btn focus-hide-btn" onclick="Jarvis.hideTimer()" aria-label="Hide the timer. It keeps counting" title="Hide (keeps counting)">${icon('eye-off')}</button>
       <button type="button" class="focus-btn" onclick="Jarvis.stopFocus()" aria-label="End focus session">${icon('close')}</button>`}</div>
       ${extra ? `<div class="focus-extra"><div data-dayroad="panel" class="hidden"></div><div class="focus-music" id="focus-music">${musicHTML()}</div></div>` : ''}`;
     if (window.DayRoad) DayRoad.render();
@@ -325,6 +329,14 @@ const Jarvis = (() => {
       focus.tick = setInterval(() => { draw(); if (++beat % 3 === 0) syncMusic(); }, 1000);
     }
   }
+
+  // A timer drawn before today's plan had loaded gets its road button
+  // once the plan arrives (and loses it if the plan is cleared).
+  document.addEventListener('dayroad:refresh', () => {
+    if (!focus || focus.done) return;
+    const has = !!document.querySelector('#focus-hud [aria-label="Open today\'s road in full view"]');
+    if (has !== !!(window.DayRoad && DayRoad.state())) paintFocus();
+  });
 
   // ── The focus panel's music row ──
   // What's playing with pause and next, or play your music; and Add music,
