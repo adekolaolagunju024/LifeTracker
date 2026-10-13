@@ -162,3 +162,17 @@ test('finishing places: 1st, 2nd and 3rd go by who ticked their last step first'
   assert.equal(board.yourPlace, null);
   assert.equal((await (await call(b, 'GET', `/api/challenges/${race.id}`)).json()).yourPlace, 3);
 });
+
+test('a group says who leads it: a coach, a trainer, a teacher…; races have no leader', async () => {
+  const [coach, player] = [await signUp(), await signUp()];
+  const goal = await goalWithTasks(coach, ['Run 3k', 'Gym session', 'Recovery day']);
+  const squad = await (await call(coach, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), mode: 'together', organiserOnly: true, leaderRole: 'coach' })).json();
+  assert.equal(squad.leaderRole, 'coach');
+  const preview = await (await call(player, 'GET', `/api/race-code/${squad.joinCode}`)).json();
+  assert.equal(preview.leaderRole, 'coach', 'the invite says who is asking');
+  // An unknown role falls back to a team leader; a race has none.
+  const odd = await (await call(coach, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), mode: 'together', leaderRole: 'emperor', displayName: 'Sam' })).json();
+  assert.equal(odd.leaderRole, 'leader');
+  const race = await (await call(coach, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), leaderRole: 'coach', displayName: 'Sam' })).json();
+  assert.equal(race.leaderRole, null);
+});
