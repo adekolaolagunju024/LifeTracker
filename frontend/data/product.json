@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Play today's road as a game",
+      "text": "Full view on today's road now has a Game mode. Your day becomes a Journey world, one stop per task, with you and the Pacer racing along it. Pick the world and switch between 2D and 3D right there; the list of today's stops sits underneath. Prefer it plain? Road mode is one tap away, and Waypoint remembers which you chose."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Race the Pacer through your day",
       "text": "Once you start your day, the focus timer shows today's road: a stop for each task, you moving as you finish them, and a Pacer keeping to the times you planned, like a pacer in a race. It tells you if you're ahead of or behind plan, the same strip sits on your dashboard, and Full view lays out the whole day. Music now lives on the timer too: pause, skip, or search and add a song without leaving your work."
     },
