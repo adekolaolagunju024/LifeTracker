@@ -822,6 +822,14 @@
     .dayroad-list li.done .dayroad-dot { background: #0A7E8C; border-color: #0A7E8C; color: #fff; }
     .dayroad-list li.next .dayroad-dot { border-color: #0A7E8C; }
     .dayroad-dot .ic { width: 14px; height: 14px; }
+    /* The dot is the tick box: hovering (or focusing) an open one previews the tick. */
+    button.dayroad-dot { cursor: pointer; background: #fff; transition: background .15s, border-color .15s; }
+    .dayroad-dot .dd-mark, .dayroad-dot .dd-tick { display: flex; align-items: center; justify-content: center; }
+    .dayroad-dot .dd-tick { display: none; }
+    .dayroad-list li:not(.done) .dayroad-dot:hover, .dayroad-list li:not(.done) .dayroad-dot:focus-visible { border-color: #0A7E8C; background: #F0FAF9; }
+    .dayroad-list li:not(.done) .dayroad-dot:hover .dd-mark, .dayroad-list li:not(.done) .dayroad-dot:focus-visible .dd-mark { display: none; }
+    .dayroad-list li:not(.done) .dayroad-dot:hover .dd-tick, .dayroad-list li:not(.done) .dayroad-dot:focus-visible .dd-tick { display: flex; }
+    .dark button.dayroad-dot { background: transparent; }
     .dayroad-main { flex: 1; min-width: 0; } .dayroad-main [data-blocker-list] { margin: 2px 0 0 2px; }
     .dayroad-task { display: block; width: 100%; min-width: 0; text-align: left; }
     .dayroad-task b { display: block; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
