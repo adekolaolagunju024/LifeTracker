@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Plan your first day in three steps",
+      "text": "New to Waypoint? Name your goal, write the first three things to do, and see today laid out with times. You land on your own day, ready to start the first task."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Confirm your email",
       "text": "New accounts made with an email address now get a link to confirm it, so password resets and invites always reach the right person. You can use Waypoint straight away while you wait."
     },

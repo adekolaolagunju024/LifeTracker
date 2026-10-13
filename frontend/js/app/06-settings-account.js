@@ -851,15 +851,72 @@ function startGameOffForNewcomers() {
   syncSoundButtons();
 }
 
+// ── FIRST RUN ───────────────────────────────────────────────────
+// Three steps, each one part of the daily loop: name a goal, write the
+// first three things to do, and plan today with them. It ends on the
+// dashboard with today's road drawn, so the first thing a new person
+// sees is their own day, not an empty cockpit.
+const ONB_KINDS = {
+  career:   { icon: '💼', goal: 'Land a new job',            tasks: ['Update my CV', 'Find three roles to apply for', 'Ask someone for a reference'] },
+  learning: { icon: '🎓', goal: 'Pass my next exam',         tasks: ['List the topics to cover', 'Do one past paper', 'Plan my revision week'] },
+  health:   { icon: '🏃', goal: 'Run 5k without stopping',   tasks: ['Go for a 20 minute walk-run', 'Plan three runs this week', 'Sort out running shoes'] },
+  business: { icon: '📊', goal: 'Finish the project at work', tasks: ['Write down what done looks like', 'List what is blocking it', 'Send an update to the team'] },
+  personal: { icon: '🎯', goal: 'My goal',                   tasks: ['Write down why it matters', 'Do the first small step', 'Plan the rest of the week'] },
+};
+let onbKind = 'career';
+const onbTouched = new Set(); // task boxes they've typed in keep their words when the kind changes
+
 function startOnboarding() {
   APP.onboardingStep = 1;
-  document.getElementById('onb-name').value     = '';
-  document.getElementById('onb-tagline').value  = '';
+  onbKind = 'career';
+  onbTouched.clear();
+  document.getElementById('onb-name').value = '';
   document.getElementById('onb-proj-title').value = '';
-  document.getElementById('onb-proj-icon').value  = '📁';
-  document.getElementById('onb-proj-color').value = '#0A7E8C';
+  document.querySelectorAll('.onb-kinds button').forEach(b => {
+    b.onclick = () => pickOnboardingKind(b.dataset.kind);
+  });
+  [1, 2, 3].forEach(i => {
+    const el = document.getElementById(`onb-task-${i}`);
+    el.oninput = () => onbTouched.add(i);
+  });
+  pickOnboardingKind('career');
   document.getElementById('onboarding-overlay').classList.add('open');
   renderOnboardingStep();
+}
+
+function pickOnboardingKind(kind) {
+  onbKind = ONB_KINDS[kind] ? kind : 'personal';
+  const k = ONB_KINDS[onbKind];
+  document.querySelectorAll('.onb-kinds button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.kind === onbKind)));
+  document.getElementById('onb-proj-title').placeholder = `e.g. ${k.goal}`;
+  [1, 2, 3].forEach(i => { if (!onbTouched.has(i)) document.getElementById(`onb-task-${i}`).value = k.tasks[i - 1]; });
+}
+
+// Today's plan from the three tasks: back to back from the next five
+// minutes, half an hour each until they say otherwise.
+let onbPlan = [];
+function onboardingTasks() {
+  return [1, 2, 3].map(i => document.getElementById(`onb-task-${i}`).value.trim()).filter(Boolean);
+}
+function renderOnboardingPlan() {
+  const titles = onboardingTasks();
+  onbPlan = titles.map((title, i) => ({ title, on: onbPlan[i] ? onbPlan[i].on : true, minutes: onbPlan[i] ? onbPlan[i].minutes : 30 }));
+  const now = new Date();
+  let at = Math.ceil((now.getHours() * 60 + now.getMinutes()) / 5) * 5;
+  const hhmm = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  const list = document.getElementById('onb-plan');
+  list.innerHTML = onbPlan.map((p, i) => {
+    const start = at;
+    if (p.on) at += p.minutes;
+    p.start = hhmm(start);
+    return `<li class="${p.on ? '' : 'off'}">
+      <input type="checkbox" ${p.on ? 'checked' : ''} onchange="onbPlan[${i}].on = this.checked; renderOnboardingPlan()" aria-label="Do ${esc(p.title)} today">
+      <span class="at">${p.on ? esc(clockText(p.start)) : 'later'}</span>
+      <span class="t">${esc(p.title)}</span>
+      <select onchange="onbPlan[${i}].minutes = Number(this.value); renderOnboardingPlan()" aria-label="How long ${esc(p.title)} takes" ${p.on ? '' : 'disabled'}>
+        ${[15, 30, 45, 60, 90].map(m => `<option value="${m}" ${m === p.minutes ? 'selected' : ''}>${m < 60 ? `${m} min` : `${m / 60} hr${m > 60 ? 's' : ''}`}</option>`).join('')}
+      </select></li>`;
+  }).join('') || '<li class="off"><span class="t">Add at least one task on the step before.</span></li>';
 }
 
 function renderOnboardingStep() {
@@ -870,9 +927,10 @@ function renderOnboardingStep() {
     dot.classList.toggle('done', i < APP.onboardingStep);
   }
   document.getElementById('onb-back-btn').style.visibility = APP.onboardingStep === 1 ? 'hidden' : 'visible';
-  document.getElementById('onb-next-btn').textContent = APP.onboardingStep === ONBOARDING_STEPS ? 'Finish' : 'Next';
-
-  if (APP.onboardingStep === 3) renderOnboardingDriveStatus();
+  document.getElementById('onb-next-btn').textContent = APP.onboardingStep === ONBOARDING_STEPS ? 'Plan my day' : 'Next';
+  if (APP.onboardingStep === 3) renderOnboardingPlan();
+  const first = document.querySelector(`#onb-step-${APP.onboardingStep} input`);
+  if (first) setTimeout(() => first.focus(), 50);
 }
 
 function onboardingBack() {
@@ -882,6 +940,14 @@ function onboardingBack() {
 }
 
 async function onboardingNext() {
+  if (APP.onboardingStep === 1 && !document.getElementById('onb-proj-title').value.trim()) {
+    document.getElementById('onb-proj-title').value = ONB_KINDS[onbKind].goal;
+  }
+  if (APP.onboardingStep === 2 && !onboardingTasks().length) {
+    showToast('Add at least one thing to do first', 'error');
+    document.getElementById('onb-task-1').focus();
+    return;
+  }
   if (APP.onboardingStep < ONBOARDING_STEPS) {
     APP.onboardingStep++;
     renderOnboardingStep();
@@ -893,31 +959,35 @@ async function onboardingNext() {
 async function skipOnboarding() {
   await API.updateProfile({ onboarded: true });
   await closeOnboarding();
-  showToast('👋 Setup skipped — you can change anything in Settings');
+  showToast('👋 No problem. Plan a goal from the dashboard whenever you like');
 }
 
 async function finishOnboarding() {
+  const btn = document.getElementById('onb-next-btn');
+  btn.disabled = true;
   try {
-    await API.updateProfile({
-      name:      document.getElementById('onb-name').value.trim(),
-      tagline:   document.getElementById('onb-tagline').value.trim() || 'Every Goal, One Path',
-      onboarded: true,
+    const name = document.getElementById('onb-name').value.trim();
+    await API.updateProfile({ ...(name ? { name } : {}), onboarded: true });
+    const k = ONB_KINDS[onbKind];
+    const project = await API.addProject({
+      title: document.getElementById('onb-proj-title').value.trim() || k.goal,
+      description: '', icon: k.icon, color: '#0A7E8C', type: onbKind, isGoal: true,
     });
-
-    const projTitle = document.getElementById('onb-proj-title').value.trim();
-    if (projTitle) {
-      await API.addProject({
-        title:       projTitle,
-        description: '',
-        icon:        document.getElementById('onb-proj-icon').value.trim() || '📁',
-        color:       document.getElementById('onb-proj-color').value,
-      });
+    const today = localDateKey(new Date());
+    const items = [];
+    for (const p of onbPlan) {
+      const task = await API.addTask({ projectId: project.id, title: p.title, status: 'Not Started', priority: 'Medium', ...(p.on ? { startDate: today, endDate: today } : {}) });
+      if (p.on) items.push({ taskId: task.id, start: p.start, minutes: p.minutes });
     }
-
+    if (items.length) await API.saveDayPlan(today, items);
+    API.trackFeature('start_day');
     await closeOnboarding();
-    showToast('✅ All set up — welcome to Waypoint!');
+    if (window.DayRoad) DayRoad.refresh();
+    showToast(items.length ? `✅ Today is planned. Start "${onbPlan.find(p => p.on).title}" when you're ready` : '✅ Your goal is set up');
   } catch (e) {
-    showToast('❌ Something went wrong finishing setup', 'error');
+    showToast('❌ ' + (e.message || 'Something went wrong. Try again'), 'error');
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -934,24 +1004,6 @@ async function rerunOnboarding() {
 // ── GOOGLE DRIVE ────────────────────────────────────────────────
 async function connectDrive() {
   window.location.href = API.connectDriveUrl();
-}
-
-async function renderOnboardingDriveStatus() {
-  try {
-    const status = await API.getDriveStatus();
-    const textEl = document.getElementById('onb-drive-text');
-    const btnEl  = document.getElementById('onb-drive-connect-btn');
-    if (!status.configured) {
-      textEl.textContent = 'Google Drive backup isn’t configured on this server yet. You can set it up later in Settings.';
-      btnEl.style.display = 'none';
-    } else if (status.connected) {
-      textEl.textContent = 'Connected — your data can now be backed up to Drive any time.';
-      btnEl.style.display = 'none';
-    } else {
-      textEl.textContent = 'Not connected yet.';
-      btnEl.style.display = 'inline-block';
-    }
-  } catch (e) { console.error('Drive status error:', e); }
 }
 
 async function renderSettingsDrive() {
