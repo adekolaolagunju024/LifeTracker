@@ -432,6 +432,7 @@ function renderMountainTaskList() {
       <span class="journey-quest-badge ${badgeClass}">${isDone ? '✓' : i + 1}</span>
       <span class="journey-quest-title">${!isDone && waitingOn(t).length ? '<span title="Waiting on another task" aria-hidden="true">' + icon('lock') + ' </span>' : ''}${esc(t.title)}</span>
       ${!isDone && foeCount(t) ? `<span class="journey-quest-foes" title="${esc(obstacleNames(t) || 'Blocked')}">${icon('blocker')}${foeCount(t)}</span>` : ''}
+      ${watchSlot(t.id)}
       ${t.endDate ? `<span class="journey-quest-date">${esc(formatDateShort(t.endDate.slice(0, 10)))}</span>` : ''}
       <button type="button" class="journey-quest-foe-btn" onclick="event.preventDefault(); event.stopPropagation(); openTaskDetail('${t.id}')" title="Obstacles and details" aria-label="Obstacles and details for ${esc(t.title)}">${icon('blocker')}</button>
     </label>${!isDone && waitingOn(t).length ? `<div class="journey-waiting">${icon('link')} Waiting on ${waitingOn(t).map(p => esc(p.title)).join(', ')}</div>` : ''}${blockerChecklist(t, canEdit, 'quest')}`;

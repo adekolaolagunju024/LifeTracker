@@ -555,7 +555,7 @@ async function renderGantt() {
             <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-1 overflow-hidden">
               ${canEditGroup ? `<span class="flex-shrink-0 hidden group-hover:inline cursor-grab text-gray-300 hover:text-gray-500 px-0.5" onmousedown="ganttRowMouseDown(event, '${t.id}', '${t.projectId}', '${groupId}')" title="Drag to reorder">⠿</span>` : ''}
               <span class="gantt-status-dot gantt-keep" role="img" style="background:${statusColor(t.status)}" title="${({ 'Not Started': 'To do', 'In Progress': 'Doing', Completed: 'Done' })[t.status] || t.status}" aria-label="${({ 'Not Started': 'To do', 'In Progress': 'Doing', Completed: 'Done' })[t.status] || t.status}"></span>
-              <span class="gantt-title-text flex-1 min-w-[6rem] text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="${canEditGroup ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" title="${esc(t.title)} (click to ${canEditGroup ? 'edit' : 'view'})">${esc(t.title)}</span>
+              <span class="gantt-title-text flex-1 min-w-[6rem] text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="${canEditGroup ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" title="${esc(t.title)} (click to ${canEditGroup ? 'edit' : 'view'})">${esc(t.title)}</span>${watchSlot(t.id)}
               ${cardFields.priority ? miniPriorityBadge(t.priority) : ''}
               ${cardFields.tags ? miniTagBadges(t.tags) : ''}
               ${cardFields.checklist ? miniChecklistBadge(t) : ''}
@@ -770,6 +770,7 @@ function renderKanbanBoard(tasks, projectById) {
           <div class="flex items-start justify-between gap-2">
             <span class="kanban-card-title" role="button" tabindex="0" onclick="${canEdit ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" onkeydown="if(event.key==='Enter')this.click()">${esc(t.title)}</span>
             <div class="flex-shrink-0 flex items-center gap-1.5 pt-0.5">
+              ${watchSlot(t.id)}
               ${cardFields.priority ? `<span class="kanban-prio" title="${esc(t.priority)} priority"><i style="background:${priorityBorderColor(t.priority)}"></i>${esc(t.priority)}</span>` : ''}
               ${cardFields.assignee ? assigneeInitialBadge(t.assigneeName) : ''}
             </div>

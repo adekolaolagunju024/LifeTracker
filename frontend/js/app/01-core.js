@@ -299,6 +299,7 @@ function blockerChecklist(t, canEdit, variant) {
       <label class="${variant === 'quest' ? `journey-blocker-row${o.resolved ? ' is-resolved' : ''}` : `flex items-center gap-1.5 text-xs ${o.resolved ? 'text-gray-400 line-through' : 'text-red-700'} ${canEdit ? 'cursor-pointer' : ''}`}" ${stop} title="${o.resolved ? 'Cleared. Untick if it is back in the way' : 'Tick when this blocker is cleared'}">
         <input type="checkbox" class="${variant === 'quest' ? 'journey-blocker-check' : 'w-3.5 h-3.5 accent-green-600'}" data-obstacle-id="${o.id}" ${o.resolved ? 'checked' : ''} ${canEdit ? '' : 'disabled'} onchange="tickBlocker('${t.id}', '${o.id}', this)" aria-label="${esc(o.name)} cleared">
         <span class="${variant === 'quest' ? 'journey-blocker-name' : 'truncate'}">${variant === 'quest' ? icon(o.resolved ? 'done' : 'blocker', 'tiny mr-1') : ''}${esc(o.name)}${(o.count || 1) > 1 ? ` ×${o.count}` : ''}</span>
+        ${o.resolved ? watchSlot(t.id, o.id) : ''}
       </label>`).join('');
   return `<div class="${variant === 'quest' ? 'journey-blocker-list' : 'mt-1.5 flex flex-col gap-0.5'}" data-blocker-list="${t.id}">${rows}</div>`;
 }
@@ -385,15 +386,15 @@ function syncPredecessorSnapshots(task) {
   API.updateTask = async (id, data) => {
     const saved = await update(id, data);
     syncPredecessorSnapshots(saved && saved.id ? saved : { id, ...data });
-    if (data && data.status === 'Completed') afterTaskDone(id, saved);
+    if (data && data.status) afterTaskDone(); // done or undone: the Watch icons follow
     return saved;
   };
 }
 // Blockers can be ticked off at any time: they clear when the world says
 // so (the call back comes), not when work starts. When the last one on a
-// task that hasn't started goes, offer to start it there and then. And if
-// the task is on today's road (and the game layer is on), offer to watch
-// the knockout there; inside today's road Game view it plays on its own.
+// task that hasn't started goes, offer to start it there and then. Watching
+// the knockout on today's road is the play icon beside the ticked blocker
+// (see watchSlot), not a pop-up over the screen.
 {
   const update = API.updateObstacle;
   API.updateObstacle = async (id, changes) => {
@@ -409,23 +410,38 @@ async function afterBlockerCleared(obstacle) {
   try { t = await API.getTask(taskId); } catch { return; }
   if (!t) return;
   const canStart = t.status === 'Not Started' && !(t.obstacles || []).some(o => !o.resolved) && !waitingOn(t).length;
-  const canWatch = t.status !== 'Completed' && typeof DayRoad !== 'undefined' && DayRoad.canReplay(taskId);
-  const watch = { label: 'Watch', run: () => DayRoad.replayKnockout(taskId, obstacle.id) };
   const start = { label: 'Start', run: async () => {
     try { await API.updateTask(taskId, { status: 'In Progress' }); } catch (e) { taskErrorToast(e, 'Could not start it', { taskId, status: 'In Progress' }); return; }
     showToast(`▶️ "${t.title}" is under way`);
     refreshAfterStart(taskId);
   } };
-  if (canStart) showActionToast(`✅ All clear. Start "${t.title}" now?`, canWatch ? [watch, start] : [start]);
-  else if (canWatch) showActionToast(`⚔️ Watch "${obstacle.name}" get knocked out on today's road`, [watch]);
+  if (canStart) showActionToast(`✅ All clear. Start "${t.title}" now?`, [start]);
+  if (typeof DayRoad !== 'undefined') DayRoad.refresh(); // lights up its Watch icon
 }
 // A task on today's plan finished anywhere (ticked, dragged to Completed
-// on the board, from the task panel), with the game layer on: offer to
-// watch it on today's road, where the character walks on to its stop.
-function afterTaskDone(taskId, saved) {
-  if (document.getElementById('gate-card') || typeof DayRoad === 'undefined' || !DayRoad.canWatchFinish(taskId)) return;
-  const title = (saved && saved.title) || 'That task';
-  setTimeout(() => showActionToast(`✅ “${title}” done. Watch it on today's road`, [{ label: 'Watch', run: () => DayRoad.replayFinish(taskId) }]), 600);
+// on the board, from the task panel), with the game layer on: a small
+// play icon appears beside it, wherever it's shown, to watch it on today's
+// road. It used to be a pop-up, which covered the screen.
+function afterTaskDone() {
+  if (typeof DayRoad !== 'undefined') DayRoad.refresh();
+}
+// The Watch icon. A slot sits beside every task row and every blocker;
+// it holds a play button only while there's something to watch (see
+// DayRoad.watchable), and is repainted whenever today's road reloads.
+function watchSlotInner(taskId, obstacleId) {
+  if (typeof DayRoad === 'undefined' || !DayRoad.watchable(taskId, obstacleId)) return '';
+  const what = obstacleId ? 'this blocker get knocked out' : 'it finished';
+  const run = obstacleId ? `DayRoad.replayKnockout('${taskId}', '${obstacleId}')` : `DayRoad.replayFinish('${taskId}')`;
+  return `<button type="button" class="watch-btn" onclick="event.preventDefault(); event.stopPropagation(); ${run}" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()" title="Watch ${what} on today's road" aria-label="Watch ${what} on today's road">${icon('play')}</button>`;
+}
+function watchSlot(taskId, obstacleId) {
+  return `<span class="watch-slot" data-watch-task="${taskId}"${obstacleId ? ` data-watch-ob="${obstacleId}"` : ''}>${watchSlotInner(taskId, obstacleId)}</span>`;
+}
+function paintWatchSlots() {
+  document.querySelectorAll('.watch-slot').forEach(el => {
+    const html = watchSlotInner(el.dataset.watchTask, el.dataset.watchOb);
+    if (el.innerHTML !== html) el.innerHTML = html;
+  });
 }
 // Every loaded view takes the new status without a reload.
 function refreshAfterStart(taskId, status = 'In Progress') {

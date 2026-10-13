@@ -32,7 +32,7 @@ async function openTaskDetail(id) {
 
     document.getElementById('td-project-icon').innerHTML    = proj ? emojiIcon(proj.icon) : '';
     document.getElementById('td-project-title').textContent = proj ? proj.title : '';
-    document.getElementById('td-title').textContent = t.title;
+    document.getElementById('td-title').innerHTML = esc(t.title) + watchSlot(id);
     APP.detailTask = t;
     APP.detailProject = proj;
     const reminder = window.Reminders && Reminders.forTask(id);
