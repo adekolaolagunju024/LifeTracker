@@ -966,7 +966,12 @@
     .rr-step { display: grid; justify-items: center; gap: 2px; text-align: center; min-width: 0; }
     .rr-step b { font-size: 13px; color: #0D1B2A; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .rr-step small { font: 600 11px ui-monospace, monospace; color: #556270; min-height: 14px; }
-    .rr-medal { font-size: 26px; line-height: 1; }
+    .rr-medal { display: grid; place-items: center; height: 30px; }
+    .rr-medal .place-cup { width: 28px; height: 28px; stroke-width: 1.8; }
+    .rr-1 .rr-medal .place-cup { width: 34px; height: 34px; }
+    /* A place: a gold, silver or bronze cup for the podium, then the ordinal. */
+    .place { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .place-cup { width: 15px; height: 15px; flex: none; stroke-width: 2.2; }
     .rr-step i { display: grid; place-items: center; width: 100%; border-radius: 10px 10px 4px 4px; color: #fff; font: 800 15px system-ui, sans-serif; font-style: normal; background: #CBD5DD; text-shadow: 0 1px 2px rgba(0,0,0,.25); }
     .rr-1 i { height: 78px; } .rr-2 i { height: 58px; } .rr-3 i { height: 42px; }
     .rr-step.empty { opacity: .45; }

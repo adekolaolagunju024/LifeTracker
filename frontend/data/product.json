@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Gold, silver and bronze cups on the scoreboard",
+      "text": "The race report is now the Scoreboard. First, second and third get gold, silver and bronze cups on name tags, the podium and the table. The Close button on the finish summary works again."
+    },
+    {
+      "date": "2026-10-13",
       "title": "1st, 2nd, 3rd and a race report",
       "text": "Races now give finishing places with medals on everyone's name tag, your place when you finish, and a race report with a podium, everyone's times and who owes the stake."
     },
