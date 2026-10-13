@@ -49,7 +49,10 @@
        every dropdown looks the same (one height, one chevron, one focus
        ring) instead of each browser's default. */
     .ui-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-    @media (min-width: 640px) { .ui-toolbar { flex-wrap: nowrap; } }
+    /* One row only with the room for it: next to the sidebar (tablets and
+       small laptops) the groups wrap instead of pushing the page sideways. */
+    @media (min-width: 1280px) { .ui-toolbar { flex-wrap: nowrap; } }
+    @media (max-width: 1279px) { .ui-toolbar > div { flex-wrap: wrap; } .ui-toolbar > div:last-child { justify-content: flex-end; } }
     @media (max-width: 639px) { .ui-desktop-only { display: none !important; } }
     .ui-noscrollbar { scrollbar-width: none; }
     .ui-noscrollbar::-webkit-scrollbar { display: none; }
@@ -981,6 +984,10 @@
     .dark .rr-title b, .dark .rr-step b { color: #E6EDF3; }
     /* The race scoreboard above the Journey */
     .race-strip { background: #fff; border: 1px solid #E3E6EA; border-radius: 16px; padding: 10px 12px; margin-bottom: 10px; display: grid; gap: 8px; }
+    /* A closed side panel waits just off screen; without this its shadow
+       showed as a pale haze down the right edge of every page. */
+    #task-detail-panel.translate-x-full, #project-chat-panel.translate-x-full { box-shadow: none !important; }
+    .race-strip.hidden { display: none; } /* out of a race: no empty box */
     .race-strip-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #0D1B2A; }
     .race-strip-title { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     .race-strip-stake { color: #A15C07; font-weight: 600; }
@@ -1972,7 +1979,10 @@
     #journey-hud #mountain-scene-wrap { flex: 1 1 auto; min-height: 0; }
     #journey-hud #mountain-quest-panel { flex: 0 0 auto; max-height: 18rem; min-height: 0; }
     #journey-hud #mountain-tasklist { flex: 1 1 auto; min-height: 0; }
-    @media (min-width: 640px) {
+    /* Side by side only with room for both: a phone on its side, or a
+       wide screen. Next to the sidebar on a tablet the scene would be half
+       the width, so the task panel sits underneath, as on a phone. */
+    @media (min-width: 640px) and (max-width: 767px), (min-width: 1100px) {
       #journey-hud { flex-direction: row; height: min(58vh, 480px); }
       #journey-hud #mountain-quest-panel { flex: 0 0 272px; width: 272px; max-height: none; }
       /* the scene fills the frame's full height (it was 20px short, which
@@ -2375,6 +2385,9 @@
     /* Kanban: three soft columns of white cards; on phones the columns
        sit side by side and swipe, one at a time, like Trello's app. */
     .kanban-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+    /* Next to the sidebar on a tablet or small laptop, three columns would be
+       too narrow for their cards: keep each readable and scroll the board. */
+    @media (min-width: 640px) and (max-width: 1279px) { .kanban-board { grid-template-columns: repeat(3, minmax(260px, 1fr)); overflow-x: auto; padding-bottom: 8px; } }
     @media (max-width: 767px) {
       .kanban-board { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px; padding: 0 16px 8px; scroll-padding: 0 16px; scrollbar-width: none; }
       .kanban-board::-webkit-scrollbar { display: none; }
@@ -3065,12 +3078,12 @@
 
     <!-- Topbar -->
     <div class="bg-white border-b border-gray-200 px-4 md:px-6 h-14 flex items-center justify-between sticky top-0 z-30 gap-2">
-      <div class="flex items-center gap-3 min-w-0 flex-shrink-0">
+      <div class="flex items-center gap-3 min-w-0 flex-shrink">
         <button onclick="openMobileSidebar()" class="md:hidden text-navy text-xl leading-none px-1 flex-shrink-0" aria-label="Open menu" data-icon="menu"></button>
         <button onclick="goBack()" id="topbar-back-btn" class="hidden text-navy hover:bg-gray-100 w-7 h-7 rounded-lg inline-flex items-center justify-center text-base flex-shrink-0" aria-label="Back" title="Back" data-icon="back"></button>
         <h2 class="font-bold text-navy text-sm truncate hidden sm:block" id="topbar-title">Dashboard</h2>
       </div>
-      <div class="relative flex-1 min-w-0 max-w-xs mx-2" id="global-search-wrap">
+      <div class="relative flex-1 min-w-[7rem] max-w-xs mx-2" id="global-search-wrap">
         <input type="text" id="global-search-input" placeholder="Search projects &amp; tasks…" title="Search (shortcut: /)" aria-label="Search projects and tasks" autocomplete="off"
           class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-teal bg-gray-50"
           oninput="onGlobalSearchInput(this.value)" onfocus="onGlobalSearchInput(this.value)">
@@ -3099,7 +3112,7 @@
     <!-- Daily digest — overdue/due-today tasks, shown once per day, dismissible -->
     <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-[#E6F4F5] border border-[#B9E1E4] rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap" id="verify-banner" role="status">
       <span class="text-teal flex" data-icon="mail"></span>
-      <p class="flex-1 min-w-[12rem] text-sm text-navy">Confirm <b id="verify-banner-email"></b> using the link we sent, so password resets and invites reach you.</p>
+      <p class="flex-1 min-w-[12rem] text-sm text-navy">Confirm <b id="verify-banner-email" class="break-all"></b> using the link we sent, so password resets and invites reach you.</p>
       <button type="button" onclick="resendVerification(this)" class="text-xs font-bold text-teal bg-white border border-[#B9E1E4] hover:bg-[#F2FAFA] rounded-lg px-3 py-1.5 flex-shrink-0 disabled:opacity-60">Send it again</button>
       <button type="button" onclick="dismissVerifyBanner()" class="text-teal hover:text-navy text-lg leading-none px-1 flex-shrink-0" aria-label="Hide for now" data-icon="close"></button>
     </div>
@@ -3200,7 +3213,7 @@
       <div class="hidden items-center gap-1.5 text-xs text-gray-400 mb-3" id="detail-breadcrumb"></div>
 
       <!-- Header -->
-      <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 mb-5 flex items-center gap-3 sm:gap-4 relative z-20 flex-wrap sm:flex-nowrap">
+      <div class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 mb-5 flex items-center gap-3 sm:gap-4 relative z-20 flex-wrap xl:flex-nowrap" id="detail-header">
         <span class="text-3xl sm:text-4xl" id="detail-icon"><span class="ei" data-icon="folder"></span></span>
         <div class="w-1.5 h-10 rounded-full flex-shrink-0" id="detail-color"></div>
         <div class="flex-1 min-w-0">
@@ -3211,7 +3224,7 @@
           </div>
           <p class="text-gray-500 text-sm mt-1" id="detail-desc"></p>
         </div>
-        <div class="flex gap-2 ml-auto items-center w-full sm:w-auto">
+        <div class="flex flex-wrap gap-2 ml-auto items-center w-full xl:w-auto">
           <button onclick="openAddTask(APP.currentProjectId)" id="btn-add-task-header" class="flex-1 sm:flex-none bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-2 sm:px-4 py-2 rounded-lg whitespace-nowrap">+ Add Task</button>
           <button onclick="openPlannerFromProject(APP.currentProjectId)" id="btn-planner-view" title="Open this project in the Planner (Gantt, Kanban or Journey)" class="flex-1 sm:flex-none whitespace-nowrap bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-xs font-semibold px-2 sm:px-4 py-2 rounded-lg"><span class="ei" data-icon="chart-column"></span> Planner</button>
           <button onclick="openAssistantFor({ projectId: APP.currentProjectId })" id="btn-assistant-project" title="Ask the assistant about this project" aria-label="Assistant" class="hidden flex-shrink-0 bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap"><span class="ei" data-icon="sparkles"></span><span class="hidden sm:inline"> Assistant</span></button>
@@ -3254,9 +3267,9 @@
       <div class="hidden mb-5" id="detail-rewards"></div>
 
       <!-- Filters -->
-      <div class="flex gap-2 sm:gap-3 mb-4 flex-wrap sm:flex-nowrap">
+      <div class="flex gap-2 sm:gap-3 mb-4 flex-wrap xl:flex-nowrap">
         <input type="text" id="filter-search" aria-label="Search tasks" placeholder="Search tasks..."
-          class="w-full sm:w-auto sm:flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal"
+          class="w-full xl:w-auto xl:flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal"
           oninput="applyFilters(APP.currentProjectId)">
         <div class="flex gap-2 sm:gap-3 w-full sm:w-auto overflow-x-auto ui-noscrollbar">
         <select id="filter-status" aria-label="Filter by status" onchange="applyFilters(APP.currentProjectId)"
@@ -3302,7 +3315,7 @@
 
       <!-- Task Table -->
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto relative">
         <table class="w-full task-table">
           <thead><tr class="bg-navy text-white text-xs">
             <th class="px-4 py-3 text-left font-semibold w-8" id="th-bulk-select"><input type="checkbox" id="bulk-select-all" aria-label="Select all tasks" onchange="toggleSelectAllTasks(this.checked)"></th>
