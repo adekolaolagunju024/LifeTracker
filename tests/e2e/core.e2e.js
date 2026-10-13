@@ -1,4 +1,4 @@
-/* global document, window, getComputedStyle, DayRoad, API, APP, showAuthView, openAddTask, saveTask, showPage -- these run inside the page (page.evaluate) */
+/* global document, window, getComputedStyle, DayRoad, API, APP, showAuthView, openAddTask, saveTask, showPage, setGanttPageView -- these run inside the page (page.evaluate) */
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -123,6 +123,34 @@ test('phone: no page scrolls sideways', { skip: !CHROME && 'no Chrome found (set
     if (w > 391) wide.push(`${id} (${w}px)`);
   }
   assert.deepEqual(wide, [], 'pages wider than the phone');
+  assert.deepEqual(errors, [], 'no errors in the page');
+  await ctx.close();
+});
+
+// With more than seven projects the picker has a search box. On a phone
+// the keyboard coming up (a height-only resize and a scroll) used to close
+// it the moment it opened, so picking a project did nothing.
+test('phone: the project picker stays open when the keyboard comes up', { skip: !CHROME && 'no Chrome found (set CHROME_PATH)' }, async () => {
+  const { page, ctx, errors } = await freshPage(SIZES[0]);
+  await page.goto(`${server.base}/app`, { waitUntil: 'networkidle0' });
+  await page.evaluate(async email => {
+    await API.register(email, 'testpass123', true); await API.updateProfile({ onboarded: true });
+    for (const t of ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India']) await API.addProject({ title: t });
+  }, `e2e_picker_${Date.now()}@example.com`);
+  await page.goto(`${server.base}/app`, { waitUntil: 'networkidle0' });
+  await waitFor(page, () => typeof APP !== 'undefined' && APP.currentPage === 'dashboard', null, 'the dashboard');
+  await page.evaluate(() => { showPage('gantt'); setGanttPageView('timeline'); });
+  await waitFor(page, () => document.querySelector('#gantt-toolbar .pp-btn'), null, 'the project picker');
+  await page.click('#gantt-toolbar .pp-btn');
+  await waitFor(page, () => document.querySelector('.pp-pop.sheet input'), null, 'the picker sheet with its search box');
+  await page.setViewport({ ...SIZES[0], height: 480 }); // the keyboard
+  await page.evaluate(() => window.scrollBy(0, 60));
+  await sleep(300);
+  assert.ok(await page.$('.pp-pop'), 'the picker is still open');
+  await page.setViewport(SIZES[0]);
+  const rows = await page.$$('.pp-pop .pp-row[data-value]:not([data-value=""])');
+  await rows[3].click();
+  await waitFor(page, () => /Delta/.test(document.querySelector('#gantt-toolbar .pp-btn').textContent), null, 'Delta picked');
   assert.deepEqual(errors, [], 'no errors in the page');
   await ctx.close();
 });
