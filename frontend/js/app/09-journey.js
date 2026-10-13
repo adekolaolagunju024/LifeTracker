@@ -132,6 +132,11 @@ async function renderJourneyView() {
     renderMountainScene();
     renderMountainTaskList();
     loadDailyQuests().then(g => g && updateJourneyLevelBadge(g));
+    // A race (Race a friend): the other players join you on the road.
+    if (window.Race) Race.load(projectId).then(race => {
+      document.getElementById('journey-race-btn')?.classList.toggle('hidden', !!race);
+      if (race) { competitorSel?.classList.add('hidden'); renderMountainScene(); }
+    });
   } catch (e) {
     statusEl.textContent = '' + (e.message || 'Could not load this project');
   }
@@ -376,6 +381,9 @@ function renderMountainScene() {
     // frozen at the start forever would just read as a second character
     // standing around, not as "you're ahead/behind".
     ghost: (competitor && competitor.frac !== null) ? { frac: competitor.frac, label: competitor.label, isComputer: competitor.isComputer } : null,
+    // Everyone else in the race, if this goal is your copy in one.
+    rivals: window.Race && Race.current() && Race.current().players.length > 1 ? Race.rivals() : null,
+    youColor: window.Race && Race.youColor(),
     celebrationsEnabled: celebrationsEnabled(),
     // Called once, by journeyGame.js/journey3d.js, right as the finish
     // celebration actually starts on screen (which may be well after

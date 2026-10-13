@@ -176,6 +176,14 @@ app.use('/r', require('./routes/reports').publicRouter);
 const pledgeRoutes = require('./routes/pledges');
 app.use('/p', pledgeRoutes.publicRouter);
 
+// A race link's preview, before signing in: what the race is, who made
+// it and the stake. Nothing about anyone's progress.
+app.get('/api/race-preview/:token', (req, res) => {
+  const p = require('./challenges').preview(req.params.token);
+  if (!p) return res.status(404).json({ error: 'That race link is not valid any more' });
+  res.json(p);
+});
+
 // ── AUTH GATE — everything else under /api requires a logged-in session ──
 app.use('/api', requireAuth);
 
@@ -199,6 +207,7 @@ app.use('/api/day',      require('./routes/day'));
 app.use('/api/voice',    require('./routes/voice'));
 app.use('/api/motivation', require('./routes/motivation'));
 app.use('/api/feedback', require('./routes/feedback'));
+app.use('/api/challenges', require('./routes/challenges'));
 app.use('/api/pledges', pledgeRoutes);
 app.use('/api/music', require('./routes/music'));
 app.use('/api/billing', billingRoutes.router);

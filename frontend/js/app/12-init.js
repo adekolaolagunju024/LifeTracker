@@ -102,6 +102,7 @@ async function init() {
   handleAuthRedirect();
   if (handleResetTokenRedirect()) return;
   await handleVerifyTokenRedirect();
+  if (window.Race) await Race.handleLink();
   const authed = await checkAuth();
   if (authed) await afterAuth();
   else if (new URLSearchParams(location.search).has('twofactor')) showAuthView('2fa'); // Google sign-in waiting on a code
