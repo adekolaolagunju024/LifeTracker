@@ -90,3 +90,54 @@ test('a race: make it, share the link, everyone gets their own copy, first to fi
   assert.deepEqual(board.players.map(p => p.name), ['Ana']);
   assert.equal((await (await call(ana, 'GET', '/api/challenges')).json()).length, 1);
 });
+
+test('a class: the teacher organises without a copy, students join by code, see each other as chosen, and get nudged', async () => {
+  const teacher = await signUp();
+  const [s1, s2] = [await signUp(), await signUp()];
+  const goal = await goalWithTasks(teacher, ['Read chapter 1', 'Answer the questions', 'Write a summary', 'Peer review']);
+  const made = await call(teacher, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), mode: 'together', organiserOnly: true, nameMode: 'animals' });
+  assert.equal(made.status, 201);
+  const cls = await made.json();
+  assert.equal(cls.mode, 'together');
+  assert.equal(cls.organiserOnly, true);
+  assert.equal(cls.players.length, 0, 'the organiser has no copy');
+  assert.match(cls.joinCode, /^[A-HJ-NP-Z2-9]{6}$/);
+
+  // Students join with the code (any case, with spaces); the teacher can't join their own.
+  const code = cls.joinCode.toLowerCase().replace(/(...)/, '$1 ');
+  assert.equal((await call(null, 'GET', `/api/race-code/${cls.joinCode}`)).status, 401, 'a code preview needs signing in');
+  assert.equal((await call(s1, 'POST', `/api/challenges/join-code/${encodeURIComponent(code)}`, { displayName: 'Amara Okafor' })).status, 201);
+  assert.equal((await call(s2, 'POST', `/api/challenges/join-code/${cls.joinCode}`, { displayName: 'Ben Smith' })).status, 201);
+  assert.equal((await call(teacher, 'POST', `/api/challenges/join-code/${cls.joinCode}`, {})).status, 400);
+  assert.equal((await call(s1, 'POST', '/api/challenges/join-code/ZZZZZZ', {})).status, 404);
+
+  // Amara does one step.
+  const s1Copy = (await (await call(s1, 'GET', `/api/challenges/${cls.id}`)).json()).players.find(p => p.you).projectId;
+  const t = (await tasksOf(s1, s1Copy))[0];
+  await call(s1, 'PUT', `/api/tasks/${t.id}`, { status: 'Completed' });
+
+  // The teacher sees real names, last step times and the group's progress; no winner.
+  const forTeacher = await (await call(teacher, 'GET', `/api/challenges/${cls.id}`)).json();
+  assert.deepEqual(forTeacher.players.map(p => p.name).sort(), ['Amara Okafor', 'Ben Smith']);
+  assert.ok(forTeacher.players.find(p => p.name === 'Amara Okafor').lastStepAt);
+  assert.equal(forTeacher.winner, null);
+  assert.equal(forTeacher.group.players, 2);
+  assert.equal(forTeacher.group.stepsPct, 13); // 1 of 8 steps
+  assert.ok((await (await call(teacher, 'GET', '/api/challenges')).json()).some(c => c.id === cls.id), "it's in the organiser's list");
+
+  // Students see themselves by name and classmates as animals, never last-step times.
+  const forBen = await (await call(s2, 'GET', `/api/challenges/${cls.id}`)).json();
+  assert.equal(forBen.players.find(p => p.you).name, 'Ben Smith');
+  const other = forBen.players.find(p => !p.you);
+  assert.match(other.name, /^\w+ \w+$/);
+  assert.notEqual(other.name, 'Amara Okafor');
+  assert.equal(other.lastStepAt, undefined);
+
+  // Only the teacher can nudge, once per 12 hours; it reaches whoever's behind or hasn't started.
+  assert.equal((await call(s1, 'POST', `/api/challenges/${cls.id}/remind`)).status, 403);
+  const nudged = await (await call(teacher, 'POST', `/api/challenges/${cls.id}/remind`)).json();
+  assert.ok(nudged.reminded >= 1);
+  assert.equal((await call(teacher, 'POST', `/api/challenges/${cls.id}/remind`)).status, 429);
+  const bell = await (await call(s2, 'GET', '/api/notifications')).json();
+  assert.ok(bell.challengeNudges.some(n => n.challengeId === cls.id));
+});

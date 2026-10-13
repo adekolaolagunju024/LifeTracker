@@ -1,4 +1,4 @@
-/* global icon, esc, API, APP, showToast, playJourneyFor, renderMountainScene, mountainState */
+/* global icon, esc, API, APP, showToast, showPage, playJourneyFor, renderMountainScene, mountainState */
 // ── RACE A FRIEND ───────────────────────────────────────────────
 // Make a race from one of your goals, share the link, and everyone who
 // joins races their own copy (backend/challenges.js). On the Journey every
@@ -37,56 +37,94 @@ const Race = (() => {
   const head = title => `<div class="fb-head"><h2 id="race-title">${icon('flag')}${esc(title)}</h2><button type="button" class="fb-x" aria-label="Close" onclick="Race.close()">${icon('close')}</button></div>`;
 
   // ── Making one ──
+  // A race (first to finish wins) or together (a class or team: everyone
+  // aims to finish; the organiser can run it without taking part, and
+  // chooses how names show to everyone).
   async function openCreate(projectId) {
     if (!projectId) return;
     let name = '';
     try { name = (await API.getProfile()).name || ''; } catch { /* a blank name is fine */ }
     const min = dayKey(Date.now() + 86400000);
-    const form = dialog(`${head('Race a friend')}
-      <p class="fb-note">Everyone who joins gets their own copy of this goal's tasks. First to tick them all off wins.</p>
+    const form = dialog(`${head('Make a challenge')}
+      <div class="seg race-mode" role="radiogroup" aria-label="Kind of challenge">
+        <button type="button" role="radio" data-mode="race" aria-checked="true">${icon('flag', 'tiny')}Race</button>
+        <button type="button" role="radio" data-mode="together" aria-checked="false">${icon('users', 'tiny')}Class or team</button>
+      </div>
+      <p class="fb-note" id="race-mode-note"></p>
       <label for="race-end">Finish by</label>
       <input type="date" id="race-end" min="${min}" value="${dayKey(Date.now() + 14 * 86400000)}" required>
-      <label for="race-stake">What's riding on it? <span class="opt">(optional)</span></label>
-      <input type="text" id="race-stake" maxlength="140" placeholder="e.g. Loser buys dinner">
-      <label for="race-name">Your name on the road</label>
-      <input type="text" id="race-name" maxlength="24" value="${esc(name)}" placeholder="e.g. Ade" required>
-      <p class="fb-note">A stake is a promise between you. Waypoint never takes or pays out money.</p>
-      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">${icon('flag', 'tiny')}Make the race</button></div>`);
+      <div class="race-only"><label for="race-stake">What's riding on it? <span class="opt">(optional)</span></label>
+      <input type="text" id="race-stake" maxlength="140" placeholder="e.g. Loser buys dinner"></div>
+      <div class="together-only hidden">
+        <label class="race-check"><input type="checkbox" id="race-organise"> I'm organising this, not taking part</label>
+        <label for="race-names">How names show to everyone</label>
+        <select id="race-names"><option value="names">Their names</option><option value="first">First names only</option><option value="animals">Animal names (e.g. Swift Otter)</option></select>
+      </div>
+      <div id="race-name-wrap"><label for="race-name">Your name on the road</label>
+      <input type="text" id="race-name" maxlength="24" value="${esc(name)}" placeholder="e.g. Ade"></div>
+      <p class="fb-note race-only">A stake is a promise between you. Waypoint never takes or pays out money.</p>
+      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">${icon('flag', 'tiny')}<span id="race-make-label">Make the race</span></button></div>`);
+    let mode = 'race';
+    const paint = () => {
+      form.querySelectorAll('.race-mode button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
+      form.querySelectorAll('.race-only').forEach(el => el.classList.toggle('hidden', mode !== 'race'));
+      form.querySelectorAll('.together-only').forEach(el => el.classList.toggle('hidden', mode !== 'together'));
+      const organising = mode === 'together' && form.querySelector('#race-organise').checked;
+      form.querySelector('#race-name-wrap').classList.toggle('hidden', organising);
+      form.querySelector('#race-mode-note').textContent = mode === 'race'
+        ? "Everyone who joins gets their own copy of this goal's steps. First to tick them all off wins."
+        : 'Everyone gets their own copy and aims to finish by the date. You see who is on track and can nudge anyone behind. They join with a link or a code.';
+      form.querySelector('#race-make-label').textContent = mode === 'race' ? 'Make the race' : 'Make the challenge';
+    };
+    form.querySelectorAll('.race-mode button').forEach(b => { b.onclick = () => { mode = b.dataset.mode; paint(); }; });
+    form.querySelector('#race-organise').onchange = paint;
+    paint();
     form.addEventListener('submit', async e => {
       e.preventDefault();
+      const organising = mode === 'together' && form.querySelector('#race-organise').checked;
+      const displayName = form.querySelector('#race-name').value.trim();
+      if (!organising && !displayName) { form.querySelector('#race-name').focus(); return; }
       const btn = form.querySelector('.fb-send');
       btn.disabled = true;
       try {
         const race = await API.createRace({
-          projectId, endsAt: new Date(`${form.querySelector('#race-end').value}T23:59:00`).toISOString(),
-          stake: form.querySelector('#race-stake').value, displayName: form.querySelector('#race-name').value,
+          projectId, mode, organiserOnly: organising, nameMode: form.querySelector('#race-names').value,
+          endsAt: new Date(`${form.querySelector('#race-end').value}T23:59:00`).toISOString(),
+          stake: mode === 'race' ? form.querySelector('#race-stake').value : '', displayName,
         });
         showShare(race, true);
       } catch (err) {
         btn.disabled = false;
-        showToast(err.message || 'Could not make the race', 'error');
+        showToast(err.message || 'Could not make it', 'error');
       }
     });
   }
 
-  // The link to send, with Copy and (on a phone) Share.
+  // The link and the code to send, with Copy and (on a phone) Share.
   function showShare(race, isNew) {
     const url = linkFor(race.joinToken);
     const me = race.players.find(p => p.you);
-    const form = dialog(`${head(isNew ? 'Your race is ready' : 'Invite to the race')}
-      <p class="fb-note">Send this link to the people you're racing. They'll see <b>${esc(race.title)}</b>${race.stake ? `, the stake (${esc(race.stake)})` : ''} and the finish date, ${esc(when(race.endsAt))}.</p>
-      <div class="race-link"><input type="text" id="race-link" readonly value="${esc(url)}" aria-label="Race link"><button type="button" class="fb-cancel" id="race-copy">${icon('copy', 'tiny')}Copy</button></div>
+    const together = race.mode === 'together';
+    const code = race.joinCode ? race.joinCode.replace(/(...)(...)/, '$1 $2') : '';
+    const form = dialog(`${head(isNew ? (together ? 'Your challenge is ready' : 'Your race is ready') : 'Invite people')}
+      <p class="fb-note">Send the link${code ? ', or read out the code' : ''}. They'll see <b>${esc(race.title)}</b>${race.stake ? `, the stake (${esc(race.stake)})` : ''} and the finish date, ${esc(when(race.endsAt))}.</p>
+      ${code ? `<div class="race-code" aria-label="Join code ${esc(race.joinCode.split('').join(' '))}"><small>Join code</small><b>${esc(code)}</b><span>Challenges › Join with a code</span></div>` : ''}
+      <div class="race-link"><input type="text" id="race-link" readonly value="${esc(url)}" aria-label="Join link"><button type="button" class="fb-cancel" id="race-copy">${icon('copy', 'tiny')}Copy</button></div>
       <div class="fb-foot">${navigator.share ? `<button type="button" class="fb-cancel" id="race-share">${icon('send', 'tiny')}Share</button>` : ''}
-        <button type="submit" class="fb-send">${icon('play', 'tiny')}Go to my race</button></div>`);
+        <button type="submit" class="fb-send">${icon('play', 'tiny')}${me ? (together ? 'Go to my copy' : 'Go to my race') : 'See who has joined'}</button></div>`);
     form.querySelector('#race-copy').onclick = async () => {
       try { await navigator.clipboard.writeText(url); showToast('🔗 Link copied'); } catch { form.querySelector('#race-link').select(); }
     };
     const share = form.querySelector('#race-share');
-    if (share) share.onclick = () => navigator.share({ title: `Race me: ${race.title}`, text: `Race me to finish "${race.title}" by ${when(race.endsAt)}${race.stake ? `. Stake: ${race.stake}` : ''}`, url }).catch(() => {});
-    form.addEventListener('submit', e => { e.preventDefault(); close(); if (me && me.projectId) playJourneyFor(me.projectId); });
+    if (share) share.onclick = () => navigator.share({ title: together ? `Join: ${race.title}` : `Race me: ${race.title}`, text: `${together ? 'Join' : 'Race me to finish'} "${race.title}" by ${when(race.endsAt)}${code ? ` (code ${race.joinCode})` : ''}${race.stake ? `. Stake: ${race.stake}` : ''}`, url }).catch(() => {});
+    form.addEventListener('submit', e => {
+      e.preventDefault(); close();
+      if (me && me.projectId) playJourneyFor(me.projectId);
+      else { showPage('challenges'); setTimeout(() => openDetail(race.id), 200); }
+    });
   }
 
-  // ── Joining from a link (/app?race=…) ──
+  // ── Joining: from a link (/app?race=…) or a code ──
   const PENDING = 'wp-race-join';
   // Before sign-in: remember the link, and tell them what it is.
   async function handleLink() {
@@ -100,7 +138,7 @@ const Race = (() => {
       const p = await (await fetch(`/api/race-preview/${encodeURIComponent(token)}`)).json();
       if (p && p.title) {
         const note = document.getElementById('auth-race-note');
-        if (note) { note.innerHTML = `${icon('flag', 'tiny')}<span><b>${esc(p.owner)}</b> challenged you to <b>${esc(p.title)}</b>. Sign in or create an account to join the race.</span>`; note.classList.remove('hidden'); }
+        if (note) { note.innerHTML = `${icon('flag', 'tiny')}<span><b>${esc(p.owner)}</b> ${p.mode === 'together' ? 'invited you to' : 'challenged you to'} <b>${esc(p.title)}</b>. Sign in or create an account to join.</span>`; note.classList.remove('hidden'); }
       }
     } catch { /* the join card after sign-in still works */ }
   }
@@ -111,16 +149,30 @@ const Race = (() => {
     if (!token) return;
     let p;
     try { p = await (await fetch(`/api/race-preview/${encodeURIComponent(token)}`)).json(); } catch { p = null; }
-    if (!p || !p.title) { showToast('That race link is not valid any more', 'error'); return; }
+    if (!p || !p.title) { showToast('That link is not valid any more', 'error'); return; }
+    joinCard(p, token);
+  }
+  // From a code typed on the Challenges page.
+  async function joinWithCode(code) {
+    const clean = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (clean.length !== 6) { showToast('A join code has 6 letters and numbers', 'error'); return; }
+    let p;
+    try { p = await API.previewRaceCode(clean); } catch (err) { showToast(err.message || "That code doesn't match a race or class", 'error'); return; }
+    joinCard(p, p.token);
+  }
+  async function joinCard(p, token) {
     let name = '';
     try { name = (await API.getProfile()).name || ''; } catch { /* blank */ }
-    const form = dialog(`${head(`${p.owner} challenged you`)}
-      <div class="race-invite"><span class="race-invite-ic">${esc(p.icon || '🏁')}</span><div><b>${esc(p.title)}</b><small>${p.taskCount} steps · finish by ${esc(when(p.endsAt))} · ${p.players} ${p.players === 1 ? 'player' : 'players'} so far</small></div></div>
+    const together = p.mode === 'together';
+    const namesNote = p.nameMode === 'animals' ? 'Classmates see you by an animal name; the organiser sees your name.'
+      : p.nameMode === 'first' ? 'Others see your first name only.' : 'Everyone sees the name you give here.';
+    const form = dialog(`${head(together ? `${p.owner} invited you` : `${p.owner} challenged you`)}
+      <div class="race-invite"><span class="race-invite-ic">${esc(p.icon || '🏁')}</span><div><b>${esc(p.title)}</b><small>${p.taskCount} steps · finish by ${esc(when(p.endsAt))} · ${p.players} ${p.players === 1 ? 'person' : 'people'} so far</small></div></div>
       ${p.stake ? `<p class="race-stake">${icon('gift', 'tiny')}<span>Riding on it: <b>${esc(p.stake)}</b></span></p>` : ''}
-      <label for="race-name">Your name on the road</label>
+      <label for="race-name">Your name</label>
       <input type="text" id="race-name" maxlength="24" value="${esc(name)}" placeholder="e.g. Sam" required>
-      <p class="fb-note">You get your own copy of the steps. Everyone sees how far along you are, never your other goals.</p>
-      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Not now</button><button type="submit" class="fb-send" ${p.full ? 'disabled' : ''}>${icon('flag', 'tiny')}${p.full ? 'This race is full' : 'Join the race'}</button></div>`);
+      <p class="fb-note">You get your own copy of the steps. ${together ? namesNote : 'Everyone sees how far along you are.'} No one sees your other goals.</p>
+      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Not now</button><button type="submit" class="fb-send" ${p.full ? 'disabled' : ''}>${icon('flag', 'tiny')}${p.full ? 'It is full' : together ? 'Join' : 'Join the race'}</button></div>`);
     form.addEventListener('submit', async e => {
       e.preventDefault();
       const btn = form.querySelector('.fb-send');
@@ -128,13 +180,93 @@ const Race = (() => {
       try {
         const r = await API.joinRace(token, form.querySelector('#race-name').value);
         close();
-        showToast(r.already ? "You're already in this race" : `🏁 You're in. ${p.taskCount} steps to the finish`);
+        showToast(r.already ? "You're already in" : `🏁 You're in. ${p.taskCount} steps to the finish`);
         playJourneyFor(r.projectId);
       } catch (err) {
         btn.disabled = false;
         showToast(err.message || 'Could not join', 'error');
       }
     });
+  }
+
+  // ── The Challenges page: your races and classes, and joining by code ──
+  let detailId = null;
+  async function renderPage() {
+    const box = document.getElementById('challenges-body');
+    if (!box) return;
+    detailId = null; // the Challenges link always opens on the list
+    box.innerHTML = '<p class="text-sm text-gray-400 py-6">Loading…</p>';
+    let list = [];
+    try { list = await API.listRaces(); } catch { list = []; }
+    const card = c => {
+      const me = c.players.find(p => p.you);
+      const line = c.mode === 'together'
+        ? `${c.group.finished} of ${c.group.players} finished · ${c.group.stepsPct}% of steps`
+        : c.winner ? (c.winner.you ? 'You won' : `${esc(c.winner.name)} won`) : me ? `You're ${ordinal(c.players.indexOf(me) + 1)} of ${c.players.length}` : `${c.players.length} racing`;
+      return `<button type="button" class="ch-card" onclick="Race.openDetail('${c.id}')">
+        <span class="ch-ic">${esc(c.icon || '🏁')}</span>
+        <span class="ch-main"><b>${esc(c.title)}</b><small>${c.mode === 'together' ? (c.owner && c.organiserOnly ? 'You organise' : 'Class or team') : 'Race'} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}</small></span>
+        <span class="ch-line">${line}</span>${icon('chevron_right', 'tiny')}</button>`;
+    };
+    box.innerHTML = `<form class="ch-join" id="ch-join-form"><label for="join-code">Got a code?</label>
+        <div><input type="text" id="join-code" maxlength="9" autocomplete="off" autocapitalize="characters" placeholder="e.g. K7M 2QP"><button type="submit">Join</button></div></form>
+      ${list.length ? `<div class="ch-list">${list.map(card).join('')}</div>`
+        : `<div class="ch-empty"><p><b>No races or classes yet.</b></p><p>Open any goal and choose <b>⋯ › Race a friend</b> to race someone, or to run a challenge for a class or team.</p></div>`}`;
+    document.getElementById('ch-join-form').addEventListener('submit', e => { e.preventDefault(); joinWithCode(document.getElementById('join-code').value); });
+  }
+  const ordinal = n => `${n}${['th', 'st', 'nd', 'rd'][(n % 100 >= 11 && n % 100 <= 13) ? 0 : Math.min(n % 10, 4) % 4] || 'th'}`;
+  const ago = iso => {
+    if (!iso) return 'no steps yet';
+    const d = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
+    return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`;
+  };
+  // One race or class: the scoreboard; for the organiser, a table with
+  // when each person last ticked a step, and Remind those behind.
+  async function openDetail(id) {
+    detailId = id;
+    const box = document.getElementById('challenges-body');
+    if (!box) return;
+    let c;
+    try { c = await API.getRace(id); } catch (err) { detailId = null; showToast(err.message || 'Could not open it', 'error'); return renderPage(); }
+    const me = c.players.find(p => p.you);
+    const together = c.mode === 'together';
+    const pct = c.group.players ? Math.round((c.group.finished / c.group.players) * 100) : 0;
+    box.innerHTML = `<button type="button" class="ch-back" onclick="Race.backToList()">${icon('back', 'tiny')}All challenges</button>
+      <div class="ch-head"><span class="ch-ic big">${esc(c.icon || '🏁')}</span><div class="min-w-0"><h3>${esc(c.title)}</h3>
+        <p>${together ? 'Class or team' : 'Race'} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}${c.stake ? ` · <span class="race-strip-stake">${esc(c.stake)}</span>` : ''}</p></div></div>
+      <div class="ch-actions">
+        <button type="button" onclick="Race.inviteFor('${c.id}')">${icon('user-plus', 'tiny')}Invite · <b>${esc(c.joinCode.replace(/(...)(...)/, '$1 $2'))}</b></button>
+        ${me ? `<button type="button" onclick="playJourneyFor('${me.projectId}')">${icon('play', 'tiny')}My Journey</button>` : ''}
+        ${c.owner ? `<button type="button" id="ch-remind" onclick="Race.remind('${c.id}')" ${c.group.behind || c.players.some(p => !p.finished && p.done === 0) ? '' : 'disabled'}>${icon('bell', 'tiny')}Remind those behind</button>` : ''}
+        ${me ? `<button type="button" class="quiet" onclick="Race.leaveFrom('${c.id}')">Leave</button>` : ''}
+      </div>
+      ${together ? `<div class="ch-group"><div class="ch-group-top"><b>${c.group.finished} of ${c.group.players} finished</b><span>${c.group.stepsPct}% of all steps done${c.group.behind ? ` · ${c.group.behind} behind` : ''}</span></div>
+        <div class="ch-bar" role="img" aria-label="${pct}% finished"><i style="width:${pct}%"></i></div></div>` : ''}
+      ${c.players.length ? `<div class="ch-table-wrap"><table class="ch-table"><thead><tr><th>${together ? '' : '#'}</th><th>Name</th><th>Steps</th><th>Pace</th>${c.owner ? '<th>Last step</th>' : ''}</tr></thead>
+        <tbody>${c.players.map((p, i) => `<tr class="${p.you ? 'you' : ''}"><td class="pos">${together ? '' : i + 1}</td>
+          <td><span class="dot" style="background:${esc(p.color)}"></span>${p.you ? `You${c.owner ? '' : ''}` : esc(p.name)}</td>
+          <td><span class="ch-steps"><i style="width:${Math.round(p.frac * 100)}%"></i></span><span class="num">${p.done}/${p.total}</span></td>
+          <td><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></td>
+          ${c.owner ? `<td class="ago">${esc(ago(p.lastStepAt))}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
+        : `<div class="ch-empty"><p><b>No one has joined yet.</b></p><p>Share the link or read out the code <b>${esc(c.joinCode)}</b>. People join from <b>Challenges › Join with a code</b>.</p></div>`}`;
+  }
+  function backToList() { detailId = null; renderPage(); }
+  async function inviteFor(id) { try { showShare(await API.getRace(id), false); } catch (err) { showToast(err.message || 'Could not open it', 'error'); } }
+  async function remind(id) {
+    const btn = document.getElementById('ch-remind');
+    if (btn) btn.disabled = true;
+    try {
+      const r = await API.remindRace(id);
+      showToast(r.reminded ? `🔔 Reminded ${r.reminded} ${r.reminded === 1 ? 'person' : 'people'}` : 'Everyone is on track. No one to remind');
+    } catch (err) {
+      if (btn) btn.disabled = false;
+      showToast(err.message || 'Could not send it', 'error');
+    }
+  }
+  async function leaveFrom(id) {
+    try { await API.leaveRace(id); } catch (err) { showToast(err.message || 'Could not leave', 'error'); return; }
+    showToast('You left');
+    backToList();
   }
 
   // ── On the Journey ──
@@ -170,7 +302,9 @@ const Race = (() => {
   function rivals() {
     if (!current) return null;
     const leader = current.players[0];
-    return current.players.filter(p => !p.you).map(p => ({ name: p.name, color: p.color, frac: p.frac, finished: p.finished, leader: p === leader && p.frac > 0 }));
+    // Together (a class or team) has no winner, so no one is marked 1st.
+    const racing = current.mode !== 'together';
+    return current.players.filter(p => !p.you).map(p => ({ name: p.name, color: p.color, frac: p.frac, finished: p.finished, leader: racing && p === leader && p.frac > 0 }));
   }
   const youColor = () => (current && (current.players.find(p => p.you) || {}).color) || null;
 
@@ -181,12 +315,13 @@ const Race = (() => {
     // Calendar days to the finish date (a race ending a fortnight on reads "14 days").
     const midnight = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
     const daysLeft = Math.round((midnight(r.endsAt) - midnight(Date.now())) / 86400000);
-    const head2 = r.winner ? `${icon('trophy', 'tiny')}<b>${r.winner.you ? 'You won!' : `${esc(r.winner.name)} won`}</b>`
+    const head2 = r.mode === 'together' ? `${icon('users', 'tiny')}<b>${r.group.finished} of ${r.group.players} finished</b> · ${r.over ? 'ended' : daysLeft <= 0 ? 'ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}`
+      : r.winner ? `${icon('trophy', 'tiny')}<b>${r.winner.you ? 'You won!' : `${esc(r.winner.name)} won`}</b>`
       : r.over ? `${icon('flag', 'tiny')}<b>Time's up</b>` : `${icon('flag', 'tiny')}<b>Race</b> · ${daysLeft <= 0 ? 'ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}`;
     strip.classList.remove('hidden');
     strip.innerHTML = `<div class="race-strip-top"><span class="race-strip-title">${head2}${r.stake ? ` <span class="race-strip-stake">· ${esc(r.stake)}</span>` : ''}</span>
         <span class="race-strip-actions"><button type="button" onclick="Race.invite()">${icon('user-plus', 'tiny')}Invite</button><button type="button" onclick="Race.leave()">Leave</button></span></div>
-      <ol class="race-board">${r.players.map((p, i) => `<li class="${p.you ? 'you' : ''}"><span class="pos">${i + 1}</span><i style="background:${esc(p.color)}"></i><b>${p.you ? 'You' : esc(p.name)}</b>
+      <ol class="race-board">${r.players.map((p, i) => `<li class="${p.you ? 'you' : ''}"><span class="pos">${r.mode === 'together' ? '' : i + 1}</span><i style="background:${esc(p.color)}"></i><b>${p.you ? 'You' : esc(p.name)}</b>
         <span class="steps">${p.done}/${p.total}</span><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></li>`).join('')}</ol>`;
   }
   function invite() { if (current) showShare(current, false); }
@@ -207,6 +342,6 @@ const Race = (() => {
     });
   }
 
-  return { openCreate, showShare, handleLink, offerPendingJoin, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;

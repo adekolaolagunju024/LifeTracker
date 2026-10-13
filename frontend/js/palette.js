@@ -49,6 +49,8 @@ function paletteActions() {
     ...(here ? [{ icon: '📄', label: 'Progress report for this project', run: () => openProgressReport(here) }] : []),
     { icon: '🌗', label: 'Switch light / dark mode', run: () => toggleTheme() },
     { icon: '📨', label: 'Report a problem', run: () => Feedback.open() },
+    { icon: '🏁', label: 'Challenges: races and classes', run: () => showPage('challenges') },
+    { icon: '🔢', label: 'Join a race or class with a code', run: () => { showPage('challenges'); setTimeout(() => document.getElementById('join-code')?.focus(), 300); } },
     { icon: '⌨️', label: 'Keyboard shortcuts', hint: '?', run: () => showToast('⌨️ Shortcuts: ⌘K command palette · / search · n new task · a assistant · Esc close') },
     ...PALETTE_PAGES.map(([id, icon, name]) => ({ icon, label: `Go to ${name}`, run: () => showPage(id) })),
     ...PALETTE_STAGES.map(([id, icon, name]) => ({ icon, label: `Journey stage: ${name}`, run: () => { setJourneyTheme(id); showPage('gantt'); document.querySelector('#gantt-page-view-toggle [data-pageview="journey"]')?.click(); } })),

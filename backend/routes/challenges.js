@@ -32,6 +32,21 @@ router.post('/join/:token', (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// POST /api/challenges/join-code/:code {displayName} : the short class code
+router.post('/join-code/:code', (req, res) => {
+  const p = challenges.previewByCode(req.params.code);
+  if (!p) return res.status(404).json({ error: "That code doesn't match a race or class. Check it and try again" });
+  try {
+    const r = challenges.join(p.token, req.session.userId, (req.body || {}).displayName);
+    res.status(r.already ? 200 : 201).json({ projectId: r.projectId, already: r.already, race: challenges.get(r.challenge.id, req.session.userId) });
+  } catch (e) { fail(res, e); }
+});
+
+// POST /api/challenges/:id/remind : the organiser nudges everyone behind
+router.post('/:id/remind', (req, res) => {
+  try { res.json({ reminded: challenges.remind(req.params.id, req.session.userId) }); } catch (e) { fail(res, e); }
+});
+
 // GET /api/challenges/:id
 router.get('/:id', (req, res) => {
   const c = challenges.get(req.params.id, req.session.userId);

@@ -888,6 +888,70 @@
     .race-stake b { color: #7A4505; }
     .auth-race-note { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 14px; font-size: 13px; color: #0D1B2A; background: #E6F4F5; border: 1px solid #B9E1E4; border-radius: 12px; padding: 10px 12px; }
     .auth-race-note.hidden { display: none; }
+    /* Making a challenge: race or class/team */
+    .race-mode { display: flex; }
+    .race-mode button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+    .race-check { display: flex !important; align-items: center; gap: 8px; font-weight: 600; }
+    .race-check input { width: 16px; height: 16px; accent-color: #0A7E8C; }
+    .race-card select { width: 100%; border: 1px solid #DDE3E8; border-radius: 12px; padding: 9px 12px; font-size: 14px; background: #fff; }
+    .race-code { display: grid; justify-items: center; gap: 2px; background: #0D1B2A; color: #fff; border-radius: 14px; padding: 12px; }
+    .race-code small { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #9FB3C8; }
+    .race-code b { font: 800 30px/1.1 ui-monospace, Menlo, monospace; letter-spacing: .12em; color: #5EEAD4; }
+    .race-code span { font-size: 11px; color: #9FB3C8; }
+    /* The Challenges page (js/race.js) */
+    .ch-join { background: #fff; border: 1px solid #E3E6EA; border-radius: 16px; padding: 14px 16px; margin-bottom: 14px; display: grid; gap: 6px; max-width: 520px; }
+    .ch-join label { font-size: 13px; font-weight: 700; color: #0D1B2A; }
+    .ch-join div { display: flex; gap: 8px; }
+    .ch-join input { flex: 1; min-width: 0; border: 1px solid #DDE3E8; border-radius: 12px; padding: 9px 12px; font: 700 16px ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
+    .ch-join input:focus { outline: none; border-color: #0A7E8C; }
+    .ch-join button { background: #0A7E8C; color: #fff; font-weight: 700; font-size: 14px; border-radius: 12px; padding: 0 18px; }
+    .ch-list { display: grid; gap: 10px; }
+    .ch-card { display: flex; align-items: center; gap: 12px; text-align: left; background: #fff; border: 1px solid #E3E6EA; border-radius: 16px; padding: 12px 14px; width: 100%; }
+    .ch-card:hover { border-color: #0A7E8C; }
+    .ch-ic { font-size: 24px; line-height: 1; flex-shrink: 0; }
+    .ch-ic.big { font-size: 34px; }
+    .ch-main { flex: 1; min-width: 0; display: grid; }
+    .ch-main b { font-size: 15px; color: #0D1B2A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ch-main small { font-size: 12px; color: #556270; }
+    .ch-line { font-size: 13px; font-weight: 700; color: #0A7E8C; white-space: nowrap; }
+    .ch-empty { background: #fff; border: 1px dashed #CBD5DD; border-radius: 16px; padding: 18px; color: #556270; font-size: 14px; display: grid; gap: 4px; }
+    .ch-empty b { color: #0D1B2A; }
+    .ch-back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #0A7E8C; margin-bottom: 10px; }
+    .ch-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .ch-head h3 { font-size: 20px; font-weight: 800; color: #0D1B2A; margin: 0; }
+    .ch-head p { font-size: 13px; color: #556270; margin: 0; }
+    .ch-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .ch-actions button { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #0A7E8C; background: #E6F4F5; border-radius: 999px; padding: 7px 12px; }
+    .ch-actions button b { font-family: ui-monospace, monospace; letter-spacing: .08em; }
+    .ch-actions button.quiet { color: #556270; background: #F1F3F5; }
+    .ch-actions button:disabled { opacity: .5; }
+    .ch-group { background: #fff; border: 1px solid #E3E6EA; border-radius: 16px; padding: 12px 14px; margin-bottom: 12px; display: grid; gap: 8px; }
+    .ch-group-top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 14px; color: #0D1B2A; }
+    .ch-group-top span { color: #556270; font-size: 13px; }
+    .ch-bar { height: 10px; background: #EEF1F4; border-radius: 999px; overflow: hidden; }
+    .ch-bar i { display: block; height: 100%; background: #127A4A; border-radius: 999px; }
+    .ch-table-wrap { background: #fff; border: 1px solid #E3E6EA; border-radius: 16px; overflow-x: auto; }
+    .ch-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .ch-table th { text-align: left; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #8A94A3; font-weight: 700; padding: 10px 12px; border-bottom: 1px solid #EEF0F2; }
+    .ch-table td { padding: 9px 12px; border-bottom: 1px solid #F3F4F6; color: #0D1B2A; white-space: nowrap; }
+    .ch-table tr:last-child td { border-bottom: 0; }
+    .ch-table tr.you td { background: #F2FAFA; }
+    .ch-table .pos { font: 700 12px ui-monospace, monospace; color: #8A94A3; width: 24px; }
+    .ch-table .dot { display: inline-block; width: 9px; height: 9px; border-radius: 999px; margin-right: 7px; }
+    .ch-table .ch-steps { display: inline-block; width: 64px; height: 6px; background: #EEF1F4; border-radius: 999px; overflow: hidden; vertical-align: middle; margin-right: 6px; }
+    .ch-table .ch-steps i { display: block; height: 100%; background: #0A7E8C; }
+    .ch-table .num { font: 600 12px ui-monospace, monospace; color: #556270; }
+    .ch-table .pace { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 7px; background: #F1F3F5; color: #556270; }
+    .ch-table .pace.ahead, .ch-table .pace.finished { background: #E4F4EC; color: #127A4A; }
+    .ch-table .pace.behind { background: #FDECEA; color: #B42318; }
+    .ch-table .ago { color: #556270; }
+    @media (max-width: 639px) { .ch-table .ch-steps { display: none; } .ch-table td, .ch-table th { padding-left: 9px; padding-right: 9px; } }
+    .dark .ch-join, .dark .ch-card, .dark .ch-empty, .dark .ch-group, .dark .ch-table-wrap { background: #111B2B; border-color: #24324A; }
+    .dark .ch-join label, .dark .ch-main b, .dark .ch-head h3, .dark .ch-group-top, .dark .ch-table td, .dark .ch-empty b { color: #E6EDF3; }
+    .dark .ch-join input, .dark .race-card select { background: #0B1220; border-color: #24324A; color: #E6EDF3; }
+    .dark .ch-table tr.you td { background: rgba(94,234,212,.08); }
+    .dark .ch-table td, .dark .ch-table th { border-color: #1F2A3C; }
+    .dark .ch-bar, .dark .ch-table .ch-steps { background: #1F2A3C; }
     /* The race scoreboard above the Journey */
     .race-strip { background: #fff; border: 1px solid #E3E6EA; border-radius: 16px; padding: 10px 12px; margin-bottom: 10px; display: grid; gap: 8px; }
     .race-strip-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #0D1B2A; }
@@ -2905,6 +2969,10 @@
         <span class="icon-badge nav-ic" data-icon="calendar"></span> Calendar
       </button>
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="showPage('challenges')" data-page="challenges">
+        <span class="icon-badge nav-ic" data-icon="flag"></span> Challenges
+      </button>
+      <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="showPage('chats')" data-page="chats">
         <span class="icon-badge nav-ic" data-icon="chat"></span> Chats
         <span class="hidden ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center leading-none" id="nav-chats-badge">0</span>
@@ -3510,6 +3578,15 @@
         <p class="text-gray-500 text-sm mt-1">Every project you've shared or been shared, in one place.</p>
       </div>
       <div class="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden" id="chats-list"></div>
+    </div>
+
+    <!-- ─── CHALLENGES: races and classes (js/race.js, backend/challenges.js) ─── -->
+    <div class="page p-6" id="page-challenges">
+      <div class="mb-6">
+        <h2 class="text-2xl font-black text-navy">Challenges</h2>
+        <p class="text-gray-500 text-sm mt-1">Race friends to a goal, or run one for a class or team.</p>
+      </div>
+      <div id="challenges-body"></div>
     </div>
 
     <!-- ─── METRICS (owner only; js/metrics.js, backend/metrics.js) ─── -->

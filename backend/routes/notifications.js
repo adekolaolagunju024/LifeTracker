@@ -6,7 +6,11 @@ const db = require('../db/db');
 // and project chat / task comment activity since you last checked. Safe to
 // poll — doesn't mark anything read.
 router.get('/', (req, res) => {
-  res.json(db.getNotifications(req.session.userId));
+  const data = db.getNotifications(req.session.userId);
+  // Reminders from the organiser of a class or team you're in.
+  const since = db.getUserById(req.session.userId).notificationsCheckedAt || '1970-01-01T00:00:00.000Z';
+  data.challengeNudges = require('../challenges').nudgesSince(req.session.userId, since);
+  res.json(data);
 });
 
 // POST /api/notifications/read — call when the notification dropdown is
