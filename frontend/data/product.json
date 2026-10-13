@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Every Gantt column on your phone, and music links that just work",
+      "text": "On a phone the Gantt chart now keeps status, start, due and duration: the task name stays put while you swipe across to them or on to the timeline, which opens on today. And paste a YouTube playlist, a Spotify link or any other music link into Add music and it plays straight away, even without the https:// in front."
+    },
+    {
+      "date": "2026-10-13",
       "title": "How today went, and progress over time",
       "text": "When your planned day is over, How today went shows you against the Pacer as two lines across the day, when each task was finished against its slot, and what's left, which you can move to tomorrow's plan in one tap. Project reports now chart progress over time too: what you actually got done against what the plan expected, day by day."
     },

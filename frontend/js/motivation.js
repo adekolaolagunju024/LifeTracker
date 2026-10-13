@@ -448,10 +448,11 @@ const Why = (() => {
   const setMentor = (k, v) => { draft.mentor[k] = v; if (k === 'name' && draft.mentor.preset) { const p = data.mentors.find(x => x.id === draft.mentor.preset); if (!p || p.name !== v) draft.mentor.preset = null; } changed(false); };
   const serviceOf = url => { const e = Music.embedFor(url); return e ? e.service : 'Opens in a new tab'; };
   async function addPlaylistFromForm() {
-    const url = document.getElementById('why-music-url').value.trim();
+    const typed = document.getElementById('why-music-url').value.trim();
+    const url = Music.linkFrom(typed) || (/^https?:\/\//i.test(typed) ? typed : '');
     let label = document.getElementById('why-music-label').value.trim();
-    if (!label && /^https?:\/\//i.test(url)) label = await API.musicTitle(url).then(r => r.title || '').catch(() => '');
-    if (!/^https?:\/\//i.test(url)) { showToast('Paste a link that starts with https://', 'error'); document.getElementById('why-music-url').focus(); return; }
+    if (!url) { showToast('Paste the share link from your music app (Spotify, YouTube, Apple Music, SoundCloud or Deezer)', 'error'); document.getElementById('why-music-url').focus(); return; }
+    if (!label) label = await API.musicTitle(url).then(r => r.title || '').catch(() => '');
     if (draft.playlists.length >= 12) { showToast('That is 12 already. Remove one to add another', 'error'); return; }
     if (!draft.playlists.some(p => p.url === url)) draft.playlists.push({ url, label: label || serviceOf(url) });
     changed();
@@ -502,7 +503,7 @@ const Why = (() => {
   }
   function addResult(i) { const r = lastResults[i]; if (r) quickAdd(r.url, r.kind === 'song' && r.by ? `${r.title} · ${r.by}` : r.title); }
   function addPick(i) { const p = (data.picks || [])[i]; if (p) quickAdd(p.url, p.label); }
-  const findLink = text => (String(text || '').match(/https?:\/\/[^\s"'<>]+/) || [])[0] || '';
+  const findLink = text => Music.linkFrom(text);
   async function pasteLink() {
     let text = '';
     try { text = await navigator.clipboard.readText(); } catch { /* not allowed */ }
@@ -598,10 +599,20 @@ const TopDock = {
 window.TopDock = TopDock;
 
 const Music = (() => {
+  // The music link in some pasted text: a full https:// link, or a bare
+  // one copied without it ("youtube.com/playlist?list=…").
+  const MUSIC_HOSTS = /^(?:www\.|m\.)?(?:youtube\.com|music\.youtube\.com|youtu\.be|open\.spotify\.com|music\.apple\.com|soundcloud\.com|(?:www\.)?deezer\.com)\//i;
+  function linkFrom(text) {
+    const t = String(text || '').trim();
+    const full = t.match(/https?:\/\/[^\s"'<>]+/);
+    if (full) return full[0];
+    const bare = t.split(/\s+/).find(w => MUSIC_HOSTS.test(w));
+    return bare ? `https://${bare}` : '';
+  }
   // Turns a sharing link into the service's embed address, or null.
   function embedFor(raw) {
     let u;
-    try { u = new URL(raw); } catch { return null; }
+    try { u = new URL(linkFrom(raw) || raw); } catch { return null; }
     const host = u.hostname.replace(/^www\.|^m\./, '');
     if (host === 'open.spotify.com') {
       const m = u.pathname.match(/^\/(?:intl-[a-z-]+\/)?(playlist|album|track|artist|episode|show)\/([A-Za-z0-9]+)/);
@@ -887,6 +898,6 @@ const Music = (() => {
 
   // What's playing, for the focus timer's music row.
   const now = () => (current && queue[at] ? { label: queue[at].label || current.service, service: current.service, paused: !!current.paused, many: queue.length > 1 } : null);
-  return { embedFor, start, go, next, prev, hide, show, toggleMin, toggleLib, togglePause, setPaused, seek, cycleRepeat, stop, isPlaying, restore, now, isPaused: () => !!(current && current.paused), repeatMode: () => repeat, _ended: ended };
+  return { embedFor, linkFrom, start, go, next, prev, hide, show, toggleMin, toggleLib, togglePause, setPaused, seek, cycleRepeat, stop, isPlaying, restore, now, isPaused: () => !!(current && current.paused), repeatMode: () => repeat, _ended: ended };
 })();
 window.Music = Music;

@@ -311,7 +311,7 @@ const Jarvis = (() => {
     if (!box) return;
     box.classList.add('adding');
     box.innerHTML = `<div class="fm-search">
-        <input id="fm-q" type="search" maxlength="80" placeholder="Search a song, artist or playlist" aria-label="Search for music" oninput="Jarvis.musicSearch(this.value)" onkeydown="if(event.key==='Escape')Jarvis.musicClose()">
+        <input id="fm-q" type="search" maxlength="500" placeholder="Search, or paste a Spotify or YouTube link" aria-label="Search for music, or paste a link" oninput="Jarvis.musicSearch(this.value)" onkeydown="if(event.key==='Escape')Jarvis.musicClose()">
         <button type="button" class="fm-icon" onclick="Jarvis.musicClose()" aria-label="Close the search">${icon('close')}</button>
       </div><div class="fm-results" id="fm-results"></div>`;
     document.getElementById('fm-q').focus();
@@ -327,6 +327,19 @@ const Jarvis = (() => {
     const out = document.getElementById('fm-results');
     if (!out) return;
     if (!q.trim()) { out.innerHTML = ''; return; }
+    // A pasted link (a YouTube playlist, a Spotify album…) is added as it
+    // is rather than searched for.
+    const link = window.Music && Music.linkFrom(q);
+    if (link) {
+      const e = Music.embedFor(link);
+      if (!e) { out.innerHTML = '<p class="fm-note">That link isn\'t from Spotify, YouTube, Apple Music, SoundCloud or Deezer.</p>'; return; }
+      addResults = [{ url: link, title: `${e.service} link`, service: e.service, kind: /[?&]list=|\/playlist\/|\/sets\//.test(link) ? 'playlist' : 'link' }];
+      const paint = () => { out.innerHTML = `<button type="button" class="fm-hit" onclick="Jarvis.musicPick(0)"><span class="fm-art">${icon('music')}</span>
+          <span class="min-w-0 flex-1"><b>${esc(addResults[0].title)}</b><small>${esc([e.service, addResults[0].kind === 'playlist' ? 'Playlist' : ''].filter(Boolean).join(' · '))} · tap to play and save</small></span>${icon('play')}</button>`; };
+      paint();
+      API.musicTitle(link).then(r => { if (r && r.title && addResults[0] && addResults[0].url === link) { addResults[0].title = r.title; paint(); } }).catch(() => {});
+      return;
+    }
     out.innerHTML = '<p class="fm-note">Searching…</p>';
     addTimer = setTimeout(async () => {
       try {
