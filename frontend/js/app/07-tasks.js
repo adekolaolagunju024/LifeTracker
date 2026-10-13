@@ -259,7 +259,11 @@ function syncObstaclesToJourney(taskId, obstacles) {
   }
 }
 async function refreshObstacles(taskId) {
-  try { renderObstacles(taskId, await API.getObstacles(taskId)); } catch (e) { console.error('Obstacles error:', e); }
+  try {
+    const list = await API.getObstacles(taskId);
+    renderObstacles(taskId, list);
+    syncBlockerCopies(taskId, list); // the board, table and Journey behind the panel
+  } catch (e) { console.error('Obstacles error:', e); }
 }
 async function submitObstacle() {
   const nameEl = document.getElementById('td-obstacle-name'), countEl = document.getElementById('td-obstacle-count');
