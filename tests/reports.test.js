@@ -99,3 +99,23 @@ test('reports show pinned photos through the given source, files by name', () =>
   assert.match(html, /<img src="data:image\/png;base64,AAAA" alt="Front of shop"/);
   assert.match(html, /<\/svg>site\.png · Quote/);
 });
+
+test('the progress report charts progress over time: actual up to today against the plan', () => {
+  const u = user();
+  const p = project(u, 'Over time');
+  const a = task(u, p, { startDate: day(-10), endDate: day(-6) });
+  task(u, p, { startDate: day(-5), endDate: day(5) });
+  db.updateTaskById(u.id, a.id, { status: 'Completed' });
+  const r = buildProgressReport(u.id, p.id);
+  assert.ok(r.history && r.history.length > 5, 'there are points across the plan');
+  assert.equal(r.history[0].date, day(-10));
+  assert.equal(r.history[r.history.length - 1].date, day(5), 'it runs to the plan end');
+  assert.equal(r.history[r.history.length - 1].actual, null, 'no actual line past today');
+  const today = r.history.find(h => h.date === day(0));
+  assert.equal(today.actual, r.pct, 'today matches the headline');
+  assert.equal(r.history[0].actual, 0, 'nothing was done on the first day (it was finished today)');
+  assert.ok(r.history[r.history.length - 1].planned >= 99, 'the plan expects it all done by its end');
+  const html = renderProgressReportHtml(r);
+  assert.match(html, /Progress over time/);
+  assert.match(html, /Show as a table/);
+});

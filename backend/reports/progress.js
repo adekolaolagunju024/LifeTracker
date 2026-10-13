@@ -34,6 +34,30 @@ function statusFor(pct, expected, done, total) {
   return { key: 'behind', label: 'Behind schedule', gap };
 }
 
+// Progress over time: where the plan actually stood on each day (tasks
+// counted done from the day they were finished, weighted as everywhere
+// else) against where its schedule said it should be. Up to ~40 points
+// from the plan's start to its end (or today, if later); the actual line
+// stops at today.
+function historyFor(tasks, start, end, today) {
+  if (!tasks.length || !start) return null;
+  const last = [end, today].filter(Boolean).sort().pop();
+  if (!last || last <= start) return null;
+  const days = Math.round((atNoon(last) - atNoon(start)) / DAY);
+  const step = Math.max(1, Math.ceil(days / 40));
+  const dates = [];
+  for (let i = 0; i <= days; i += step) dates.push(isoDay(new Date(atNoon(start).getTime() + i * DAY)));
+  if (dates[dates.length - 1] !== last) dates.push(last);
+  if (today > start && today < last && !dates.includes(today)) { dates.push(today); dates.sort(); }
+  const doneBy = d => tasks.map(t => ({ ...t, status: t.status === 'Completed' && (t.completedAt || t.updatedAt || '').slice(0, 10) <= d ? 'Completed' : 'Not Started', targetCount: 0 }));
+  return dates.map(d => ({
+    date: d,
+    actual: d > today ? null : d === today ? ProgressMath.progressPct(tasks) : ProgressMath.progressPct(doneBy(d)),
+    // By the end of that day, the same as the actual line.
+    planned: (() => { const f = ProgressMath.expectedFraction(tasks, start, atNoon(d).getTime() + DAY / 2); return f === null ? null : Math.round(f * 100); })(),
+  }));
+}
+
 // Everything the report shows, from the point of view of `viewerId`.
 function buildProgressReport(viewerId, projectId, now = new Date()) {
   const project = db.getProjectById(viewerId, projectId);
@@ -91,6 +115,7 @@ function buildProgressReport(viewerId, projectId, now = new Date()) {
     inProgress: tasks.filter(t => t.status === 'In Progress').length,
     schedule: { start: sched.start, end: sched.end, expectedPct: sched.expected === null ? null : Math.round(sched.expected * 100), daysLeft: sched.end ? Math.ceil((atNoon(sched.end) - atNoon(today)) / DAY) : null },
     status, forecast, phases, summary: summary.join(' '),
+    history: historyFor(tasks, sched.start, sched.end, today),
     recent: recent.sort((a, b) => b.completedAt.localeCompare(a.completedAt)).slice(0, 8).map(t => ({ title: t.title, date: t.completedAt.slice(0, 10) })),
     upcoming: upcoming.slice(0, 8).map(t => ({ title: t.title, date: t.endDate, status: t.status })),
     overdue: overdue.slice(0, 8).map(t => ({ title: t.title, date: t.endDate })),
@@ -152,6 +177,44 @@ function renderProgressReportHtml(r, { live = false, appUrl = '', mediaSrc = nul
       <div class="tl-today" style="left:calc(160px + (100% - 160px) * ${todayAt / 100})"><span>Today</span></div></div></section>`;
   }
 
+  // Progress over time: actual (solid blue) against the schedule (dashed
+  // orange), 0–100%, with a hover readout. Blue/orange is a validated,
+  // colour-blind-safe pair; the dash and the direct labels mean colour is
+  // never the only cue, and the same numbers are in a table underneath.
+  let history = '';
+  const H = r.history;
+  if (H && H.length > 1) {
+    const W = 800, Hh = 240, m = { l: 40, r: 70, t: 14, b: 28 };
+    const t0 = atNoon(H[0].date).getTime(), t1 = atNoon(H[H.length - 1].date).getTime();
+    const x = d => m.l + ((atNoon(d).getTime() - t0) / Math.max(1, t1 - t0)) * (W - m.l - m.r);
+    const y = v => Hh - m.b - (v / 100) * (Hh - m.t - m.b);
+    const line = key => H.filter(p => p[key] !== null).map((p, i) => `${i ? 'L' : 'M'}${x(p.date).toFixed(1)},${y(p[key]).toFixed(1)}`).join('');
+    const lastOf = key => [...H].reverse().find(p => p[key] !== null);
+    const la = lastOf('actual'), lp = lastOf('planned');
+    let ya = la ? y(la.actual) : 0, yp = lp ? y(lp.planned) : 0;
+    if (la && lp && Math.abs(ya - yp) < 14) { if (ya <= yp) { ya -= 7; yp += 7; } else { ya += 7; yp -= 7; } }
+    const grid = [0, 25, 50, 75, 100].map(v => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="#EEF0F3"/><text x="${m.l - 8}" y="${y(v) + 4}" font-size="11" fill="#8A93A0" text-anchor="end">${v}%</text>`).join('');
+    const ticks = [0, Math.floor((H.length - 1) / 2), H.length - 1].map((i, k) => `<text x="${x(H[i].date)}" y="${Hh - 8}" font-size="11" fill="#8A93A0" text-anchor="${k === 0 ? 'start' : k === 2 ? 'end' : 'middle'}">${esc(shortDate(H[i].date))}</text>`).join('');
+    const todayX = r.today > H[0].date && r.today < H[H.length - 1].date ? x(r.today) : null;
+    const data = esc(JSON.stringify(H.map(p => [x(p.date), shortDate(p.date), p.actual, p.planned])));
+    history = `<section><h2>Progress over time</h2>
+<div class="hist-legend"><span><i class="a"></i>Actual</span><span><i class="p"></i>Planned</span></div>
+<div class="hist" data-points="${data}" data-w="${W}"><svg viewBox="0 0 ${W} ${Hh}" width="100%" role="img" aria-label="${esc(`Progress over time: ${la ? la.actual : 0}% done by ${shortDate(la ? la.date : r.today)}, against ${lp ? lp.planned : 0}% planned by ${shortDate(lp ? lp.date : r.today)}.`)}">
+${grid}${ticks}
+${todayX !== null ? `<line x1="${todayX}" x2="${todayX}" y1="${m.t}" y2="${Hh - m.b}" stroke="#CBD2DA" stroke-dasharray="2 3"/><text x="${todayX + 4}" y="${m.t + 8}" font-size="11" fill="#8A93A0">Today</text>` : ''}
+${lp ? `<path d="${line('planned')}" fill="none" stroke="#eb6834" stroke-width="2" stroke-dasharray="6 4"/>` : ''}
+${la ? `<path d="${line('actual')}" fill="none" stroke="#2a78d6" stroke-width="2.5" stroke-linejoin="round"/><circle cx="${x(la.date)}" cy="${y(la.actual)}" r="4.5" fill="#2a78d6" stroke="#fff" stroke-width="2"/>` : ''}
+${la ? `<text x="${x(la.date) + 8}" y="${ya + 4}" font-size="12" font-weight="800" fill="#374151">${la.actual}% actual</text>` : ''}
+${lp ? `<text x="${x(lp.date) + 8}" y="${yp + 4}" font-size="12" font-weight="800" fill="#374151">${lp.planned}% plan</text>` : ''}
+<line class="hist-x" x1="-10" x2="-10" y1="${m.t}" y2="${Hh - m.b}" stroke="#9CA3AF"/>
+</svg><div class="hist-tip" hidden></div></div>
+<details class="hist-table"><summary>Show as a table</summary><table><thead><tr><th>Date</th><th>Actual</th><th>Planned</th></tr></thead><tbody>${H.map(p => `<tr><td>${esc(shortDate(p.date))}</td><td>${p.actual === null ? '—' : `${p.actual}%`}</td><td>${p.planned === null ? '—' : `${p.planned}%`}</td></tr>`).join('')}</tbody></table></details>
+<script>(function(){var box=document.currentScript.previousElementSibling.previousElementSibling;var pts=JSON.parse(box.dataset.points),W=+box.dataset.w,svg=box.querySelector('svg'),tip=box.querySelector('.hist-tip'),ln=box.querySelector('.hist-x');
+function mv(e){var r=svg.getBoundingClientRect(),cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left,vx=cx*W/r.width,b=pts[0];pts.forEach(function(p){if(Math.abs(p[0]-vx)<Math.abs(b[0]-vx))b=p});ln.setAttribute('x1',b[0]);ln.setAttribute('x2',b[0]);tip.hidden=false;tip.innerHTML='<b>'+b[1]+'</b><span>Actual '+(b[2]===null?'—':b[2]+'%')+'</span><span>Planned '+(b[3]===null?'—':b[3]+'%')+'</span>';tip.style.left=Math.min(b[0]*r.width/W+10,r.width-130)+'px'}
+function lv(){tip.hidden=true;ln.setAttribute('x1',-10);ln.setAttribute('x2',-10)}
+svg.addEventListener('pointermove',mv);svg.addEventListener('pointerleave',lv);svg.addEventListener('touchmove',mv,{passive:true});svg.addEventListener('touchend',lv)})();</script></section>`;
+  }
+
   return `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex"><title>${esc(r.project.title)} · Progress report</title>
 <style>
@@ -179,6 +242,10 @@ function renderProgressReportHtml(r, { live = false, appUrl = '', mediaSrc = nul
   .tl-row{display:flex;align-items:center;gap:0;margin:6px 0}.tl-name{width:160px;flex-shrink:0;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:10px}
   .tl-track{position:relative;flex:1;height:18px;background:#F3F4F6;border-radius:6px}.tl-bar{position:absolute;top:0;bottom:0;background:#CDEDEF;border-radius:6px;overflow:hidden}.tl-bar i{display:block;height:100%;background:#0A7E8C}
   .tl-today{position:absolute;top:18px;bottom:0;border-left:2px dashed #B03020}.tl-today span{position:absolute;top:-18px;left:4px;font-size:11px;font-weight:700;color:#B03020}
+  .hist{position:relative}.hist svg{display:block;touch-action:pan-y}.hist-legend{display:flex;gap:16px;font-size:12px;font-weight:700;color:#374151;margin:-4px 0 6px}.hist-legend i{display:inline-block;width:18px;border-top:2.5px solid #2a78d6;vertical-align:middle;margin-right:6px}.hist-legend i.p{border-top:2px dashed #eb6834}
+  .hist-tip[hidden]{display:none}.hist-tip{position:absolute;top:8px;min-width:120px;background:#0D1B2A;color:#fff;border-radius:10px;padding:7px 10px;font-size:12px;display:flex;flex-direction:column;gap:2px;pointer-events:none}
+  .hist-table{margin-top:8px;font-size:13px}.hist-table summary{cursor:pointer;color:#0A7E8C;font-weight:700;font-size:12px}.hist-table table{margin-top:8px}
+  @media print{.hist-table,.hist-tip{display:none}}
   footer{padding:16px 36px;border-top:1px solid #F3F4F6;font-size:12px;color:#9CA3AF;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
   footer a{color:#0A7E8C;text-decoration:none;font-weight:700}
   ${MEDIA_CSS}
@@ -194,6 +261,7 @@ ${r.project.description ? `<p class="meta" style="color:#6B7280;margin-top:16px"
 ${r.phases.length ? `<section><h2>Phases</h2><table><thead><tr><th>Phase</th><th>Done</th><th style="width:30%">Progress</th><th>Dates</th><th>Status</th></tr></thead><tbody>
 ${r.phases.map(p => `<tr><td><b>${emojiIcon(p.icon)} ${esc(p.title)}</b></td><td>${p.done}/${p.total}</td><td><div class="bar"><i style="width:${p.pct}%"></i></div></td><td style="white-space:nowrap;color:#6B7280">${p.start && p.end ? `${esc(shortDate(p.start))} – ${esc(shortDate(p.end))}` : '—'}</td><td class="st" style="color:${STATUS_COLOURS[p.status.key]}">${esc(p.status.label)}</td></tr>`).join('')}
 </tbody></table></section>` : ''}
+${history}
 ${timeline}
 <div class="grid2">
 <section><h2>Recently completed</h2>${list(r.recent, 'Nothing finished in the last two weeks.', t => `<li><span>${icon('done')}${esc(t.title)}</span><em>${esc(shortDate(t.date))}</em></li>`)}</section>
