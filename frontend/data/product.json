@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Today's road from the focus timer",
+      "text": "Tap the map on the focus timer to open today's road in full view, from any page and on your phone too."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Report a problem from inside the app",
       "text": "Something not right, or an idea? Tap Report a problem in the menu and tell us. We see which page you were on, so a sentence is enough, and we reply by email."
     },

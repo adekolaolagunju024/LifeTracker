@@ -993,6 +993,9 @@
     .focus-hud.is-min .focus-ring { width: 28px; height: 28px; }
     .focus-hud.is-min .focus-time { font-size: 14px; padding: 0 2px; }
     .focus-hud.is-min .focus-btn { width: 28px; height: 28px; }
+    /* On a phone the open timer keeps room for the task's name: Hide is on
+       the small ring instead (one tap on minimise away). */
+    @media (max-width: 639px) { .focus-hud:not(.is-min) .focus-hide-btn { display: none; } }
     @media (max-width: 640px) { .focus-hud { top: 62px; } .focus-title { max-width: 140px; } .focus-hud.is-min { top: 62px; bottom: auto; } }
     body.journey-fs .focus-hud { top: 12px; }
     body.journey-fs .focus-hud.is-min { top: auto; }

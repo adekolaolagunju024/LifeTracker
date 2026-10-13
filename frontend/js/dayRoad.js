@@ -27,6 +27,7 @@ const DayRoad = (() => {
       loading = null;
       render();
       if (typeof paintWatchSlots === 'function') paintWatchSlots();
+      document.dispatchEvent(new Event('dayroad:refresh'));
     })();
     return loading;
   }
