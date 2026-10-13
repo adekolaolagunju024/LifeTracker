@@ -326,12 +326,35 @@ test('pages and scripts carry protective headers, are gzipped, and send no CORS 
   for (const rule of ["default-src 'self'", "object-src 'none'", "frame-ancestors 'self'", "base-uri 'self'", "form-action 'self'"]) assert.ok(csp.includes(rule), rule);
 });
 
-test('the app loads as ordered parts, and every part the page lists is served', async () => {
-  const html = await (await fetch(`${server.base}/app`)).text();
-  const parts = [...html.matchAll(/<script src="(js\/app\/[^"]+)"><\/script>/g)].map(m => m[1]);
+test('the app is written as ordered parts, and served as one cached, compressed bundle', async () => {
+  // As written: the page lists the parts in numbered order.
+  const source = require('fs').readFileSync(require('path').join(__dirname, '../frontend/index.html'), 'utf8');
+  const parts = [...source.matchAll(/<script src="(js\/app\/[^"]+)"><\/script>/g)].map(m => m[1]);
   assert.ok(parts.length >= 10);
   assert.deepEqual(parts, [...parts].sort(), 'parts load in numbered order');
   for (const part of parts) assert.equal((await fetch(`${server.base}/${part}`)).status, 200, part);
+
+  // As served: one hashed script and one stylesheet, no inline CSS, and
+  // the page itself is never cached.
+  const res = await fetch(`${server.base}/app`, { headers: { 'Accept-Encoding': 'br' } });
+  assert.equal(res.headers.get('cache-control'), 'no-cache');
+  const html = await res.text();
+  const js = [...html.matchAll(/<script src="(\/build\/app\.[0-9a-f]{12}\.js)"><\/script>/g)].map(m => m[1]);
+  assert.equal(js.length, 1, 'one bundle');
+  assert.ok(!/<script src="js\//.test(html), 'no separate app scripts');
+  assert.ok(!/<style>/.test(html), 'no inline stylesheet');
+  const css = html.match(/href="(\/build\/page\.[0-9a-f]{12}\.css)"/);
+  assert.ok(css, 'the page stylesheet');
+
+  const bundle = await fetch(`${server.base}${js[0]}`, { headers: { 'Accept-Encoding': 'br' } });
+  assert.equal(bundle.status, 200);
+  assert.match(bundle.headers.get('cache-control'), /max-age=31536000, immutable/);
+  assert.equal(bundle.headers.get('content-encoding'), 'br');
+  const code = await bundle.text();
+  // Top-level names survive minifying: the markup's onclick handlers call them.
+  for (const name of ['function showPage', 'function openTaskDetail', 'Jarvis=', 'DayRoad=']) assert.ok(code.includes(name), name);
+  assert.equal((await fetch(`${server.base}${css[1]}`)).status, 200);
+  assert.equal((await fetch(`${server.base}/build/app.000000000000.js`)).status, 404);
 });
 
 test('passwords shorter than 8 characters are refused', async () => {

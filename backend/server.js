@@ -107,6 +107,11 @@ app.use(session({
 // files keep their names between releases). Images and models can cache.
 const NO_CACHE = /\.(html|js|mjs|css)$/;
 const noCache = res => res.setHeader('Cache-Control', 'no-cache');
+// The app page built for speed (backend/bundle.js): one minified script
+// and stylesheet, hashed and cached for a year.
+const bundle = require('./bundle');
+const sendApp = (req, res) => bundle.sendPage(req, res, () => { noCache(res); res.sendFile(path.join(__dirname, '../frontend/index.html')); });
+app.get('/build/:name', bundle.assetRoute);
 // Rendered from product data, so it's handled before the static files.
 app.get('/landing.html', (req, res) => { noCache(res); res.type('html').send(renderLanding()); });
 app.use(express.static(path.join(__dirname, '../frontend'), {
@@ -125,7 +130,7 @@ app.use('/vendor/three/examples/jsm', express.static(path.join(__dirname, '../no
 // backend/landing.js), so it never goes stale.
 app.get('/', (req, res) => {
   noCache(res);
-  if (req.session && req.session.userId) return res.sendFile(path.join(__dirname, '../frontend/index.html'));
+  if (req.session && req.session.userId) return sendApp(req, res);
   try { metrics.countPageView('landing', req.get('user-agent')); } catch { /* counting never blocks the page */ }
   res.type('html').send(renderLanding());
 });
@@ -136,7 +141,7 @@ app.get('/showcase/:file', (req, res) => {
   noCache(res);
   res.sendFile(file);
 });
-app.get('/app', (req, res) => { noCache(res); res.sendFile(path.join(__dirname, '../frontend/index.html')); });
+app.get('/app', sendApp);
 
 // ── PUBLIC ROUTES ──
 app.use('/api/auth', require('./routes/auth'));
@@ -202,13 +207,12 @@ app.use('/api/journey-gaming', require('./routes/journeyGaming'));
 app.use('/api/calendar', calendar.apiRouter);
 
 // ── CATCH ALL — serve frontend ──
-app.get('*', (req, res) => {
-  noCache(res);
-  res.sendFile(path.join(__dirname, '../frontend/index.html'));
-});
+app.get('*', sendApp);
 
 if (process.env.SENTRY_DSN) Sentry.setupExpressErrorHandler(app);
 
+// Build the app page now, so the first visitor doesn't wait for it.
+bundle.current();
 // Uploads saved before they moved onto the data volume come across first.
 const adopted = require('./storage').adoptLegacyUploads();
 if (adopted) console.log(`Copied ${adopted} uploaded file(s) onto the data volume`);

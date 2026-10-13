@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Opens faster on your phone",
+      "text": "Waypoint now loads about half as much on your first visit and far less after that, so it opens quicker on mobile data."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Plan your first day in three steps",
       "text": "New to Waypoint? Name your goal, write the first three things to do, and see today laid out with times. You land on your own day, ready to start the first task."
     },
