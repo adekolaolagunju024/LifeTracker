@@ -690,13 +690,17 @@ export function nameTagSprite(text, height = 0.42) {
 // steps off the line; this keeps one body and tag per player and decides
 // who's shown: everyone up to six, else the five nearest you and the leader
 // (the scoreboard above the scene lists the rest).
-export function playerTagSprite(text, color, height = 0.38) {
+// A podium place's cup on a tag: gold, silver or bronze.
+const PLACE_CUPS = { 1: ['#F2C230', '#9A7209'], 2: ['#CDD3DA', '#6E7883'], 3: ['#D98C4A', '#8A4F1E'] };
+const TROPHY = ['M6 9H4.5a2.5 2.5 0 0 1 0-5H6', 'M18 9h1.5a2.5 2.5 0 0 0 0-5H18', 'M4 22h16', 'M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22', 'M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22', 'M18 2H6v7a6 6 0 0 0 12 0V2Z'];
+export function playerTagSprite(text, color, height = 0.38, place = 0) {
   const label = text.length > 16 ? text.slice(0, 15) + '…' : text;
+  const cup = PLACE_CUPS[place];
   const c = document.createElement('canvas');
   const g = c.getContext('2d');
   const font = '800 44px system-ui, Arial, sans-serif';
   g.font = font;
-  const w = Math.ceil(g.measureText(label).width) + 84, h = 68;
+  const w = Math.ceil(g.measureText(label).width) + 84 + (cup ? 50 : 0), h = 68;
   c.width = w; c.height = h;
   g.font = font;
   g.fillStyle = 'rgba(255,255,255,0.95)';
@@ -705,6 +709,12 @@ export function playerTagSprite(text, color, height = 0.38) {
   g.fillStyle = color; g.beginPath(); g.arc(34, h / 2, 11, 0, Math.PI * 2); g.fill();
   g.fillStyle = '#0D1B2A'; g.textAlign = 'left'; g.textBaseline = 'middle';
   g.fillText(label, 54, h / 2 + 2);
+  if (cup) {
+    g.save(); g.translate(w - 66, h / 2 - 20); g.scale(40 / 24, 40 / 24);
+    g.fillStyle = cup[0]; g.strokeStyle = cup[1]; g.lineWidth = 2.2; g.lineCap = 'round'; g.lineJoin = 'round';
+    TROPHY.forEach(d => { const p = new Path2D(d); g.fill(p); g.stroke(p); });
+    g.restore();
+  }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, depthTest: false }));
   sprite.scale.set(height * (w / h), height, 1);
@@ -730,7 +740,7 @@ export function createRivals({ build, place, tagHeight = 2.3, tagSize = 0.38, ma
       let s = shown.get(k);
       if (!s) {
         const body = build(r.color);
-        const tag = playerTagSprite(r.name + (r.badge ? ` · ${r.badge}` : r.finished ? ' 🏁' : ''), r.color, tagSize);
+        const tag = playerTagSprite(r.name + (r.badge ? ` · ${r.badge}` : r.finished ? ' 🏁' : ''), r.color, tagSize, r.place);
         tag.position.y = tagHeight;
         body.holder.add(tag);
         s = { body, tag, label: '' };

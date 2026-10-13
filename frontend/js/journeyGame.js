@@ -1564,10 +1564,14 @@ const JourneyGame = (() => {
 
   // A name tag: a rounded label with a coloured dot, drawn unscaled so it
   // stays readable however small the characters get on a long task list.
+  const PLACE_CUPS = { 1: ['#F2C230', '#9A7209'], 2: ['#CDD3DA', '#6E7883'], 3: ['#D98C4A', '#8A4F1E'] };
+  const TROPHY_PATH = '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>';
   function nameTag(x, y, text, color, { you = false, sub = '', k = 1 } = {}) {
     const g = el('g', { class: `journey-name-tag${you ? ' is-you' : ''}`, transform: `translate(${x.toFixed(1)},${y.toFixed(1)}) scale(${k.toFixed(3)})` });
     const label = text.length > 14 ? `${text.slice(0, 13)}…` : text;
-    const w = Math.max(30, label.length * 6.4 + 22 + (sub ? sub.length * 5 + 6 : 0));
+    // A podium place gets its cup: gold, silver or bronze.
+    const cup = PLACE_CUPS[(/^([123])(st|nd|rd)$/.exec(sub) || [])[1]];
+    const w = Math.max(30, label.length * 6.4 + 22 + (sub ? sub.length * 5 + 6 : 0) + (cup ? 16 : 0));
     g.appendChild(el('rect', { x: -w / 2, y: -11, width: w, height: 18, rx: 9, fill: you ? '#0D1B2A' : '#ffffff', stroke: color, 'stroke-width': 1.6, opacity: 0.95 }));
     g.appendChild(el('circle', { cx: -w / 2 + 9, cy: -2, r: 3.4, fill: color }));
     const t = el('text', { x: -w / 2 + 16, y: 2, 'font-size': 10.5, 'font-weight': 800, 'font-family': 'system-ui, Arial, sans-serif', fill: you ? '#ffffff' : '#0D1B2A' });
@@ -1577,6 +1581,11 @@ const JourneyGame = (() => {
       const s2 = el('text', { x: w / 2 - 7, y: 2, 'text-anchor': 'end', 'font-size': 9, 'font-weight': 700, 'font-family': 'system-ui, Arial, sans-serif', fill: you ? '#5EEAD4' : '#556270' });
       s2.textContent = sub;
       g.appendChild(s2);
+      if (cup) {
+        const c = el('g', { transform: `translate(${(w / 2 - 7 - sub.length * 5.4 - 13).toFixed(1)},-7.5) scale(0.46)`, fill: cup[0], stroke: cup[1], 'stroke-width': 2.4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+        c.innerHTML = TROPHY_PATH;
+        g.appendChild(c);
+      }
     }
     return g;
   }

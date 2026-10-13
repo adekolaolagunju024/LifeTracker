@@ -951,6 +951,10 @@ function dismissProjectCompleteOverlay() {
   if (!sheet) return;
   let startY = null, dragging = false;
   sheet.addEventListener('pointerdown', (e) => {
+    // A press on a button or link is a tap, not the start of a swipe:
+    // capturing the pointer here would take the click away from it (the
+    // Close, Share and Report buttons did nothing).
+    if (e.target.closest('button, a, input, textarea, select, [role="button"]')) return;
     startY = e.clientY;
     dragging = true;
     sheet.style.transition = 'none';
