@@ -38,9 +38,10 @@ test('a race: make it, share the link, everyone gets their own copy, first to fi
   assert.equal(race.players.length, 1);
   assert.ok(race.joinToken);
   const anaCopy = race.players[0].projectId;
-  assert.notEqual(anaCopy, goal.id, 'the maker races on a fresh copy too');
+  assert.equal(anaCopy, goal.id, 'the maker races on the goal they have, not a duplicate');
+  const anaProjects = await (await call(ana, 'GET', '/api/projects')).json();
+  assert.equal(anaProjects.filter(p => p.title.startsWith('Run 5k')).length, 1, 'no copy made for the maker');
   assert.equal((await tasksOf(ana, anaCopy)).length, 3);
-  assert.ok((await tasksOf(ana, anaCopy)).every(t => t.status === 'Not Started' && t.endDate));
 
   // The link's preview works signed out and shows no one's progress.
   const preview = await (await call(null, 'GET', `/api/race-preview/${race.joinToken}`)).json();
@@ -175,4 +176,25 @@ test('a group says who leads it: a coach, a trainer, a teacher…; races have no
   assert.equal(odd.leaderRole, 'leader');
   const race = await (await call(coach, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), leaderRole: 'coach', displayName: 'Sam' })).json();
   assert.equal(race.leaderRole, null);
+});
+
+test("the maker's own goal is used, unless a race would start them ahead", async () => {
+  const ana = await signUp();
+  const goal = await goalWithTasks(ana, ['One', 'Two', 'Three']);
+  // A group uses the leader's goal even with steps done.
+  const t = (await tasksOf(ana, goal.id))[0];
+  await call(ana, 'PUT', `/api/tasks/${t.id}`, { status: 'Completed' });
+  const group = await (await call(ana, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), mode: 'together', displayName: 'Ana' })).json();
+  assert.equal(group.players[0].projectId, goal.id);
+  assert.equal(group.players[0].done, 1);
+  // A race from a goal with a step already ticked starts Ana on a fresh copy.
+  const other = await goalWithTasks(ana, ['A', 'B']);
+  const first = (await tasksOf(ana, other.id))[0];
+  await call(ana, 'PUT', `/api/tasks/${first.id}`, { status: 'Completed' });
+  const race = await (await call(ana, 'POST', '/api/challenges', { projectId: other.id, endsAt: inDays(7), displayName: 'Ana' })).json();
+  assert.notEqual(race.players[0].projectId, other.id);
+  assert.equal(race.players[0].done, 0, 'everyone starts level');
+  // A goal already in a group keeps its place there: a second one copies.
+  const again = await (await call(ana, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), mode: 'together', displayName: 'Ana' })).json();
+  assert.notEqual(again.players[0].projectId, goal.id);
 });

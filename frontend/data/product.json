@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "No more duplicate goal when you team up",
+      "text": "Setting up a race or a group from one of your goals no longer copies it for you. You take part on the goal you already have, and only the people who join get their own copy. A race from a goal with steps already ticked still gives you a fresh copy, so everyone starts level."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Team up: for coaches, trainers, teachers and managers",
       "text": "Race a friend is now Team up. Lead a group comes first: say whether you are a coach, trainer, teacher or manager, and your squad, clients, class or team each get their own copy of the goal while you watch who is on track. Racing friends is still there as the second choice, and Challenges is now called Teams."
     },
