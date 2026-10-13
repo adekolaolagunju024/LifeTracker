@@ -390,7 +390,7 @@
     .brief-pills { display: flex; gap: 6px; flex-wrap: wrap; }
     .brief-pills .pill-streak, .brief-pills .pill-level { font-size: 12px; padding: 4px 10px; }
     .brief-pills .pill-streak.hidden { display: none; }
-    .dash-grid { display: grid; gap: 16px; grid-template-areas: "week" "today" "journey"; }
+    .dash-grid { display: grid; gap: 16px; grid-template-areas: "today" "week" "journey"; /* on a phone, today first: the week story is a look back */ }
     .dash-grid > * { min-width: 0; }
     #dash-week-card { grid-area: week; } .today-wrap { grid-area: today; } #dash-focus { grid-area: journey; }
     @media (min-width: 900px) {
@@ -1333,7 +1333,12 @@
     @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 12px; } }
     .dark .topdock button { background: rgba(94,234,212,.12); color: #5EEAD4; }
     @media (prefers-reduced-motion: reduce) { .topdock .eq i { animation: none; height: 8px; } }
-    .music-dock.is-hidden { position: fixed; left: -10000px; top: 0; width: 320px; }
+    /* The focus panel's copy of today's road goes where it would repeat
+       itself: on the dashboard (the Today card has it) and, while the
+       timer runs, on a phone, where the panel would cover half the page. */
+    body[data-page="dashboard"] .focus-hud [data-dayroad="panel"] { display: none !important; }
+    @media (max-width: 639px) { .focus-hud:not(.is-done) [data-dayroad="panel"] { display: none !important; } }
+    .music-dock.is-hidden, .music-dock.is-tucked { position: fixed; left: -10000px; top: 0; width: 320px; }
     .why-add { display: grid; grid-template-columns: 1fr; gap: 8px; }
     @media (min-width: 720px) { .why-add { grid-template-columns: 2fr 1fr auto; } }
     .why-add button, .why-save-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #0A7E8C; color: #fff; font-weight: 800; font-size: 14px; border-radius: 12px; padding: 10px 16px; }

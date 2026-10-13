@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Less floating on the screen",
+      "text": "The focus timer and the music player no longer stack up over the page. While the timer is open, your music keeps playing with its controls in the timer, and the timer stays small on your phone. On the dashboard, today comes first."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Tidier on your phone",
       "text": "Spacing, padding and text fixes across the app on small screens. Nothing scrolls sideways any more, task cards breathe, and buttons stay on one line."
     },

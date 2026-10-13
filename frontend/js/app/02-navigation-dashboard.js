@@ -18,6 +18,7 @@ function showPage(id, projectId = null, _skipHistory = false) {
   }
 
   APP.currentPage      = id;
+  document.body.dataset.page = id; // lets CSS drop what the page already shows (the focus panel's road on the dashboard)
   if (id === 'actions' || id === 'calendar') API.trackFeature(id);
   // The dashboard and Actions already say what's late, so the banner never
   // shows there, and once you've seen either it stays away for the day.
