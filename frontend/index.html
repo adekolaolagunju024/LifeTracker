@@ -873,6 +873,48 @@
     .dark .fb-card textarea { background: #0B1220; border-color: #24324A; color: #E6EDF3; }
     .dark .fb-cancel { background: #1F2A3C; color: #E6EDF3; }
     .dark .fb-list li { border-color: #24324A; }
+    /* Race a friend (js/race.js): the dialogs reuse .fb-card */
+    .race-card input[type="text"], .race-card input[type="date"] { width: 100%; border: 1px solid #DDE3E8; border-radius: 12px; padding: 9px 12px; font: inherit; font-size: 14px; background: #fff; }
+    .race-card input:focus { outline: none; border-color: #0A7E8C; }
+    .race-card .opt { font-weight: 500; color: #8A94A3; }
+    .race-link { display: flex; gap: 8px; }
+    .race-link input { flex: 1; min-width: 0; font-size: 13px !important; color: #3F4A57; }
+    .race-link button, .race-card .fb-foot .fb-cancel { display: inline-flex; align-items: center; gap: 6px; }
+    .race-invite { display: flex; align-items: center; gap: 12px; border: 1px solid #E3E6EA; border-radius: 14px; padding: 10px 12px; }
+    .race-invite-ic { font-size: 26px; line-height: 1; }
+    .race-invite b { display: block; font-size: 15px; color: #0D1B2A; }
+    .race-invite small { color: #556270; font-size: 12px; }
+    .race-stake { display: flex; gap: 8px; align-items: center; margin: 0; font-size: 14px; color: #A15C07; background: #FDF3E1; border-radius: 10px; padding: 8px 10px; }
+    .race-stake b { color: #7A4505; }
+    .auth-race-note { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 14px; font-size: 13px; color: #0D1B2A; background: #E6F4F5; border: 1px solid #B9E1E4; border-radius: 12px; padding: 10px 12px; }
+    .auth-race-note.hidden { display: none; }
+    /* The race scoreboard above the Journey */
+    .race-strip { background: #fff; border: 1px solid #E3E6EA; border-radius: 16px; padding: 10px 12px; margin-bottom: 10px; display: grid; gap: 8px; }
+    .race-strip-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #0D1B2A; }
+    .race-strip-title { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .race-strip-stake { color: #A15C07; font-weight: 600; }
+    .race-strip-actions { display: inline-flex; gap: 6px; }
+    .race-strip-actions button { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #0A7E8C; background: #E6F4F5; border-radius: 999px; padding: 5px 10px; }
+    .race-strip-actions button:last-child { color: #556270; background: #F1F3F5; }
+    .race-board { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+    .race-board::-webkit-scrollbar { display: none; }
+    .race-board li { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #E3E6EA; border-radius: 999px; padding: 4px 10px 4px 6px; font-size: 12px; color: #0D1B2A; white-space: nowrap; }
+    .race-board li.you { border-color: #0A7E8C; background: #E6F4F5; }
+    .race-board .pos { font: 700 11px ui-monospace, monospace; color: #8A94A3; min-width: 12px; text-align: center; }
+    .race-board i { width: 9px; height: 9px; border-radius: 999px; display: inline-block; }
+    .race-board .steps { font: 600 11px ui-monospace, monospace; color: #556270; }
+    .race-board .pace { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 6px; background: #F1F3F5; color: #556270; }
+    .race-board .pace.ahead, .race-board .pace.finished { background: #E4F4EC; color: #127A4A; }
+    .race-board .pace.behind { background: #FDECEA; color: #B42318; }
+    .dark .race-card input[type="text"], .dark .race-card input[type="date"] { background: #0B1220; border-color: #24324A; color: #E6EDF3; }
+    .dark .race-invite { border-color: #24324A; }
+    .dark .race-invite b, .dark .race-strip-top, .dark .race-board li { color: #E6EDF3; }
+    .dark .race-strip { background: #111B2B; border-color: #24324A; }
+    .dark .race-board li { border-color: #24324A; }
+    .dark .race-board li.you { background: rgba(94,234,212,.1); border-color: #5EEAD4; }
+    .dark .race-stake { background: rgba(245,185,92,.12); color: #F5B95C; }
+    .dark .race-stake b { color: #F5B95C; }
+    .dark .auth-race-note { background: rgba(94,234,212,.08); border-color: rgba(94,234,212,.25); color: #E6EDF3; }
     /* The owner's Service list (js/metrics.js) */
     .svc-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
     .svc-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
@@ -2590,6 +2632,7 @@
 
   <main class="auth-main">
   <div class="auth-card">
+    <p class="hidden auth-race-note" id="auth-race-note" role="status"></p>
 
     <!-- LOGIN -->
     <div class="auth-view active" id="auth-view-login">
@@ -3088,6 +3131,7 @@
               <button onclick="closeProjectDetailMenu();openProjectChat(APP.currentProjectId)" id="btn-project-chat" class="hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="chat"></span> Chat</button>
               <button onclick="closeProjectDetailMenu();openProgressReport(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="file"></span> Progress report</button>
               <button onclick="closeProjectDetailMenu();editProject(APP.currentProjectId)" id="btn-edit-project" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="edit"></span> Edit</button>
+              <button onclick="closeProjectDetailMenu();Race.openCreate(APP.currentProjectId)" id="btn-race-friend" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="flag"></span> Race a friend</button>
               <button onclick="duplicateProjectAction(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">⧉ Duplicate Project</button>
               <div class="border-t border-gray-100 my-1"></div>
               <button onclick="exportProjectData(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="download"></span> Export This Project</button>
@@ -3340,6 +3384,7 @@
             <button onclick="Why.playMusic()" id="journey-music-btn" class="bg-white hover:bg-gray-50 border border-gray-200 text-xs font-semibold px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5" title="Play your music while you play" aria-label="Play your music" data-icon="music">Music</button>
             <button onclick="toggleGameSounds()" id="journey-sound-btn" class="bg-white hover:bg-gray-50 border border-gray-200 text-sm px-2.5 py-1 rounded-lg" aria-label="Turn game sounds off" aria-pressed="true" title="Game sounds"><span class="ei" data-icon="volume"></span></button>
             <button onclick="openJourneyTrophyCase()" id="journey-level-badge" class="hidden items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap"><span class="ei" data-icon="star"></span> Lv.1</button>
+            <button type="button" onclick="Race.openCreate(mountainState && mountainState.projectId)" id="journey-race-btn" class="bg-white hover:bg-gray-50 border border-gray-200 text-xs font-semibold px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5"><span class="ei" data-icon="flag"></span>Race a friend</button>
             <select id="journey-competitor-select" onchange="setJourneyCompetitor(this.value)" class="hidden border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
               <option value="schedule"> The Schedule</option>
             </select>
@@ -3354,6 +3399,7 @@
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" aria-label="Fullscreen" data-icon="expand"> Full screen</button>
           </div>
         </div>
+        <div class="hidden race-strip" id="journey-race" aria-live="polite"></div>
         <div class="rounded-2xl overflow-hidden journey-scene-frame" id="journey-hud">
           <div class="relative" id="mountain-scene-wrap" style="height:min(55vh,460px); min-height:320px; background:linear-gradient(180deg, #8fd3fb 0%, #c7e9fd 55%, #fff3da 100%);" title="Tap the scene for a spark — real progress still only comes from finishing tasks below">
             <div class="absolute inset-0" id="mountain-scene"></div>
@@ -4695,6 +4741,7 @@
 <script src="js/dayReport.js"></script>
 <script src="js/taskActions.js"></script>
 <script src="js/feedback.js"></script>
+<script src="js/race.js"></script>
 
 </body>
 </html>

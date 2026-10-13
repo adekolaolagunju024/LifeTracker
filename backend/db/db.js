@@ -1980,7 +1980,7 @@ function removeReportMedia(userId, mediaId) {
   return true;
 }
 
-module.exports = { setVerifyToken, getUserByVerifyToken, markEmailVerified, isEmailVerified,
+module.exports = { topLevelProjectId, setVerifyToken, getUserByVerifyToken, markEmailVerified, isEmailVerified,
   liveStreak,
   getPledgeLinkTarget,
   listReportMedia, listProjectAttachments, addReportMedia, removeReportMedia,

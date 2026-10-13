@@ -1562,6 +1562,69 @@ const JourneyGame = (() => {
     return entry;
   }
 
+  // A name tag: a rounded label with a coloured dot, drawn unscaled so it
+  // stays readable however small the characters get on a long task list.
+  function nameTag(x, y, text, color, { you = false, sub = '', k = 1 } = {}) {
+    const g = el('g', { class: `journey-name-tag${you ? ' is-you' : ''}`, transform: `translate(${x.toFixed(1)},${y.toFixed(1)}) scale(${k.toFixed(3)})` });
+    const label = text.length > 14 ? `${text.slice(0, 13)}…` : text;
+    const w = Math.max(30, label.length * 6.4 + 22 + (sub ? sub.length * 5 + 6 : 0));
+    g.appendChild(el('rect', { x: -w / 2, y: -11, width: w, height: 18, rx: 9, fill: you ? '#0D1B2A' : '#ffffff', stroke: color, 'stroke-width': 1.6, opacity: 0.95 }));
+    g.appendChild(el('circle', { cx: -w / 2 + 9, cy: -2, r: 3.4, fill: color }));
+    const t = el('text', { x: -w / 2 + 16, y: 2, 'font-size': 10.5, 'font-weight': 800, 'font-family': 'system-ui, Arial, sans-serif', fill: you ? '#ffffff' : '#0D1B2A' });
+    t.textContent = label;
+    g.appendChild(t);
+    if (sub) {
+      const s2 = el('text', { x: w / 2 - 7, y: 2, 'text-anchor': 'end', 'font-size': 9, 'font-weight': 700, 'font-family': 'system-ui, Arial, sans-serif', fill: you ? '#5EEAD4' : '#556270' });
+      s2.textContent = sub;
+      g.appendChild(s2);
+    }
+    return g;
+  }
+  function drawRivals(entry, state, n, finishFrac, scale, theme) {
+    let layer = entry.rivalLayer;
+    if (!layer) {
+      layer = el('g', { class: 'journey-rivals' });
+      entry.ghostLayer.parentNode.insertBefore(layer, entry.ghostLayer.nextSibling);
+      entry.rivalLayer = layer;
+      entry.tagLayer = el('g', { class: 'journey-name-tags', 'pointer-events': 'none' });
+      entry.popupLayer.parentNode.insertBefore(entry.tagLayer, entry.popupLayer);
+    }
+    while (layer.firstChild) layer.removeChild(layer.firstChild);
+    while (entry.tagLayer.firstChild) entry.tagLayer.removeChild(entry.tagLayer.firstChild);
+    const rivals = state.rivals || [];
+    if (!rivals.length) { entry.youTag = null; return; }
+    // Tags are sized for the screen, not the scene: the picture is scaled
+    // to fit, so on a phone a tag drawn at scene size would be unreadable.
+    const shown = entry.svg.getBoundingClientRect().width || 0;
+    const k = entry.tagK = shown ? Math.max(0.9, Math.min(3, entry.svg.viewBox.baseVal.width / shown)) : 1;
+    const youFrac = state.youFrac || 0;
+    const sorted = rivals.slice().sort((a, b) => Math.abs(a.frac - youFrac) - Math.abs(b.frac - youFrac));
+    const tagged = new Set(rivals.length <= 8 ? rivals : [...sorted.slice(0, 2), ...rivals.filter(r => r.leader)]);
+    // Players on the same spot stand a little apart, so each can be seen.
+    const atSpot = new Map();
+    rivals.forEach(r => {
+      const key = Math.round(r.frac * 200);
+      const here = atSpot.get(key) || 0; atSpot.set(key, here + 1);
+      const p = pointAtFrac(entry.roadBase, progressToPathFrac(r.frac, n, finishFrac));
+      const dx = (here % 2 ? 1 : -1) * Math.ceil(here / 2) * 16 * scale - (here ? 0 : 12 * scale);
+      const s = scale * (tagged.has(r) ? 0.92 : 0.7);
+      const g = theme.buildAvatar(r.color);
+      g.setAttribute('transform', `translate(${(p.x + dx).toFixed(1)},${p.y.toFixed(1)}) scale(${s})`);
+      g.setAttribute('opacity', tagged.has(r) ? '0.92' : '0.6');
+      layer.appendChild(g);
+      if (tagged.has(r)) entry.tagLayer.appendChild(nameTag(p.x + dx, p.y - 40 * s - 12 * k, r.name, r.color, { sub: r.finished ? '🏁' : r.leader ? '1st' : '', k }));
+    });
+    // You get a tag too, so it's clear which runner is yours.
+    entry.youTag = entry.tagLayer.appendChild(nameTag(0, 0, 'You', state.youColor || '#0A7E8C', { you: true, k }));
+    positionYouTag(entry, scale);
+  }
+  function positionYouTag(entry, scale) {
+    if (!entry.youTag || !entry.youTag.isConnected) return;
+    const p = pointAtFrac(entry.roadBase, entry.curFrac == null ? 0 : entry.curFrac);
+    const k = entry.tagK || 1;
+    entry.youTag.setAttribute('transform', `translate(${p.x.toFixed(1)},${(p.y - 40 * scale - 12 * k).toFixed(1)}) scale(${k.toFixed(3)})`);
+  }
+
   function pointAtFrac(roadBase, frac) {
     const len = roadBase.getTotalLength();
     return roadBase.getPointAtLength(Math.max(0, Math.min(1, frac)) * len);
@@ -1598,6 +1661,7 @@ const JourneyGame = (() => {
   function placeAvatar(entry, frac, scale) {
     const p = pointAtFrac(entry.roadBase, frac);
     entry.avatarLayer.setAttribute('transform', `translate(${p.x.toFixed(2)},${p.y.toFixed(2)}) scale(${scale})`);
+    if (entry.youTag && entry.youTag.isConnected) { const k = entry.tagK || 1; entry.youTag.setAttribute('transform', `translate(${p.x.toFixed(1)},${(p.y - 40 * scale - 12 * k).toFixed(1)}) scale(${k.toFixed(3)})`); }
     // The "ground covered" glow trail is revealed up to exactly where the
     // avatar stands, so it fills in step by step as the avatar walks.
     if (entry.progressPath) {
@@ -1881,6 +1945,13 @@ const JourneyGame = (() => {
       g.setAttribute('opacity', '0.55');
       ghostLayer.appendChild(g);
     }
+
+    // Rivals in a race (Challenges): every other player at their own place
+    // on the same road, in their colour, with their name over their head
+    // and how they're doing on pace. Only you, the leader and the two
+    // either side of you get full name tags once there are more than eight,
+    // so the road stays readable; the rest are smaller and quieter.
+    drawRivals(entry, state, n, finishFrac, scale, theme);
 
     if (!avatarLayer.firstChild) avatarLayer.appendChild(theme.buildAvatar(theme.avatarFill, shadowId));
     avatarLayer.style.transition = 'none';
