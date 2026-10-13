@@ -447,7 +447,7 @@ async function toggleMountainTask(checkbox) {
   const task = mountainState.tasks.find(t => t.id === taskId);
   const nowComplete = checkbox.checked;
   const gate = taskGateMessage(task, nowComplete ? 'Completed' : 'Not Started');
-  if (gate) { checkbox.checked = !nowComplete; showToast(gate, 'error'); return; }
+  if (gate) { checkbox.checked = !nowComplete; showGateCard(task, nowComplete ? 'Completed' : 'Not Started'); return; }
   checkbox.disabled = true;
   try {
     await API.updateTask(taskId, { status: nowComplete ? 'Completed' : 'Not Started' });
@@ -467,7 +467,7 @@ async function toggleMountainTask(checkbox) {
     }
   } catch (e) {
     checkbox.checked = !nowComplete;
-    taskErrorToast(e, 'Could not update that task');
+    taskErrorToast(e, 'Could not update that task', { taskId, status: nowComplete ? 'Completed' : 'Not Started' });
   } finally {
     checkbox.disabled = !mountainState.canEdit;
   }

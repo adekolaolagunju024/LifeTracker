@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Clearer \"not yet\" messages",
+      "text": "Try to finish a task that still has blockers and you now get a proper card instead of a red error: it lists what's in the way with a tick box for each, so you can clear them there and then and tap Mark as done. A task waiting on another one shows which, with a button to open it."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Drag and stretch Gantt bars, on your phone too",
       "text": "Drag a bar on the Gantt chart to move a task, or pull either end to change its start or due date. It snaps to whole days and shows the new dates as you go, and Undo is one tap away. On a phone or tablet, press and hold a bar for a moment, then drag. The Key button no longer slips off the edge of smaller phones."
     },

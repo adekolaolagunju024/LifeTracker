@@ -135,7 +135,7 @@ async function renderActions() {
 }
 
 async function markActionDone(taskId) {
-  try { await API.updateTask(taskId, { status: 'Completed' }); } catch (e) { taskErrorToast(e); return; }
+  try { await API.updateTask(taskId, { status: 'Completed' }); } catch (e) { taskErrorToast(e, 'Could not mark it done', { taskId, status: 'Completed' }); return; }
   renderActions();
   showToast('✅ Marked as done');
 }

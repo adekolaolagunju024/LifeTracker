@@ -612,7 +612,7 @@ async function saveTask() {
     if (APP.currentProjectId) renderTaskTable(APP.currentProjectId);
     if (APP.currentPage === 'gantt') renderGantt();
     updateSidebar();
-  } catch (e) { taskErrorToast(e, 'Failed to save task'); }
+  } catch (e) { taskErrorToast(e, 'Failed to save task', id ? { taskId: id, status: data.status } : {}); }
 }
 
 // Deleting a task is instant, with Undo in the toast (it goes to Trash, so
