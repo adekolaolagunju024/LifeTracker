@@ -18,7 +18,10 @@ async function launch() {
   let stderr = '';
   child.stderr.on('data', d => { stderr += d; });
 
-  const base = `http://localhost:${port}`;
+  // 127.0.0.1, not localhost: "localhost" can resolve to IPv4 or IPv6 on
+  // different connections, and the server would then see one client as
+  // two addresses (splitting its per-address rate limits).
+  const base = `http://127.0.0.1:${port}`;
   const deadline = Date.now() + BOOT_TIMEOUT_MS;
   while (Date.now() < deadline) {
     try {
