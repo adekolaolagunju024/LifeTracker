@@ -101,6 +101,7 @@ async function init() {
   handleDriveRedirect();
   handleAuthRedirect();
   if (handleResetTokenRedirect()) return;
+  await handleVerifyTokenRedirect();
   const authed = await checkAuth();
   if (authed) await afterAuth();
   else if (new URLSearchParams(location.search).has('twofactor')) showAuthView('2fa'); // Google sign-in waiting on a code

@@ -7,7 +7,7 @@ const { v4: uuid } = require('uuid');
 const { google } = require('googleapis');
 const microsoft = require('../microsoft');
 const db = require('../db/db');
-const { sendPasswordResetEmail } = require('../email/account');
+const { sendPasswordResetEmail, sendVerifyEmail } = require('../email/account');
 const twofactor = require('../twofactor');
 const QRCode = require('qrcode');
 
@@ -36,7 +36,7 @@ router.get('/status', (req, res) => {
 router.get('/me', (req, res) => {
   if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
   const user = db.getUserById(req.session.userId);
-  res.json({ id: user.id, email: user.email });
+  res.json({ id: user.id, email: user.email, emailVerified: !!user.emailVerifiedAt });
 });
 
 const MIN_PASSWORD = 8;
@@ -58,6 +58,43 @@ function signIn(req, userId) {
   }));
 }
 
+// Emails a fresh "confirm your email" link (two days). Where email isn't
+// set up the link goes to the server log, as with password resets.
+async function sendVerification(req, user) {
+  const token = crypto.randomBytes(32).toString('hex');
+  db.setVerifyToken(user.id, token, new Date(Date.now() + 48 * HOUR).toISOString());
+  const url = `${process.env.APP_URL || `${req.protocol}://${req.get('host')}`}/app?verifyToken=${token}`;
+  try {
+    const sent = await sendVerifyEmail(user.email, url);
+    if (!sent) console.log(`\n✉️  Confirm-email link for ${user.email} (email is not set up, so here it is)\n   ${url}\n`);
+  } catch (e) {
+    console.error('Verification email failed:', e.message);
+  }
+}
+const verifyLimit = rateLimit({ windowMs: FIFTEEN_MIN, max: 20, key: byIp, message: 'Too many attempts. Please wait a few minutes and try again.' });
+const resendLimit = rateLimit({ windowMs: HOUR, max: 3, key: byIp, message: 'We have sent a few already. Please check your inbox and spam folder, or try again in an hour.' });
+
+// POST /api/auth/verify-email {token}: the link from the email. Works
+// whether or not they're signed in on this device.
+router.post('/verify-email', verifyLimit, (req, res) => {
+  const user = db.getUserByVerifyToken(String((req.body || {}).token || ''));
+  if (!user) return res.status(400).json({ error: 'That link has already been used or is not valid. Sign in to send a new one.' });
+  if (!user.verifyTokenExpires || new Date(user.verifyTokenExpires) < new Date()) {
+    return res.status(400).json({ error: 'That link has expired. Sign in and we can send a new one.' });
+  }
+  db.markEmailVerified(user.id);
+  res.json({ success: true, email: user.email });
+});
+
+// POST /api/auth/resend-verification: a new link to the signed-in account.
+router.post('/resend-verification', resendLimit, async (req, res) => {
+  if (!req.session || !req.session.userId) return res.status(401).json({ error: 'Not authenticated' });
+  const user = db.getUserById(req.session.userId);
+  if (user.emailVerifiedAt) return res.json({ success: true, alreadyVerified: true });
+  await sendVerification(req, user);
+  res.json({ success: true });
+});
+
 // POST /api/auth/register
 router.post('/register', registerLimit, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
@@ -77,6 +114,7 @@ router.post('/register', registerLimit, async (req, res) => {
   });
   db.logEvent(user.id, 'user_registered');
   db.attachReferral(user.id, req.body.ref);
+  await sendVerification(req, user);
 
   await signIn(req, user.id);
   res.status(201).json({ email: user.email });
@@ -230,6 +268,7 @@ router.get('/google/callback', async (req, res) => {
       });
       db.logEvent(user.id, 'user_registered');
     }
+    db.markEmailVerified(user.id); // Google has confirmed the address
     if (user.totpEnabledAt) {
       req.session.pending2fa = { userId: user.id, remember: true, until: Date.now() + 5 * 60 * 1000 };
       return res.redirect('/app?twofactor=1');
@@ -281,6 +320,7 @@ router.get('/microsoft/callback', async (req, res) => {
       db.logEvent(user.id, 'user_registered');
       if (who.name) { try { db.updateProfile(user.id, { name: who.name }); } catch { /* name is optional */ } }
     }
+    db.markEmailVerified(user.id); // Microsoft has confirmed the address
     if (user.totpEnabledAt) {
       req.session.pending2fa = { userId: user.id, remember: true, until: Date.now() + 5 * 60 * 1000 };
       return res.redirect('/app?twofactor=1');
@@ -328,6 +368,7 @@ router.post('/reset-password', resetLimit, async (req, res) => {
 
   db.setUserPasswordHash(user.id, await bcrypt.hash(newPassword, 10));
   db.clearPasswordResetToken(user.id);
+  db.markEmailVerified(user.id); // the reset link reached their inbox, which proves it's theirs
   res.json({ success: true });
 });
 

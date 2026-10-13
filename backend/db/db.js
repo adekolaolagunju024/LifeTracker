@@ -71,6 +71,20 @@ function clearPasswordResetToken(id) {
   db.prepare('UPDATE users SET resetToken = NULL, resetTokenExpires = NULL WHERE id = ?').run(id);
 }
 
+// Email verification. The link carries the token; only its SHA-256 is
+// stored, so a copy of the database can't be used to confirm anything.
+const tokenHash = t => require('crypto').createHash('sha256').update(String(t)).digest('hex');
+function setVerifyToken(id, token, expiresAt) {
+  db.prepare('UPDATE users SET verifyToken = ?, verifyTokenExpires = ? WHERE id = ?').run(tokenHash(token), expiresAt, id);
+}
+function getUserByVerifyToken(token) {
+  return token ? db.prepare('SELECT * FROM users WHERE verifyToken = ?').get(tokenHash(token)) : undefined;
+}
+function markEmailVerified(id) {
+  db.prepare('UPDATE users SET emailVerifiedAt = COALESCE(emailVerifiedAt, ?), verifyToken = NULL, verifyTokenExpires = NULL WHERE id = ?').run(new Date().toISOString(), id);
+}
+const isEmailVerified = id => !!(db.prepare('SELECT emailVerifiedAt FROM users WHERE id = ?').get(id) || {}).emailVerifiedAt;
+
 // ── PROFILE ──────────────────────────────────────────────────────
 function getProfile(userId) {
   const row = db.prepare('SELECT * FROM profile WHERE userId = ?').get(userId);
@@ -1966,7 +1980,7 @@ function removeReportMedia(userId, mediaId) {
   return true;
 }
 
-module.exports = {
+module.exports = { setVerifyToken, getUserByVerifyToken, markEmailVerified, isEmailVerified,
   liveStreak,
   getPledgeLinkTarget,
   listReportMedia, listProjectAttachments, addReportMedia, removeReportMedia,
