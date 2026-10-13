@@ -721,7 +721,7 @@ export function createRivals({ build, place, tagHeight = 2.3, tagSize = 0.38, ma
   }
   function sync(list, n, youFrac = 0) {
     const want = pick(list || [], youFrac);
-    const keyOf = r => `${r.name}|${r.color}|${r.finished ? 'f' : r.leader ? 'l' : ''}`; // a new tag when they lead or finish
+    const keyOf = r => `${r.name}|${r.color}|${r.badge || (r.finished ? 'f' : '')}`; // a new tag when their badge changes (leading, a place)
     const keys = new Set(want.map(keyOf));
     for (const [k, r] of shown) if (!keys.has(k)) { r.body.holder.removeFromParent(); shown.delete(k); }
     const spots = new Map();
@@ -730,7 +730,7 @@ export function createRivals({ build, place, tagHeight = 2.3, tagSize = 0.38, ma
       let s = shown.get(k);
       if (!s) {
         const body = build(r.color);
-        const tag = playerTagSprite(r.name + (r.finished ? ' 🏁' : r.leader ? ' · 1st' : ''), r.color, tagSize);
+        const tag = playerTagSprite(r.name + (r.badge ? ` · ${r.badge}` : r.finished ? ' 🏁' : ''), r.color, tagSize);
         tag.position.y = tagHeight;
         body.holder.add(tag);
         s = { body, tag, label: '' };

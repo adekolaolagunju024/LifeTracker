@@ -1612,10 +1612,11 @@ const JourneyGame = (() => {
       g.setAttribute('transform', `translate(${(p.x + dx).toFixed(1)},${p.y.toFixed(1)}) scale(${s})`);
       g.setAttribute('opacity', tagged.has(r) ? '0.92' : '0.6');
       layer.appendChild(g);
-      if (tagged.has(r)) entry.tagLayer.appendChild(nameTag(p.x + dx, p.y - 40 * s - 12 * k, r.name, r.color, { sub: r.finished ? '🏁' : r.leader ? '1st' : '', k }));
+      // Tags of players on the same spot stack upwards rather than overlap.
+      if (tagged.has(r)) entry.tagLayer.appendChild(nameTag(p.x + dx, p.y - 40 * s - 12 * k - here * 21 * k, r.name, r.color, { sub: r.badge || (r.finished ? '🏁' : ''), k }));
     });
     // You get a tag too, so it's clear which runner is yours.
-    entry.youTag = entry.tagLayer.appendChild(nameTag(0, 0, 'You', state.youColor || '#0A7E8C', { you: true, k }));
+    entry.youTag = entry.tagLayer.appendChild(nameTag(0, 0, 'You', state.youColor || '#0A7E8C', { you: true, k, sub: state.youBadge || '' }));
     positionYouTag(entry, scale);
   }
   function positionYouTag(entry, scale) {

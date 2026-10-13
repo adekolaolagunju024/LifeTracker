@@ -199,7 +199,7 @@ function standings(c, viewerId) {
     return {
       // The organiser (a teacher) always sees real names; everyone else as the organiser chose.
       userId: m.userId, name: you || organiser ? m.displayName : shownName(c, m), color: m.color, you,
-      done: p.done, total: c.taskCount, frac: p.frac, finished: p.finished, finishedAt: p.finishedAt, left: p.left,
+      done: p.done, total: c.taskCount, frac: p.frac, finished: p.finished, finishedAt: p.finishedAt, joinedAt: m.joinedAt, left: p.left,
       pace: p.finished ? 'finished' : gap >= 0.05 ? 'ahead' : gap >= -0.05 ? 'on pace' : 'behind',
       // The organiser sees when each person last ticked a step, to know who to check on.
       ...(organiser ? { lastStepAt: p.lastStepAt } : {}),
@@ -208,12 +208,24 @@ function standings(c, viewerId) {
   }).filter(p => !p.left);
   players.sort((a, b) => (b.finished - a.finished) || (a.finished ? String(a.finishedAt).localeCompare(String(b.finishedAt)) : b.frac - a.frac));
   const together = c.mode === 'together';
+  // Finishing places in a race: 1st, 2nd, 3rd... by when each player
+  // ticked their last step (the same moment shares a place). A class or
+  // team isn't a competition, so no places there.
+  if (!together) {
+    let place = 0, prevAt = null;
+    players.filter(p => p.finished).forEach((p, i) => {
+      if (p.finishedAt !== prevAt) place = i + 1;
+      prevAt = p.finishedAt;
+      p.place = place;
+    });
+  }
   const winner = !together && (players.find(p => p.finished) || null);
   const steps = players.reduce((a, p) => a + p.done, 0);
   return {
     id: c.id, title: c.title, icon: c.icon, stake: c.stake, startsAt: c.startsAt, endsAt: c.endsAt, taskCount: c.taskCount,
     mode: c.mode, nameMode: c.nameMode, organiserOnly: !!c.organiserOnly,
     expected, over: now > end, winner: winner ? { name: winner.name, you: winner.you, finishedAt: winner.finishedAt } : null,
+    yourPlace: (players.find(p => p.you) || {}).place || null,
     group: { finished: players.filter(p => p.finished).length, players: players.length, stepsPct: players.length ? Math.round((steps / (players.length * c.taskCount)) * 100) : 0, behind: players.filter(p => p.pace === 'behind').length },
     owner: organiser, joinToken: c.joinToken, joinCode: c.joinCode,
     lastNudgeAt: organiser ? c.lastNudgeAt : undefined,
