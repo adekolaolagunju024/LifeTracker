@@ -36,6 +36,7 @@ Say a goal and get a phased plan; then **Start my day** sorts today's tasks and 
   - **Game:** drawn in a brighter, rounder style in Nunito (streak and level pills, quest chips, the navy focus card with stage segments and ▶ Play).
   - **Dashboard:** greeting and date, a ⌘K command bar with the assistant beside it, the focus goal (the project with the soonest open due date, its schedule status, next stop, Report and Play), today's quests, "Up next" tasks to tick off in place (gates respected), and this week against last.
   - **Phones** get a bottom tab bar (Home, Planner, Journey, Actions, More).
+  - Every page is checked at 390px and 360px wide with nothing scrolling sideways: the header search shortens to "Search…", the Settings tabs stop at the screen edge, project task cards keep their text clear of the priority bar, the Rewards buttons drop under their heading, the Actions counts line up, and buttons like Mark done and Move to stay on one line.
   - **Website:** the public site uses the same light style.
   - **Dark mode** uses solid surfaces too.
 - **The game layer** (`backend/journey.js`, `frontend/js/gameui.js`, `frontend/js/sfx.js`):

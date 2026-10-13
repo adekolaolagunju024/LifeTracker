@@ -235,3 +235,12 @@ async function emailProgressReport() {
   const body = `${summary}\n\n${url ? `See the live report: ${url}` : ''}`;
   window.location.href = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
 }
+// On a phone the header search box is narrow: a short placeholder
+// rather than one cut off mid-word.
+{
+  const search = document.getElementById('global-search-input');
+  const phone = window.matchMedia('(max-width: 639px)');
+  const fit = () => { if (search) search.placeholder = phone.matches ? 'Search…' : 'Search projects & tasks…'; };
+  fit();
+  phone.addEventListener('change', fit);
+}

@@ -73,10 +73,10 @@
       .task-table #task-table-body tr { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "sel title title" "sel status priority" "sel due actions"; gap: 8px 10px; padding: 12px 12px 10px 8px; align-items: center; }
       .task-table #task-table-body td { padding: 0 !important; }
       .task-table .tt-sel { grid-area: sel; align-self: start; padding-top: 2px !important; }
-      .task-table .tt-title { grid-area: title; max-width: none; padding-left: 10px !important; }
-      .task-table .tt-status { grid-area: status; padding-left: 14px !important; }
+      .task-table #task-table-body .tt-title { grid-area: title; max-width: none; padding-left: 10px !important; } /* beats the td padding: 0 above */
+      .task-table #task-table-body .tt-status { grid-area: status; padding-left: 14px !important; }
       .task-table .tt-priority { grid-area: priority; }
-      .task-table .tt-due { grid-area: due; padding-left: 14px !important; }
+      .task-table #task-table-body .tt-due { grid-area: due; padding-left: 14px !important; }
       .task-table .tt-due::before { content: attr(data-label) " "; font-weight: 600; color: #9ca3af; }
       .task-table .tt-actions { grid-area: actions; }
       .task-table .tt-assignee, .task-table .tt-start, .task-table .tt-cost { display: none; }
@@ -90,7 +90,21 @@
       .page > .mb-6:first-child { margin-bottom: 14px; }
       .page > .mb-6:first-child > h2 { font-size: 1.3rem; }
       .page > .mb-6:first-child > p, .page h2.text-2xl + p { display: none; }
+      /* Settings tabs reach the screen edges, no further (they were set
+         for the desktop's 24px padding and pushed the page sideways). */
+      #page-settings .settings-tabs { margin: 0 -16px 16px; padding-left: 16px; padding-right: 16px; }
+      /* Rewards: the buttons drop under the heading, so the line beside
+         the gift isn't squeezed into a narrow column. */
+      #detail-rewards .rw-head > .flex-1 { flex-basis: calc(100% - 52px); }
+      #detail-rewards .rw-btns { width: 100%; margin-left: 0; }
+      #detail-rewards .rw-btn.primary { flex: 1; justify-content: center; }
+      /* Actions counts: the number sits at the foot of each card, so a
+         label that wraps doesn't push one number below its neighbour. */
+      #page-actions .kpi-label { min-height: 2.4em; align-items: flex-start; }
+      #page-actions .kpi-label .ic { margin-top: 1px; }
     }
+    /* The task panel's main button stays on one line. */
+    #td-primary-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* The Journey's view toggle (2D · Follow cam · Overview), in the
        Journey header beside the stage picker. The 3D stages still build
@@ -2197,7 +2211,7 @@
     .kanban-act:hover { background: #F0F2F4; color: #0D1B2A; }
     .kanban-act.danger:hover { color: #B91C1C; background: #FDECEA; }
     .kanban-act svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .kanban-move { margin-left: auto; font-size: 12px; font-weight: 700; color: #075E68; background: #E6F4F5; border: 0; border-radius: 999px; padding: 5px 10px; max-width: 140px; }
+    .kanban-move { margin-left: auto; font-size: 12px; font-weight: 700; color: #075E68; background: #E6F4F5; border: 0; border-radius: 999px; padding: 5px 10px; max-width: 140px; white-space: nowrap; flex-shrink: 0; }
     /* Actions only on hover with a mouse; always there on touch screens. */
     @media (hover: hover) and (pointer: fine) {
       .kanban-actions { display: none; }
