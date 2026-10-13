@@ -1,4 +1,4 @@
-/* global API, DayPace, showToast, DayReport, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
+/* global API, DayPace, showToast, taskErrorToast, taskGateMessage, showGateCard, refreshAfterStart, announceJourneyReward, Sfx, DayReport, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
 // ── TODAY'S ROAD ────────────────────────────────────────────────
 // Today's plan as a road: a stop for each task, You moving as you finish
 // them, and the Pacer keeping to the timetable by the clock (the maths is
@@ -140,7 +140,8 @@ const DayRoad = (() => {
       const pacerHere = !it.done && Math.floor(r.pacer) === k && r.state !== 'before';
       return `<li class="${it.done ? 'done' : it === r.next ? 'next' : ''}">
         <span class="dayroad-time">${esc(it.start)}<small>${esc(DayPace.minutesText(it.minutes))}</small></span>
-        <span class="dayroad-dot">${it.done ? icon('check') : it === r.next ? icon(game() ? (CHAR[world()] || 'footprints') : 'play') : ''}</span>
+        <button type="button" class="dayroad-dot" role="checkbox" aria-checked="${it.done}" onclick="DayRoad.toggleDone('${it.taskId}')" aria-label="${esc(it.done ? `Reopen ${it.task.title}` : `Mark ${it.task.title} as done`)}" title="${it.done ? 'Done. Tap to reopen' : 'Tick when it’s done'}">
+          <span class="dd-mark">${it.done ? icon('check') : it === r.next ? icon(game() ? (CHAR[world()] || 'footprints') : 'play') : ''}</span>${it.done ? '' : `<span class="dd-tick">${icon('check')}</span>`}</button>
         <div class="dayroad-main"><button type="button" class="dayroad-task" onclick="openTaskDetail('${it.taskId}')"><b>${esc(it.task.title)}</b>
           ${b && !it.done ? `<small class="blk">${icon('blocker', 'tiny')}${b} ${b === 1 ? 'blocker' : 'blockers'} in the way: tick one when it clears</small>` : it.done ? '<small>Done</small>' : it === r.next ? '<small>You are here</small>' : ''}</button>
           ${b && !it.done && typeof blockerChecklist === 'function' ? blockerChecklist(it.task, true, 'board') : ''}</div>
@@ -211,6 +212,31 @@ const DayRoad = (() => {
     const scene = document.getElementById('dayroad-scene');
     if (scene && typeof JourneyGame !== 'undefined') JourneyGame.destroy(scene);
     document.getElementById('dayroad-full')?.remove();
+  }
+
+  // Tick a stop off right here. Blockers still in the way open the "not
+  // yet" card (js/app/01-core.js) to clear them first; a done one unticks
+  // back to Doing. The road, the scene and the other views follow.
+  async function toggleDone(taskId) {
+    const r = state();
+    const it = r && r.items.find(i => i.taskId === taskId);
+    if (!it || replaying) return;
+    const title = it.task.title;
+    if (it.done) {
+      try { await API.updateTask(taskId, { status: 'In Progress' }); } catch (e) { taskErrorToast(e, 'Could not reopen it', { taskId, status: 'In Progress' }); return; }
+      showToast(`↩️ “${title}” reopened`);
+      refreshAfterStart(taskId, 'In Progress');
+      return;
+    }
+    const t = await API.getTask(taskId).catch(() => it.task);
+    if (taskGateMessage(t, 'Completed')) { showGateCard(t, 'Completed'); return; }
+    try {
+      const saved = await API.updateTask(taskId, { status: 'Completed' });
+      if (saved && saved.journeyReward && typeof announceJourneyReward === 'function') announceJourneyReward(saved.journeyReward);
+      else if (window.Sfx) Sfx.play('complete');
+    } catch (e) { taskErrorToast(e, 'Could not finish it', { taskId, status: 'Completed' }); return; }
+    showToast(`✅ “${title}” done`);
+    refreshAfterStart(taskId, 'Completed');
   }
 
   // ── Watching it happen ──
@@ -343,6 +369,6 @@ const DayRoad = (() => {
     if (Date.now() - loadedAt > 4 * 60000) refresh(); else render();
   }, 60000);
 
-  return { refresh, render, state, openFull, closeFull, setMode, setWorld, setView, canReplay, canWatchFinish, replayKnockout, replayFinish, replayDay };
+  return { refresh, render, state, openFull, closeFull, setMode, setWorld, setView, canReplay, canWatchFinish, replayKnockout, replayFinish, replayDay, toggleDone };
 })();
 window.DayRoad = DayRoad;

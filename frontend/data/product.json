@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Tick tasks off on today's road",
+      "text": "The circle beside each stop on today's road is now a tick box: tick it to finish that task right there and watch your character walk on. Blockers still in the way? It shows you which, so you can clear them first."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Replay your day",
       "text": "Replay my day, in the Game view of today's road, plays your whole day back from the start: every blocker you knocked out and every task you finished, in the order they happened. Finish a task anywhere, even by dragging it to Completed, and you can Watch your character reach its stop. Ticked blockers now stay on cards and table rows, crossed out."
     },
