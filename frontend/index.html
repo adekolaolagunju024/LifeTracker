@@ -822,6 +822,16 @@
     .focus-lens button { min-width: 34px; padding: 5px 8px !important; border-radius: 9px; font-weight: 800; }
     .focus-lens button[aria-pressed="true"] { background: #5EEAD4 !important; color: #0D1B2A !important; }
     .focus-lens small { font-size: 12px; font-weight: 700; color: #8FA3B8; }
+    /* The Watch icon: a small play button beside a task (or a ticked
+       blocker) on today's plan, to watch it on today's road. */
+    .watch-slot:empty { display: none; }
+    .watch-slot { display: inline-flex; vertical-align: middle; margin-left: 4px; }
+    .watch-btn { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: #0A7E8C1a; color: #0A7E8C; flex-shrink: 0; position: relative; }
+    .watch-btn::after { content: ''; position: absolute; inset: -8px; } /* a finger-sized target */
+    .watch-btn:hover { background: #0A7E8C; color: #fff; }
+    .watch-btn svg { width: 12px; height: 12px; margin-left: 1px; }
+    .dark .watch-btn { background: #5EEAD41f; color: #5EEAD4; }
+    .dark .watch-btn:hover { background: #5EEAD4; color: #0B1220; }
     /* The project picker (js/projectPicker.js) */
     .pp-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; overflow: hidden; }
     .pp-btn { display: inline-flex; align-items: center; gap: 8px; text-align: left; min-width: 0; cursor: pointer; }
@@ -2245,7 +2255,7 @@
       .gantt-sticky-2, .gantt-sticky-3, .gantt-sticky-4, .gantt-sticky-5 { position: relative !important; left: auto !important; z-index: 1 !important; box-shadow: none !important; }
       .gantt-sticky-1 { padding-left: 10px !important; padding-right: 8px !important; box-shadow: 3px 0 6px -2px rgba(0,0,0,.08); z-index: 7 !important; }
       .dark .gantt-sticky-1 { box-shadow: 3px 0 6px -2px rgba(0,0,0,.4); }
-      .gantt-sticky-1 > :not(.gantt-title-text):not(.gantt-keep) { display: none !important; }
+      .gantt-sticky-1 > :not(.gantt-title-text):not(.gantt-keep):not(.watch-slot) { display: none !important; }
       .gantt-sticky-1 .gantt-title-text { min-width: 0 !important; }
       /* Fixed columns on mobile (see above) — a resize handle here would
          drag a variable the layout no longer even uses. */

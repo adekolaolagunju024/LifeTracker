@@ -26,6 +26,7 @@ const DayRoad = (() => {
       } catch { /* offline: keep what we had */ }
       loading = null;
       render();
+      if (typeof paintWatchSlots === 'function') paintWatchSlots();
     })();
     return loading;
   }
@@ -254,12 +255,20 @@ const DayRoad = (() => {
   //   · Replay my day: every blocker cleared and task finished today, in
   //     the order they happened, from the start to where you are now.
   const watchingGame = () => !!document.getElementById('dayroad-full') && fullMode() === 'game';
-  const inPlan = taskId => { const r = state(); return !!r && r.items.some(i => i.taskId === taskId); };
   function canReplay(taskId) {
     const r = state();
     return game() && !watchingGame() && !!r && r.items.some(i => i.taskId === taskId && !i.done);
   }
-  const canWatchFinish = taskId => game() && !watchingGame() && inPlan(taskId);
+  // What the Watch icon next to a task (or a cleared blocker) offers:
+  // a task on today's plan that's done, or a blocker ticked off on one
+  // that isn't yet. Nothing with the game layer off.
+  function watchable(taskId, obstacleId) {
+    const r = state();
+    const it = game() && r && r.items.find(i => i.taskId === taskId);
+    if (!it) return false;
+    if (!obstacleId) return !!it.done;
+    return !it.done && (it.task.obstacles || []).some(o => o.id === obstacleId && o.resolved);
+  }
   const sceneReady = box => {
     const j = box && box._j3d;
     if (!j) return !!(box && box.querySelector('svg'));
@@ -403,6 +412,6 @@ const DayRoad = (() => {
     if (Date.now() - loadedAt > 4 * 60000) refresh(); else render();
   }, 60000);
 
-  return { refresh, render, state, openFull, closeFull, setMode, setWorld, setView, canReplay, canWatchFinish, replayKnockout, replayFinish, replayDay, toggleDone };
+  return { refresh, render, state, openFull, closeFull, setMode, setWorld, setView, canReplay, watchable, replayKnockout, replayFinish, replayDay, toggleDone };
 })();
 window.DayRoad = DayRoad;

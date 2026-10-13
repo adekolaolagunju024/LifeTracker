@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Watch from a play icon, not a pop-up",
+      "text": "Finish a task on today's plan or clear one of its blockers and a small play icon now sits beside it, instead of a message covering the screen. Press it whenever you like to watch it happen on today's road."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Pick how long to keep working",
       "text": "When today's plan is done, keep working for 15, 25, 45 or 60 minutes instead of a fixed 25. Waypoint remembers the length you picked last time."
     },
