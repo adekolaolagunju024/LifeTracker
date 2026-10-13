@@ -201,6 +201,16 @@ npm run dev       # auto-restart on change (nodemon)
 
 Then open `http://localhost:3000`.
 
+Check it:
+
+```bash
+npm run lint
+npm test          # the server: 170+ tests against a throwaway database
+npm run test:e2e  # the core flows in a real browser (needs Chrome; set CHROME_PATH if it isn't found)
+```
+
+The browser tests (`tests/e2e/`) sign up through the real form, plan today in the first run, start and finish the first task and add another, at phone and desktop widths. They also check that no page scrolls sideways on a phone and that every button and field has a name a screen reader can read. CI runs all three on every pull request and keeps a screenshot of wherever a browser test got stuck.
+
 ## Deploying
 
 A `Dockerfile` is included and is the recommended path — it installs Chromium (needed for PDF/image exports) and runs it with `--no-sandbox`, which containers require since they run as root with no sandbox namespace available. A `Procfile` (`web: node backend/server.js`) is also included for buildpack-style platforms, but without Chromium pre-installed those platforms will show PDF/image export errors unless you separately configure a Chromium buildpack and set `PUPPETEER_EXECUTABLE_PATH`.

@@ -23,3 +23,4 @@ mobile/android/*.iml
 mobile/android/app/*.iml
 # Scheduled database backups (local dev default location)
 backend/db/backups/
+test-results/
