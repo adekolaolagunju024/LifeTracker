@@ -609,9 +609,9 @@ function setAssistantSpeak(on) {
 // Some browsers drop long utterances or never fire their end event, so the
 // reply is spoken sentence by sentence and a timer always resolves the wait.
 function speakAssistant(text) {
-  const wanted = document.getElementById('assistant-speak').checked || APP.assistantVoiceTurn;
-  if (!wanted) return Promise.resolve();
-  return Voice.speak(text); // the voice chosen in Settings (js/jarvis.js)
+  const asked = document.getElementById('assistant-speak').checked; // ticked here: always read out
+  if (!asked && !APP.assistantVoiceTurn) return Promise.resolve();
+  return Voice.speak(text, { asked }); // the voice chosen in Settings (js/jarvis.js); off there silences voice turns
 }
 
 // Hands-free: after a spoken message, keep listening for the next one.
