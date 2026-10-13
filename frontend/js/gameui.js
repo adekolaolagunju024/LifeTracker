@@ -34,8 +34,25 @@ function floatXp(amount, note) {
 
 // The level-up moment: big number, the rank (and a "new rank" ribbon when
 // it changes), a fanfare and confetti. Tap anywhere or wait to close.
+// Never over a running focus timer: it waits until the session ends, so
+// a celebration doesn't cover the work it's celebrating.
+let pendingLevelUp = null;
+const timerRunning = () => !!document.querySelector('#focus-hud:not(.is-done)');
 function showLevelUp(reward) {
   if (focusModeOn()) return;
+  if (timerRunning()) {
+    const waiting = pendingLevelUp;
+    pendingLevelUp = reward;
+    if (!waiting) {
+      const check = setInterval(() => {
+        if (timerRunning()) return;
+        clearInterval(check);
+        const r = pendingLevelUp; pendingLevelUp = null;
+        if (r) showLevelUp(r);
+      }, 2000);
+    }
+    return;
+  }
   Sfx.play('levelup');
   document.getElementById('levelup-overlay')?.remove();
   const el = document.createElement('div');

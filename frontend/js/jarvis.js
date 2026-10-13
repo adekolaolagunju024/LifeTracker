@@ -589,7 +589,7 @@ const Jarvis = (() => {
         : 'Nothing open. A good day to plan the next goal.';
     const running = focus && !focus.done && !focus.isBreak;
     const mainBtn = running ? (focus.hidden || focus.min ? `<button type="button" class="brief-go" onclick="Jarvis.showTimer()">${icon('timer')}Show timer</button>` : '')
-      : plan && planNext ? `<button type="button" class="brief-go" onclick="Jarvis.startDay()">${icon('play')}Keep going</button>`
+      : plan && planNext ? `<button type="button" class="brief-go" onclick="Jarvis.startDay()">${icon('play')}${planDone ? 'Keep going' : 'Start the first task'}</button>`
         : plan ? `<button type="button" class="brief-go" onclick="Jarvis.openPlanner()">${icon('list-checks')}Plan more</button>`
           : open.length ? `<button type="button" class="brief-go" onclick="Jarvis.startDay()">${icon('play')}Start my day</button>` : '';
     // The date row's pills come along into this card; put them back first

@@ -143,7 +143,9 @@ function renderDashboardBento(tasks, allProjects) {
     const pctDone = ProgressMath.progressPct(f.tree);
     const expected = ProgressMath.expectedFraction(f.tree, f.p.startDate || (f.p.createdAt || '').slice(0, 10));
     const gap = expected === null ? null : pctDone - Math.round(expected * 100);
-    const status = gap === null ? '' : gap >= 5 ? 'Ahead' : gap >= -5 ? 'On track' : gap >= -15 ? 'Slightly behind' : 'Behind';
+    // A goal set up today hasn't had a chance to fall behind yet.
+    const newToday = (f.p.createdAt || '').slice(0, 10) === localDateKey(new Date()) || new Date(f.p.createdAt).toDateString() === new Date().toDateString();
+    const status = gap === null || (newToday && gap < 5) ? '' : gap >= 5 ? 'Ahead' : gap >= -5 ? 'On track' : gap >= -15 ? 'Slightly behind' : 'Behind';
     const next = f.open[0];
     const segCount = Math.min(f.tree.length, 12);
     const per = f.tree.length / segCount;
@@ -152,18 +154,22 @@ function renderDashboardBento(tasks, allProjects) {
       const filled = Math.round((i + 1) * per) <= done;
       return `<span class="${filled ? 'done' : i === nextIndex ? 'next' : i === segCount - 1 ? 'end' : ''}"></span>`;
     }).join('');
+    // With the game layer off (new accounts start that way) it's simply
+    // the goal: no stage name, and Open plan instead of Play.
+    const gameOn = !(typeof focusModeOn === 'function' && focusModeOn());
     // Blockers, not the game's enemy count (a blocker can field several).
     const foes = next ? (next.obstacles || []).filter(o => !o.resolved).length : 0;
     focus.innerHTML = `
       <div class="flex items-center justify-between gap-3">
-        <p class="fc-kicker">${esc(STAGE_NAMES[getJourneyStage()] || 'Journey')} stage</p>
+        <p class="fc-kicker">${gameOn ? `${esc(STAGE_NAMES[getJourneyStage()] || 'Journey')} stage` : 'Your goal'}</p>
         ${status ? `<p class="fc-status ${gap < -5 ? 'behind' : ''}">${status}</p>` : ''}
       </div>
       <button type="button" onclick="showPage('project-detail','${f.p.id}')" class="fc-title">${emojiIcon(f.p.icon || '')} ${esc(f.p.title)}</button>
       <div class="focus-segs mt-3" style="grid-template-columns:repeat(${segCount},minmax(0,1fr))">${segs}</div>
       <div class="fc-foot flex items-center justify-between gap-3 flex-wrap">
         <p class="fc-sub">${pctDone}% · ${done} of ${f.tree.length} steps${foes ? ` · ${icon('blocker')} ${foes} ${foes === 1 ? 'blocker' : 'blockers'} ahead` : ''}</p>
-        <button type="button" onclick="playJourneyFor('${f.p.id}')" class="fc-play">${icon('play')}Play</button>
+        ${gameOn ? `<button type="button" onclick="playJourneyFor('${f.p.id}')" class="fc-play">${icon('play')}Play</button>`
+          : `<button type="button" onclick="showPage('project-detail','${f.p.id}')" class="fc-play">${icon('list-checks')}Open plan</button>`}
       </div>
       <div id="dash-reward-line"></div>
       <div id="dash-quest-line"></div>`;

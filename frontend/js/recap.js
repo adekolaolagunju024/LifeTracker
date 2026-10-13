@@ -235,10 +235,21 @@ async function gettingStartedSlides() {
   if (!tourCache) {
     try { tourCache = ((await (await fetch('/data/product.json')).json()).tour || []).filter(t => t.action && TOUR_ACTIONS[t.action]); } catch { return []; }
   }
-  return tourCache.map((t, i) => ({
+  // Steps they've already taken (a goal set, today planned, as the first
+  // run does) drop out, so the slides never ask for what's done.
+  const done = await tourDone();
+  const left = tourCache.filter(t => !done.has(t.action));
+  return left.map((t, i) => ({
     bg: t.bg,
-    html: `<p class="recap-kicker">Getting started · ${i + 1} of ${tourCache.length}</p><p class="recap-big">${esc(t.title)}</p><p class="recap-sub">${esc(t.text)}</p><button type="button" class="recap-go" onclick="tourGo('${esc(t.action)}')">${icon(t.icon)}${esc(t.cta || t.name)}</button>`,
+    html: `<p class="recap-kicker">Getting started · ${i + 1} of ${left.length}</p><p class="recap-big">${esc(t.title)}</p><p class="recap-sub">${esc(t.text)}</p><button type="button" class="recap-go" onclick="tourGo('${esc(t.action)}')">${icon(t.icon)}${esc(t.cta || t.name)}</button>`,
   }));
+}
+async function tourDone() {
+  const done = new Set();
+  try { if ((await API.getProjects()).length) done.add('plan').add('projects'); } catch { /* offline: show them all */ }
+  try { const p = await API.getDayPlan(localDateKey(new Date())); if (p && p.items && p.items.length) done.add('day'); } catch { /* no plan */ }
+  if (typeof focusModeOn === 'function' && focusModeOn()) done.add('journey'); // the game layer is off
+  return done;
 }
 const TOUR_ACTIONS = {
   plan: () => openAssistant(),
