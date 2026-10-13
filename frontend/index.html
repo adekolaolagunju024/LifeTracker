@@ -765,6 +765,7 @@
     .dayroad-replay:hover { background: #E0F4F2; }
     .dayroad-caption { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); max-width: calc(100% - 24px); background: rgba(13,27,42,.88); color: #fff; font-size: 13px; font-weight: 700; padding: 7px 12px; border-radius: 10px; z-index: 5; text-align: center; pointer-events: none; animation: gatefade .2s ease both; }
     .dark .dayroad-replay { background: rgba(94,234,212,.08); color: #5EEAD4; }
+    .voice-row.is-off { opacity: .45; }
     /* The project picker (js/projectPicker.js) */
     .pp-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; overflow: hidden; }
     .pp-btn { display: inline-flex; align-items: center; gap: 8px; text-align: left; min-width: 0; cursor: pointer; }
@@ -3540,10 +3541,11 @@
         <div class="pt-3.5 border-t border-gray-100 mt-3.5" data-voice-row>
           <div class="flex items-center gap-3 min-w-0">
             <span class="icon-badge" style="background:#0A7E8C22;color:#0A7E8C" data-icon="mic"></span>
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
               <p class="text-sm font-semibold text-navy">Assistant's voice</p>
-              <p class="text-xs text-gray-400 mt-0.5">How your assistant sounds when it reads your day, answers you and checks in. <span id="voice-note">Uses the voices on this device.</span></p>
+              <p class="text-xs text-gray-400 mt-0.5">Off, the assistant won't speak on its own: no read-out of your day, no "time's up", no spoken replies. Listen buttons still read out when you tap them. <span id="voice-note">Uses the voices on this device.</span></p>
             </div>
+            <button type="button" onclick="Voice.setEnabled(!Voice.enabled())" class="ios-switch on flex-shrink-0" id="voice-on-btn" role="switch" aria-checked="true" aria-label="Assistant speaks out loud"><span class="ios-switch-knob"></span></button>
           </div>
           <div class="voice-row">
             <select id="voice-select" aria-label="Assistant's voice" onchange="Voice.setVoice(this.value)"></select>

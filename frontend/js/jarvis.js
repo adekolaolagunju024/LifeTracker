@@ -94,9 +94,21 @@ const Voice = (() => {
       mine.onerror = () => { clearTimeout(guard); resolve(); };
     });
   }
-  async function speak(text) {
+  // On unless switched off in Settings. Off, the assistant never speaks on
+  // its own (the morning read-out, "time's up", replies to a spoken
+  // question); a button that exists only to read something out (Try it,
+  // Read my day out, the briefing's Listen) still does, as it was asked.
+  const enabled = () => prefs().off !== true;
+  function setEnabled(on) {
+    save({ ...prefs(), off: !on });
+    if (!on) stop();
+    renderSettings();
+    if (typeof showToast === 'function') showToast(on ? "🔊 The assistant's voice is on" : "🔇 The assistant's voice is off. It won't speak unless you tap a Listen button");
+  }
+  async function speak(text, opts = {}) {
     text = String(text || '').trim();
     if (!text) return;
+    if (!opts.asked && !enabled()) return;
     stop();
     await loadNatural();
     const id = naturalChoice();
@@ -132,15 +144,19 @@ const Voice = (() => {
     if (note) note.textContent = natural && natural.available
       ? 'Natural voices sound like a real person: what is read out is sent to a speech service to turn it into audio. Device voices stay on this device.'
       : 'Uses the voices on this device.';
+    const on = enabled();
+    const sw = document.getElementById('voice-on-btn');
+    if (sw) { sw.classList.toggle('on', on); sw.setAttribute('aria-checked', String(on)); }
+    document.querySelector('[data-voice-row] .voice-row')?.classList.toggle('is-off', !on);
     const r = document.getElementById('voice-rate');
     r.value = String(rate());
     document.getElementById('voice-rate-out').textContent = `${rate().toFixed(1)}×`;
   }
   function setVoice(value) { naturalOff = false; save({ ...prefs(), voice: value }); preview(); }
   function setRate(value) { save({ ...prefs(), rate: Number(value) }); document.getElementById('voice-rate-out').textContent = `${Number(value).toFixed(1)}×`; }
-  const preview = () => speak("Good morning. Here's your day. You're on a three-day streak. Shall we start with the first thing?");
+  const preview = () => speak("Good morning. Here's your day. You're on a three-day streak. Shall we start with the first thing?", { asked: true });
   if ('speechSynthesis' in window) speechSynthesis.addEventListener?.('voiceschanged', renderSettings);
-  return { speak, stop, renderSettings, setVoice, setRate, preview, current };
+  return { speak, stop, renderSettings, setVoice, setRate, preview, current, enabled, setEnabled };
 })();
 window.Voice = Voice;
 
@@ -546,7 +562,7 @@ const Jarvis = (() => {
     document.getElementById('dash-head')?.classList.add('hidden');
     if (window.DayRoad) { DayRoad.render(); DayRoad.refresh(); }
   }
-  const hear = () => { API.trackFeature('listen'); if (brief) say(brief.spoken); };
+  const hear = () => { API.trackFeature('listen'); if (brief) Voice.speak(brief.spoken, { asked: true }); };
 
   // ── Start my day: sort today, then get going ──
   // A short sheet: the tasks that matter today (late, due today, in
@@ -767,7 +783,7 @@ const Jarvis = (() => {
     if (!P || !P.items.length) return;
     API.trackFeature('listen');
     const times = timesFor(P);
-    say(`Here's your day. ${P.items.map((it, i) => `At ${times[i]}, ${P.byTask[it.id].title}, ${lenText(it.minutes).replace('min', 'minutes').replace(' h', ' hours')}.`).join(' ')}`);
+    Voice.speak(`Here's your day. ${P.items.map((it, i) => `At ${times[i]}, ${P.byTask[it.id].title}, ${lenText(it.minutes).replace('min', 'minutes').replace(' h', ' hours')}.`).join(' ')}`, { asked: true });
   }
   function plannerAsk() {
     closePlanner();

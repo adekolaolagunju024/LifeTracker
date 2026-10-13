@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Turn the assistant's voice off",
+      "text": "Prefer it quiet? Settings, Appearance, Assistant's voice now has an on and off switch. Off, the assistant won't speak on its own; tap a Listen button whenever you do want something read out."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Tick tasks off on today's road",
       "text": "The circle beside each stop on today's road is now a tick box: tick it to finish that task right there and watch your character walk on. Blockers still in the way? It shows you which, so you can clear them first."
     },
