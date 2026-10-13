@@ -846,6 +846,9 @@
     .watch-btn svg { width: 12px; height: 12px; margin-left: 1px; }
     .dark .watch-btn { background: #5EEAD41f; color: #5EEAD4; }
     .dark .watch-btn:hover { background: #5EEAD4; color: #0B1220; }
+    .dark #verify-banner { background: rgba(94,234,212,.08); border-color: rgba(94,234,212,.25); }
+    .dark #verify-banner p { color: #E6EDF3; }
+    .dark #verify-banner button:first-of-type { background: transparent; }
     /* The owner's Service list (js/metrics.js) */
     .svc-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
     .svc-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
@@ -2916,6 +2919,12 @@
     </div>
 
     <!-- Daily digest — overdue/due-today tasks, shown once per day, dismissible -->
+    <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-[#E6F4F5] border border-[#B9E1E4] rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap" id="verify-banner" role="status">
+      <span class="text-teal flex" data-icon="mail"></span>
+      <p class="flex-1 min-w-[12rem] text-sm text-navy">Confirm <b id="verify-banner-email"></b> using the link we sent, so password resets and invites reach you.</p>
+      <button type="button" onclick="resendVerification(this)" class="text-xs font-bold text-teal bg-white border border-[#B9E1E4] hover:bg-[#F2FAFA] rounded-lg px-3 py-1.5 flex-shrink-0 disabled:opacity-60">Send it again</button>
+      <button type="button" onclick="dismissVerifyBanner()" class="text-teal hover:text-navy text-lg leading-none px-1 flex-shrink-0" aria-label="Hide for now" data-icon="close"></button>
+    </div>
     <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3" id="digest-banner">
       <span class="text-amber-600 flex pt-0.5" data-icon="overdue"></span>
       <div class="flex-1 min-w-0 text-sm text-amber-900" id="digest-banner-text"></div>

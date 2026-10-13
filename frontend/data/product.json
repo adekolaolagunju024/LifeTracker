@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Confirm your email",
+      "text": "New accounts made with an email address now get a link to confirm it, so password resets and invites always reach the right person. You can use Waypoint straight away while you wait."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Less floating on the screen",
       "text": "The focus timer and the music player no longer stack up over the page. While the timer is open, your music keeps playing with its controls in the timer, and the timer stays small on your phone. On the dashboard, today comes first."
     },

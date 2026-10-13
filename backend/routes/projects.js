@@ -1,5 +1,6 @@
 const express = require('express');
 const router  = express.Router();
+const { requireVerifiedEmail } = require('../middleware/verifiedEmail');
 const { v4: uuid } = require('uuid');
 const templates = require('../templates');
 const db = require('../db/db');
@@ -120,7 +121,7 @@ router.get('/:id/collaborators', (req, res) => {
 });
 
 // POST /api/projects/:id/collaborators — { email, role: 'viewer'|'commenter'|'editor' }
-router.post('/:id/collaborators', async (req, res) => {
+router.post('/:id/collaborators', requireVerifiedEmail, async (req, res) => {
   try {
     const invite = db.inviteCollaborator(req.session.userId, req.params.id, req.body.email, req.body.role);
     const project = db.getProjectById(req.session.userId, invite.projectId);

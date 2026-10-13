@@ -101,9 +101,17 @@ test('status updates: posted, listed with a status snapshot, and deletable by th
   assert.deepEqual(afterDelete, []);
 });
 
+// Signs up and confirms the email, as anyone sending invites must.
+async function signUpVerified() {
+  const email = uniqueEmail();
+  const cookie = sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email, password: 'testpass123', acceptTerms: true })));
+  const token = await server.verifyTokenFor(email);
+  assert.equal((await fetch(`${server.base}/api/auth/verify-email`, json({ token }))).status, 200);
+  return cookie;
+}
+
 test('a viewer cannot post a status update, but can still read them', async () => {
-  const owner = await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true }));
-  const ownerCookie = sessionCookie(owner);
+  const ownerCookie = await signUpVerified();
   const project = await (await fetch(`${server.base}/api/projects`, json({ title: 'Viewer check' }, ownerCookie))).json();
   const task = await (await fetch(`${server.base}/api/tasks`, json({ projectId: project.id, title: 'Task', status: 'In Progress', priority: 'Medium' }, ownerCookie))).json();
 
@@ -522,7 +530,7 @@ test('game rewards: early finishes earn a bonus, a blocker pays once, and daily 
 });
 
 test('inviting someone without an account holds the invite until they sign up with that email', async () => {
-  const owner = await signUp();
+  const owner = await signUpVerified();
   const project = await (await fetch(`${server.base}/api/projects`, authed(owner, 'POST', { title: 'Shared plan' }))).json();
   const newcomer = uniqueEmail();
 
@@ -606,4 +614,31 @@ test('a task can carry an action: kept clean, read back, and https-only for link
   assert.equal((await put(created.id, { action: { type: 'teleport' } })).status, 400, 'unknown kinds are refused');
   const cleared = await (await put(created.id, { action: null })).json();
   assert.equal(cleared.action, null);
+});
+
+test('a new email sign-up confirms its address before it can invite anyone', async () => {
+  const email = uniqueEmail();
+  const cookie = sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email, password: 'testpass123', acceptTerms: true })));
+  const me = async () => (await fetch(`${server.base}/api/auth/me`, { headers: { Cookie: cookie } })).json();
+  assert.equal((await me()).emailVerified, false);
+
+  const project = await (await fetch(`${server.base}/api/projects`, json({ title: 'Mine' }, cookie))).json();
+  const blocked = await fetch(`${server.base}/api/projects/${project.id}/collaborators`, json({ email: uniqueEmail(), role: 'viewer' }, cookie));
+  assert.equal(blocked.status, 403);
+  assert.equal((await blocked.json()).code, 'email_unverified');
+
+  // a resend makes a new link; the old one stops working
+  const first = await server.verifyTokenFor(email);
+  assert.equal((await fetch(`${server.base}/api/auth/resend-verification`, json({}, cookie))).status, 200);
+  let second = first;
+  for (let i = 0; i < 40 && second === first; i++) { await new Promise(r => setTimeout(r, 50)); second = await server.verifyTokenFor(email); }
+  assert.notEqual(second, first);
+  assert.equal((await fetch(`${server.base}/api/auth/verify-email`, json({ token: first }))).status, 400);
+  assert.equal((await fetch(`${server.base}/api/auth/verify-email`, json({ token: second }))).status, 200);
+  assert.equal((await me()).emailVerified, true);
+  // used once only
+  assert.equal((await fetch(`${server.base}/api/auth/verify-email`, json({ token: second }))).status, 400);
+
+  const ok = await fetch(`${server.base}/api/projects/${project.id}/collaborators`, json({ email: uniqueEmail(), role: 'viewer' }, cookie));
+  assert.equal(ok.status, 201);
 });

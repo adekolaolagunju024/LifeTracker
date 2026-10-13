@@ -109,6 +109,8 @@ const API = {
   // ── AUTH ──
   getAuthStatus:   ()        => request('GET',  '/auth/status'),
   getMe:           ()        => request('GET',  '/auth/me'),
+  verifyEmail:     (token)   => request('POST', '/auth/verify-email', { token }),
+  resendVerification: ()     => request('POST', '/auth/resend-verification', {}),
   register:        (email, password, acceptTerms, ref) => request('POST', '/auth/register', { email, password, acceptTerms, ref }),
   getReferral:     ()        => request('GET',    '/referrals/me'),
   sendReferralInvite: (email) => request('POST', '/referrals/invite', { email }),

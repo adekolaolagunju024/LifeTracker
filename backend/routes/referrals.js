@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { requireVerifiedEmail } = require('../middleware/verifiedEmail');
 const db = require('../db/db');
 const { sendReferralInvite } = require('../email/referral');
 
@@ -14,7 +15,7 @@ router.get('/me', (req, res) => {
 });
 
 // POST /api/referrals/invite — emails one personal invite with the user's link
-router.post('/invite', async (req, res) => {
+router.post('/invite', requireVerifiedEmail, async (req, res) => {
   const userId = req.session.userId;
   const email = String(req.body.email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'Enter a valid email address' });

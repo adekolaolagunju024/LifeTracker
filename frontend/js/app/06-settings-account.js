@@ -599,7 +599,7 @@ async function startGoogleLogin() {
 }
 
 async function afterAuth() {
-  try { APP.currentUserId = (await API.getMe()).id; } catch (e) { console.error('getMe error:', e); }
+  try { const me = await API.getMe(); APP.currentUserId = me.id; paintVerifyBanner(me); } catch (e) { console.error('getMe error:', e); }
   const showingOnboarding = await checkOnboarding();
   if (!showingOnboarding) await showPage('dashboard');
   checkDailyDigest();
@@ -1041,6 +1041,51 @@ function handleJoinRedirect() {
   showAuthView('register');
   const input = document.getElementById('auth-register-email');
   if (input) input.value = email;
+}
+// ── CONFIRM YOUR EMAIL ──────────────────────────────────────────
+// The link in the "confirm your email" message lands here (?verifyToken=).
+// It works signed in or not; the address is confirmed either way.
+async function handleVerifyTokenRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('verifyToken');
+  if (!token) return;
+  params.delete('verifyToken');
+  history.replaceState(null, '', location.pathname + (params.toString() ? `?${params}` : ''));
+  try {
+    await API.verifyEmail(token);
+    showToast('✅ Email confirmed. Thank you');
+    document.getElementById('verify-banner')?.classList.add('hidden');
+  } catch (e) {
+    showToast(e.message || 'That link did not work', 'error');
+  }
+}
+// Until a new email sign-up confirms, a quiet line at the top says so,
+// with a button to send the link again. Hidden for the rest of the visit
+// once dismissed.
+function paintVerifyBanner(me) {
+  const el = document.getElementById('verify-banner');
+  if (!el) return;
+  let dismissed = false;
+  try { dismissed = sessionStorage.getItem('wp-verify-dismissed') === '1'; } catch { /* private mode */ }
+  if (!me || me.emailVerified || dismissed) { el.classList.add('hidden'); return; }
+  document.getElementById('verify-banner-email').textContent = me.email;
+  el.classList.remove('hidden');
+}
+async function resendVerification(btn) {
+  btn.disabled = true;
+  try {
+    const r = await API.resendVerification();
+    if (r.alreadyVerified) { document.getElementById('verify-banner').classList.add('hidden'); showToast('✅ Your email is already confirmed'); return; }
+    btn.textContent = 'Sent';
+    showToast('📬 New link sent. Check your inbox (and spam)');
+  } catch (e) {
+    btn.disabled = false;
+    showToast(e.message || 'Could not send it', 'error');
+  }
+}
+function dismissVerifyBanner() {
+  try { sessionStorage.setItem('wp-verify-dismissed', '1'); } catch { /* private mode */ }
+  document.getElementById('verify-banner').classList.add('hidden');
 }
 function handleResetTokenRedirect() {
   const params = new URLSearchParams(window.location.search);

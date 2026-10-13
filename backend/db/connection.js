@@ -167,6 +167,16 @@ addColumnIfMissing('tasks', "recurrence TEXT DEFAULT 'none'");
 addColumnIfMissing('tasks', "sortOrder INTEGER DEFAULT 0");
 addColumnIfMissing('users', "resetToken TEXT");
 addColumnIfMissing('users', "resetTokenExpires TEXT");
+// Email verification. Accounts that existed before it was added count as
+// confirmed (they were made by people we know); new email sign-ups confirm
+// through a link, and Google or Microsoft sign-ins are confirmed by them.
+{
+  const hadIt = db.prepare("SELECT 1 FROM pragma_table_info('users') WHERE name = 'emailVerifiedAt'").get();
+  addColumnIfMissing('users', "emailVerifiedAt TEXT");
+  addColumnIfMissing('users', "verifyToken TEXT");
+  addColumnIfMissing('users', "verifyTokenExpires TEXT");
+  if (!hadIt) db.exec("UPDATE users SET emailVerifiedAt = createdAt WHERE emailVerifiedAt IS NULL");
+}
 addColumnIfMissing('profile', "emailDigestEnabled INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing('profile', "lastDigestSentDate TEXT");
 // Soft delete: "deleting" a project or task just stamps deletedAt instead of
