@@ -32,7 +32,7 @@ import {
   createShell, createLoop, makeCanvasTexture, seededRandom, softDotTexture, Particles, particleScaleFor,
   loadGLTF, makeCharacter, play, finished, recolorCharacter, findBone, attachToBone,
   checkpointFracOf, progressToPathFracSmooth, angleLerp, createWalker,
-  stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera,
+  stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera, createRivals,
 } from './journey3dKit.js';
 
 const BUILDER_URL = '/assets/models/Knight.glb';
@@ -1274,6 +1274,39 @@ export function createConstruction3D(container) {
     ghost.holder.position.copy(p).addScaledVector(V(-t.z, 0, t.x).normalize(), -0.9).setY(0.04);
     ghost.holder.rotation.y = Math.atan2(t.x, t.z);
   }
+  // Rivals in a race: other players as builders tinted in their colour,
+  // each with their name over them (journey3dKit.js createRivals).
+  let lastRace = null, racePending = false;
+  const rivals = createRivals({
+    tagSize: 0.85, tagHeight: 2.6, // the site camera sits further back
+    build: color => {
+      const obj = SkeletonUtils.clone(builder.obj);
+      const tint = new THREE.Color(color);
+      obj.traverse(o => {
+        if (!o.isMesh) return;
+        o.material = o.material.clone();
+        o.material.color.lerp(tint, 0.55);
+        o.castShadow = false;
+      });
+      const holder = new THREE.Group(); holder.add(obj); scene.add(holder);
+      const mixer = new THREE.AnimationMixer(obj);
+      const actions = {}; clips.forEach(c => { actions[c.name] = mixer.clipAction(c); });
+      const ch = { holder, obj, mixer, actions, current: null };
+      play(ch, 'Idle', { fade: 0 });
+      return ch;
+    },
+    place: (ch, u, side) => {
+      const p = curve.getPointAt(u), t = curve.getTangentAt(u);
+      ch.holder.position.copy(p).addScaledVector(V(-t.z, 0, t.x).normalize(), side).setY(0.04);
+      ch.holder.rotation.y = Math.atan2(t.x, t.z);
+    },
+  });
+  function updateRivals(state) {
+    if (state) lastRace = state;
+    racePending = !builder;
+    if (builder && lastRace) rivals.sync(lastRace.rivals, tasks.length, lastRace.youFrac || 0);
+  }
+
   function notify() {
     const n = tasks.length, done = tasks.filter(t => t.done).length;
     let text = n ? `Construction Journey: ${done} of ${n} tasks done.` : 'Construction Journey: no tasks yet.';
@@ -1317,6 +1350,7 @@ export function createConstruction3D(container) {
       if (simTime >= planAt) walker.plan(); else planPending = true;
     }
     updateGhost(state.ghost);
+    updateRivals(state);
     notify();
   }
 
@@ -1360,6 +1394,8 @@ export function createConstruction3D(container) {
     progressLine.geometry.setDrawRange(0, Math.floor(Math.min(1, shownFrac) * 420) * 6);
     sparks.update(dt); dust.update(dt);
     if (ghost && ghost.holder.visible) ghost.mixer.update(dt);
+    if (racePending && builder) updateRivals();
+    rivals.update(dt);
     updateCamera(dt);
     shell.updateTaskLabels(camera);
   }
