@@ -211,6 +211,7 @@ const DayRoad = (() => {
   }
   const fmt = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
   function closeFull() {
+    if (gateCancel) gateCancel();
     if (replaying) { replaying.stopped = true; replaying = null; }
     modeOverride = null;
     const scene = document.getElementById('dayroad-scene');
@@ -280,7 +281,24 @@ const DayRoad = (() => {
   }
   // prepare() sets the day back to how it was and returns the steps to
   // play, [{ text, apply }], or null to call it off.
-  async function play(prepare) {
+  // With { gate: true } (Replay my day) it waits for the person to press
+  // Play once the start of the day is on screen.
+  let gateCancel = null;
+  function playGate(n) {
+    return new Promise(res => {
+      const wrap = document.querySelector('#dayroad-full .dayroad-scene-wrap');
+      if (!wrap) { res(false); return; }
+      const g = document.createElement('div');
+      g.className = 'dayroad-playgate';
+      g.innerHTML = `<button type="button">${icon('play')}Play my day</button><small>${n} ${n === 1 ? 'moment' : 'moments'}, from the start</small>`;
+      wrap.appendChild(g);
+      const btn = g.querySelector('button');
+      btn.focus();
+      btn.onclick = () => { gateCancel = null; g.remove(); res(true); };
+      gateCancel = () => { gateCancel = null; g.remove(); res(false); };
+    });
+  }
+  async function play(prepare, opts = {}) {
     stopReplay();
     await refresh();
     const run = { stopped: false };
@@ -288,11 +306,22 @@ const DayRoad = (() => {
     const steps = prepare();
     if (!steps) { replaying = null; return; }
     if (typeof closeTaskDetail === 'function') closeTaskDetail(); // Watch is often pressed from the task panel
-    if (!watchingGame()) openFull('game'); else render();
+    // Straight to the start: the scene is built afresh at how the day
+    // was, everything placed where it stood, rather than the character
+    // walking back through it (slow in a 3D world).
+    if (!watchingGame()) openFull('game');
+    else paintFull(document.getElementById('dayroad-full'), state());
     paintReplayButton();
     const box = document.getElementById('dayroad-scene');
+    if (box && !sceneReady(box)) caption('Setting the scene…');
     for (let waited = 0; waited < 30000 && !sceneReady(box); waited += 250) await wait(250);
-    await wait(700); // let the opening settle first
+    caption('');
+    if (run.stopped || !document.getElementById('dayroad-scene')) return;
+    if (opts.gate) {
+      const go = await playGate(steps.length);
+      if (!go || run.stopped || replaying !== run) return;
+    }
+    await wait(opts.gate ? 300 : 700); // let the opening settle first
     const gap = box && box._j3d ? 3400 : 1700; // a 3D character takes longer to get there
     for (const s of steps) {
       if (run.stopped || !document.getElementById('dayroad-scene')) break;
@@ -309,6 +338,7 @@ const DayRoad = (() => {
     await refresh(); // back to the real day
   }
   function stopReplay() {
+    if (gateCancel) gateCancel();
     if (!replaying) return;
     replaying.stopped = true;
     replaying = null;
@@ -363,7 +393,7 @@ const DayRoad = (() => {
         text: e.kind === 'blocker' ? `${when(e)}Cleared “${e.o.name}”` : `${when(e)}Finished “${e.t.title}”`,
         apply: () => { if (e.kind === 'blocker') e.o.resolved = true; else e.t.status = 'Completed'; },
       }));
-    });
+    }, { gate: true });
   }
 
   // The Pacer moves every minute; tasks are re-read every few.
