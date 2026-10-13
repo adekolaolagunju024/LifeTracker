@@ -1,4 +1,4 @@
-/* global API, DayPace, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
+/* global API, DayPace, blockerChecklist, celebrationsEnabled, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
 // ── TODAY'S ROAD ────────────────────────────────────────────────
 // Today's plan as a road: a stop for each task, You moving as you finish
 // them, and the Pacer keeping to the timetable by the clock (the maths is
@@ -92,6 +92,15 @@ const DayRoad = (() => {
     el.className = 'dayroad-overlay';
     el.addEventListener('click', e => { if (e.target === el) closeFull(); });
     el.addEventListener('keydown', e => { if (e.key === 'Escape') closeFull(); });
+    // Ticking a blocker in the list plays its knockout in the scene, so on
+    // a small screen bring the scene back into view to see it.
+    el.addEventListener('change', e => {
+      if (!e.target.matches('[data-obstacle-id]') || !e.target.checked) return;
+      const scene = document.getElementById('dayroad-scene');
+      if (!scene) return;
+      const box = scene.getBoundingClientRect();
+      if (box.top < 0 || box.bottom > window.innerHeight) scene.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     document.body.appendChild(el);
     paintFull(el, state());
     el.querySelector('.dayroad-x')?.focus();
@@ -125,14 +134,17 @@ const DayRoad = (() => {
       return `<li class="${it.done ? 'done' : it === r.next ? 'next' : ''}">
         <span class="dayroad-time">${esc(it.start)}<small>${esc(DayPace.minutesText(it.minutes))}</small></span>
         <span class="dayroad-dot">${it.done ? icon('check') : it === r.next ? icon(game() ? (CHAR[world()] || 'footprints') : 'play') : ''}</span>
-        <button type="button" class="dayroad-task" onclick="openTaskDetail('${it.taskId}')"><b>${esc(it.task.title)}</b>
-          ${b && !it.done ? `<small class="blk">${icon('blocker', 'tiny')}${b} ${b === 1 ? 'blocker' : 'blockers'} in the way</small>` : it.done ? '<small>Done</small>' : it === r.next ? '<small>You are here</small>' : ''}</button>
+        <div class="dayroad-main"><button type="button" class="dayroad-task" onclick="openTaskDetail('${it.taskId}')"><b>${esc(it.task.title)}</b>
+          ${b && !it.done ? `<small class="blk">${icon('blocker', 'tiny')}${b} ${b === 1 ? 'blocker' : 'blockers'} in the way: tick one when it clears</small>` : it.done ? '<small>Done</small>' : it === r.next ? '<small>You are here</small>' : ''}</button>
+          ${b && !it.done && typeof blockerChecklist === 'function' ? blockerChecklist(it.task, true, 'board') : ''}</div>
         ${pacerHere ? `<span class="dayroad-pacerhere" title="Where the Pacer is now">${icon('timer')}</span>` : ''}
       </li>`;
     }).join('');
   }
   // The world scene: today's tasks in plan order, You by tasks done, the
-  // Pacer by the clock.
+  // Pacer by the clock. Each stop's blockers can be ticked in the list
+  // under it (blockerChecklist, js/app/01-core.js); tickBlocker updates
+  // these same task objects and calls render(), which syncs the scene.
   function syncScene(r) {
     const box = document.getElementById('dayroad-scene');
     if (!box || !r || typeof JourneyGame === 'undefined') return;
@@ -142,7 +154,9 @@ const DayRoad = (() => {
       summitLit: r.n > 0 && r.done === r.n,
       theme: theme(),
       ghost: r.state === 'before' ? null : { frac: r.n ? Math.min(1, r.pacer / r.n) : 0, label: 'The Pacer', isComputer: true },
-      celebrationsEnabled: false,
+      // On, so ticking a blocker off in the list below plays its knockout
+      // (and the name popup) in the scene, as on a project's Journey.
+      celebrationsEnabled: typeof celebrationsEnabled === 'function' ? celebrationsEnabled() : true,
       onSummit: () => {},
     });
   }

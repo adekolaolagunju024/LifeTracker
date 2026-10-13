@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Knock blockers out on today's road",
+      "text": "In the Game view of today's road, each stop now lists its blockers with a tick box. Tick one when it clears and watch your character knock it out in the world, in 2D or 3D."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Clear the last blocker, start the task",
       "text": "Blockers can be ticked off whenever they clear, even before you've started the task. Tick the last one on a task you haven't begun and Waypoint asks if you'd like to start it now: one tap and it's In Progress."
     },
