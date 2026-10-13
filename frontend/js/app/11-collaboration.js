@@ -571,18 +571,8 @@ async function populateProjectSelect(selectedId) {
   _projectStartDates = Object.fromEntries(allProjects.map(p => [p.id, p.startDate || '']));
   document.getElementById('task-start').min = _projectStartDates[selectedId] || '';
 
-  const topLevel = allProjects.filter(p => !p.parentId);
-  const childrenOf = pid => allProjects.filter(p => p.parentId === pid);
-
-  document.getElementById('task-project').innerHTML = topLevel.map(top => {
-    const kids = childrenOf(top.id);
-    const topOption = `<option value="${top.id}" ${top.id === selectedId ? 'selected' : ''}>${esc(top.title)}</option>`;
-    if (!kids.length) return topOption;
-    const kidOptions = kids.map(k =>
-      `<option value="${k.id}" ${k.id === selectedId ? 'selected' : ''}>${esc(k.title)}</option>`
-    ).join('');
-    return `<optgroup label="${esc(top.title)}">${topOption}${kidOptions}</optgroup>`;
-  }).join('');
+  document.getElementById('task-project').innerHTML = projectOptionsHTML(allProjects, selectedId);
+  ProjectPicker.attach(document.getElementById('task-project'), allProjects);
 }
 
 async function saveTask() {

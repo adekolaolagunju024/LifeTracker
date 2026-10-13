@@ -93,6 +93,37 @@ function showActionToast(msg, actions, fallbackIcon = 'done') {
 function showUndoToast(msg, undo) {
   showActionToast(msg, [{ label: 'Undo', run: async () => { await undo(); showToast('↩️ Undone'); } }], 'trash');
 }
+// ── THE PROJECT PICKER ─────────────────────────────────────────
+// One choice of project shared by the Planner (Gantt, Kanban, Journey) and
+// the Calendar, remembered between visits, so the project you're looking
+// at follows you. The options read the same everywhere (the task form
+// too): each project, its sub-folders under it marked ↳, shared ones
+// marked as such.
+const PROJECT_FILTER_KEY = 'projectFilter';
+function savedProjectFilter() {
+  try { return localStorage.getItem(PROJECT_FILTER_KEY) ?? localStorage.getItem('calendarProjectFilter') ?? ''; } catch { return ''; }
+}
+function saveProjectFilter(id) {
+  APP.ganttProjectFilter = id || '';
+  APP.calendarProjectFilter = id || '';
+  try { localStorage.setItem(PROJECT_FILTER_KEY, id || ''); } catch { /* private mode */ }
+}
+// A remembered project that's since been deleted (or unshared) falls back
+// to all of them, rather than quietly filtering every task out.
+function validProjectFilter(id, projects) {
+  return id && projects.some(p => p.id === id) ? id : '';
+}
+function projectOptionsHTML(projects, selected, allLabel = null) {
+  const ids = new Set(projects.map(p => p.id));
+  const tops = projects.filter(p => !p.parentId || !ids.has(p.parentId));
+  const opt = (p, sub) => `<option value="${p.id}" ${p.id === selected ? 'selected' : ''}>${sub ? '\u00A0\u00A0\u00A0↳ ' : ''}${esc(p.title)}${p.role && p.role !== 'owner' ? ' (shared)' : ''}</option>`;
+  return (allLabel !== null ? `<option value="" ${selected ? '' : 'selected'}>${esc(allLabel)}</option>` : '')
+    + tops.map(t => opt(t, false) + projects.filter(k => k.parentId === t.id).map(k => opt(k, true)).join('')).join('');
+}
+// The project and its sub-folders, for filtering tasks; null for all.
+function projectScope(projects, id) {
+  return id ? new Set([id, ...projects.filter(p => p.parentId === id).map(p => p.id)]) : null;
+}
 // Re-renders whatever is showing tasks, after a delete or an undo.
 function refreshTaskViews(projectId) {
   if (APP.currentPage === 'project-detail' && (projectId || APP.currentProjectId)) renderTaskTable(projectId || APP.currentProjectId);

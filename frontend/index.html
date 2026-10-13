@@ -564,12 +564,13 @@
     .pkey-close { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: #6B7280; }
     .pkey-close:hover { background: #F1F3F5; color: #0D1B2A; }
     .pkey-close .ic { width: 16px; height: 16px; }
-    .pkey-grid { columns: 230px; column-gap: 28px; }
-    .pkey-group { margin-bottom: 14px; break-inside: avoid; display: inline-block; width: 100%; }
+    /* A grid, not CSS columns: Safari can overlap groups laid out in columns */
+    .pkey-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0 28px; align-items: start; }
+    .pkey-group { margin-bottom: 14px; min-width: 0; }
     .pkey-group h4 { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #8A93A0; margin-bottom: 6px; }
     .pkey-group ul { display: grid; gap: 6px; list-style: none; padding: 0; margin: 0; }
-    .pkey-item { display: flex; align-items: flex-start; gap: 10px; }
-    .pkey-sample { width: 68px; min-height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #5B6472; }
+    .pkey-item { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+    .pkey-sample { width: auto; min-width: 76px; max-width: 120px; min-height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #5B6472; }
     .pkey-sample .ic { width: 15px; height: 15px; }
     .pkey-text { min-width: 0; font-size: 12.5px; line-height: 1.35; color: #1F2A37; }
     .pkey-text b { font-weight: 700; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -671,6 +672,39 @@
     .focus-hud.is-min[data-pace="ahead"]::after, .focus-hud.is-min[data-pace="done"]::after { background: #22C55E; }
     .focus-hud.is-min[data-pace="behind"]::after { background: #F59E0B; }
     /* Full size */
+    /* The project picker (js/projectPicker.js) */
+    .pp-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; overflow: hidden; }
+    .pp-btn { display: inline-flex; align-items: center; gap: 8px; text-align: left; min-width: 0; cursor: pointer; }
+    .pp-btn .pp-label { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
+    .pp-btn .pp-label b, .pp-btn .pp-label small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pp-btn .pp-label small { font-size: 10px; font-weight: 600; color: #8A93A0; }
+    .pp-btn .pp-chev { flex-shrink: 0; width: 14px; height: 14px; color: #8A93A0; }
+    .pp-ic { flex-shrink: 0; width: 22px; height: 22px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+    .pp-ic .ic { width: 13px; height: 13px; }
+    .pp-ic.sub { background: transparent; color: #8A93A0; width: 18px; }
+    .pp-ic.all { background: #EEF2F6; color: #475569; }
+    .pp-pop { position: fixed; z-index: 1005; background: #fff; border: 1px solid #E5E7EB; border-radius: 14px; box-shadow: 0 18px 48px rgba(13,27,42,.18); display: flex; flex-direction: column; overflow: hidden; }
+    .pp-pop.sheet { left: 0; right: 0; bottom: 0; max-height: 70vh; border-radius: 20px 20px 0 0; padding-bottom: env(safe-area-inset-bottom); box-shadow: 0 0 0 100vmax rgba(13,27,42,.45); }
+    .pp-search { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #F1F3F5; color: #8A93A0; }
+    .pp-search input { flex: 1; border: 0; outline: none; font-size: 14px; background: transparent; color: inherit; }
+    .pp-list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; outline: none; }
+    .pp-list ul { list-style: none; margin: 0; padding: 0; }
+    .pp-group + .pp-group { border-top: 1px solid #F1F3F5; margin-top: 4px; padding-top: 4px; }
+    .pp-head { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #8A93A0; padding: 10px 10px 4px; }
+    .pp-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; cursor: pointer; font-size: 13px; color: #1F2937; }
+    .pp-row .pp-label { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .pp-row .pp-label b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pp-row .pp-label small { font-size: 11px; color: #8A93A0; }
+    .pp-row.sub { margin-left: 22px; padding-left: 12px; border-left: 2px solid #E5E7EB; border-radius: 0 10px 10px 0; font-size: 12.5px; color: #4B5563; }
+    .pp-row.sub .pp-label b { font-weight: 600; }
+    .pp-row.active { background: #F0FAF9; }
+    .pp-row[aria-selected="true"] { color: #0A7E8C; }
+    .pp-row .pp-tick { width: 16px; height: 16px; color: #0A7E8C; flex-shrink: 0; }
+    .pp-empty { padding: 14px; font-size: 13px; color: #8A93A0; text-align: center; }
+    .dark .pp-pop { background: #111A2B; border-color: #22304A; }
+    .dark .pp-row { color: #E8EEF5; } .dark .pp-row.sub { color: #B6C2D1; border-left-color: #22304A; }
+    .dark .pp-row.active { background: rgba(94,234,212,.08); } .dark .pp-row[aria-selected="true"] { color: #5EEAD4; }
+    .dark .pp-group + .pp-group, .dark .pp-search { border-color: #22304A; } .dark .pp-ic.all { background: #1B2740; color: #B6C2D1; }
     .dayroad-overlay { position: fixed; inset: 0; z-index: 95; background: rgba(13,27,42,.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
     .dayroad-sheet { width: min(620px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: #fff; color: #0D1B2A; border-radius: 22px; padding: 20px 20px 16px; box-shadow: 0 30px 80px rgba(5,10,20,.35); }
     .dayroad-head { display: flex; align-items: flex-start; justify-content: space-between; }
@@ -4373,6 +4407,7 @@
 <script src="js/journeyGame.js"></script>
 <script src="js/sfx.js"></script>
 <!-- The app, in parts (frontend/js/app/), loaded in this order -->
+<script src="js/projectPicker.js"></script>
 <script src="js/app/01-core.js"></script>
 <script src="js/app/02-navigation-dashboard.js"></script>
 <script src="js/app/03-project.js"></script>
