@@ -11,7 +11,7 @@ const PALETTE_PAGES = [
   ['dashboard', '🏠', 'Dashboard'], ['gantt', '📊', 'Planner'], ['actions', '✅', 'Actions'],
   ['calendar', '📅', 'Calendar'], ['chats', '💬', 'Chats'], ['projects', '📁', 'All projects'], ['settings', '⚙️', 'Settings'],
 ];
-const PALETTE_STAGES = [['football', '⚽', 'Football'], ['space', '🚀', 'Space'], ['castle', '🏰', 'Castle'], ['construction', '🏗️', 'Construction']];
+const PALETTE_STAGES = [['football', '⚽', 'Football'], ['space', '🚀', 'Space'], ['castle', '🏰', 'Castle'], ['construction', '🏗️', 'Construction'], ['sprint', '🏃', 'Sprint Track']];
 
 let paletteData = { projects: [], tasks: [] };
 let paletteItems = [];

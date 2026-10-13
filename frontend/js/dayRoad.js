@@ -90,7 +90,7 @@ const DayRoad = (() => {
   const MODE_KEY = 'dayroadMode';
   let modeOverride = null; // 'game' while replaying a knockout, without changing the saved choice
   const fullMode = () => { if (modeOverride) return modeOverride; try { return localStorage.getItem(MODE_KEY) || (game() ? 'game' : 'road'); } catch { return 'road'; } };
-  const STAGES = [['football', 'Football'], ['space', 'Space'], ['castle', 'Castle'], ['construction', 'Construction']];
+  const STAGES = [['football', 'Football'], ['space', 'Space'], ['castle', 'Castle'], ['construction', 'Construction'], ['sprint', 'Sprint Track']];
   function openFull(mode = null) {
     API.trackFeature && API.trackFeature('journey');
     closeFull();
