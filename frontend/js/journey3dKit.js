@@ -682,3 +682,69 @@ export function nameTagSprite(text, height = 0.42) {
   sprite.renderOrder = 8;
   return sprite;
 }
+
+// ── Rivals in a race (Race a friend) ─────────────────────────────────
+// Every other player on the same course, in their colour, with their name
+// floating over them. A world gives build(color) → { holder, mixer? } for
+// one body and place(body, u, side) to stand it at path fraction u, side
+// steps off the line; this keeps one body and tag per player and decides
+// who's shown: everyone up to six, else the five nearest you and the leader
+// (the scoreboard above the scene lists the rest).
+export function playerTagSprite(text, color, height = 0.38) {
+  const label = text.length > 16 ? text.slice(0, 15) + '…' : text;
+  const c = document.createElement('canvas');
+  const g = c.getContext('2d');
+  const font = '800 44px system-ui, Arial, sans-serif';
+  g.font = font;
+  const w = Math.ceil(g.measureText(label).width) + 84, h = 68;
+  c.width = w; c.height = h;
+  g.font = font;
+  g.fillStyle = 'rgba(255,255,255,0.95)';
+  g.beginPath(); g.roundRect(2, 2, w - 4, h - 4, (h - 4) / 2); g.fill();
+  g.lineWidth = 5; g.strokeStyle = color; g.stroke();
+  g.fillStyle = color; g.beginPath(); g.arc(34, h / 2, 11, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#0D1B2A'; g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillText(label, 54, h / 2 + 2);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, depthTest: false }));
+  sprite.scale.set(height * (w / h), height, 1);
+  sprite.renderOrder = 9;
+  return sprite;
+}
+export function createRivals({ build, place, tagHeight = 2.3, tagSize = 0.38, max = 6 }) {
+  const shown = new Map(); // key -> { body, tag }
+  function pick(list, youFrac) {
+    if (list.length <= max) return list;
+    const leader = list.find(r => r.leader);
+    const near = list.slice().sort((a, b) => Math.abs(a.frac - youFrac) - Math.abs(b.frac - youFrac)).slice(0, max - 1);
+    return leader && !near.includes(leader) ? [...near, leader] : near.slice(0, max);
+  }
+  function sync(list, n, youFrac = 0) {
+    const want = pick(list || [], youFrac);
+    const keyOf = r => `${r.name}|${r.color}|${r.finished ? 'f' : r.leader ? 'l' : ''}`; // a new tag when they lead or finish
+    const keys = new Set(want.map(keyOf));
+    for (const [k, r] of shown) if (!keys.has(k)) { r.body.holder.removeFromParent(); shown.delete(k); }
+    const spots = new Map();
+    want.forEach(r => {
+      const k = keyOf(r);
+      let s = shown.get(k);
+      if (!s) {
+        const body = build(r.color);
+        const tag = playerTagSprite(r.name + (r.finished ? ' 🏁' : r.leader ? ' · 1st' : ''), r.color, tagSize);
+        tag.position.y = tagHeight;
+        body.holder.add(tag);
+        s = { body, tag, label: '' };
+        shown.set(k, s);
+      }
+      const u = THREE.MathUtils.clamp(progressToPathFracSmooth(r.frac, n), 0, 1);
+      // players on the same spot stand side by side, alternating sides
+      const spot = Math.round(u * 300);
+      const i = spots.get(spot) || 0; spots.set(spot, i + 1);
+      const side = (i % 2 ? 1 : -1) * (1.1 + Math.floor(i / 2) * 0.9);
+      place(s.body, u, side);
+      s.body.holder.visible = true;
+    });
+  }
+  function update(dt) { shown.forEach(s => { if (s.body.mixer) s.body.mixer.update(dt); }); }
+  return { sync, update, count: () => shown.size };
+}

@@ -15,7 +15,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera, makeViewToggle } from './journey3dKit.js';
+import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera, makeViewToggle, createRivals } from './journey3dKit.js';
 
 const MODEL_URL = '/assets/models/RobotExpressive.glb';
 const UI_FONT = '"Arial Black", Impact, "Arial Narrow", sans-serif';
@@ -1134,6 +1134,28 @@ export function createFootball3D(container) {
     ghost.holder.rotation.y = Math.atan2(t.x, t.z);
   }
 
+  // Rivals in a race: the other players as footballers in their colour,
+  // each with their name over them (journey3dKit.js createRivals).
+  let lastRace = null, racePending = false;
+  const rivals = createRivals({
+    build: color => {
+      const ch = makeCharacter(null, color, '#ffffff');
+      ch.obj.traverse(o => { if (o.isMesh) o.castShadow = false; });
+      play(ch, 'Idle', 0);
+      return ch;
+    },
+    place: (ch, u, side) => {
+      const p = curve.getPointAt(u), t = curve.getTangentAt(u);
+      ch.holder.position.copy(p).addScaledVector(new THREE.Vector3(-t.z, 0, t.x).normalize(), side);
+      ch.holder.rotation.y = Math.atan2(t.x, t.z);
+    },
+  });
+  function updateRivals(state) {
+    if (state) lastRace = state;
+    racePending = !gltfSource;
+    if (gltfSource && lastRace) rivals.sync(lastRace.rivals, tasks.length, lastRace.youFrac || 0);
+  }
+
   function updateLabel() {
     const n = tasks.length, done = tasks.filter(t => t.done).length;
     let text = n ? `Football Journey: ${done} of ${n} tasks done.` : 'Football Journey: no tasks yet.';
@@ -1182,6 +1204,7 @@ export function createFootball3D(container) {
       plan();
     }
     updateGhost(state.ghost);
+    updateRivals(state);
     updateLabel();
     onSummitCb = state.onSummit || null;
   }
@@ -1222,6 +1245,8 @@ export function createFootball3D(container) {
       if (f.ring.visible) { const s = 1 + 0.15 * Math.sin(time * 4); f.ring.scale.setScalar(s); f.ring.material.opacity = 0.35 + 0.3 * (0.5 + 0.5 * Math.sin(time * 4)); }
     });
     if (ghost && ghost.holder.visible) ghost.mixer.update(dt);
+    if (racePending && gltfSource) updateRivals();
+    rivals.update(dt);
     updateCamera(dt, time);
     updateTaskLabels();
   }

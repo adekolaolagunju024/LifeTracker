@@ -380,7 +380,8 @@ function renderMountainScene() {
     // a teammate with none of these tasks assigned) — showing a ghost
     // frozen at the start forever would just read as a second character
     // standing around, not as "you're ahead/behind".
-    ghost: (competitor && competitor.frac !== null) ? { frac: competitor.frac, label: competitor.label, isComputer: competitor.isComputer } : null,
+    // In a race the other players (and their pace labels) take the ghost's place.
+    ghost: (competitor && competitor.frac !== null && !(window.Race && Race.current() && Race.current().players.length > 1)) ? { frac: competitor.frac, label: competitor.label, isComputer: competitor.isComputer } : null,
     // Everyone else in the race, if this goal is your copy in one.
     rivals: window.Race && Race.current() && Race.current().players.length > 1 ? Race.rivals() : null,
     youColor: window.Race && Race.youColor(),

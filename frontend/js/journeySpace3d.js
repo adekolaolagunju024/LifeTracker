@@ -18,7 +18,7 @@ import {
   createShell, createLoop, makeCanvasTexture, seededRandom, softDotTexture, Particles, particleScaleFor,
   loadGLTF, makeCharacter, play, recolorCharacter, findBone, attachToBone,
   checkpointFracOf, progressToPathFracSmooth, angleLerp, createWalker,
-  stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera,
+  stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera, createRivals,
 } from './journey3dKit.js';
 
 const ASTRONAUT_URL = '/assets/models/Knight.glb';
@@ -912,6 +912,37 @@ export function createSpace3D(container) {
     ghost.root.quaternion.setFromUnitVectors(UP, t);
     ghost.root.position.copy(p).addScaledVector(side, -2.4).sub(V(0, ROCKET_MID, 0).applyQuaternion(ghost.root.quaternion));
   }
+  // Rivals in a race: other players as rockets with their hull in their
+  // colour, each with their name over them (journey3dKit.js createRivals).
+  let lastRace = null;
+  const rivals = createRivals({
+    tagHeight: ROCKET_MID + 1.1, tagSize: 0.75,
+    build: color => {
+      const r = buildRocket(false);
+      const tint = new THREE.Color(color);
+      r.root.traverse(o => {
+        if (!o.isMesh || o === r.flame || o === r.glow) return;
+        o.material = o.material.clone();
+        if (o.material.color) o.material.color.lerp(tint, 0.6);
+        o.castShadow = false;
+      });
+      r.flame.visible = r.glow.visible = false;
+      const holder = new THREE.Group(); scene.add(holder); holder.add(r.root);
+      return { holder, rocket: r };
+    },
+    place: (b, u, side) => {
+      const p = curve.getPointAt(u), t = curve.getTangentAt(u);
+      const sideV = new THREE.Vector3().crossVectors(t, UP).normalize();
+      b.holder.position.copy(p).addScaledVector(sideV, side * 2.2);
+      b.rocket.root.quaternion.setFromUnitVectors(UP, t);
+      b.rocket.root.position.copy(V(0, ROCKET_MID, 0).applyQuaternion(b.rocket.root.quaternion)).negate();
+    },
+  });
+  function updateRivals(state) {
+    if (state) lastRace = state;
+    if (lastRace) rivals.sync(lastRace.rivals, tasks.length, lastRace.youFrac || 0);
+  }
+
   function notify() {
     const n = tasks.length, done = tasks.filter(t => t.done).length;
     let text = n ? `Space Journey: ${done} of ${n} tasks done.` : 'Space Journey: no tasks yet.';
@@ -956,6 +987,7 @@ export function createSpace3D(container) {
       walker.plan();
     }
     updateGhost(state.ghost);
+    updateRivals(state);
     notify();
   }
 

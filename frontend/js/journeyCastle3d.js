@@ -19,7 +19,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera, makeViewToggle } from './journey3dKit.js';
+import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera, makeViewToggle, createRivals } from './journey3dKit.js';
 
 const KNIGHT_URL = '/assets/models/Knight.glb';
 const PRINCESS_URL = '/assets/models/Princess.glb';
@@ -1797,6 +1797,39 @@ export function createCastle3D(container) {
     ghost.holder.position.copy(p).addScaledVector(new THREE.Vector3(-t.z, 0, t.x).normalize(), -0.9).setY(roadY(p) + 0.04);
     ghost.holder.rotation.y = Math.atan2(t.x, t.z);
   }
+  // Rivals in a race: other players as knights tinted in their colour,
+  // each with their name over them (journey3dKit.js createRivals).
+  let lastRace = null, racePending = false;
+  const rivals = createRivals({
+    build: color => {
+      const obj = SkeletonUtils.clone(knight.obj);
+      const tint = new THREE.Color(color);
+      obj.traverse(o => {
+        if (!o.isMesh) return;
+        o.material = o.material.clone();
+        o.material.color.lerp(tint, 0.55);
+        o.castShadow = false;
+      });
+      const holder = new THREE.Group(); holder.add(obj); scene.add(holder);
+      const mixer = new THREE.AnimationMixer(obj);
+      const actions = {};
+      clips.forEach(clip => { actions[clip.name] = mixer.clipAction(clip); });
+      const ch = { holder, obj, mixer, actions, current: null };
+      play(ch, 'Idle', { fade: 0 });
+      return ch;
+    },
+    place: (ch, u, side) => {
+      const p = curve.getPointAt(u), t = curve.getTangentAt(u);
+      ch.holder.position.copy(p).addScaledVector(new THREE.Vector3(-t.z, 0, t.x).normalize(), side).setY(roadY(p) + 0.04);
+      ch.holder.rotation.y = Math.atan2(t.x, t.z);
+    },
+  });
+  function updateRivals(state) {
+    if (state) lastRace = state;
+    racePending = !knight;
+    if (knight && lastRace) rivals.sync(lastRace.rivals, tasks.length, lastRace.youFrac || 0);
+  }
+
 
   function updateLabel() {
     const n = tasks.length, done = tasks.filter(t => t.done).length;
@@ -1855,6 +1888,7 @@ export function createCastle3D(container) {
       env.target = frac;
     }
     updateGhost(state.ghost);
+    updateRivals(state);
     updateLabel();
   }
   function snapCamera() {
@@ -1886,6 +1920,8 @@ export function createCastle3D(container) {
     simTime += dt;
     simulate(dt, simTime);
     if (ghost && ghost.holder.visible) ghost.mixer.update(dt);
+    if (racePending && knight) updateRivals();
+    rivals.update(dt);
   }
   function frame() {
     step(Math.min(clock.getDelta(), 1 / 20));
