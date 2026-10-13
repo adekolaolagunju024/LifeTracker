@@ -124,6 +124,11 @@
     },
     {
       "date": "2026-10-13",
+      "title": "How today went, and progress over time",
+      "text": "When your planned day is over, How today went shows you against the Pacer as two lines across the day, when each task was finished against its slot, and what's left, which you can move to tomorrow's plan in one tap. Project reports now chart progress over time too: what you actually got done against what the plan expected, day by day."
+    },
+    {
+      "date": "2026-10-13",
       "title": "One project picker that follows you",
       "text": "Pick a project on the Planner and the Calendar shows the same one, and Waypoint remembers it next time. The Journey always opens on a real project instead of an empty scene, and the picker itself is new: each project with its icon and colour, its sub-folders indented beneath it, and projects shared with you in their own section. The planner keys are laid out more cleanly too."
     },

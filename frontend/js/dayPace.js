@@ -47,7 +47,47 @@ const DayPace = (() => {
     }
     return { n, done, pacer, state, diff, text, planEnd, starts, ends };
   }
-  return { compute, toMin, minutesText };
+  // The day as two lines, for the evening report (js/dayReport.js): the
+  // Pacer climbing one task over each planned slot, and you stepping up
+  // at each finish. finishedAt: { taskId: minutes since midnight } for
+  // the plan's tasks finished today (finished before the day began counts
+  // from its start). Returns the window to draw, both lines as [minute,
+  // tasks done] points, and each task's finish against its planned end.
+  function lines(items, finishedAt, now) {
+    const list = (items || []).filter(i => i && i.start);
+    const n = list.length;
+    if (!n) return null;
+    const starts = list.map(i => toMin(i.start));
+    const ends = list.map((i, k) => starts[k] + Number(i.minutes || 0));
+    const first = starts[0];
+    const times = list.map(i => (finishedAt[i.taskId] == null ? null : Math.max(first, finishedAt[i.taskId])));
+    const done = times.filter(t => t != null).sort((a, b) => a - b);
+    const from = first;
+    const to = Math.max(ends[n - 1], done.length ? done[done.length - 1] : 0, Math.min(now, ends[n - 1] + 120));
+    const pacer = [[from, 0]];
+    list.forEach((_, k) => { pacer.push([starts[k], k], [ends[k], k + 1]); });
+    if (ends[n - 1] < to) pacer.push([to, n]);
+    const youTo = Math.min(Math.max(now, done.length ? done[done.length - 1] : from), to);
+    const you = [[from, 0]];
+    done.forEach((t, c) => { you.push([t, c], [t, c + 1]); });
+    you.push([Math.max(youTo, you[you.length - 1][0]), done.length]);
+    const tasks = list.map((it, k) => ({ taskId: it.taskId, start: starts[k], end: ends[k], finished: times[k], diff: times[k] == null ? null : ends[k] - times[k] }));
+    return { n, from, to, now, pacer, you, tasks, done: done.length };
+  }
+  // Tasks done by a minute, on either line (they're step and ramp shapes).
+  function valueAt(points, t) {
+    let v = 0;
+    for (let i = 0; i < points.length; i++) {
+      const [x, y] = points[i];
+      if (x > t) {
+        const [px, py] = points[i - 1] || [x, y];
+        return x === px ? py : py + ((y - py) * (t - px)) / (x - px);
+      }
+      v = y;
+    }
+    return v;
+  }
+  return { compute, lines, valueAt, toMin, minutesText };
 })();
 if (typeof module !== 'undefined') module.exports = DayPace;
 else window.DayPace = DayPace;

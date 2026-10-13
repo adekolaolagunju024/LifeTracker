@@ -1,4 +1,4 @@
-/* global API, DayPace, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
+/* global API, DayPace, DayReport, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
 // ── TODAY'S ROAD ────────────────────────────────────────────────
 // Today's plan as a road: a stop for each task, You moving as you finish
 // them, and the Pacer keeping to the timetable by the clock (the maths is
@@ -57,10 +57,14 @@ const DayRoad = (() => {
       <span class="droad-you" style="left:${yx}%" title="You">${you}</span>
     </div>`;
   }
+  // Once the plan is done, or its time is up, the report on how it went
+  // (js/dayReport.js) is offered beside Full view.
+  const dayOver = r => r.state === 'done' || nowMin() >= r.planEnd;
   function line(r, mode) {
     const nx = r.next ? `Next: ${esc(r.next.start)} ${esc(r.next.task.title)}` : '';
     return `<div class="droad-line"><b class="droad-state ${r.state}">${esc(r.text)}</b>
       <span>${r.done} of ${r.n} done${nx && mode !== 'card' ? ` · ${nx}` : ''}</span>
+      ${dayOver(r) ? `<button type="button" class="droad-full droad-report" onclick="DayReport.open()">${icon('chart-column')}<span>How today went</span></button>` : ''}
       <button type="button" class="droad-full" onclick="DayRoad.openFull()">${icon('maximize-2')}<span>Full view</span></button></div>`;
   }
   function render() {
@@ -193,7 +197,8 @@ const DayRoad = (() => {
       ${r ? `${mode === 'game' ? gameBody(r) : strip(r, true)}
       <p class="dayroad-sum">${summaryHTML(r)}</p>
       <ol class="dayroad-list">${listHTML(r)}</ol>
-      <p class="dayroad-note">${icon('timer', 'tiny')} The Pacer keeps to the times you planned. Finish tasks to stay on plan or get ahead.</p>`
+      <div class="dayroad-foot"><p class="dayroad-note">${icon('timer', 'tiny')} The Pacer keeps to the times you planned. Finish tasks to stay on plan or get ahead.</p>
+        <button type="button" class="dayroad-reportbtn" onclick="DayRoad.closeFull(); DayReport.open()">${icon('chart-column', 'tiny')}${dayOver(r) ? 'How today went' : 'Today so far'}</button></div>`
     : `<p class="dayroad-empty">No plan for today yet.</p><button type="button" class="dayroad-go" onclick="DayRoad.closeFull(); Jarvis.startDay()">${icon('play')}Start my day</button>`}
     </div>`;
     if (r && mode === 'game') syncScene(r);

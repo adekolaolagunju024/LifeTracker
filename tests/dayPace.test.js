@@ -60,3 +60,21 @@ test('lengths over an hour read naturally, and an empty plan is quiet', () => {
   assert.equal(DayPace.minutesText(120), '2 h');
   assert.equal(DayPace.compute([], new Set(), 600).state, 'none');
 });
+
+test('the evening lines: the Pacer climbs over each slot, you step up at each finish', () => {
+  const L = DayPace.lines(plan, { a: at('09:20'), b: at('10:40') }, at('12:00'));
+  assert.equal(L.from, at('09:00'));
+  assert.equal(L.done, 2);
+  assert.deepEqual(L.pacer.slice(0, 3), [[at('09:00'), 0], [at('09:00'), 0], [at('09:30'), 1]]);
+  assert.equal(DayPace.valueAt(L.pacer, at('10:00')), 1.5, 'halfway through the second slot');
+  assert.equal(DayPace.valueAt(L.you, at('10:00')), 1, 'one task done by then');
+  assert.equal(DayPace.valueAt(L.you, at('10:41')), 2);
+  assert.deepEqual(L.tasks.map(t => t.diff), [10, -10, null], 'a: 10 min early, b: 10 min late, c: not done');
+  assert.equal(L.to, at('12:00'), 'the window runs on to now, an hour after the plan ended');
+});
+
+test('a task finished before the day began counts from the start', () => {
+  const L = DayPace.lines(plan, { a: at('07:00') }, at('09:05'));
+  assert.equal(L.tasks[0].finished, at('09:00'));
+  assert.equal(DayPace.valueAt(L.you, at('09:01')), 1);
+});
