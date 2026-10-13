@@ -46,6 +46,23 @@ function shadeColor(hex, amount) {
   return `rgb(${r},${g},${b})`;
 }
 
+// ── CLOCK FORMAT ────────────────────────────────────────────────
+// Times read as 12-hour (9:30 am) or 24-hour (09:30): the person's
+// choice (the switch on Start my day), else their device's. Plans keep
+// "09:30" underneath; this is only how a time is shown.
+function clockIs24() {
+  try { const v = localStorage.getItem('wp-clock'); if (v) return v === '24'; } catch { /* private mode */ }
+  try { return !/^h1[12]$/.test(new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle || 'h23'); } catch { return true; }
+}
+function setClock24(on) { try { localStorage.setItem('wp-clock', on ? '24' : '12'); } catch { /* private mode */ } }
+function clockText(hhmm, short = false) {
+  const [h, m] = String(hhmm).split(':').map(Number);
+  if (Number.isNaN(h)) return String(hhmm);
+  const mm = String(m || 0).padStart(2, '0');
+  if (clockIs24()) return `${String(h).padStart(2, '0')}:${mm}`;
+  const h12 = h % 12 || 12, ap = h < 12 ? 'am' : 'pm';
+  return short && !m ? `${h12} ${ap}` : `${h12}:${mm} ${ap}`;
+}
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   // A leading emoji ("❌ Could not save") becomes the matching line icon.

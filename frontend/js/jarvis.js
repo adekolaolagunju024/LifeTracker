@@ -1,4 +1,4 @@
-/* global API, APP, esc, icon, DayRoad, showToast, showPage, openTaskDetail, Why, Music, localDateKey, openAssistant, toggleAssistantListening, Reminders, taskGateMessage, taskErrorToast, showGateCard, Sfx */
+/* global API, APP, esc, icon, DayRoad, showToast, showPage, openTaskDetail, Why, Music, localDateKey, openAssistant, toggleAssistantListening, Reminders, taskGateMessage, taskErrorToast, showGateCard, Sfx, clockText, clockIs24, setClock24 */
 // ── YOUR PERSONAL ASSISTANT ─────────────────────────────────────
 // The assistant as a personal assistant, not only a chat window: it briefs
 // you each morning, acts around the app when you ask (backend/ai/day.js),
@@ -683,15 +683,17 @@ const Jarvis = (() => {
       const end = P.items.length ? fromMin(toMin(P.start) + P.items.reduce((n, i) => n + i.minutes, 0)) : null;
       const rest = P.open.filter(t => !P.items.some(i => i.id === t.id)).slice(0, 6);
       body.innerHTML = `
-        <label class="dayplan-start">${icon('clock', 'tiny')}Start at <input type="time" id="dayplan-start" value="${P.start}" onchange="Jarvis.plannerStart(this.value)"></label>
+        ${startPicker(P)}
         <ol class="dayplan-tt">${P.items.map((it, i) => {
           const t = P.byTask[it.id];
           const b = blockedNow(t).length;
           return `<li class="dayplan-slot">
-            <span class="dayplan-time">${times[i]}</span>
+            <span class="dayplan-time">${clockText(times[i])}</span>
             <span class="min-w-0 flex-1"><span class="dayplan-t">${esc(t.title)}</span>
             <span class="dayplan-m">${proj(t)}${b ? ` · <b class="dayplan-blk">${icon('blocker', 'tiny')}${b} ${b === 1 ? 'blocker' : 'blockers'}</b>` : ''}</span></span>
-            <select class="dayplan-mins" aria-label="How long for ${esc(t.title)}" onchange="Jarvis.plannerLen(${i}, this.value)">${[...new Set([...LENGTHS, it.minutes])].sort((a, z) => a - z).map(m => `<option value="${m}" ${m === it.minutes ? 'selected' : ''}>${lenText(m)}</option>`).join('')}</select>
+            ${P.customLen === i
+              ? `<input type="number" class="dayplan-mins dayplan-mins-custom" min="5" max="480" step="5" value="${it.minutes}" aria-label="Minutes for ${esc(t.title)}" onchange="Jarvis.plannerLen(${i}, this.value)" onkeydown="if(event.key==='Enter')this.blur()">`
+              : `<select class="dayplan-mins" aria-label="How long for ${esc(t.title)}" onchange="Jarvis.plannerLen(${i}, this.value)">${[...new Set([...LENGTHS, it.minutes])].sort((a, z) => a - z).map(m => `<option value="${m}" ${m === it.minutes ? 'selected' : ''}>${lenText(m)}</option>`).join('')}<option value="custom">Custom…</option></select>`}
             <span class="dayplan-move">
               <button type="button" onclick="Jarvis.plannerMove(${i}, -1)" ${i ? '' : 'disabled'} aria-label="Earlier">${icon('chevron_up')}</button>
               <button type="button" onclick="Jarvis.plannerMove(${i}, 1)" ${i < P.items.length - 1 ? '' : 'disabled'} aria-label="Later">${icon('chevron_down')}</button>
@@ -699,7 +701,7 @@ const Jarvis = (() => {
             <button type="button" class="dayplan-drop" onclick="Jarvis.plannerToggle('${it.id}')" aria-label="Take ${esc(t.title)} out of today">${icon('close')}</button>
           </li>`;
         }).join('') || '<li class="dayplan-empty">Nothing planned yet. Add something below.</li>'}</ol>
-        ${end ? `<p class="dayplan-end">${P.items.length} ${P.items.length === 1 ? 'task' : 'tasks'} · done by about <b>${end}</b></p>` : ''}
+        ${end ? `<p class="dayplan-end">${P.items.length} ${P.items.length === 1 ? 'task' : 'tasks'} · done by about <b>${clockText(end)}</b></p>` : ''}
         ${rest.length ? `<p class="dayplan-label">Add from your list</p><div class="dayplan-more">${rest.map(t => `<button type="button" onclick="Jarvis.plannerToggle('${t.id}')">${icon('plus', 'tiny')}<span>${esc(t.title)}</span></button>`).join('')}</div>` : ''}
         ${P.home ? `<form class="dayplan-add" onsubmit="event.preventDefault(); Jarvis.plannerAdd()">
           <input id="dayplan-new" maxlength="200" placeholder="Something new for today…" aria-label="Add a new task for today">
@@ -733,7 +735,38 @@ const Jarvis = (() => {
     }
   }
   function plannerStep(n) { if (planner && (n === 1 || planner.items.length)) { planner.step = n; paintPlanner(); document.querySelector('#day-plan .dayplan-go')?.focus(); } }
-  function plannerStart(v) { if (planner && /^\d{2}:\d{2}$/.test(v)) { planner.start = v; paintPlanner(); } }
+  function plannerStart(v) {
+    if (!planner) return;
+    if (v === 'custom') { planner.customStart = true; paintPlanner(); document.getElementById('dayplan-start-custom')?.focus(); return; }
+    if (/^\d{2}:\d{2}$/.test(v)) { planner.start = v; planner.customStart = false; paintPlanner(); }
+  }
+  // The start time: earlier or later by 15 minutes, a list of quarter
+  // hours (with Custom… for any minute), Now, and 12- or 24-hour times.
+  function startPicker(P) {
+    const cur = toMin(P.start);
+    const slots = [];
+    for (let m = 0; m < 1440; m += 15) slots.push(m);
+    if (cur % 15) slots.push(cur);
+    slots.sort((a, b) => a - b);
+    const is24 = clockIs24();
+    return `<div class="dp-start" role="group" aria-label="When your day starts">
+      <span class="dp-start-l">${icon('clock', 'tiny')}Start at</span>
+      <div class="dp-step">
+        <button type="button" onclick="Jarvis.plannerShift(-15)" aria-label="15 minutes earlier">−</button>
+        ${P.customStart
+          ? `<input type="time" id="dayplan-start-custom" class="dp-custom" value="${P.start}" aria-label="Start time" onchange="Jarvis.plannerStart(this.value)">`
+          : `<select id="dayplan-start" aria-label="Start time" onchange="Jarvis.plannerStart(this.value)">${slots.map(m => `<option value="${fromMin(m)}" ${m === cur ? 'selected' : ''}>${clockText(fromMin(m))}</option>`).join('')}<option value="custom">Custom…</option></select>`}
+        <button type="button" onclick="Jarvis.plannerShift(15)" aria-label="15 minutes later">+</button>
+      </div>
+      <button type="button" class="dp-now" onclick="Jarvis.plannerNow()">${icon('play', 'tiny')}Now</button>
+      <div class="dp-fmt" role="group" aria-label="Clock">
+        <button type="button" aria-pressed="${!is24}" onclick="Jarvis.plannerClock(false)">12h</button><button type="button" aria-pressed="${is24}" onclick="Jarvis.plannerClock(true)">24h</button>
+      </div>
+    </div>`;
+  }
+  function plannerShift(d) { if (planner) { planner.start = fromMin(((toMin(planner.start) + d) % 1440 + 1440) % 1440); planner.customStart = false; paintPlanner(); } }
+  function plannerNow() { if (planner) { const n = new Date(); planner.start = fromMin(n.getHours() * 60 + n.getMinutes()); planner.customStart = false; paintPlanner(); } }
+  function plannerClock(is24) { setClock24(is24); paintPlanner(); if (window.DayRoad) DayRoad.render(); }
   function plannerToggle(id) {
     const P = planner;
     if (!P) return;
@@ -742,7 +775,14 @@ const Jarvis = (() => {
     else if (P.byTask[id]) P.items.push({ id, minutes: P.guess(P.byTask[id]) });
     paintPlanner();
   }
-  function plannerLen(i, m) { if (planner && planner.items[i]) { planner.items[i].minutes = Number(m); paintPlanner(); } }
+  function plannerLen(i, m) {
+    if (!planner || !planner.items[i]) return;
+    if (m === 'custom') { planner.customLen = i; paintPlanner(); const el = document.querySelector('.dayplan-mins-custom'); if (el) { el.focus(); el.select(); } return; }
+    const n = Math.round(Number(m));
+    if (n >= 5 && n <= 480) planner.items[i].minutes = n;
+    planner.customLen = null;
+    paintPlanner();
+  }
   function plannerMove(i, d) {
     const L = planner && planner.items;
     if (!L || !L[i] || !L[i + d]) return;
@@ -811,7 +851,7 @@ const Jarvis = (() => {
     if (song >= 0 && window.Why) Why.playMusic(song).catch?.(() => {});
     await showQuote();
     startFocus({ taskId: first.id, title: first.title, minutes: firstMins, music: false });
-    say(`Today: ${items.length} ${items.length === 1 ? 'thing' : 'things'}, done by about ${fromMin(toMin(items[0].start) + items.reduce((n, i) => n + i.minutes, 0))}. First up: ${first.title}. Let's go.`);
+    say(`Today: ${items.length} ${items.length === 1 ? 'thing' : 'things'}, done by about ${clockText(fromMin(toMin(items[0].start) + items.reduce((n, i) => n + i.minutes, 0)))}. First up: ${first.title}. Let's go.`);
     if (APP.currentPage === 'dashboard' && typeof renderDashboard === 'function') renderDashboard(); // eslint-disable-line no-undef
   }
   // Today's quote, full screen for a moment, then it fades and the day
@@ -853,6 +893,6 @@ const Jarvis = (() => {
     talk();
   });
 
-  return { startFocus, stopFocus, togglePause, toggleMin, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
+  return { startFocus, stopFocus, togglePause, toggleMin, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerShift, plannerNow, plannerClock, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
 })();
 window.Jarvis = Jarvis;

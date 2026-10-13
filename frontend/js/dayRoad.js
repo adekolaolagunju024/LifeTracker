@@ -1,4 +1,4 @@
-/* global API, DayPace, showToast, taskErrorToast, taskGateMessage, showGateCard, refreshAfterStart, announceJourneyReward, Sfx, DayReport, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
+/* global API, DayPace, showToast, clockText, taskErrorToast, taskGateMessage, showGateCard, refreshAfterStart, announceJourneyReward, Sfx, DayReport, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
 // ── TODAY'S ROAD ────────────────────────────────────────────────
 // Today's plan as a road: a stop for each task, You moving as you finish
 // them, and the Pacer keeping to the timetable by the clock (the maths is
@@ -49,7 +49,7 @@ const DayRoad = (() => {
   function strip(r, big = false) {
     const g = game();
     const you = g ? icon(CHAR[world()] || 'footprints') : '';
-    const stops = r.items.map((it, k) => `<span class="droad-stop ${it.done ? 'done' : ''} ${blockersOf(it.task) && !it.done ? 'blk' : ''}" style="left:${pct(k + 1, r.n)}%" title="${esc(`${it.start} ${it.task.title}`)}">${big ? `<em>${esc(it.start)}</em>` : ''}</span>`).join('');
+    const stops = r.items.map((it, k) => `<span class="droad-stop ${it.done ? 'done' : ''} ${blockersOf(it.task) && !it.done ? 'blk' : ''}" style="left:${pct(k + 1, r.n)}%" title="${esc(`${clockText(it.start)} ${it.task.title}`)}">${big ? `<em>${esc(clockText(it.start, true))}</em>` : ''}</span>`).join('');
     const gx = pct(r.pacer, r.n); const yx = pct(r.done, r.n);
     return `<div class="droad-track ${g ? `world-${world()}` : 'plain'} ${big ? 'big' : ''}" role="img" aria-label="${esc(`${r.done} of ${r.n} tasks done. ${r.text}`)}">
       <i class="droad-fill" style="width:${yx}%"></i>${stops}
@@ -61,7 +61,7 @@ const DayRoad = (() => {
   // (js/dayReport.js) is offered beside Full view.
   const dayOver = r => r.state === 'done' || nowMin() >= r.planEnd;
   function line(r, mode) {
-    const nx = r.next ? `Next: ${esc(r.next.start)} ${esc(r.next.task.title)}` : '';
+    const nx = r.next ? `Next: ${esc(clockText(r.next.start))} ${esc(r.next.task.title)}` : '';
     return `<div class="droad-line"><b class="droad-state ${r.state}">${esc(r.text)}</b>
       <span>${r.done} of ${r.n} done${nx && mode !== 'card' ? ` · ${nx}` : ''}</span>
       ${dayOver(r) ? `<button type="button" class="droad-full droad-report" onclick="DayReport.open()">${icon('chart-column')}<span>How today went</span></button>` : ''}
@@ -132,14 +132,14 @@ const DayRoad = (() => {
   const view3d = () => { try { return getJourneyView() === '3d' && can3d(); } catch { return false; } };
 
   function summaryHTML(r) {
-    return `<b class="droad-state ${r.state}">${esc(r.text)}</b> · ${r.done} of ${r.n} done · plan ends at ${fmt(r.planEnd)}`;
+    return `<b class="droad-state ${r.state}">${esc(r.text)}</b> · ${r.done} of ${r.n} done · plan ends at ${clockText(fmt(r.planEnd))}`;
   }
   function listHTML(r) {
     return r.items.map((it, k) => {
       const b = blockersOf(it.task);
       const pacerHere = !it.done && Math.floor(r.pacer) === k && r.state !== 'before';
       return `<li class="${it.done ? 'done' : it === r.next ? 'next' : ''}">
-        <span class="dayroad-time">${esc(it.start)}<small>${esc(DayPace.minutesText(it.minutes))}</small></span>
+        <span class="dayroad-time">${esc(clockText(it.start))}<small>${esc(DayPace.minutesText(it.minutes))}</small></span>
         <button type="button" class="dayroad-dot" role="checkbox" aria-checked="${it.done}" onclick="DayRoad.toggleDone('${it.taskId}')" aria-label="${esc(it.done ? `Reopen ${it.task.title}` : `Mark ${it.task.title} as done`)}" title="${it.done ? 'Done. Tap to reopen' : 'Tick when it’s done'}">
           <span class="dd-mark">${it.done ? icon('check') : it === r.next ? icon(game() ? (CHAR[world()] || 'footprints') : 'play') : ''}</span>${it.done ? '' : `<span class="dd-tick">${icon('check')}</span>`}</button>
         <div class="dayroad-main"><button type="button" class="dayroad-task" onclick="openTaskDetail('${it.taskId}')"><b>${esc(it.task.title)}</b>
