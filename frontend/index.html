@@ -1569,7 +1569,8 @@
     .dark .status-chip.is-doing { background: rgba(249,115,22,.14); color: #FDBA74; border-color: rgba(249,115,22,.3); }
     .dark .status-chip.is-done { background: rgba(52,211,153,.12); color: #6EE7B7; border-color: rgba(52,211,153,.3); }
     .dark #status-menu { background: #111A2B; border-color: #1F2A3D; }
-    .gantt-status-dot { display: none; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    /* Each task's status as a dot beside its name (see the Key): grey to do, orange doing, green done. */
+    .gantt-status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-right: 4px; }
     .gantt-sticky-1 { left: 0; }
     .gantt-sticky-2 { left: var(--gc1); }
     .gantt-sticky-3 { left: calc(var(--gc1) + var(--gc2)); }

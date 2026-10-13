@@ -554,7 +554,7 @@ async function renderGantt() {
           <div class="grid gantt-grid-row group border-b border-gray-100 hover:bg-blue-50/40 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px" data-task-id="${t.id}" data-group="${groupId}">
             <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-1 overflow-hidden">
               ${canEditGroup ? `<span class="flex-shrink-0 hidden group-hover:inline cursor-grab text-gray-300 hover:text-gray-500 px-0.5" onmousedown="ganttRowMouseDown(event, '${t.id}', '${t.projectId}', '${groupId}')" title="Drag to reorder">⠿</span>` : ''}
-              <span class="gantt-status-dot gantt-keep" style="background:${statusColor(t.status)}" title="${t.status}" aria-label="${t.status}"></span>
+              <span class="gantt-status-dot gantt-keep" role="img" style="background:${statusColor(t.status)}" title="${({ 'Not Started': 'To do', 'In Progress': 'Doing', Completed: 'Done' })[t.status] || t.status}" aria-label="${({ 'Not Started': 'To do', 'In Progress': 'Doing', Completed: 'Done' })[t.status] || t.status}"></span>
               <span class="gantt-title-text flex-1 min-w-[6rem] text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="${canEditGroup ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" title="${esc(t.title)} (click to ${canEditGroup ? 'edit' : 'view'})">${esc(t.title)}</span>
               ${cardFields.priority ? miniPriorityBadge(t.priority) : ''}
               ${cardFields.tags ? miniTagBadges(t.tags) : ''}
