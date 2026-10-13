@@ -143,8 +143,11 @@ const DayRoad = (() => {
         <button type="button" class="dayroad-dot" role="checkbox" aria-checked="${it.done}" onclick="DayRoad.toggleDone('${it.taskId}')" aria-label="${esc(it.done ? `Reopen ${it.task.title}` : `Mark ${it.task.title} as done`)}" title="${it.done ? 'Done. Tap to reopen' : 'Tick when it’s done'}">
           <span class="dd-mark">${it.done ? icon('check') : it === r.next ? icon(game() ? (CHAR[world()] || 'footprints') : 'play') : ''}</span>${it.done ? '' : `<span class="dd-tick">${icon('check')}</span>`}</button>
         <div class="dayroad-main"><button type="button" class="dayroad-task" onclick="openTaskDetail('${it.taskId}')"><b>${esc(it.task.title)}</b>
-          ${b && !it.done ? `<small class="blk">${icon('blocker', 'tiny')}${b} ${b === 1 ? 'blocker' : 'blockers'} in the way: tick one when it clears</small>` : it.done ? '<small>Done</small>' : it === r.next ? '<small>You are here</small>' : ''}</button>
-          ${b && !it.done && typeof blockerChecklist === 'function' ? blockerChecklist(it.task, true, 'board') : ''}</div>
+          ${b && !it.done ? `<small class="blk">${icon('blocker', 'tiny')}${b} ${b === 1 ? 'blocker' : 'blockers'} in the way: tick one when it clears</small>`
+            : it.done ? '<small>Done</small>'
+              : (it.task.obstacles || []).length ? `<small class="clr">${icon('check', 'tiny')}All blockers cleared${it === r.next ? ' · you are here' : ''}</small>`
+                : it === r.next ? '<small>You are here</small>' : ''}</button>
+          ${!it.done && (it.task.obstacles || []).length && typeof blockerChecklist === 'function' ? blockerChecklist(it.task, true, 'board') : ''}</div>
         ${pacerHere ? `<span class="dayroad-pacerhere" title="Where the Pacer is now">${icon('timer')}</span>` : ''}
       </li>`;
     }).join('');
