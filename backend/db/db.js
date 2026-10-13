@@ -1155,7 +1155,7 @@ function markNotificationsRead(userId) {
 }
 
 // ── ATTACHMENTS (media/files shared via chat or comments) ─────────
-// Stored on disk under backend/uploads/ (see routes/uploads.js); this row
+// Stored on disk in UPLOAD_DIR (backend/storage.js) (see routes/uploads.js); this row
 // is just the metadata + access scope. projectId is always the top-level
 // project id, same normalization as sharing itself.
 const ATTACHMENT_COLUMNS = `a.id AS attachmentId, a.originalName AS attachmentName, a.mimetype AS attachmentMimetype, a.size AS attachmentSize`;

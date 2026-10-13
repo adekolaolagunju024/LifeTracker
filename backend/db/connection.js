@@ -124,7 +124,7 @@ db.exec(`
   );
 
   -- Media/file attachments on a chat message or task comment. Stored on
-  -- disk (backend/uploads/), scoped to the TOP-LEVEL project id so access
+  -- disk (UPLOAD_DIR, see storage.js), scoped to the TOP-LEVEL project id so access
   -- checks work the same way sharing itself does (see topLevelProjectId).
   -- filename is the random on-disk name; originalName is what the
   -- uploader called it.

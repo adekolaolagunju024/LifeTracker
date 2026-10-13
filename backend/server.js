@@ -140,8 +140,17 @@ app.get('/app', (req, res) => { noCache(res); res.sendFile(path.join(__dirname, 
 
 // ── PUBLIC ROUTES ──
 app.use('/api/auth', require('./routes/auth'));
+// Railway's deploy health check (railway.json) and any uptime monitor
+// call this: "ok" only when the database answers, so a deploy that can't
+// reach its data never takes over from the one that can.
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date() });
+  res.setHeader('Cache-Control', 'no-store');
+  try {
+    require('./db/connection').prepare('SELECT 1').get();
+    res.json({ status: 'ok', timestamp: new Date() });
+  } catch {
+    res.status(503).json({ status: 'error', timestamp: new Date() });
+  }
 });
 // Which build is running, so an open tab can tell it's out of date after a
 // deploy (see checkForNewVersion in app.js): the deployed commit on Railway,
@@ -199,6 +208,10 @@ app.get('*', (req, res) => {
 });
 
 if (process.env.SENTRY_DSN) Sentry.setupExpressErrorHandler(app);
+
+// Uploads saved before they moved onto the data volume come across first.
+const adopted = require('./storage').adoptLegacyUploads();
+if (adopted) console.log(`Copied ${adopted} uploaded file(s) onto the data volume`);
 
 app.listen(PORT, () => {
   console.log(`\n🚀 Waypoint running at http://localhost:${PORT}\n`);

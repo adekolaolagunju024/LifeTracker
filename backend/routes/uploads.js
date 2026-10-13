@@ -6,8 +6,7 @@ const fs      = require('fs');
 const { v4: uuid } = require('uuid');
 const db = require('../db/db');
 
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const { UPLOAD_DIR } = require('../storage'); // on the persistent volume, beside the database
 
 // Media + common document types — enough for "share a photo/video/file in
 // chat or a comment" without turning this into a general file host.

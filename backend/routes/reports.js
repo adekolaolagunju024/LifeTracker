@@ -11,7 +11,7 @@ const { buildPortfolioReport, renderPortfolioHtml } = require('../reports/portfo
 // signed-in /api/uploads route; a PDF or a public share link carries them
 // inside the page (data URIs, images up to 4MB, at most 12) so nothing
 // private has to be reachable from outside.
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+const { UPLOAD_DIR } = require('../storage');
 const appMediaSrc = m => `/api/uploads/${m.attachmentId}`;
 function embeddedMediaSrc() {
   let used = 0;
