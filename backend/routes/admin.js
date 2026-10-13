@@ -40,6 +40,14 @@ function serviceStatus() {
   };
 }
 
+// GET /api/admin/feedback: the latest problem reports, newest first.
+router.get('/feedback', (req, res) => {
+  if (!metrics.isOwner(req.session.userId)) return res.status(404).json({ error: 'Not found' });
+  const db = require('../db/connection');
+  res.json(db.prepare(`SELECT f.id, f.message, f.page, f.userAgent, f.createdAt, u.email FROM feedback f
+    LEFT JOIN users u ON u.id = f.userId ORDER BY f.createdAt DESC LIMIT 50`).all());
+});
+
 // GET /api/admin/metrics
 router.get('/metrics', (req, res) => {
   if (!metrics.isOwner(req.session.userId)) return res.status(404).json({ error: 'Not found' });

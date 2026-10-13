@@ -665,3 +665,15 @@ test('a new email sign-up confirms its address before it can invite anyone', asy
   const ok = await fetch(`${server.base}/api/projects/${project.id}/collaborators`, json({ email: uniqueEmail(), role: 'viewer' }, cookie));
   assert.equal(ok.status, 201);
 });
+
+test('a problem report is saved, needs some words, and only the owner can list them', async () => {
+  const cookie = await signUp();
+  const send = body => fetch(`${server.base}/api/feedback`, authed(cookie, 'POST', body));
+  assert.equal((await send({ message: ' ' })).status, 400);
+  assert.equal((await send({ message: 'x'.repeat(4001) })).status, 400);
+  assert.equal((await send({ message: 'The road did not move when I ticked a task', page: 'dashboard /app' })).status, 201);
+  // signed out: no
+  assert.equal((await fetch(`${server.base}/api/feedback`, json({ message: 'hello there' }))).status, 401);
+  // someone who isn't the owner can't read them
+  assert.equal((await fetch(`${server.base}/api/admin/feedback`, authed(cookie))).status, 404);
+});

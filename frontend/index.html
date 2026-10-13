@@ -849,6 +849,30 @@
     .dark #verify-banner { background: rgba(94,234,212,.08); border-color: rgba(94,234,212,.25); }
     .dark #verify-banner p { color: #E6EDF3; }
     .dark #verify-banner button:first-of-type { background: transparent; }
+    /* Report a problem (js/feedback.js) */
+    .fb-overlay { position: fixed; inset: 0; z-index: 1003; background: rgba(13,27,42,.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .fb-card { background: #fff; border-radius: 18px; width: min(460px, 100%); padding: 20px; display: grid; gap: 10px; box-shadow: 0 24px 60px rgba(13,27,42,.3); }
+    .fb-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .fb-head h2 { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 800; color: #0D1B2A; margin: 0; }
+    .fb-x { color: #6B7280; padding: 4px; border-radius: 8px; }
+    .fb-card label { font-size: 13px; font-weight: 600; color: #3F4A57; }
+    .fb-card textarea { width: 100%; border: 1px solid #DDE3E8; border-radius: 12px; padding: 10px 12px; font: inherit; font-size: 14px; resize: vertical; }
+    .fb-card textarea:focus { outline: none; border-color: #0A7E8C; }
+    .fb-note { font-size: 12px; color: #6B7280; margin: 0; }
+    .fb-foot { display: flex; justify-content: flex-end; gap: 8px; }
+    .fb-cancel { font-size: 14px; font-weight: 600; color: #3F4A57; background: #F1F3F5; border-radius: 10px; padding: 8px 14px; }
+    .fb-send { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #fff; background: #0A7E8C; border-radius: 10px; padding: 8px 16px; }
+    .fb-send:disabled { opacity: .6; }
+    .fb-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+    .fb-list li { border: 1px solid #EEF0F2; border-radius: 12px; padding: 10px 12px; }
+    .fb-list p { margin: 0; white-space: pre-wrap; font-size: 14px; color: #0D1B2A; }
+    .fb-list small { color: #6B7280; font-size: 12px; }
+    .dark .fb-card { background: #111B2B; }
+    .dark .fb-head h2, .dark .fb-list p { color: #E6EDF3; }
+    .dark .fb-card label { color: #CBD5E1; }
+    .dark .fb-card textarea { background: #0B1220; border-color: #24324A; color: #E6EDF3; }
+    .dark .fb-cancel { background: #1F2A3C; color: #E6EDF3; }
+    .dark .fb-list li { border-color: #24324A; }
     /* The owner's Service list (js/metrics.js) */
     .svc-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
     .svc-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
@@ -2722,7 +2746,7 @@
 
 <!-- ═══ ONBOARDING WIZARD ═══ -->
 <div class="onboarding-overlay fixed inset-0 bg-navy/95 z-50 items-center justify-center p-5" id="onboarding-overlay">
-  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
+  <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl" role="dialog" aria-modal="true" aria-label="Set up Waypoint">
 
     <!-- Progress -->
     <div class="flex items-center justify-center gap-2 pt-6 pb-2">
@@ -2862,6 +2886,10 @@
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="toggleFileMenu(event)" id="file-menu-btn" aria-haspopup="menu">
         <span class="icon-badge nav-ic" data-icon="settings"></span> Settings &amp; data
+      </button>
+      <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="Feedback.open()" id="report-problem-btn">
+        <span class="icon-badge nav-ic" data-icon="message-circle"></span> Report a problem
       </button>
       <div class="hidden absolute left-3 right-3 bottom-full mb-1 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50" id="file-menu">
         <button onclick="closeFileMenu(); showPage('settings')" class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">
@@ -4663,6 +4691,7 @@
 <script src="js/dayRoad.js"></script>
 <script src="js/dayReport.js"></script>
 <script src="js/taskActions.js"></script>
+<script src="js/feedback.js"></script>
 
 </body>
 </html>

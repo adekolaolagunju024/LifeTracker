@@ -149,8 +149,10 @@ const Metrics = (() => {
         </div>
       </div>
       ${features(m.features, h.active30)}
-      <p class="metric-note">Counts only: this page never shows who anyone is. "Active" means they used the app that day. Day-by-day activity is recorded from today, so the first weeks lean on finished tasks.</p>`;
+      <div id="metrics-feedback"></div>
+      <p class="metric-note">Counts only: apart from the problem reports people chose to send, this page never shows who anyone is. "Active" means they used the app that day. Day-by-day activity is recorded from today, so the first weeks lean on finished tasks.</p>`;
     wireTips(box);
+    if (window.Feedback) Feedback.renderOwnerList(document.getElementById('metrics-feedback'));
   }
 
   // Which features people use: of the people active in the last 30 days,
