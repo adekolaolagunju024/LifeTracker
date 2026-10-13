@@ -93,7 +93,10 @@ const ProjectPicker = (() => {
     if (input) input.addEventListener('input', () => { list.innerHTML = rows(sel, input.value.trim().toLowerCase()); focusRow(list.querySelector('[role="option"]')); });
     pop.addEventListener('keydown', onKey);
     focusRow(list.querySelector('[aria-selected="true"]') || list.querySelector('[role="option"]'));
-    (input || list).focus();
+    // On a phone the list opens as a sheet and the search box waits for a
+    // tap: focusing it straight away brought up the keyboard, whose resize
+    // and scroll closed the picker the moment it opened.
+    (input && !pop.classList.contains('sheet') ? input : list).focus({ preventScroll: true });
   }
   function place(pop, btn) {
     if (window.innerWidth < 640) { pop.classList.add('sheet'); return; } // a sheet from the bottom on a phone
@@ -134,8 +137,17 @@ const ProjectPicker = (() => {
     open = null;
   }
   document.addEventListener('click', e => { if (open && !open.pop.contains(e.target)) close(); });
-  window.addEventListener('resize', close);
-  document.addEventListener('scroll', e => { if (open && !open.pop.contains(e.target)) close(); }, true);
+  // A dropdown sits under its button, so it closes when the page moves or
+  // the window is resized. A phone's sheet is fixed to the bottom of the
+  // screen: the keyboard coming up (a height change, a scroll) leaves it
+  // where it is, so only a change of width closes it.
+  let lastWidth = window.innerWidth;
+  window.addEventListener('resize', () => {
+    const widthChanged = window.innerWidth !== lastWidth;
+    lastWidth = window.innerWidth;
+    if (open && (widthChanged || !open.pop.classList.contains('sheet'))) close();
+  });
+  document.addEventListener('scroll', e => { if (open && !open.pop.classList.contains('sheet') && !open.pop.contains(e.target)) close(); }, true);
 
   return { attach, close };
 })();
