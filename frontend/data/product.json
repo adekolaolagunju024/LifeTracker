@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Every Gantt column on your phone, and music links that just work",
+      "text": "On a phone the Gantt chart now keeps status, start, due and duration: the task name stays put while you swipe across to them or on to the timeline, which opens on today. And paste a YouTube playlist, a Spotify link or any other music link into Add music and it plays straight away, even without the https:// in front."
+    },
+    {
+      "date": "2026-10-13",
       "title": "One project picker that follows you",
       "text": "Pick a project on the Planner and the Calendar shows the same one, and Waypoint remembers it next time. The Journey always opens on a real project instead of an empty scene, and the picker itself is new: each project with its icon and colour, its sub-folders indented beneath it, and projects shared with you in their own section. The planner keys are laid out more cleanly too."
     },

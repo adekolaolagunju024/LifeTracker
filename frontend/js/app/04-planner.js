@@ -390,8 +390,12 @@ async function renderGantt() {
       // Each column needs a minimum pixel width to keep its label readable —
       // week view especially can produce far more columns than fit at a fixed
       // table width, so the wrapper grows and the outer container scrolls.
-      const minColPx = { week: 50, month: 70, year: 90 }[APP.ganttViewMode] || 70;
-      const fixedColsPx = 200 + 90 + 85 + 85 + 70;
+      // On a phone the columns are fixed (see the stylesheet's mobile
+      // rule) and the timeline gets wider periods, so its bars and their
+      // labels stay readable after the swipe.
+      const narrow = window.matchMedia('screen and (max-width: 767px), screen and (orientation: landscape) and (max-height: 500px)').matches;
+      const minColPx = (narrow ? { week: 64, month: 120, year: 120 } : { week: 50, month: 70, year: 90 })[APP.ganttViewMode] || 70;
+      const fixedColsPx = narrow ? 140 + 92 + 112 + 112 + 64 : 200 + 90 + 85 + 85 + 70;
       const ganttWidthPx = (fixedColsPx + colLabels.length * minColPx) + 'px';
       document.getElementById('gantt-timeline-wrapper').style.minWidth = ganttWidthPx;
       document.getElementById('gantt-rows-wrapper').style.minWidth = ganttWidthPx;
@@ -944,9 +948,13 @@ function scrollGanttToToday() {
   const pane = document.getElementById('gantt-rows-scroll');
   const line = pane && pane.querySelector('.today-line');
   if (!line || pane.scrollLeft > 0) return;
-  const area = line.parentElement;
-  const offset = line.getBoundingClientRect().left - area.getBoundingClientRect().left;
-  pane.scrollLeft = Math.max(0, offset - Math.min(80, area.clientWidth * 0.15));
+  // Measured against the scrolling pane, past the frozen name column, so
+  // it lands on today whatever columns sit in front of the timeline.
+  const row = pane.querySelector('.gantt-grid-row');
+  const frozenW = row ? [...row.querySelectorAll('.gantt-sticky')].filter(c => getComputedStyle(c).position === 'sticky').reduce((w, c) => w + c.getBoundingClientRect().width, 0) : 0;
+  const offset = line.getBoundingClientRect().left - pane.getBoundingClientRect().left + pane.scrollLeft;
+  const room = pane.clientWidth - frozenW;
+  pane.scrollLeft = Math.max(0, offset - frozenW - Math.min(120, room * 0.3));
 }
 
 // ── STATUS CHIPS ────────────────────────────────────────────────

@@ -2071,13 +2071,15 @@
       /* Only the name stays frozen: status shows as a dot beside it (the
          dropdown was clipped to "No…" at this width) and the badges move
          out of the way so the task name can be read. */
-      .gantt-grid-row { grid-template-columns: 150px 1fr !important; }
-      .gantt-sticky-2, .gantt-sticky-3, .gantt-sticky-4, .gantt-sticky-5 { display: none !important; }
-      .gantt-sticky-1 { padding-left: 10px !important; padding-right: 8px !important; box-shadow: 3px 0 6px -2px rgba(0,0,0,.08); }
+      /* Every column is there; only the name stays frozen. Status, Start,
+         Due and Duration scroll with the timeline, so a swipe right shows
+         them and a swipe left the bars. */
+      #page-gantt { --gc1: 140px !important; --gc2: 92px !important; --gc3: 112px !important; --gc4: 112px !important; --gc5: 64px !important; }
+      .gantt-sticky-2, .gantt-sticky-3, .gantt-sticky-4, .gantt-sticky-5 { position: relative !important; left: auto !important; z-index: 1 !important; box-shadow: none !important; }
+      .gantt-sticky-1 { padding-left: 10px !important; padding-right: 8px !important; box-shadow: 3px 0 6px -2px rgba(0,0,0,.08); z-index: 7 !important; }
       .dark .gantt-sticky-1 { box-shadow: 3px 0 6px -2px rgba(0,0,0,.4); }
       .gantt-sticky-1 > :not(.gantt-title-text):not(.gantt-keep) { display: none !important; }
       .gantt-sticky-1 .gantt-title-text { min-width: 0 !important; }
-      .gantt-status-dot { display: inline-block !important; }
       /* Fixed columns on mobile (see above) — a resize handle here would
          drag a variable the layout no longer even uses. */
       .gantt-col-resize-handle { display: none !important; }
@@ -3017,7 +3019,7 @@
 
       <!-- ═══ TIMELINE (Gantt) VIEW ═══ -->
       <div id="gantt-timeline-view">
-      <p class="md:hidden text-[11px] text-gray-400 mb-2">↔ Swipe the chart to see the full timeline</p>
+      <p class="md:hidden text-[11px] text-gray-400 mb-2">↔ Swipe the chart: right for status and dates, left for the timeline</p>
       <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" id="gantt-chart-card">
         <!-- Header: never scrolls vertically; its horizontal scrollLeft is kept
              in sync with the body below via JS (position:sticky can't be used
