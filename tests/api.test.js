@@ -165,6 +165,7 @@ test('obstacles can be added to a task, edited, listed with it, and removed', as
 
   const ticked = await (await put(`${server.base}/api/tasks/obstacles/${obstacle.id}`, { resolved: true })).json();
   assert.deepEqual({ name: ticked.name, resolved: ticked.resolved }, { name: 'Quote signed off', resolved: true }, 'one obstacle can be ticked off on its own');
+  assert.equal(ticked.taskId, task.id, 'it says which task it belongs to, so the app can offer to start that task');
   const afterTick = await (await fetch(`${server.base}/api/tasks/${task.id}/obstacles`, { headers: { Cookie: cookie } })).json();
   assert.deepEqual(afterTick.map(o => o.resolved), [true, false], 'the other obstacle stays pending');
   const unticked = await (await put(`${server.base}/api/tasks/obstacles/${obstacle.id}`, { resolved: false })).json();
