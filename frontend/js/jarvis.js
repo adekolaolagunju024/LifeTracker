@@ -212,11 +212,20 @@ const Jarvis = (() => {
         <p class="focus-title">${nx ? `Next up: “${esc(nx.title)}”` : 'Ready when you are.'}</p>
         <div class="focus-actions">${startNext}<button type="button" onclick="Jarvis.stopFocus()">Finish for now</button></div></div>`;
     }
+    if (focus.completed && !nx) {
+      // The whole plan's done: carry on (more tasks, or plain focus time)
+      // or close the timer, rather than it sitting there running.
+      return `<div class="focus-hud-main"><p class="focus-kicker">Plan done</p>
+        <p class="focus-title">That's today's plan done. Great work. Want to keep going?</p>
+        <div class="focus-actions"><button type="button" class="focus-yes" onclick="Jarvis.planMore()">${icon('plus')}Plan more tasks</button>
+          <button type="button" onclick="Jarvis.freeFocus()">${icon('timer')}Focus 25 min</button>
+          <button type="button" onclick="Jarvis.stopFocus()">${icon('close')}Close</button></div></div>`;
+    }
     if (focus.completed) {
       return `<div class="focus-hud-main"><p class="focus-kicker">Done</p>
-        <p class="focus-title">${nx ? `Nice work. Next up: “${esc(nx.title)}”` : "That's today's plan done. Great work."}</p>
-        <div class="focus-actions">${startNext}${nx ? `<button type="button" onclick="Jarvis.takeBreak()">${icon('coffee')}5-min break</button>` : ''}
-          <button type="button" onclick="Jarvis.stopFocus()">${nx ? 'Finish for now' : 'Close'}</button></div></div>`;
+        <p class="focus-title">Nice work. Next up: “${esc(nx.title)}”</p>
+        <div class="focus-actions">${startNext}<button type="button" onclick="Jarvis.takeBreak()">${icon('coffee')}5-min break</button>
+          <button type="button" onclick="Jarvis.stopFocus()">Finish for now</button></div></div>`;
     }
     return `<div class="focus-hud-main"><p class="focus-kicker">Time</p>
       <p class="focus-title">${focus.title ? `Did you finish “${esc(focus.title)}”?` : 'Nice work. How did it go?'}</p>
@@ -275,7 +284,7 @@ const Jarvis = (() => {
     const extra = !min && !hidden;
     hud.className = 'focus-hud' + (focus.done ? ' is-done' : '') + (min ? ' is-min' : '') + (hidden ? ' is-hidden' : '') + (extra ? ' has-extra' : '');
     if (!hidden && window.TopDock) TopDock.set('focus', null);
-    hud.innerHTML = focus.done ? doneHTML() + (extra ? '<div class="focus-extra"><div data-dayroad="panel" class="hidden"></div></div>' : '') : `<div class="focus-row">
+    hud.innerHTML = focus.done ? doneHTML() + (extra ? `<div class="focus-extra"><div data-dayroad="panel" class="hidden"></div><div class="focus-music" id="focus-music">${musicHTML()}</div></div>` : '') : `<div class="focus-row">
       <svg class="focus-ring" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" class="focus-ring-bg"/><circle cx="20" cy="20" r="18" class="focus-ring-fg" stroke-dasharray="113.1" stroke-dashoffset="113.1"/></svg>
       <div class="focus-hud-main" ${focus.taskId ? `onclick="openTaskDetail('${focus.taskId}')" role="button" tabindex="0"` : ''}>
         <p class="focus-kicker">${focus.paused != null ? 'Paused' : 'Focusing'}</p>
@@ -390,7 +399,20 @@ const Jarvis = (() => {
   function paceChanged(r) {
     const hud = document.getElementById('focus-hud');
     if (hud) hud.dataset.pace = r ? r.state : '';
+    // The task being focused on got ticked off somewhere else (today's
+    // road, the board): stop counting and move on, as Done it would.
+    if (!focus || focus.done || focus.isBreak || !focus.taskId || !r) return;
+    const mine = r.items.find(i => i.taskId === focus.taskId);
+    if (!mine || !mine.done) return;
+    clearInterval(focus.tick);
+    focus.done = true; focus.completed = true;
+    focus.next = r.next ? { id: r.next.taskId, title: r.next.task.title } : null;
+    save(); paintFocus();
   }
+  // After the plan: add to it (the planner opens on today's plan), or
+  // just keep working against a plain 25-minute timer.
+  function planMore() { stopFocus(true); openPlanner(); }
+  function freeFocus() { startFocus({ title: 'Focus time', minutes: 25, music: false }); }
   function finished() {
     try { if (window.Sfx) Sfx.play('quest'); } catch { /* no sound */ }
     store.set('wp-focus', { ...focus, tick: undefined });
@@ -899,6 +921,6 @@ const Jarvis = (() => {
     talk();
   });
 
-  return { startFocus, stopFocus, togglePause, toggleMin, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerShift, plannerNow, plannerClock, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
+  return { startFocus, stopFocus, planMore, freeFocus, togglePause, toggleMin, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerShift, plannerNow, plannerClock, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
 })();
 window.Jarvis = Jarvis;

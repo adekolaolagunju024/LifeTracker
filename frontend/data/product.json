@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Plan done? Keep going or close",
+      "text": "Finish the last task on today's plan and the focus timer now asks what's next: plan more tasks, keep going with 25 minutes of focus time, or close it. Ticking a task off anywhere stops its timer too, and your music stays to hand."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Tasks that open the right app",
       "text": "Give a task an action (email, WhatsApp, call, text, meeting, directions, or booking a table, flight, taxi or hotel) and when its time comes, one tap opens Gmail, Outlook, WhatsApp, your phone, your calendar or Google Maps with everything filled in. Come back, tap Done, and it's ticked off. Find it in a task's Do it box, on today's road and on the focus timer."
     },
