@@ -25,7 +25,9 @@ function rateLimit({ windowMs, max, key, message }) {
   };
 }
 
-const byIp = req => req.ip || 'unknown';
+// An IPv4 address can arrive written as IPv6 ("::ffff:1.2.3.4"); count
+// both forms as the same client.
+const byIp = req => String(req.ip || 'unknown').replace(/^::ffff:/, '');
 const byIpAndEmail = req => `${byIp(req)}|${String((req.body && req.body.email) || '').trim().toLowerCase()}`;
 
 module.exports = { rateLimit, byIp, byIpAndEmail };

@@ -606,7 +606,7 @@
     .dark .pkey-btn { background: #1A2436; color: #C9D6E2; }
     .dark .pkey-btn[aria-expanded="true"] { background: #0A7E8C; color: #fff; }
     @media print { .pkey, .pkey-btn { display: none !important; } }
-    /* Today's road: you against the ghost (js/dayRoad.js) */
+    /* Today's road: you against the Pacer (js/dayRoad.js) */
     .droad { margin-top: 2px; }
     .droad-track { position: relative; height: 26px; margin: 6px 12px 4px; }
     .droad-track::before { content: ''; position: absolute; left: 0; right: 0; top: 11px; height: 4px; border-radius: 2px; background: var(--road, #D7DEE5); }
@@ -615,11 +615,11 @@
     .droad-stop.done { background: var(--fill, #0A7E8C); border-color: var(--fill, #0A7E8C); }
     .droad-stop.blk { border-color: #DC2626; }
     .droad-stop em { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--muted, #6B7280); white-space: nowrap; }
-    .droad-you, .droad-ghost { position: absolute; top: 1px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: left .6s ease; }
+    .droad-you, .droad-pacer { position: absolute; top: 1px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: left .6s ease; }
     .droad-you { z-index: 3; background: var(--fill, #0A7E8C); color: #fff; box-shadow: 0 0 0 3px var(--ring, #fff), 0 4px 10px rgba(0,0,0,.2); }
     .droad-track.plain .droad-you { width: 14px; height: 14px; margin-left: -7px; top: 6px; }
-    .droad-ghost { z-index: 2; color: var(--ghost, #64748B); background: var(--ghostbg, rgba(255,255,255,.85)); border: 1.5px dashed var(--ghost, #94A3B8); opacity: .9; }
-    .droad-you .ic, .droad-ghost .ic { width: 14px; height: 14px; }
+    .droad-pacer { z-index: 2; color: var(--pacer, #64748B); background: var(--pacerbg, rgba(255,255,255,.85)); border: 1.5px dashed var(--pacer, #94A3B8); opacity: .9; }
+    .droad-you .ic, .droad-pacer .ic { width: 14px; height: 14px; }
     .droad-track.world-football { --road: #86C77A; --fill: #15803D; --stop: #F0FDF4; }
     .droad-track.world-space { --road: #A5A0D8; --fill: #6D28D9; --stop: #F5F3FF; }
     .droad-track.world-castle { --road: #B9A88A; --fill: #7C5A2E; --stop: #FFFBEB; }
@@ -638,7 +638,7 @@
     .focus-hud.has-extra .focus-title { max-width: none; }
     .focus-hud.is-done .focus-extra { margin-top: 8px; }
     .focus-extra { display: grid; gap: 6px; }
-    .focus-extra .droad { background: rgba(255,255,255,.06); border-radius: 14px; padding: 4px 8px 6px; --road: rgba(255,255,255,.22); --stop: #0D1B2A; --ring: #0D1B2A; --muted: rgba(255,255,255,.6); --ghost: #CBD5E1; --ghostbg: rgba(13,27,42,.9); }
+    .focus-extra .droad { background: rgba(255,255,255,.06); border-radius: 14px; padding: 4px 8px 6px; --road: rgba(255,255,255,.22); --stop: #0D1B2A; --ring: #0D1B2A; --muted: rgba(255,255,255,.6); --pacer: #CBD5E1; --pacerbg: rgba(13,27,42,.9); }
     .focus-extra .droad-track.plain { --fill: #5EEAD4; }
     .focus-extra .droad-line { color: rgba(255,255,255,.7); }
     .focus-extra .droad-state { color: #fff; } .focus-extra .droad-state.ahead, .focus-extra .droad-state.done { color: #86EFAC; } .focus-extra .droad-state.behind { color: #FCD34D; } .focus-extra .droad-state.on { color: #5EEAD4; }
@@ -681,9 +681,9 @@
     .droad-track.big .droad-stop em { top: 24px; }
     .droad-track.big::before, .droad-track.big .droad-fill { top: 14px; height: 6px; border-radius: 3px; }
     .droad-track.big .droad-stop { top: 10px; width: 14px; height: 14px; margin-left: -7px; }
-    .droad-track.big .droad-you, .droad-track.big .droad-ghost { top: 1px; width: 32px; height: 32px; margin-left: -16px; }
+    .droad-track.big .droad-you, .droad-track.big .droad-pacer { top: 1px; width: 32px; height: 32px; margin-left: -16px; }
     .droad-track.big.plain .droad-you { width: 18px; height: 18px; margin-left: -9px; top: 8px; }
-    .droad-track.big .droad-you .ic, .droad-track.big .droad-ghost .ic { width: 18px; height: 18px; }
+    .droad-track.big .droad-you .ic, .droad-track.big .droad-pacer .ic { width: 18px; height: 18px; }
     .dayroad-sum { font-size: 13.5px; color: #5B6472; margin: 8px 0 14px; }
     .dayroad-list { list-style: none; padding: 0; display: grid; gap: 4px; }
     .dayroad-list li { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 12px; }
@@ -698,14 +698,14 @@
     .dayroad-task { flex: 1; min-width: 0; text-align: left; }
     .dayroad-task b { display: block; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .dayroad-task small { display: flex; align-items: center; gap: 3px; font-size: 12px; color: #6B7280; } .dayroad-task small.blk { color: #B91C1C; font-weight: 700; }
-    .dayroad-ghosthere { color: #64748B; display: flex; } .dayroad-ghosthere .ic { width: 18px; height: 18px; }
+    .dayroad-pacerhere { color: #64748B; display: flex; } .dayroad-pacerhere .ic { width: 18px; height: 18px; }
     .dayroad-note { display: flex; align-items: center; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #EEF0F2; font-size: 12.5px; color: #6B7280; }
     .dayroad-empty { margin: 16px 0 12px; color: #5B6472; }
     .dayroad-go { display: inline-flex; align-items: center; gap: 6px; background: #0A7E8C; color: #fff; font-weight: 800; border-radius: 12px; padding: 10px 16px; }
     @media (max-width: 640px) { .dayroad-overlay { align-items: flex-end; padding: 0; } .dayroad-sheet { border-radius: 22px 22px 0 0; max-height: 88vh; } }
     .dark .droad-card { background: #0B1220; border-color: #24324A; } .dark .droad-state { color: #E8EEF5; }
     .dark .dayroad-sheet { background: #111A2B; color: #E8EEF5; } .dark .dayroad-list li.next { background: rgba(94,234,212,.08); }
-    @media (prefers-reduced-motion: reduce) { .droad-fill, .droad-you, .droad-ghost { transition: none; } }
+    @media (prefers-reduced-motion: reduce) { .droad-fill, .droad-you, .droad-pacer { transition: none; } }
     .dark .dayplan { background: #111A2B; color: #E8EEF5; }
     .dark .dayplan-sub, .dark .dayplan-m, .dark .dayplan-when { color: #94A3B8; }
     .dark .dayplan-row { border-color: #24324A; }

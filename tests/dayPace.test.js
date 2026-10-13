@@ -14,31 +14,31 @@ test('before the first task starts, it says when', () => {
   const r = run([], '08:40');
   assert.equal(r.state, 'before');
   assert.equal(r.text, 'Starts at 09:00');
-  assert.equal(r.ghost, 0);
+  assert.equal(r.pacer, 0);
 });
 
-test('on the task the plan expects, you are level with the ghost', () => {
+test('on the task the plan expects, you are on plan', () => {
   const r = run([], '09:10');
   assert.equal(r.state, 'on');
-  assert.equal(r.text, 'Level with the ghost');
-  assert.ok(Math.abs(r.ghost - 1 / 3) < 0.01, 'the ghost is a third of the way through the first task');
+  assert.equal(r.text, 'On plan');
+  assert.ok(Math.abs(r.pacer - 1 / 3) < 0.01, 'the Pacer is a third of the way through the first task');
 });
 
 test('finishing early puts you ahead by the gap to the next start', () => {
   const r = run(['a'], '09:10');
   assert.equal(r.state, 'ahead');
   assert.equal(r.diff, 20);
-  assert.equal(r.text, '20 min ahead of the ghost');
+  assert.equal(r.text, '20 min ahead of plan');
 });
 
-test('running over puts the ghost ahead by the overrun', () => {
+test('running over puts you behind plan by the overrun', () => {
   const r = run([], '09:50');
   assert.equal(r.state, 'behind');
   assert.equal(r.diff, 20);
-  assert.equal(r.text, 'The ghost is 20 min ahead');
+  assert.equal(r.text, '20 min behind plan');
   const later = run(['a'], '11:00');
   assert.equal(later.state, 'behind');
-  assert.equal(later.text, 'The ghost is 30 min ahead');
+  assert.equal(later.text, '30 min behind plan');
 });
 
 test('a few minutes either way still counts as level', () => {
@@ -51,7 +51,7 @@ test('the order you finish in does not matter, only how many', () => {
 });
 
 test('a finished plan says by how much you beat it', () => {
-  assert.equal(run(['a', 'b', 'c'], '11:30', '10:15').text, 'Plan done, 45 min ahead of the ghost');
+  assert.equal(run(['a', 'b', 'c'], '11:30', '10:15').text, 'Plan done 45 min early');
   assert.equal(run(['a', 'b', 'c'], '11:30', '10:58').text, "Today's plan is done");
 });
 
