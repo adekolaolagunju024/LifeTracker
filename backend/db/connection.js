@@ -303,6 +303,8 @@ addColumnIfMissing('profile', "aiCheckInsEnabled INTEGER NOT NULL DEFAULT 0");
 // "don't lose your streak" push. completedAt is new: nothing previously
 // tracked WHEN a task was finished, only its current status.
 addColumnIfMissing('tasks', "completedAt TEXT");
+// What the task is for (backend/taskActions.js): JSON, or null.
+addColumnIfMissing('tasks', "action TEXT");
 addColumnIfMissing('profile', "currentStreak INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing('profile', "longestStreak INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing('profile', "lastStreakDate TEXT");

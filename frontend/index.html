@@ -781,6 +781,37 @@
     .dayplan-mins-custom { width: 76px; }
     .dark .dp-step, .dark .dp-step select, .dark .dp-step .dp-custom { background: #0B1220; border-color: #24324A; color: #E8EEF5; }
     .dark .dp-fmt { background: #1A2436; } .dark .dp-fmt button[aria-pressed="true"] { background: #0B1220; color: #E8EEF5; } .dark .dp-start-l { color: #C9D6E2; }
+    /* Task actions (js/taskActions.js): the "Do it" box and the chips */
+    .ta-box { border: 1px solid #E5E7EB; border-radius: 14px; padding: 12px 14px; }
+    .ta-h { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #6B7280; margin-bottom: 8px; }
+    .ta-ask { font-size: 13px; color: #4B5563; margin-bottom: 8px; line-height: 1.45; }
+    .ta-pick, .ta-kinds, .ta-apps { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ta-pick button, .ta-kinds button, .ta-apps button { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: #374151; background: #F3F4F6; border-radius: 999px; padding: 6px 11px; }
+    .ta-pick button:hover, .ta-kinds button:hover { background: #E5E8EC; }
+    .ta-pick button[aria-pressed="true"], .ta-kinds button[aria-pressed="true"], .ta-apps button[aria-pressed="true"] { background: #0A7E8C; color: #fff; }
+    .ta-pick button.is-guess { background: #F0FAF9; color: #0A7E8C; box-shadow: inset 0 0 0 1.5px #0A7E8C; }
+    .ta-apps { display: inline-flex; vertical-align: middle; margin-left: 4px; } .ta-apps button { padding: 3px 9px; font-size: 11.5px; }
+    .ta-form { display: grid; gap: 8px; margin-top: 10px; }
+    .ta-f { display: grid; gap: 3px; } .ta-f span { font-size: 11.5px; font-weight: 700; color: #6B7280; }
+    .ta-f input, .ta-f textarea { border: 1px solid #E3E6EA; border-radius: 10px; padding: 8px 10px; font-size: 14px; width: 100%; background: #fff; }
+    .ta-f input:focus, .ta-f textarea:focus { outline: none; border-color: #0A7E8C; }
+    .ta-hint { font-size: 12px; color: #8A93A0; }
+    .ta-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+    .ta-cancel, .ta-save { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; border-radius: 10px; padding: 8px 14px; }
+    .ta-cancel { background: #F1F3F5; color: #1F2937; } .ta-save { background: #0A7E8C; color: #fff; }
+    .ta-card { display: flex; align-items: center; gap: 10px; }
+    .ta-ic { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: #F0FAF9; color: #0A7E8C; flex-shrink: 0; }
+    .ta-ic .ic { width: 18px; height: 18px; }
+    .ta-what { flex: 1; min-width: 0; display: flex; flex-direction: column; } .ta-what b { font-size: 14px; color: #0D1B2A; } .ta-what small { font-size: 12px; color: #6B7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ta-go { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 800; color: #fff; background: #0A7E8C; border-radius: 10px; padding: 8px 12px; flex-shrink: 0; }
+    .ta-go:hover { background: #086A76; }
+    .ta-mini { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #6B7280; flex-shrink: 0; } .ta-mini:hover { background: #F1F3F5; color: #0D1B2A; }
+    .ta-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; color: #0A7E8C; background: #F0FAF9; border: 1px solid #CDEDEF; border-radius: 999px; padding: 3px 9px; margin-top: 5px; white-space: nowrap; }
+    .ta-chip:hover { background: #E0F4F2; }
+    .ta-chip.is-inline { margin-top: 0; padding: 1px 7px; font-size: 11px; vertical-align: middle; }
+    .ta-chip.is-big { font-size: 13px; padding: 5px 12px; background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.3); color: #fff; margin-top: 6px; }
+    .dark .ta-box { border-color: #22304A; } .dark .ta-what b { color: #E8EEF5; } .dark .ta-pick button, .dark .ta-kinds button, .dark .ta-apps button, .dark .ta-cancel { background: #1A2436; color: #C9D6E2; }
+    .dark .ta-f input, .dark .ta-f textarea { background: #0B1220; border-color: #24324A; color: #E8EEF5; } .dark .ta-ic, .dark .ta-chip { background: rgba(94,234,212,.08); color: #5EEAD4; border-color: rgba(94,234,212,.25); }
     /* The project picker (js/projectPicker.js) */
     .pp-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; overflow: hidden; }
     .pp-btn { display: inline-flex; align-items: center; gap: 8px; text-align: left; min-width: 0; cursor: pointer; }
@@ -4237,6 +4268,7 @@
     <div class="flex flex-wrap items-center gap-2 mb-4"><div class="flex flex-wrap gap-2" id="td-badges"></div>
       <button type="button" id="td-reminder-btn" onclick="Reminders.openSheet(APP_currentDetailTaskId, document.getElementById('td-title').textContent)" class="reminder-btn" title="Ring me about this task at a set time"><span class="ei" data-icon="alarm"></span> Remind me</button></div>
     <div class="td-facts mb-5" id="td-facts"></div>
+    <div class="ta-box hidden mb-5" id="td-action" aria-label="Do it"></div>
     <div id="td-progress" class="hidden mb-5"></div>
 
     <!-- "Just start" affordance — only for a Not Started task someone can
@@ -4563,6 +4595,7 @@
 <script src="js/dayPace.js"></script>
 <script src="js/dayRoad.js"></script>
 <script src="js/dayReport.js"></script>
+<script src="js/taskActions.js"></script>
 
 </body>
 </html>

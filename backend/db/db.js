@@ -1,5 +1,6 @@
 const db = require('./connection');
 const { v4: uuid } = require('uuid');
+const taskActions = require('../taskActions');
 
 // ── USERS ────────────────────────────────────────────────────────
 function createUser({ id, email, passwordHash, createdAt, acceptedTermsAt = null }) {
@@ -760,6 +761,8 @@ function assertAssigneeCanAccessProject(assigneeId, projectId) {
   }
 }
 
+// A task's action as stored: cleaned JSON, or null (backend/taskActions.js).
+const actionJson = action => { const a = taskActions.clean(action); return a ? JSON.stringify(a) : null; };
 function createTask(userId, task) {
   const project = getProjectById(userId, task.projectId);
   if (!project) throw new Error('Project not found');
@@ -775,11 +778,11 @@ function createTask(userId, task) {
   const targetCount = task.targetCount || null;
   const targetUnit = targetCount ? (task.targetUnit || '') : null;
   db.prepare(`
-    INSERT INTO tasks (id, userId, projectId, title, category, status, priority, startDate, endDate, cost, notes, recurrence, sortOrder, assigneeId, assigneeAssignedAt, createdAt, targetCount, targetUnit, progressCount)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    INSERT INTO tasks (id, userId, projectId, title, category, status, priority, startDate, endDate, cost, notes, recurrence, sortOrder, assigneeId, assigneeAssignedAt, createdAt, targetCount, targetUnit, progressCount, action)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(task.id, userId, task.projectId, task.title, task.category || '', task.status || 'Not Started', task.priority || 'Medium',
          task.startDate || '', task.endDate || '', task.cost || 0, task.notes || '', task.recurrence || 'none', sortOrder, task.assigneeId || null, assigneeAssignedAt, task.createdAt,
-         targetCount, targetUnit, task.progressCount || 0);
+         targetCount, targetUnit, task.progressCount || 0, actionJson(task.action));
   return getTaskById(userId, task.id);
 }
 
@@ -843,9 +846,9 @@ function updateTaskById(userId, id, patch) {
   const justCompleted = current.status !== 'Completed' && next.status === 'Completed';
   const completedAt = justCompleted ? new Date().toISOString() : (next.status !== 'Completed' ? null : current.completedAt);
   db.prepare(`
-    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?, assigneeId=?, assigneeAssignedAt=?, targetCount=?, targetUnit=?, progressCount=?, overdueNotifiedAt=?, completedAt=?
+    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?, assigneeId=?, assigneeAssignedAt=?, targetCount=?, targetUnit=?, progressCount=?, overdueNotifiedAt=?, completedAt=?, action=?
     WHERE id = ?
-  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, assigneeAssignedAt, targetCount, targetUnit, progressCount, overdueNotifiedAt, completedAt, id);
+  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, assigneeAssignedAt, targetCount, targetUnit, progressCount, overdueNotifiedAt, completedAt, actionJson(next.action), id);
 
   if (justCompleted) {
     recordStreakProgress(userId);
@@ -869,6 +872,7 @@ function updateTaskById(userId, id, patch) {
       notes: next.notes,
       recurrence: next.recurrence,
       assigneeId: next.assigneeId,
+      action: next.action,
       createdAt: new Date().toISOString(),
     });
   }
@@ -1274,7 +1278,9 @@ function attachObstaclesToTasks(tasks) {
     .all(...tasks.map(t => t.id));
   const byTask = {};
   rows.forEach(r => { (byTask[r.taskId] = byTask[r.taskId] || []).push({ id: r.id, name: r.name, count: r.count, resolved: !!r.resolvedAt, resolvedAt: r.resolvedAt || null }); });
-  tasks.forEach(t => { t.obstacles = byTask[t.id] || []; });
+  // Every task-loading path passes through here, so its action (stored
+  // as JSON) is read back here too.
+  tasks.forEach(t => { t.obstacles = byTask[t.id] || []; t.action = taskActions.parse(t.action); });
   return tasks;
 }
 function listObstacles(userId, taskId) {

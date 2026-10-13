@@ -47,6 +47,7 @@ async function openTaskDetail(id) {
     // Google-Drive style: editor/owner can edit the task, commenter can
     // only comment, viewer can only look.
     const canEdit    = proj && (proj.role === 'owner' || proj.role === 'editor');
+    if (window.TaskActions) TaskActions.renderPanel(t, !!canEdit); // what it's for: open the right app
     const canComment = proj && (proj.role === 'owner' || proj.role === 'editor' || proj.role === 'commenter');
     document.getElementById('btn-edit-task-detail').classList.toggle('hidden', !canEdit);
     // Status: tap-to-change chips for editors, a plain badge for others.

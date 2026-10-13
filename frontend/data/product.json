@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Tasks that open the right app",
+      "text": "Give a task an action (email, WhatsApp, call, text, meeting, directions, or booking a table, flight, taxi or hotel) and when its time comes, one tap opens Gmail, Outlook, WhatsApp, your phone, your calendar or Google Maps with everything filled in. Come back, tap Done, and it's ticked off. Find it in a task's Do it box, on today's road and on the focus timer."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Set your start time your way",
       "text": "Start my day now has a proper start-time picker: nudge it 15 minutes either way, pick from a list, type any custom time, or tap Now to start this minute. Switch between 12-hour (9:30 am) and 24-hour (09:30) times, and set any custom length for a task."
     },
