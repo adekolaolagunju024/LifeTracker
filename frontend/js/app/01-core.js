@@ -272,8 +272,10 @@ function blockerChecklist(t, canEdit, variant) {
   // beside them opens the full list, cleared ones included.
   const obs = variant === 'quest' ? (t.obstacles || []) : (t.obstacles || []).filter(o => !o.resolved);
   if (!obs.length || t.status === 'Completed') return '';
+  // Kept newest last: a later render's copy is the one to redraw from.
   if (!blockerTasks.has(t.id)) blockerTasks.set(t.id, new Set());
-  blockerTasks.get(t.id).add(t);
+  const seen = blockerTasks.get(t.id);
+  seen.delete(t); seen.add(t);
   const stop = `onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" ontouchstart="event.stopPropagation()"`;
   const rows = obs.map(o => `
       <label class="${variant === 'quest' ? `journey-blocker-row${o.resolved ? ' is-resolved' : ''}` : `flex items-center gap-1.5 text-xs ${o.resolved ? 'text-gray-400 line-through' : 'text-red-700'} ${canEdit ? 'cursor-pointer' : ''}`}" ${stop} title="${o.resolved ? 'Cleared. Untick if it is back in the way' : 'Tick when this blocker is cleared'}">
@@ -297,26 +299,50 @@ async function tickBlocker(taskId, obstacleId, checkbox) {
 // Every cached copy of the task (board, table, Journey) takes a blocker
 // ticked or unticked anywhere, and the views showing it redraw.
 function applyBlockerChange(taskId, obstacleId, resolved) {
-  const copies = new Set(blockerTasks.get(taskId) || []);
-  if (mountainState) mountainState.tasks.filter(x => x.id === taskId).forEach(x => copies.add(x));
+  const copies = blockerCopies(taskId);
   let name = '';
   copies.forEach(t => (t.obstacles || []).forEach(o => { if (o.id === obstacleId) { o.resolved = resolved; name = o.name; } }));
-  const any = [...copies][0];
-  if (any) {
-    document.querySelectorAll(`[data-obstacle-badge="${taskId}"]`).forEach(b => {
-      const html = obstacleBadge(any);
-      if (html) b.outerHTML = html; else b.remove();
-    });
-    document.querySelectorAll(`[data-blocker-list="${taskId}"]`).forEach(list => {
-      const quest = list.classList.contains('journey-blocker-list');
-      if (!quest) list.outerHTML = blockerChecklist(any, true, 'board');
-    });
-  }
+  paintBlockerViews(taskId);
   if (mountainState && mountainState.tasks.some(x => x.id === taskId)) { renderMountainScene(); renderMountainTaskList(); }
   if (APP_currentDetailTaskId === taskId) refreshObstacles(taskId);
   if (APP.currentPage === 'actions') renderActions();
   if (typeof DayRoad !== 'undefined') DayRoad.render(); // today's road and its game scene
   if (resolved && name) showToast(`⚔️ "${name}" cleared!`);
+  // Then check against the server, so a blocker added, unticked or
+  // removed elsewhere (the task panel, the assistant) is never lost from
+  // the list when one is ticked here.
+  API.getObstacles(taskId).then(list => syncBlockerCopies(taskId, list)).catch(() => {});
+}
+// Every task object a view drew with blockers (the board, the table, the
+// Journey), newest last.
+function blockerCopies(taskId) {
+  const copies = new Set(blockerTasks.get(taskId) || []);
+  if (mountainState) mountainState.tasks.filter(x => x.id === taskId).forEach(x => copies.add(x));
+  return copies;
+}
+// Redraw the blocker badge and checklist wherever the task is shown.
+function paintBlockerViews(taskId) {
+  const latest = [...blockerCopies(taskId)].pop();
+  if (!latest) return;
+  document.querySelectorAll(`[data-obstacle-badge="${taskId}"]`).forEach(b => {
+    const html = obstacleBadge(latest);
+    if (html) b.outerHTML = html; else b.remove();
+  });
+  document.querySelectorAll(`[data-blocker-list="${taskId}"]`).forEach(list => {
+    if (!list.classList.contains('journey-blocker-list')) list.outerHTML = blockerChecklist(latest, true, 'board') || `<div data-blocker-list="${taskId}" hidden></div>`;
+  });
+}
+// The task's blockers as the server has them, into every copy, then redraw.
+function syncBlockerCopies(taskId, obstacles) {
+  if (!Array.isArray(obstacles)) return;
+  const copies = blockerCopies(taskId);
+  if (!copies.size) return;
+  const same = [...copies].every(t => JSON.stringify((t.obstacles || []).map(o => [o.id, !!o.resolved, o.count, o.name])) === JSON.stringify(obstacles.map(o => [o.id, !!o.resolved, o.count, o.name])));
+  copies.forEach(t => { t.obstacles = obstacles.map(o => ({ ...o })); });
+  if (!same) {
+    paintBlockerViews(taskId);
+    if (mountainState && mountainState.tasks.some(x => x.id === taskId)) { renderMountainScene(); renderMountainTaskList(); }
+  }
 }
 // ── Task gates: a task can't start until its predecessors are done, and
 // can't be completed while any blocker is pending (the server enforces
