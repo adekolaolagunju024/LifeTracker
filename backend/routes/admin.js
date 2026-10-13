@@ -17,11 +17,34 @@ router.get('/me', (req, res) => {
   res.json({ owner: metrics.isOwner(req.session.userId) });
 });
 
+// The safety systems the launch review asked for, on or off, so the owner
+// can see at a glance what still needs setting up on the host.
+function serviceStatus() {
+  const fs = require('fs');
+  const path = require('path');
+  const backup = require('../backup');
+  let lastBackup = backup.lastResult();
+  if (!lastBackup) {
+    // Since this process started there's been no run: the newest file says when.
+    const files = fs.existsSync(backup.BACKUP_DIR) ? fs.readdirSync(backup.BACKUP_DIR).filter(f => /^lifetracker-.*\.sqlite$/.test(f)).sort() : [];
+    const newest = files[files.length - 1];
+    lastBackup = newest ? { at: fs.statSync(path.join(backup.BACKUP_DIR, newest)).mtime.toISOString(), ok: true, file: newest, offsite: null, fromDisk: true } : null;
+  }
+  return {
+    dataVolume: !!process.env.DB_PATH,
+    offsiteBackups: require('../offsite').isConfigured(),
+    errorTracking: !!process.env.SENTRY_DSN,
+    email: !!process.env.RESEND_API_KEY,
+    payments: require('../billing').isConfigured(),
+    lastBackup,
+  };
+}
+
 // GET /api/admin/metrics
 router.get('/metrics', (req, res) => {
   if (!metrics.isOwner(req.session.userId)) return res.status(404).json({ error: 'Not found' });
   try {
-    res.json(metrics.buildMetrics());
+    res.json({ ...metrics.buildMetrics(), service: serviceStatus() });
   } catch (e) {
     console.error('Metrics error:', e.message);
     res.status(500).json({ error: 'Could not build the metrics' });

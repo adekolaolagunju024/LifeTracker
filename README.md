@@ -212,6 +212,7 @@ A `Dockerfile` is included and is the recommended path — it installs Chromium 
 5. **Off-site backups**: create a Cloudflare R2 bucket (or S3), make an API token that can write to it, and set the `BACKUP_S3_*` variables. Add a lifecycle rule to delete copies after 30 days. Restore by downloading `db/lifetracker-<date>.sqlite.gz`, unzipping it, and putting it at `DB_PATH` with the service stopped. Uploaded files are under `uploads/` in the bucket and go back in the `uploads` folder beside it.
 6. **Health and uptime**: `railway.json` tells Railway to wait for `/api/health` (which checks the database) before switching traffic to a new deploy, and to restart the service if it crashes. Point a free uptime monitor (UptimeRobot, Better Stack) at `https://<your-domain>/api/health` so you're emailed when the site is down.
 7. **Error tracking**: set `SENTRY_DSN` (a free Sentry project) so crashes reach you. Failed nightly backups are reported there too.
+8. **Check it**: the owner **Metrics** page opens with a **Service** list: data volume, off-site backups, the last backup and whether it went off-site, error tracking, email and payments. Each one that's off says which variable to set.
 
 ### Any other host
 

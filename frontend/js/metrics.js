@@ -88,6 +88,28 @@ const Metrics = (() => {
     </div>`;
   }
 
+  // Is the service safe to run: each safety system on or off, with what
+  // to set on the host when it's off, and how the last backup went.
+  function service(s) {
+    if (!s) return '';
+    const b = s.lastBackup;
+    const ageH = b ? (Date.now() - new Date(b.at).getTime()) / 3600000 : null;
+    const backupOk = b && b.ok && ageH < 30;
+    const rows = [
+      [s.dataVolume, 'Data on a persistent volume', 'Set DB_PATH to a file on a mounted volume, e.g. /data/lifetracker.sqlite.'],
+      [s.offsiteBackups, 'Off-site backups', 'Set the BACKUP_S3_* variables (an R2 or S3 bucket). Until then backups stay on the same volume as the data.'],
+      [backupOk, b ? `Last backup ${new Date(b.at).toLocaleString()}${b.offsite ? ', sent off-site' : ''}` : 'No backup yet', b && !b.ok ? `It failed: ${b.error}` : (b ? 'Over a day old. Check the logs for the 03:30 job.' : 'One runs at 03:30 each night, and a few minutes after a deploy.')],
+      [s.errorTracking, 'Error tracking (Sentry)', 'Set SENTRY_DSN so crashes and failed backups reach you.'],
+      [s.email, 'Email (Resend)', 'Set RESEND_API_KEY so password resets, verification and invites are emailed.'],
+      [s.payments, 'Payments (Stripe)', 'Set STRIPE_SECRET_KEY and STRIPE_PRICE_MONTHLY when you are ready to charge.'],
+    ];
+    const off = rows.filter(r => !r[0]).length;
+    return `<div class="metric-card">
+      <p class="metric-card-title">Service <span>${off ? `${off} to set up` : 'all set up'}</span></p>
+      <ul class="svc-list">${rows.map(([ok, name, fix]) => `<li class="${ok ? 'ok' : 'off'}">${icon(ok ? 'check' : 'warning', 'tiny')}<div><b>${esc(name)}</b>${ok ? '' : `<small>${esc(fix)}</small>`}</div></li>`).join('')}</ul>
+    </div>`;
+  }
+
   async function render() {
     const box = document.getElementById('metrics-body');
     box.innerHTML = '<p class="text-sm text-gray-400 py-10 text-center">Counting…</p>';
@@ -99,7 +121,7 @@ const Metrics = (() => {
     const h = m.headline, e = m.engagement;
     const diff = h.signups7 - h.signupsPrev7;
     document.getElementById('metrics-updated').textContent = `Updated ${new Date(m.generatedAt).toLocaleString()}`;
-    box.innerHTML = `
+    box.innerHTML = `${service(m.service)}
       <div class="metric-tiles">
         ${tile('People signed up', h.users, `${h.signups7} this week · ${diff >= 0 ? '+' : ''}${diff} vs last week`)}
         ${tile('Active this week', h.active7, `${h.active30} in the last 30 days`, 'Used the app on at least one day')}

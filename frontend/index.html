@@ -846,6 +846,16 @@
     .watch-btn svg { width: 12px; height: 12px; margin-left: 1px; }
     .dark .watch-btn { background: #5EEAD41f; color: #5EEAD4; }
     .dark .watch-btn:hover { background: #5EEAD4; color: #0B1220; }
+    /* The owner's Service list (js/metrics.js) */
+    .svc-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+    .svc-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+    .svc-list li > svg, .svc-list li > .ic { margin-top: 3px; flex-shrink: 0; }
+    .svc-list li.ok { color: #127A4A; }
+    .svc-list li.off { color: #A15C07; }
+    .svc-list b { color: #0D1B2A; font-weight: 600; }
+    .svc-list small { display: block; color: #556270; font-size: 13px; margin-top: 1px; }
+    .dark .svc-list b { color: #E6EDF3; }
+    .dark .svc-list small { color: #9AA8B6; }
     /* The project picker (js/projectPicker.js) */
     .pp-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; overflow: hidden; }
     .pp-btn { display: inline-flex; align-items: center; gap: 8px; text-align: left; min-width: 0; cursor: pointer; }
