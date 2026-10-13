@@ -1,3 +1,4 @@
+/* global document, window, getComputedStyle, DayRoad, API, APP, showAuthView, openAddTask, saveTask, showPage -- these run inside the page (page.evaluate) */
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
