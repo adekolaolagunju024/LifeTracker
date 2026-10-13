@@ -1,4 +1,4 @@
-/* global API, APP, esc, icon, showToast, showPage, openTaskDetail, Why, Music, localDateKey, openAssistant, toggleAssistantListening, Reminders, taskGateMessage, taskErrorToast, Sfx */
+/* global API, APP, esc, icon, DayRoad, showToast, showPage, openTaskDetail, Why, Music, localDateKey, openAssistant, toggleAssistantListening, Reminders, taskGateMessage, taskErrorToast, Sfx */
 // ── YOUR PERSONAL ASSISTANT ─────────────────────────────────────
 // The assistant as a personal assistant, not only a chat window: it briefs
 // you each morning, acts around the app when you ask (backend/ai/day.js),
@@ -167,6 +167,7 @@ const Jarvis = (() => {
     store.set('wp-focus', focus);
     if (music && window.Why && !(window.Music && Music.isPlaying() && !Music.isPaused())) Why.playMusic().catch?.(() => {});
     paintFocus();
+    if (window.DayRoad) DayRoad.refresh();
     showToast(isBreak ? `☕ Break for ${Math.round(total / 60000)} minutes` : `⏱ Focus for ${Math.round(total / 60000)} minutes${title ? `: ${title}` : ''}`);
   }
   const save = () => store.set('wp-focus', { ...focus, tick: undefined });
@@ -255,9 +256,10 @@ const Jarvis = (() => {
     };
     const min = focus.min && !focus.done;
     const hidden = focus.hidden && !focus.done;
-    hud.className = 'focus-hud' + (focus.done ? ' is-done' : '') + (min ? ' is-min' : '') + (hidden ? ' is-hidden' : '');
+    const extra = !min && !hidden;
+    hud.className = 'focus-hud' + (focus.done ? ' is-done' : '') + (min ? ' is-min' : '') + (hidden ? ' is-hidden' : '') + (extra ? ' has-extra' : '');
     if (!hidden && window.TopDock) TopDock.set('focus', null);
-    hud.innerHTML = focus.done ? doneHTML() : `
+    hud.innerHTML = focus.done ? doneHTML() + (extra ? '<div class="focus-extra"><div data-dayroad="panel" class="hidden"></div></div>' : '') : `<div class="focus-row">
       <svg class="focus-ring" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" class="focus-ring-bg"/><circle cx="20" cy="20" r="18" class="focus-ring-fg" stroke-dasharray="113.1" stroke-dashoffset="113.1"/></svg>
       <div class="focus-hud-main" ${focus.taskId ? `onclick="openTaskDetail('${focus.taskId}')" role="button" tabindex="0"` : ''}>
         <p class="focus-kicker">${focus.paused != null ? 'Paused' : 'Focusing'}</p>
@@ -269,8 +271,90 @@ const Jarvis = (() => {
       <button type="button" class="focus-btn" onclick="Jarvis.togglePause()" aria-label="${focus.paused != null ? 'Resume' : 'Pause'}">${icon(focus.paused != null ? 'play' : 'pause')}</button>
       <button type="button" class="focus-btn" onclick="Jarvis.toggleMin()" aria-label="Minimise the focus timer" title="Minimise (keeps counting)">${icon('minimize-2')}</button>
       <button type="button" class="focus-btn" onclick="Jarvis.hideTimer()" aria-label="Hide the timer. It keeps counting" title="Hide (keeps counting)">${icon('eye-off')}</button>
-      <button type="button" class="focus-btn" onclick="Jarvis.stopFocus()" aria-label="End focus session">${icon('close')}</button>`}`;
-    if (!focus.done) { draw(); focus.tick = setInterval(draw, 1000); }
+      <button type="button" class="focus-btn" onclick="Jarvis.stopFocus()" aria-label="End focus session">${icon('close')}</button>`}</div>
+      ${extra ? `<div class="focus-extra"><div data-dayroad="panel" class="hidden"></div><div class="focus-music" id="focus-music">${musicHTML()}</div></div>` : ''}`;
+    if (window.DayRoad) DayRoad.render();
+    if (!focus.done) {
+      draw();
+      let beat = 0;
+      focus.tick = setInterval(() => { draw(); if (++beat % 3 === 0) syncMusic(); }, 1000);
+    }
+  }
+
+  // ── The focus panel's music row ──
+  // What's playing with pause and next, or play your music; and Add music,
+  // a quick search that saves the pick to Your why and plays it.
+  let musicSig = '';
+  function musicHTML() {
+    const now = window.Music && Music.now ? Music.now() : null;
+    const lists = (window.Why && Why.get && (Why.get() || {}).playlists) || [];
+    musicSig = now ? `${now.label}|${now.paused}` : `none|${lists.length}`;
+    const add = `<button type="button" class="fm-btn" onclick="Jarvis.musicAdd()" title="Find a song or playlist and play it">${icon('plus')}<span>Add music</span></button>`;
+    if (now) {
+      return `<span class="fm-ic">${icon('music')}</span><span class="fm-name" title="${esc(now.label)}">${esc(now.label)}</span>
+        <button type="button" class="fm-icon" onclick="Music.togglePause(); setTimeout(() => Jarvis.syncMusic(true), 300)" aria-label="${now.paused ? 'Play' : 'Pause'} the music">${icon(now.paused ? 'play' : 'pause')}</button>
+        ${now.many ? `<button type="button" class="fm-icon" onclick="Music.next(); setTimeout(() => Jarvis.syncMusic(true), 400)" aria-label="Next">${icon('skip-forward')}</button>` : ''}${add}`;
+    }
+    return `<span class="fm-ic">${icon('music')}</span>${lists.length ? `<button type="button" class="fm-btn fm-play" onclick="Why.playMusic(); setTimeout(() => Jarvis.syncMusic(true), 500)">${icon('play')}<span>Play ${esc(lists[0].label || 'my music')}</span></button>` : '<span class="fm-name muted">No music yet</span>'}${add}`;
+  }
+  function syncMusic(force) {
+    const box = document.getElementById('focus-music');
+    if (!box || box.classList.contains('adding')) return;
+    const now = window.Music && Music.now ? Music.now() : null;
+    const lists = (window.Why && Why.get && (Why.get() || {}).playlists) || [];
+    const sig = now ? `${now.label}|${now.paused}` : `none|${lists.length}`;
+    if (force || sig !== musicSig) box.innerHTML = musicHTML();
+  }
+  let addTimer = null; let addResults = [];
+  function musicAdd() {
+    const box = document.getElementById('focus-music');
+    if (!box) return;
+    box.classList.add('adding');
+    box.innerHTML = `<div class="fm-search">
+        <input id="fm-q" type="search" maxlength="80" placeholder="Search a song, artist or playlist" aria-label="Search for music" oninput="Jarvis.musicSearch(this.value)" onkeydown="if(event.key==='Escape')Jarvis.musicClose()">
+        <button type="button" class="fm-icon" onclick="Jarvis.musicClose()" aria-label="Close the search">${icon('close')}</button>
+      </div><div class="fm-results" id="fm-results"></div>`;
+    document.getElementById('fm-q').focus();
+  }
+  function musicClose() {
+    const box = document.getElementById('focus-music');
+    if (!box) return;
+    box.classList.remove('adding');
+    box.innerHTML = musicHTML();
+  }
+  function musicSearch(q) {
+    clearTimeout(addTimer);
+    const out = document.getElementById('fm-results');
+    if (!out) return;
+    if (!q.trim()) { out.innerHTML = ''; return; }
+    out.innerHTML = '<p class="fm-note">Searching…</p>';
+    addTimer = setTimeout(async () => {
+      try {
+        const r = await API.searchMusic(q.trim());
+        addResults = (r.results || []).slice(0, 5);
+        API.trackFeature('music_search');
+        out.innerHTML = addResults.length ? addResults.map((x, i) => `<button type="button" class="fm-hit" onclick="Jarvis.musicPick(${i})">
+            ${x.art ? `<img src="${esc(x.art)}" alt="" loading="lazy">` : `<span class="fm-art">${icon('music')}</span>`}
+            <span class="min-w-0 flex-1"><b>${esc(x.title)}</b><small>${esc([x.service, x.kind === 'playlist' ? 'Playlist' : '', x.by].filter(Boolean).join(' · '))}</small></span>${icon('play')}</button>`).join('')
+          : '<p class="fm-note">Nothing found. Try another name.</p>';
+      } catch { out.innerHTML = '<p class="fm-note">Search isn\'t available right now.</p>'; }
+    }, 350);
+  }
+  async function musicPick(i) {
+    const x = addResults[i];
+    if (!x || !window.Why) return;
+    const label = x.kind === 'song' && x.by ? `${x.title} · ${x.by}` : x.title;
+    try {
+      const at = await Why.addPlaylist(x.url, label);
+      await Why.playMusic(Math.max(0, at));
+      showToast(`Playing “${label}”. Saved to your music`);
+    } catch { showToast('Could not add that', 'error'); }
+    musicClose();
+  }
+  // The minimised timer shows a dot: ahead, level or behind the ghost.
+  function paceChanged(r) {
+    const hud = document.getElementById('focus-hud');
+    if (hud) hud.dataset.pace = r ? r.state : '';
   }
   function finished() {
     try { if (window.Sfx) Sfx.play('quest'); } catch { /* no sound */ }
@@ -295,6 +379,7 @@ const Jarvis = (() => {
         focus.completed = true; focus.next = nx; save(); paintFocus();
         say(nx ? `Nice work. Next up: ${nx.title}.` : "That's today's plan done. Great work.");
       } else stopFocus(true);
+      if (window.DayRoad) DayRoad.refresh();
       if (APP.currentPage === 'dashboard' && typeof renderDashboard === 'function') renderDashboard(); // eslint-disable-line no-undef
     } catch (e) { taskErrorToast(e, 'Could not finish that task'); }
   }
@@ -440,11 +525,13 @@ const Jarvis = (() => {
       </div>
       <p class="brief-hello">${esc(hello)}${name ? `, ${esc(name)}` : ''}.</p>
       ${sum ? `<p class="brief-sum">${sum}</p>` : ''}
+      <div data-dayroad="card" class="hidden"></div>
       ${mainBtn ? `<div class="brief-actions"><div class="brief-main">${mainBtn}${plan ? `<button type="button" class="brief-plan" onclick="Jarvis.openPlanner()" aria-label="Change today's plan" title="Change today's plan">${icon('list-checks')}</button>` : ''}</div></div>` : ''}
     </div>`;
     const slot = box.querySelector('.brief-pills');
     pills.forEach(p => slot.appendChild(p));
     document.getElementById('dash-head')?.classList.add('hidden');
+    if (window.DayRoad) { DayRoad.render(); DayRoad.refresh(); }
   }
   const hear = () => { API.trackFeature('listen'); if (brief) say(brief.spoken); };
 
@@ -737,6 +824,6 @@ const Jarvis = (() => {
     talk();
   });
 
-  return { startFocus, stopFocus, togglePause, toggleMin, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, hear, startDay, talk, isFocusing: () => !!focus };
+  return { startFocus, stopFocus, togglePause, toggleMin, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
 })();
 window.Jarvis = Jarvis;
