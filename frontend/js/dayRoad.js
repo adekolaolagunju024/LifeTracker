@@ -64,7 +64,7 @@ const DayRoad = (() => {
   function line(r, mode) {
     const nx = r.next ? `Next: ${esc(clockText(r.next.start))} ${esc(r.next.task.title)}${window.TaskActions ? ` ${TaskActions.chip(r.next.task, 'is-inline')}` : ''}` : '';
     return `<div class="droad-line"><b class="droad-state ${r.state}">${esc(r.text)}</b>
-      <span>${r.done} of ${r.n} done${nx && mode !== 'card' ? ` · ${nx}` : ''}</span>
+      ${mode === 'card' ? '' : `<span>${r.done} of ${r.n} done${nx ? ` · ${nx}` : ''}</span>`}
       ${dayOver(r) ? `<button type="button" class="droad-full droad-report" onclick="DayReport.open()">${icon('chart-column')}<span>How today went</span></button>` : ''}
       <button type="button" class="droad-full" onclick="DayRoad.openFull()">${icon('maximize-2')}<span>Full view</span></button></div>`;
   }

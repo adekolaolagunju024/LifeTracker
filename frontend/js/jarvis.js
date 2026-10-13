@@ -193,6 +193,7 @@ const Jarvis = (() => {
     store.set('wp-focus', null);
     document.getElementById('focus-hud')?.remove();
     if (window.TopDock) TopDock.set('focus', null);
+    if (window.Music && Music.tuck) Music.tuck(false); // the player comes back as it was
     if (!silent) showToast('Focus session ended');
   }
   function togglePause() {
@@ -250,6 +251,15 @@ const Jarvis = (() => {
   }
   // Shrinks the timer to a small ring and the time left, out of the way.
   // It still counts, and it opens up again by itself when time is up.
+  // The music player was asked for while the panel is open: shrink the
+  // panel to its ring so the two don't stack on the screen.
+  function makeRoom() {
+    if (!focus || focus.min || focus.hidden) return;
+    focus.min = true;
+    store.set('wp-focus-view', { min: true });
+    save();
+    paintFocus();
+  }
   function toggleMin() {
     if (!focus) return;
     focus.min = !focus.min;
@@ -284,6 +294,10 @@ const Jarvis = (() => {
     const extra = !min && !hidden;
     hud.className = 'focus-hud' + (focus.done ? ' is-done' : '') + (min ? ' is-min' : '') + (hidden ? ' is-hidden' : '') + (extra ? ' has-extra' : '');
     if (!hidden && window.TopDock) TopDock.set('focus', null);
+    // The panel's music row has the controls, so the player tucks away
+    // while the panel is open (see Music.tuck), and comes back when it's
+    // shrunk, hidden or closed.
+    if (window.Music && Music.tuck) Music.tuck(extra);
     hud.innerHTML = focus.done ? doneHTML() + (extra ? `<div class="focus-extra"><div data-dayroad="panel" class="hidden"></div><div class="focus-music" id="focus-music">${musicHTML()}</div></div>` : '') : `<div class="focus-row">
       <svg class="focus-ring" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" class="focus-ring-bg"/><circle cx="20" cy="20" r="18" class="focus-ring-fg" stroke-dasharray="113.1" stroke-dashoffset="113.1"/></svg>
       <div class="focus-hud-main" ${focus.taskId ? `onclick="openTaskDetail('${focus.taskId}')" role="button" tabindex="0"` : ''}>
@@ -324,7 +338,8 @@ const Jarvis = (() => {
     if (now) {
       return `<span class="fm-ic">${icon('music')}</span><span class="fm-name" title="${esc(now.label)}">${esc(now.label)}</span>
         <button type="button" class="fm-icon" onclick="Music.togglePause(); setTimeout(() => Jarvis.syncMusic(true), 300)" aria-label="${now.paused ? 'Play' : 'Pause'} the music">${icon(now.paused ? 'play' : 'pause')}</button>
-        ${now.many ? `<button type="button" class="fm-icon" onclick="Music.next(); setTimeout(() => Jarvis.syncMusic(true), 400)" aria-label="Next">${icon('skip-forward')}</button>` : ''}${add}`;
+        ${now.many ? `<button type="button" class="fm-icon" onclick="Music.next(); setTimeout(() => Jarvis.syncMusic(true), 400)" aria-label="Next">${icon('skip-forward')}</button>` : ''}
+        <button type="button" class="fm-icon" onclick="Music.show()" aria-label="Show the music player" title="Show the player (the timer shrinks)">${icon('video')}</button>${add}`;
     }
     return `<span class="fm-ic">${icon('music')}</span>${lists.length ? `<button type="button" class="fm-btn fm-play" onclick="Why.playMusic(); setTimeout(() => Jarvis.syncMusic(true), 500)">${icon('play')}<span>Play ${esc(lists[0].label || 'my music')}</span></button>` : '<span class="fm-name muted">No music yet</span>'}${add}`;
   }
@@ -928,6 +943,6 @@ const Jarvis = (() => {
     talk();
   });
 
-  return { startFocus, stopFocus, planMore, freeFocus, togglePause, toggleMin, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerShift, plannerNow, plannerClock, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
+  return { startFocus, stopFocus, planMore, freeFocus, togglePause, toggleMin, makeRoom, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerShift, plannerNow, plannerClock, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
 })();
 window.Jarvis = Jarvis;

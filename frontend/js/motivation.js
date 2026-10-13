@@ -659,6 +659,7 @@ const Music = (() => {
     remember({ url: item.url, min: false });
     const label = item.label || e.service;
     d.classList.remove('is-min', 'show-lib', 'is-hidden');
+    d.classList.toggle('is-tucked', tucked);
     TopDock.set('music', null);
     d.innerHTML = `
       <div class="music-bar">
@@ -870,15 +871,28 @@ const Music = (() => {
     if (queue[at]) remember({ url: queue[at].url, min: d.classList.contains('is-min'), hidden: true });
     paintDockButton();
   }
+  // Tucked: while the focus timer's panel is open its music row has the
+  // controls, so the player steps off screen (still playing) rather than
+  // a second dark panel sitting on the page. One floating thing at a time.
+  let tucked = false;
+  function tuck(on) {
+    tucked = !!on;
+    const d = dock(); if (!d) return;
+    d.classList.toggle('is-tucked', tucked);
+    paintDockButton();
+  }
   function show() {
     const d = dock(); if (!d) return;
+    // Asked for the player (the video, the library) while it's tucked:
+    // the focus timer shrinks to its small ring to make room.
+    if (tucked && window.Jarvis && Jarvis.makeRoom) Jarvis.makeRoom();
     d.classList.remove('is-hidden');
     if (queue[at]) remember({ url: queue[at].url, min: d.classList.contains('is-min') });
     TopDock.set('music', null);
   }
   function paintDockButton() {
     const d = dock();
-    if (!d || !d.classList.contains('is-hidden')) { TopDock.set('music', null); return; }
+    if (!d || !d.classList.contains('is-hidden') || tucked) { TopDock.set('music', null); return; }
     const label = (queue[at] && queue[at].label) || 'Music';
     TopDock.set('music', `<button type="button" onclick="Music.show()" title="${esc(label)}. Show the player (M pauses)" aria-label="Show the music player"><span class="eq ${current && current.paused ? 'paused' : ''}"><i></i><i></i><i></i></span><span class="hidden sm:inline">Music</span></button>`);
   }
@@ -898,6 +912,6 @@ const Music = (() => {
 
   // What's playing, for the focus timer's music row.
   const now = () => (current && queue[at] ? { label: queue[at].label || current.service, service: current.service, paused: !!current.paused, many: queue.length > 1 } : null);
-  return { embedFor, linkFrom, start, go, next, prev, hide, show, toggleMin, toggleLib, togglePause, setPaused, seek, cycleRepeat, stop, isPlaying, restore, now, isPaused: () => !!(current && current.paused), repeatMode: () => repeat, _ended: ended };
+  return { embedFor, linkFrom, start, go, next, prev, hide, show, tuck, toggleMin, toggleLib, togglePause, setPaused, seek, cycleRepeat, stop, isPlaying, restore, now, isPaused: () => !!(current && current.paused), repeatMode: () => repeat, _ended: ended };
 })();
 window.Music = Music;
