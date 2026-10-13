@@ -816,6 +816,12 @@
     .ta-chip.is-big { font-size: 13px; padding: 5px 12px; background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.3); color: #fff; margin-top: 6px; }
     .dark .ta-box { border-color: #22304A; } .dark .ta-what b { color: #E8EEF5; } .dark .ta-pick button, .dark .ta-kinds button, .dark .ta-apps button, .dark .ta-cancel { background: #1A2436; color: #C9D6E2; }
     .dark .ta-f input, .dark .ta-f textarea { background: #0B1220; border-color: #24324A; color: #E8EEF5; } .dark .ta-ic, .dark .ta-chip { background: rgba(94,234,212,.08); color: #5EEAD4; border-color: rgba(94,234,212,.25); }
+    /* Keep working for 15 / 25 / 45 / 60 min (focus timer, plan done) */
+    .focus-lens { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 13px; font-weight: 700; color: #C9D6E2; }
+    .focus-lens > .ic { width: 15px; height: 15px; margin-right: 2px; }
+    .focus-lens button { min-width: 34px; padding: 5px 8px !important; border-radius: 9px; font-weight: 800; }
+    .focus-lens button[aria-pressed="true"] { background: #5EEAD4 !important; color: #0D1B2A !important; }
+    .focus-lens small { font-size: 12px; font-weight: 700; color: #8FA3B8; }
     /* The project picker (js/projectPicker.js) */
     .pp-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; overflow: hidden; }
     .pp-btn { display: inline-flex; align-items: center; gap: 8px; text-align: left; min-width: 0; cursor: pointer; }

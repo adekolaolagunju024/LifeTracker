@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "Pick how long to keep working",
+      "text": "When today's plan is done, keep working for 15, 25, 45 or 60 minutes instead of a fixed 25. Waypoint remembers the length you picked last time."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Plan done? Keep going or close",
       "text": "Finish the last task on today's plan and the focus timer now asks what's next: plan more tasks, keep going with 25 minutes of focus time, or close it. Ticking a task off anywhere stops its timer too, and your music stays to hand."
     },

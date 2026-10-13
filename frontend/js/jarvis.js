@@ -218,7 +218,7 @@ const Jarvis = (() => {
       return `<div class="focus-hud-main"><p class="focus-kicker">Plan done</p>
         <p class="focus-title">That's today's plan done. Great work. Want to keep going?</p>
         <div class="focus-actions"><button type="button" class="focus-yes" onclick="Jarvis.planMore()">${icon('plus')}Plan more tasks</button>
-          <button type="button" onclick="Jarvis.freeFocus()">${icon('timer')}Focus 25 min</button>
+          <span class="focus-lens" role="group" aria-label="Keep working for">${icon('timer')}Keep working${[15, 25, 45, 60].map(m => `<button type="button" aria-pressed="${m === freeLen()}" onclick="Jarvis.freeFocus(${m})" aria-label="Keep working for ${m} minutes">${m}</button>`).join('')}<small>min</small></span>
           <button type="button" onclick="Jarvis.stopFocus()">${icon('close')}Close</button></div></div>`;
     }
     if (focus.completed) {
@@ -412,7 +412,14 @@ const Jarvis = (() => {
   // After the plan: add to it (the planner opens on today's plan), or
   // just keep working against a plain 25-minute timer.
   function planMore() { stopFocus(true); openPlanner(); }
-  function freeFocus() { startFocus({ title: 'Focus time', minutes: 25, music: false }); }
+  // Plain focus time, not tied to a task: 15, 25, 45 or 60 minutes (the
+  // last length chosen is offered first next time).
+  const freeLen = () => store.get('wp-free-focus') || 25;
+  function freeFocus(minutes = freeLen()) {
+    const m = [15, 25, 45, 60].includes(Number(minutes)) ? Number(minutes) : 25;
+    store.set('wp-free-focus', m);
+    startFocus({ title: 'Focus time', minutes: m, music: false });
+  }
   function finished() {
     try { if (window.Sfx) Sfx.play('quest'); } catch { /* no sound */ }
     store.set('wp-focus', { ...focus, tick: undefined });
