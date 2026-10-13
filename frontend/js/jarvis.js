@@ -280,6 +280,7 @@ const Jarvis = (() => {
       <div class="focus-hud-main" ${focus.taskId ? `onclick="openTaskDetail('${focus.taskId}')" role="button" tabindex="0"` : ''}>
         <p class="focus-kicker">${focus.paused != null ? 'Paused' : 'Focusing'}</p>
         <p class="focus-title">${esc(focus.title || 'Deep work')}</p>
+        ${focus.taskId && !min ? '<span class="focus-action" id="focus-action"></span>' : ''}
       </div>
       <span class="focus-time">${fmt(focus.paused != null ? focus.paused : focus.ends - Date.now())}</span>
       ${min ? `<button type="button" class="focus-btn" onclick="Jarvis.toggleMin()" aria-label="Show the focus timer" title="Show">${icon('maximize-2')}</button>
@@ -290,6 +291,11 @@ const Jarvis = (() => {
       <button type="button" class="focus-btn" onclick="Jarvis.stopFocus()" aria-label="End focus session">${icon('close')}</button>`}</div>
       ${extra ? `<div class="focus-extra"><div data-dayroad="panel" class="hidden"></div><div class="focus-music" id="focus-music">${musicHTML()}</div></div>` : ''}`;
     if (window.DayRoad) DayRoad.render();
+    // The task's action (js/taskActions.js), e.g. "Send email", right here.
+    if (focus.taskId && !min && window.TaskActions) {
+      const id = focus.taskId;
+      API.getTask(id).then(t => { const el = document.getElementById('focus-action'); if (el && focus && focus.taskId === id) el.innerHTML = TaskActions.chip(t, 'is-big'); }).catch(() => {});
+    }
     if (!focus.done) {
       draw();
       let beat = 0;

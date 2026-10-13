@@ -61,7 +61,7 @@ const DayRoad = (() => {
   // (js/dayReport.js) is offered beside Full view.
   const dayOver = r => r.state === 'done' || nowMin() >= r.planEnd;
   function line(r, mode) {
-    const nx = r.next ? `Next: ${esc(clockText(r.next.start))} ${esc(r.next.task.title)}` : '';
+    const nx = r.next ? `Next: ${esc(clockText(r.next.start))} ${esc(r.next.task.title)}${window.TaskActions ? ` ${TaskActions.chip(r.next.task, 'is-inline')}` : ''}` : '';
     return `<div class="droad-line"><b class="droad-state ${r.state}">${esc(r.text)}</b>
       <span>${r.done} of ${r.n} done${nx && mode !== 'card' ? ` · ${nx}` : ''}</span>
       ${dayOver(r) ? `<button type="button" class="droad-full droad-report" onclick="DayReport.open()">${icon('chart-column')}<span>How today went</span></button>` : ''}
@@ -147,7 +147,8 @@ const DayRoad = (() => {
             : it.done ? '<small>Done</small>'
               : (it.task.obstacles || []).length ? `<small class="clr">${icon('check', 'tiny')}All blockers cleared${it === r.next ? ' · you are here' : ''}</small>`
                 : it === r.next ? '<small>You are here</small>' : ''}</button>
-          ${!it.done && (it.task.obstacles || []).length && typeof blockerChecklist === 'function' ? blockerChecklist(it.task, true, 'board') : ''}</div>
+          ${!it.done && (it.task.obstacles || []).length && typeof blockerChecklist === 'function' ? blockerChecklist(it.task, true, 'board') : ''}
+          ${window.TaskActions ? TaskActions.chip(it.task) : ''}</div>
         ${pacerHere ? `<span class="dayroad-pacerhere" title="Where the Pacer is now">${icon('timer')}</span>` : ''}
       </li>`;
     }).join('');

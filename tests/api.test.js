@@ -590,3 +590,20 @@ test('two-step sign-in: set up, sign in with a code (no replays), recovery codes
   const plain = await (await fetch(`${server.base}/api/auth/login`, json({ email, password: 'testpass123' }))).json();
   assert.equal(plain.email, email);
 });
+
+test('a task can carry an action: kept clean, read back, and https-only for links', async () => {
+  const reg = await fetch(`${server.base}/api/auth/register`, json({ email: uniqueEmail(), password: 'testpass123', acceptTerms: true }));
+  const cookie = sessionCookie(reg);
+  const project = await (await fetch(`${server.base}/api/projects`, json({ title: 'Actions' }, cookie))).json();
+  const put = (id, body) => fetch(`${server.base}/api/tasks/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(body) });
+  const created = await (await fetch(`${server.base}/api/tasks`, json({ projectId: project.id, title: 'Email the recruiter', status: 'Not Started', priority: 'Medium', action: { type: 'email', to: 'jo@nhs.net', subject: 'Band 5 role', junk: 'x' } }, cookie))).json();
+  assert.deepEqual(created.action, { type: 'email', to: 'jo@nhs.net', subject: 'Band 5 role' }, 'unknown fields are dropped');
+  const edited = await (await put(created.id, { action: { type: 'whatsapp', phone: '+44 7700 900123', body: 'Hi Tunde' } })).json();
+  assert.equal(edited.action.type, 'whatsapp');
+  const kept = await (await put(created.id, { notes: 'unrelated edit' })).json();
+  assert.equal(kept.action.phone, '+44 7700 900123', 'an edit that does not mention the action keeps it');
+  assert.equal((await put(created.id, { action: { type: 'link', url: 'javascript:alert(1)' } })).status, 400, 'links must be https');
+  assert.equal((await put(created.id, { action: { type: 'teleport' } })).status, 400, 'unknown kinds are refused');
+  const cleared = await (await put(created.id, { action: null })).json();
+  assert.equal(cleared.action, null);
+});
