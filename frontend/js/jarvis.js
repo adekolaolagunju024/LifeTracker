@@ -351,7 +351,7 @@ const Jarvis = (() => {
     } catch { showToast('Could not add that', 'error'); }
     musicClose();
   }
-  // The minimised timer shows a dot: ahead, level or behind the ghost.
+  // The minimised timer shows a dot: ahead of, on or behind plan.
   function paceChanged(r) {
     const hud = document.getElementById('focus-hud');
     if (hud) hud.dataset.pace = r ? r.state : '';
@@ -571,7 +571,7 @@ const Jarvis = (() => {
   // 3, A song to start: pick from your music or skip. Then today's quote
   // shows for a moment and fades, and the first task starts. The plan is
   // kept on the server (backend/dayPlan.js) so the evening report and the
-  // ghost can use it, and on this device so focus sessions chain.
+  // Pacer can use it, and on this device so focus sessions chain.
   const LENGTHS = [15, 30, 45, 60, 90, 120];
   const toMin = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
   const fromMin = m => `${String(Math.floor((m % 1440) / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;

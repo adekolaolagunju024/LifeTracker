@@ -48,7 +48,7 @@
       "icon": "play",
       "name": "Start my day",
       "title": "Your day, planned to the minute",
-      "text": "A good-morning notification opens today's plan as a timetable. Then a ghost keeps to your times while you work: finish tasks to stay level with it or get ahead.",
+      "text": "A good-morning notification opens today's plan as a timetable. Then a Pacer keeps to your times while you work: finish tasks to stay on plan or get ahead.",
       "bg": "linear-gradient(160deg,#1B3A5C,#0A7E8C)",
       "action": "day",
       "cta": "Start my day",
@@ -119,8 +119,8 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
-      "title": "Race the ghost through your day",
-      "text": "Once you start your day, the focus timer shows today's road: a stop for each task, you moving as you finish them, and a ghost keeping to the times you planned. It tells you if you're ahead or behind, the same strip sits on your dashboard, and Full view lays out the whole day. Music now lives on the timer too: pause, skip, or search and add a song without leaving your work."
+      "title": "Race the Pacer through your day",
+      "text": "Once you start your day, the focus timer shows today's road: a stop for each task, you moving as you finish them, and a Pacer keeping to the times you planned, like a pacer in a race. It tells you if you're ahead of or behind plan, the same strip sits on your dashboard, and Full view lays out the whole day. Music now lives on the timer too: pause, skip, or search and add a song without leaving your work."
     },
     {
       "date": "2026-10-12",
