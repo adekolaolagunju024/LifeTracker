@@ -119,6 +119,11 @@
   "whatsNew": [
     {
       "date": "2026-10-13",
+      "title": "One project picker that follows you",
+      "text": "Pick a project on the Planner and the Calendar shows the same one, and Waypoint remembers it next time. The Journey always opens on a real project instead of an empty scene, sub-folders are marked under their project, and shared projects say so."
+    },
+    {
+      "date": "2026-10-13",
       "title": "Watch the knockout",
       "text": "Ticked off a blocker on one of today's tasks from the task panel or the board? Tap Watch and today's road opens in the game, where your character knocks that blocker out in front of you, in 2D or 3D."
     },

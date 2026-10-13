@@ -83,7 +83,7 @@ async function renderJourneyView() {
   const resetBtn = document.getElementById('journey-reset-btn');
   if (!projectId) {
     titleEl.textContent = 'Journey';
-    statusEl.textContent = 'Pick a specific project from the filter above — a Journey is one project at a time.';
+    statusEl.textContent = 'Add a project to start its Journey.';
     JourneyGame.destroy(document.getElementById('mountain-scene'));
     document.getElementById('mountain-tasklist').innerHTML = '';
     dismissJourneyAchievement();

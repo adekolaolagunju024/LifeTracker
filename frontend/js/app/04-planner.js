@@ -139,7 +139,7 @@ function setGanttViewMode(mode) {
 }
 
 function setGanttProjectFilter(projectId) {
-  APP.ganttProjectFilter = projectId;
+  saveProjectFilter(projectId);
   renderGantt();
 }
 
@@ -299,9 +299,18 @@ async function renderGantt() {
     const projectById = Object.fromEntries(projects.map(p => [p.id, p]));
     const cardFields = getCardFields();
     if (!APP.ganttViewMode) APP.ganttViewMode = 'month';
-    if (APP.ganttProjectFilter === undefined) APP.ganttProjectFilter = '';
+    if (APP.ganttProjectFilter === undefined) APP.ganttProjectFilter = savedProjectFilter();
     let pageView = 'timeline';
     try { pageView = localStorage.getItem('ganttPageView') || 'timeline'; } catch { /* private mode etc */ }
+    // The project picker, settled before the view draws (see
+    // projectOptionsHTML). A Journey is one project at a time, so there
+    // "All Projects" makes way for a real project.
+    if (!validProjectFilter(APP.ganttProjectFilter, projects)) APP.ganttProjectFilter = '';
+    if (pageView === 'journey' && !APP.ganttProjectFilter && projects.length) saveProjectFilter(defaultJourneyProject(projects));
+    const filterChildrenOf = pid => projects.filter(p => p.parentId === pid);
+    const filterSel = document.getElementById('gantt-project-filter');
+    filterSel.innerHTML = projectOptionsHTML(projects, APP.ganttProjectFilter, 'All Projects');
+    const allowedGroupIds = projectScope(projects, APP.ganttProjectFilter);
     applyGanttPageView(pageView);
     loadGanttColWidths();
     loadGanttWrapText();
@@ -310,28 +319,6 @@ async function renderGantt() {
 
     document.querySelectorAll('.gantt-view-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === APP.ganttViewMode));
 
-    // Project filter dropdown — top-level projects grouped with their
-    // sub-folders, same hierarchy shown when assigning a task to a project.
-    const filterTopLevel = projects.filter(p => !p.parentId);
-    const filterChildrenOf = pid => projects.filter(p => p.parentId === pid);
-    const filterSel = document.getElementById('gantt-project-filter');
-    filterSel.innerHTML = '<option value="">All Projects</option>' + filterTopLevel.map(top => {
-      const kids = filterChildrenOf(top.id);
-      const topOption = `<option value="${top.id}">${esc(top.title)}</option>`;
-      if (!kids.length) return topOption;
-      const kidOptions = kids.map(k => `<option value="${k.id}">${esc(k.title)}</option>`).join('');
-      return `<optgroup label="${esc(top.title)}">${topOption}${kidOptions}</optgroup>`;
-    }).join('');
-    filterSel.value = APP.ganttProjectFilter;
-    // Filter pointed at a project that's since been deleted — fall back to "All Projects"
-    // instead of silently filtering every remaining task out of the chart.
-    if (filterSel.value !== APP.ganttProjectFilter) APP.ganttProjectFilter = filterSel.value;
-
-    // Which groups the filter allows through — selecting a top-level project
-    // includes its sub-folders too, so you still see every task in that tree.
-    const allowedGroupIds = APP.ganttProjectFilter
-      ? new Set([APP.ganttProjectFilter, ...filterChildrenOf(APP.ganttProjectFilter).map(p => p.id)])
-      : null;
 
     // Date range: span the actual task dates (with a month of padding either
     // side) so nothing gets cut off, falling back to a default window when
@@ -632,14 +619,27 @@ function setGanttPageView(mode) {
   API.trackFeature(mode === 'journey' ? 'journey' : 'planner');
   setTimeout(() => syncBottomNav(APP.currentPage || 'gantt'), 0);
   try { localStorage.setItem('ganttPageView', mode); } catch { /* private mode etc */ }
-  if (mode === 'journey') applyGanttPageView(mode);
+  // Journey needs one project: with "All Projects" picked, renderGantt
+  // chooses one and rebuilds the picker first.
+  if (mode === 'journey' && APP.ganttProjectFilter) applyGanttPageView(mode);
   else renderGantt();
 }
 
 const GANTT_PAGE_VIEWS = ['timeline', 'kanban', 'journey']; // left-to-right order of the toggle's 3 stops
+// The project to show when the Journey opens on "All Projects": the first
+// top-level one (the sidebar's order).
+function defaultJourneyProject(projects) {
+  return (projects.find(p => !p.parentId) || projects[0]).id;
+}
+// "All Projects" isn't offered on the Journey.
+function syncProjectPickerForView(mode) {
+  const all = document.querySelector('#gantt-project-filter option[value=""]');
+  if (all) { all.hidden = mode === 'journey'; all.disabled = mode === 'journey'; }
+}
 
 function applyGanttPageView(mode) {
   if (!GANTT_PAGE_VIEWS.includes(mode)) mode = 'timeline';
+  syncProjectPickerForView(mode);
   document.querySelectorAll('#gantt-page-view-toggle .gantt-switch-btn').forEach(b => b.classList.toggle('active', b.dataset.pageview === mode));
   const thumb = document.getElementById('gantt-switch-thumb');
   thumb.style.transform = `translateX(${GANTT_PAGE_VIEWS.indexOf(mode) * 100}%)`;

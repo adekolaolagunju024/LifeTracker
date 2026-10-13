@@ -181,8 +181,7 @@ function goToCalendarToday() {
 }
 
 function setCalendarProjectFilter(id) {
-  APP.calendarProjectFilter = id;
-  try { localStorage.setItem('calendarProjectFilter', id); } catch { /* private mode etc */ }
+  saveProjectFilter(id);
   renderCalendar();
 }
 
@@ -358,27 +357,14 @@ async function loadCalendarData() {
   if (!APP.calendarViewMode) {
     try { APP.calendarViewMode = localStorage.getItem('calendarViewMode') || 'month'; } catch { APP.calendarViewMode = 'month'; }
   }
-  if (APP.calendarProjectFilter === undefined) {
-    try { APP.calendarProjectFilter = localStorage.getItem('calendarProjectFilter') || ''; } catch { APP.calendarProjectFilter = ''; }
-  }
+  if (APP.calendarProjectFilter === undefined) APP.calendarProjectFilter = savedProjectFilter();
   if (!APP.calendarExpandedDays) APP.calendarExpandedDays = new Set();
 
   const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
 
-  const filterSel = document.getElementById('calendar-project-filter');
-  const topLevel = projects.filter(p => !p.parentId);
-  const childrenOf = pid => projects.filter(p => p.parentId === pid);
-  filterSel.innerHTML = '<option value="">All Projects</option>' + topLevel.map(top => {
-    const kids = childrenOf(top.id);
-    const topOption = `<option value="${top.id}" ${APP.calendarProjectFilter === top.id ? 'selected' : ''}>${esc(top.title)}</option>`;
-    if (!kids.length) return topOption;
-    const kidOptions = kids.map(k => `<option value="${k.id}" ${APP.calendarProjectFilter === k.id ? 'selected' : ''}>${esc(k.title)}</option>`).join('');
-    return `<optgroup label="${esc(top.title)}">${topOption}${kidOptions}</optgroup>`;
-  }).join('');
-
-  const allowedIds = APP.calendarProjectFilter
-    ? new Set([APP.calendarProjectFilter, ...childrenOf(APP.calendarProjectFilter).map(p => p.id)])
-    : null;
+  APP.calendarProjectFilter = validProjectFilter(APP.calendarProjectFilter, projects);
+  document.getElementById('calendar-project-filter').innerHTML = projectOptionsHTML(projects, APP.calendarProjectFilter, 'All Projects');
+  const allowedIds = projectScope(projects, APP.calendarProjectFilter);
 
   const byDate = {};
   tasks.filter(t => t.endDate && (!allowedIds || allowedIds.has(t.projectId))).forEach(t => {
