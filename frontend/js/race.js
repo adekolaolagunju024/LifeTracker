@@ -57,6 +57,14 @@ const Race = (() => {
   }
   const head = (title, ic = 'flag') => `<div class="fb-head"><h2 id="race-title">${icon(ic)}${esc(title)}</h2><button type="button" class="fb-x" aria-label="Close" onclick="Race.close()">${icon('close')}</button></div>`;
 
+  // How steps are checked, so no one can just tick everything to win.
+  const CHECKS_NOTE = {
+    none: () => 'Every tick counts straight away. Best between friends. A burst of steps ticked in under a minute is pointed out in the chat.',
+    proof: () => 'A tick counts once there is a photo or a few words to show it. Everyone sees the proof in the chat.',
+    leader: role => `A tick counts once the ${role.label.toLowerCase()} approves it. A photo or a note helps them decide.`,
+  };
+  const checksLabel = c => ({ proof: 'proof for each step', leader: `${roleOf(c).label.toLowerCase()} signs off` })[c.checks] || '';
+
   // ── Making one ──
   // Team up: lead a group (a squad, clients, a class, a team: everyone aims
   // to finish; the leader can run it without taking part, and chooses how
@@ -79,6 +87,9 @@ const Race = (() => {
       <div class="together-only"><label for="race-role">You're the</label>
         <select id="race-role">${Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === 'leader' ? ' selected' : ''}>${r.label}</option>`).join('')}</select></div>
       <p class="fb-note" id="race-mode-note"></p>
+      <label for="race-checks">How steps are checked</label>
+      <select id="race-checks"></select>
+      <p class="fb-note" id="race-checks-note"></p>
       <label for="race-end">Finish by</label>
       <input type="date" id="race-end" min="${min}" value="${dayKey(Date.now() + 14 * 86400000)}" required>
       <div class="race-only"><label for="race-stake">What's riding on it? <span class="opt">(optional)</span></label>
@@ -94,8 +105,19 @@ const Race = (() => {
       <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">${icon('users', 'tiny')}<span id="race-make-label">Set up the team</span></button></div>`);
     let mode = 'together';
     let organiseTouched = false;
+    const checksSel = form.querySelector('#race-checks');
+    const paintChecks = role => {
+      const was = checksSel.value;
+      const opts = mode === 'race' ? [['none', 'Trust everyone'], ['proof', 'A photo or note for each step']]
+        : [['leader', `The ${role.label.toLowerCase()} signs each step off`], ['proof', 'A photo or note for each step'], ['none', 'Trust everyone']];
+      checksSel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
+      checksSel.value = opts.some(o => o[0] === was) && checksSel.dataset.touched ? was : opts[0][0];
+      form.querySelector('#race-checks-note').textContent = CHECKS_NOTE[checksSel.value](role);
+    };
+    checksSel.onchange = () => { checksSel.dataset.touched = '1'; paint(); };
     const paint = () => {
       const role = ROLES[form.querySelector('#race-role').value] || ROLES.leader;
+      paintChecks(role);
       // A coach, trainer or teacher usually leads without doing the steps.
       if (!organiseTouched) form.querySelector('#race-organise').checked = ['Coach', 'Trainer', 'Teacher'].includes(role.label);
       form.querySelectorAll('.race-mode button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
@@ -121,7 +143,7 @@ const Race = (() => {
       btn.disabled = true;
       try {
         const race = await API.createRace({
-          projectId, mode, organiserOnly: organising, nameMode: form.querySelector('#race-names').value, leaderRole: form.querySelector('#race-role').value,
+          projectId, mode, organiserOnly: organising, nameMode: form.querySelector('#race-names').value, leaderRole: form.querySelector('#race-role').value, checks: checksSel.value,
           endsAt: new Date(`${form.querySelector('#race-end').value}T23:59:00`).toISOString(),
           stake: mode === 'race' ? form.querySelector('#race-stake').value : '', displayName,
         });
@@ -270,7 +292,7 @@ const Race = (() => {
     const pct = c.group.players ? Math.round((c.group.finished / c.group.players) * 100) : 0;
     box.innerHTML = `<button type="button" class="ch-back" onclick="Race.backToList()">${icon('back', 'tiny')}All teams</button>
       <div class="ch-head"><span class="ch-ic big">${esc(c.icon || '🏁')}</span><div class="min-w-0"><h3>${esc(c.title)}</h3>
-        <p>${kindOf(c)}${together && c.owner ? ` · you're the ${roleOf(c).label.toLowerCase()}` : ''} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}${c.stake ? ` · <span class="race-strip-stake">${esc(c.stake)}</span>` : ''}</p></div></div>
+        <p>${kindOf(c)}${together && c.owner ? ` · you're the ${roleOf(c).label.toLowerCase()}` : ''}${c.checks && c.checks !== 'none' ? ` · ${esc(checksLabel(c))}` : ''} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}${c.stake ? ` · <span class="race-strip-stake">${esc(c.stake)}</span>` : ''}</p></div></div>
       <div class="ch-actions">
         <button type="button" onclick="Race.openChat('${c.id}')">${icon('message-circle', 'tiny')}Chat${unreadBadge(c)}</button>
         <button type="button" onclick="Race.inviteFor('${c.id}')">${icon('user-plus', 'tiny')}Invite · <b>${esc(c.joinCode.replace(/(...)(...)/, '$1 $2'))}</b></button>
@@ -282,10 +304,11 @@ const Race = (() => {
       </div>
       ${together ? `<div class="ch-group"><div class="ch-group-top"><b>${c.group.finished} of ${c.group.players} finished</b><span>${c.group.stepsPct}% of all steps done${c.group.behind ? ` · ${c.group.behind} behind` : ''}</span></div>
         <div class="ch-bar" role="img" aria-label="${pct}% finished"><i style="width:${pct}%"></i></div></div>` : ''}
+      ${reviewsHtml(c)}${yourStepsHtml(c)}
       ${c.players.length ? `<div class="ch-table-wrap"><table class="ch-table"><thead><tr><th>${together ? '' : '#'}</th><th>Name</th><th>Steps</th><th>Pace</th>${c.owner ? '<th>Last step</th>' : ''}</tr></thead>
         <tbody>${c.players.map((p, i) => `<tr class="${p.you ? 'you' : ''}"><td class="pos">${together ? '' : p.place ? placeHtml(p.place) : i + 1}</td>
           <td><span class="dot" style="background:${esc(p.color)}"></span>${p.you ? 'You' : `<button type="button" class="rc-cheer" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.cheerIn('${c.id}', this)" title="Cheer ${esc(p.name)} on" aria-label="Cheer ${esc(p.name)} on">${esc(p.name)}</button>`}</td>
-          <td><span class="ch-steps"><i style="width:${Math.round(p.frac * 100)}%"></i></span><span class="num">${p.done}/${p.total}</span></td>
+          <td><span class="ch-steps"><i style="width:${Math.round(p.frac * 100)}%"></i></span><span class="num">${p.done}/${p.total}</span>${p.pending ? `<span class="ch-pending" title="${p.pending} ticked, waiting to count">+${p.pending}</span>` : ''}</td>
           <td><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></td>
           ${c.owner ? `<td class="ago">${esc(ago(p.lastStepAt))}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
         : `<div class="ch-empty"><p><b>No one has joined yet.</b></p><p>Share the link or read out the code <b>${esc(c.joinCode)}</b>. People join from <b>Teams › Join with a code</b>.</p></div>`}`;
@@ -378,9 +401,9 @@ const Race = (() => {
       : r.over ? `${icon('flag', 'tiny')}<b>Time's up</b>` : `${icon('flag', 'tiny')}<b>Race</b> · ${daysLeft <= 0 ? 'ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}`;
     strip.classList.remove('hidden');
     strip.innerHTML = `<div class="race-strip-top"><span class="race-strip-title">${head2}${r.stake ? ` <span class="race-strip-stake">· ${esc(r.stake)}</span>` : ''}</span>
-        <span class="race-strip-actions">${r.mode !== 'together' && (r.winner || r.over) ? `<button type="button" onclick="Race.openReport('${r.id}')">${icon('trophy', 'tiny')}Scoreboard</button>` : ''}<button type="button" onclick="Race.openChat('${r.id}')">${icon('message-circle', 'tiny')}Chat${unreadBadge(r)}</button><button type="button" onclick="Race.invite()">${icon('user-plus', 'tiny')}Invite</button><button type="button" onclick="Race.leave()">Leave</button></span></div>
+        <span class="race-strip-actions">${r.yourSteps && (r.yourSteps.needsProof.length + r.yourSteps.sentBack.length) ? `<button type="button" class="prove" onclick="Race.proveNext()">${icon('camera', 'tiny')}Prove ${r.yourSteps.needsProof.length + r.yourSteps.sentBack.length}</button>` : ''}${r.mode !== 'together' && (r.winner || r.over) ? `<button type="button" onclick="Race.openReport('${r.id}')">${icon('trophy', 'tiny')}Scoreboard</button>` : ''}<button type="button" onclick="Race.openChat('${r.id}')">${icon('message-circle', 'tiny')}Chat${unreadBadge(r)}</button><button type="button" onclick="Race.invite()">${icon('user-plus', 'tiny')}Invite</button><button type="button" onclick="Race.leave()">Leave</button></span></div>
       <ol class="race-board">${r.players.map((p, i) => `<li class="${p.you ? 'you' : ''}"><span class="pos">${r.mode === 'together' ? '' : p.place ? placeHtml(p.place) : i + 1}</span><i style="background:${esc(p.color)}"></i>${p.you ? '<b>You</b>' : `<button type="button" class="rc-cheer" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.cheerFrom(this)" title="Cheer ${esc(p.name)} on" aria-label="Cheer ${esc(p.name)} on">${esc(p.name)}</button>`}
-        <span class="steps">${p.done}/${p.total}</span><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></li>`).join('')}</ol>`;
+        <span class="steps">${p.done}/${p.total}${p.pending ? `<small class="ch-pending" title="${p.pending} ticked, waiting to count">+${p.pending}</small>` : ''}</span><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></li>`).join('')}</ol>`;
   }
   // ── The race or group's chat ──
   // One thread for everyone in it: messages, the app's own lines (joined,
@@ -405,8 +428,8 @@ const Race = (() => {
       if (key === lastKey) return;
       lastKey = key;
       const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
-      list.innerHTML = msgs.length ? msgs.map(m => m.kind === 'msg' || m.kind === 'nudge'
-        ? `<div class="rc-msg${m.you ? ' you' : ''}${m.kind === 'nudge' ? ' nudge' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${m.kind === 'nudge' ? `${icon('bell', 'tiny')} ` : ''}${esc(m.author)}</span><p>${esc(m.text)}</p><time>${esc(chatTime(m.createdAt))}</time></div>`
+      list.innerHTML = msgs.length ? msgs.map(m => ['msg', 'nudge', 'proof', 'review'].includes(m.kind)
+        ? `<div class="rc-msg${m.you ? ' you' : ''}${m.kind === 'msg' ? '' : ` ${m.kind}`}${m.toYou ? ' to-you' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${m.kind === 'nudge' ? `${icon('bell', 'tiny')} ` : m.kind === 'proof' ? `${icon('camera', 'tiny')} ` : m.kind === 'review' ? `${icon('undo', 'tiny')} ` : ''}${esc(m.author)}</span><p>${esc(m.text)}</p>${proofThumb(id, m.file)}<time>${esc(chatTime(m.createdAt))}</time></div>`
         : `<div class="rc-event${m.kind === 'cheer' ? ' cheer' : ''}"><span>${esc(m.text)}</span><time>${esc(chatTime(m.createdAt))}</time></div>`).join('')
         : '<p class="rc-empty">No messages yet. Say hello, or wish everyone luck.</p>';
       if (atBottom || !lastKey.includes(',')) list.scrollTop = list.scrollHeight;
@@ -576,6 +599,111 @@ const Race = (() => {
     };
   }
 
+  // ── Proof and sign-off ──
+  // Just ticked a step that wants proof (api.js updateTask calls this).
+  function askProof(pw) {
+    if (!pw) return;
+    const lead = roleOf(pw).label.toLowerCase();
+    const msg = pw.checks === 'leader' ? `“${pw.taskTitle}” is waiting for the ${lead} to sign it off` : `“${pw.taskTitle}” counts once you add proof`;
+    showActionToast(msg, [{ label: pw.checks === 'leader' ? 'Add a photo' : 'Add proof', run: () => openProof(pw.id, pw.taskId, pw.taskTitle) }], 'camera');
+  }
+  // A photo (from the camera on a phone) and/or a few words for one step.
+  async function openProof(id, taskId, title) {
+    let r;
+    try { r = await API.getRace(id); } catch (err) { showToast(err.message || 'Could not open it', 'error'); return; }
+    const me = r.players.find(p => p.you);
+    if (!me) return;
+    const back = r.yourSteps && r.yourSteps.sentBack.find(s => s.taskId === taskId);
+    const form = dialog(`${head('Show it’s done', 'camera')}
+      <p class="fb-note"><b>${esc(title)}</b> · ${esc(r.title)}</p>
+      ${back ? `<p class="proof-back">${icon('undo', 'tiny')}<span>Sent back${back.note ? `: ${esc(back.note)}` : ''}</span></p>` : ''}
+      <label for="proof-photo">A photo <span class="opt">(or a file)</span></label>
+      <input type="file" id="proof-photo" accept="image/*,application/pdf,video/*">
+      <label for="proof-text">A few words <span class="opt">(what you did)</span></label>
+      <textarea id="proof-text" maxlength="500" rows="3" placeholder="e.g. Ran 5 km in 31 minutes"></textarea>
+      <p class="fb-note">Everyone in the ${esc(kindOf(r).toLowerCase())} sees your proof in the chat.</p>
+      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Not now</button><button type="submit" class="fb-send">${icon('send', 'tiny')}Send proof</button></div>`);
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const file = form.querySelector('#proof-photo').files[0];
+      const text = form.querySelector('#proof-text').value.trim();
+      if (!file && !text) { showToast('Add a photo or a few words first', 'error'); return; }
+      const btn = form.querySelector('.fb-send');
+      btn.disabled = true;
+      try {
+        const up = file ? await API.uploadAttachment(me.projectId, file) : null;
+        await API.proveRaceStep(id, { taskId, text, attachmentId: up ? up.id : null });
+      } catch (err) { btn.disabled = false; showToast(err.message || 'Could not send it', 'error'); return; }
+      close();
+      showToast(r.checks === 'leader' ? `📸 Sent. It counts once the ${roleOf(r).label.toLowerCase()} signs it off` : '✅ Proof sent. That step counts now');
+      refresh(id);
+    });
+  }
+  // Redraw whatever is showing this race after a proof or a decision.
+  async function refresh(id) {
+    if (detailId === id) openDetail(id);
+    if (current && current.id === id) {
+      try { current = await API.getRace(id); } catch { return; }
+      paintStrip(document.getElementById('journey-race'));
+      renderMountainScene();
+    }
+  }
+  const proofThumb = (id, f) => (!f ? '' : f.mimetype.startsWith('image/')
+    ? `<a href="/api/challenges/${id}/proof-file/${f.id}" target="_blank" rel="noopener" class="proof-img"><img src="/api/challenges/${id}/proof-file/${f.id}" alt="Proof photo" loading="lazy"></a>`
+    : `<a href="/api/challenges/${id}/proof-file/${f.id}" target="_blank" rel="noopener" class="proof-file">${icon('paperclip', 'tiny')}${esc(f.name)}</a>`);
+  // Your own steps that don't count yet.
+  function yourStepsHtml(c) {
+    const y = c.yourSteps;
+    if (!y || !(y.needsProof.length + y.sentBack.length + y.waiting.length)) return '';
+    const btn = s => `<button type="button" data-task="${esc(s.taskId)}" data-title="${esc(s.title)}" onclick="Race.proveFrom('${c.id}', this)">${icon('camera', 'tiny')}${c.checks === 'leader' && !s.note ? 'Add a photo' : 'Add proof'}</button>`;
+    const row = (s, tag) => `<li><span class="ps-title">${esc(s.title)}</span>${tag}${btn(s)}</li>`;
+    return `<section class="proof-steps"><h4>${icon('camera', 'tiny')}Your steps waiting to count</h4><ul>
+      ${y.sentBack.map(s => row(s, `<span class="ps-tag back">Sent back${s.note ? `: ${esc(s.note)}` : ''}</span>`)).join('')}
+      ${y.needsProof.map(s => row(s, '<span class="ps-tag">Needs proof</span>')).join('')}
+      ${y.waiting.map(s => row(s, `<span class="ps-tag wait">Waiting for the ${esc(roleOf(c).label.toLowerCase())}</span>`)).join('')}
+    </ul></section>`;
+  }
+  // From the Journey strip: the first step waiting for proof.
+  function proveNext() {
+    const y = current && current.yourSteps;
+    const s = y && (y.sentBack[0] || y.needsProof[0]);
+    if (s) openProof(current.id, s.taskId, s.title);
+  }
+  function proveFrom(id, btn) { openProof(id, btn.dataset.task, btn.dataset.title); }
+  // For the leader: the steps to approve (or proofs to look over).
+  function reviewsHtml(c) {
+    if (!c.owner || !c.reviews || !c.reviews.length) return '';
+    const signOff = c.checks === 'leader';
+    // "Approve all" once per person, on their first waiting step
+    const per = {}, firstOf = new Set();
+    c.reviews.forEach((rv, i) => { if (!per[rv.color]) firstOf.add(i); per[rv.color] = (per[rv.color] || 0) + 1; });
+    return `<section class="proof-review"><h4>${icon('check', 'tiny')}${signOff ? `Waiting for your sign-off (${c.reviews.length})` : `New proof this week (${c.reviews.length})`}</h4>
+      <ul>${c.reviews.map((rv, i) => `<li><div class="pr-top"><span class="dot" style="background:${esc(rv.color)}"></span><b>${esc(rv.name)}</b><span class="pr-step">${esc(rv.title)}</span><time>${esc(chatTime(rv.tickedAt))}</time></div>
+        ${rv.proofText ? `<p class="pr-text">${esc(rv.proofText)}</p>` : signOff && !rv.file ? '<p class="pr-text none">Ticked, no proof added</p>' : ''}${proofThumb(c.id, rv.file)}
+        <div class="pr-acts">${signOff ? `<button type="button" class="ok" data-color="${esc(rv.color)}" data-task="${esc(rv.taskId)}" onclick="Race.decide('${c.id}', this, 'approve')">${icon('check', 'tiny')}Approve</button>` : ''}
+          <button type="button" data-color="${esc(rv.color)}" data-task="${esc(rv.taskId)}" data-title="${esc(rv.title)}" data-name="${esc(rv.name)}" onclick="Race.decide('${c.id}', this, 'reject')">${icon('undo', 'tiny')}Send back</button>
+          ${signOff && per[rv.color] > 1 && firstOf.has(i) ? `<button type="button" class="quiet" data-color="${esc(rv.color)}" data-task="all" onclick="Race.decide('${c.id}', this, 'approve')">Approve all ${per[rv.color]} for ${esc(rv.name.split(' ')[0])}</button>` : ''}</div></li>`).join('')}</ul></section>`;
+  }
+  async function decide(id, btn, decision) {
+    const { color, task } = btn.dataset;
+    let note = '';
+    if (decision === 'reject') {
+      const form = dialog(`${head('Send it back', 'undo')}
+        <p class="fb-note"><b>${esc(btn.dataset.title)}</b> · ${esc(btn.dataset.name)}</p>
+        <label for="pr-note">What's missing? <span class="opt">(they'll see this in the chat)</span></label>
+        <textarea id="pr-note" maxlength="300" rows="3" placeholder="e.g. The photo doesn't show the finish time"></textarea>
+        <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">Send back</button></div>`);
+      form.querySelector('#pr-note').focus();
+      note = await new Promise(res => form.addEventListener('submit', e => { e.preventDefault(); res(form.querySelector('#pr-note').value.trim()); close(); }));
+    }
+    btn.disabled = true;
+    try {
+      const r = await API.reviewRaceStep(id, { color, taskId: task, decision, note });
+      showToast(decision === 'approve' ? `✅ Signed off${r.decided > 1 ? ` ${r.decided} steps` : ''}` : 'Sent back with your note');
+    } catch (err) { btn.disabled = false; showToast(err.message || 'Could not do that', 'error'); return; }
+    refresh(id);
+  }
+
   function invite() { if (current) showShare(current, false); }
   async function leave() {
     if (!current) return;
@@ -594,6 +722,6 @@ const Race = (() => {
     });
   }
 
-  return { openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;

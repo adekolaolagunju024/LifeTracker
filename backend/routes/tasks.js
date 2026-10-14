@@ -5,6 +5,7 @@ const { v4: uuid } = require('uuid');
 const db = require('../db/db');
 const { notifyAssigned, notifyMentioned, notifyTaskComment, notifyStatusUpdate } = require('../email/activity');
 const journey = require('../journey');
+const challenges = require('../challenges');
 
 // GET /api/tasks?projectId=&status=&priority=&category=&search=
 router.get('/', (req, res) => {
@@ -64,7 +65,9 @@ router.put('/:id', (req, res) => {
     const journeyReward = justCompleted ? journey.applyTaskCompletionRewards(req.session.userId, task) : null;
     // Finishing the goal earns any rewards pledged on it (backend/pledges.js).
     const rewardsEarned = justCompleted ? pledges.refresh(task.projectId).length : 0;
-    res.json({ ...task, justCompleted, journeyReward, rewardsEarned });
+    // A step in a race or group that wants proof: ask for it now.
+    const proofWanted = justCompleted ? challenges.proofWantedFor(req.session.userId, task) : null;
+    res.json({ ...task, justCompleted, journeyReward, rewardsEarned, proofWanted });
     const assigneeChanged = task.assigneeId && task.assigneeId !== before?.assigneeId;
     if (assigneeChanged && task.assigneeId !== req.session.userId) {
       const project = db.getProjectById(req.session.userId, task.projectId);

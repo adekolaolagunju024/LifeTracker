@@ -86,6 +86,27 @@ for (const col of ['halfAnnounced INTEGER NOT NULL DEFAULT 0', 'finishAnnounced 
 for (const col of ["mode TEXT NOT NULL DEFAULT 'race'", 'organiserOnly INTEGER NOT NULL DEFAULT 0', 'joinCode TEXT', "nameMode TEXT NOT NULL DEFAULT 'names'", 'lastNudgeAt TEXT', 'leaderRole TEXT']) {
   try { conn.exec(`ALTER TABLE challenges ADD COLUMN ${col}`); } catch { /* already there */ }
 }
+// How a step is checked (proof and sign-off): 'none' trusts everyone,
+// 'proof' wants a photo or a note for each step before it counts, and
+// 'leader' wants the leader to approve each one. Proofs live here, one
+// row per player per step: submitted, approved or sent back (rejected).
+try { conn.exec("ALTER TABLE challenges ADD COLUMN checks TEXT NOT NULL DEFAULT 'none'"); } catch { /* already there */ }
+try { conn.exec('ALTER TABLE challenge_members ADD COLUMN speedFlagged INTEGER NOT NULL DEFAULT 0'); } catch { /* already there */ }
+try { conn.exec('ALTER TABLE challenge_messages ADD COLUMN attachmentId TEXT'); } catch { /* already there */ }
+conn.exec(`
+  CREATE TABLE IF NOT EXISTS challenge_steps (
+    challengeId TEXT NOT NULL,
+    userId TEXT NOT NULL,
+    taskId TEXT NOT NULL,
+    proofText TEXT,
+    attachmentId TEXT,
+    status TEXT NOT NULL DEFAULT 'submitted',
+    note TEXT,
+    createdAt TEXT NOT NULL,
+    decidedAt TEXT,
+    PRIMARY KEY (challengeId, userId, taskId)
+  );
+`);
 conn.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_challenges_code ON challenges(joinCode) WHERE joinCode IS NOT NULL');
 
 const MAX_PLAYERS = 30;      // a race
@@ -120,7 +141,12 @@ const clean = (s, max) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, m
 const dateKey = ms => new Date(ms).toISOString().slice(0, 10);
 
 const LEADER_ROLES = ['coach', 'trainer', 'teacher', 'manager', 'leader', 'organiser'];
-function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, organiserOnly, nameMode, leaderRole }) {
+// A race has no leader to sign steps off, so it's trust or proof; a group
+// can also have its leader approve each step (and does unless told not to).
+const checksFor = (mode, checks) => (mode === 'together'
+  ? (['none', 'proof', 'leader'].includes(checks) ? checks : 'leader')
+  : (checks === 'proof' ? 'proof' : 'none'));
+function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, organiserOnly, nameMode, leaderRole, checks }) {
   const top = db.topLevelProjectId(projectId);
   const project = db.getProjectById(userId, top);
   if (!project) throw Object.assign(new Error('Goal not found'), { status: 404 });
@@ -145,9 +171,10 @@ function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, 
     nameMode: ['names', 'first', 'animals'].includes(nameMode) ? nameMode : 'names',
     leaderRole: mode === 'together' ? (LEADER_ROLES.includes(leaderRole) ? leaderRole : 'leader') : null,
     joinCode: newCode(),
+    checks: checksFor(mode, checks),
   };
-  conn.prepare(`INSERT INTO challenges (id, ownerId, title, icon, template, taskCount, stake, startsAt, endsAt, joinToken, createdAt, mode, organiserOnly, nameMode, leaderRole, joinCode)
-    VALUES (@id, @ownerId, @title, @icon, @template, @taskCount, @stake, @startsAt, @endsAt, @joinToken, @createdAt, @mode, @organiserOnly, @nameMode, @leaderRole, @joinCode)`).run(c);
+  conn.prepare(`INSERT INTO challenges (id, ownerId, title, icon, template, taskCount, stake, startsAt, endsAt, joinToken, createdAt, mode, organiserOnly, nameMode, leaderRole, joinCode, checks)
+    VALUES (@id, @ownerId, @title, @icon, @template, @taskCount, @stake, @startsAt, @endsAt, @joinToken, @createdAt, @mode, @organiserOnly, @nameMode, @leaderRole, @joinCode, @checks)`).run(c);
   // The maker takes part on the goal they already have, not a duplicate of
   // it. Only a race where they've already ticked steps gets them a fresh
   // copy, so everyone starts level; and a goal already in another race or
@@ -197,7 +224,7 @@ function preview(token) {
   if (!c) return null;
   const owner = (db.getProfile(c.ownerId) || {}).name || 'A friend';
   const players = conn.prepare('SELECT COUNT(*) AS n FROM challenge_members WHERE challengeId = ?').get(c.id).n;
-  return { id: c.id, title: c.title, icon: c.icon, stake: c.stake, endsAt: c.endsAt, taskCount: c.taskCount, owner, players, full: players >= maxFor(c), mode: c.mode, nameMode: c.nameMode, leaderRole: c.leaderRole || null, token: c.joinToken };
+  return { id: c.id, title: c.title, icon: c.icon, stake: c.stake, endsAt: c.endsAt, taskCount: c.taskCount, owner, players, full: players >= maxFor(c), mode: c.mode, checks: c.checks || 'none', nameMode: c.nameMode, leaderRole: c.leaderRole || null, token: c.joinToken };
 }
 
 // The same, from the short code read out in class.
@@ -217,15 +244,54 @@ function join(token, userId, displayName) {
 
 // One player's progress, from the tasks in their copy (including any
 // sub-folders they've added). Their copy deleted: they've left.
-function progressOf(m, taskCount) {
-  const rows = conn.prepare(`SELECT t.status, t.completedAt FROM tasks t JOIN projects p ON p.id = t.projectId
+// With checks on, a ticked step only counts once it has its proof (and,
+// where the leader signs off, once it's approved). Steps ticked before the
+// race or group began (the maker's own goal) count as they are. The time
+// a step counts from is when it was ticked or proven, whichever came
+// later, never when the leader got round to approving it.
+function progressOf(m, c) {
+  const taskCount = c.taskCount;
+  const rows = conn.prepare(`SELECT t.id, t.title, t.status, t.completedAt FROM tasks t JOIN projects p ON p.id = t.projectId
     WHERE (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL`).all(m.projectId, m.projectId);
   const alive = conn.prepare('SELECT 1 FROM projects WHERE id = ? AND deletedAt IS NULL').get(m.projectId);
-  const done = rows.filter(r => r.status === 'Completed');
+  const checks = c.checks || 'none';
+  const proofs = checks === 'none' ? new Map()
+    : new Map(conn.prepare('SELECT * FROM challenge_steps WHERE challengeId = ? AND userId = ?').all(c.id, m.userId).map(s => [s.taskId, s]));
+  // the leader's own steps need no sign-off
+  const selfLed = checks === 'leader' && m.userId === c.ownerId;
+  const ticked = rows.filter(r => r.status === 'Completed');
+  const done = [], needsProof = [], waiting = [], sentBack = [];
+  ticked.forEach(r => {
+    const s = proofs.get(r.id);
+    if (checks === 'none' || selfLed || (r.completedAt && r.completedAt < c.startsAt)) done.push({ ...r, at: r.completedAt });
+    else if (s && (s.status === 'approved' || (checks === 'proof' && s.status === 'submitted'))) {
+      done.push({ ...r, at: checks === 'proof' ? [r.completedAt, s.createdAt].filter(Boolean).sort().pop() : r.completedAt });
+    } else if (s && s.status === 'rejected') sentBack.push({ ...r, note: s.note || '' });
+    // where the leader signs off, a ticked step waits for them (a proof is
+    // a help, not a must); with proofs, it waits for one
+    else if (checks === 'leader') waiting.push({ ...r, proof: s || null });
+    else needsProof.push(r);
+  });
   const finished = !!alive && rows.length > 0 && done.length === rows.length && done.length >= taskCount;
-  const lastStepAt = done.map(r => r.completedAt).filter(Boolean).sort().pop() || null;
+  const lastStepAt = done.map(r => r.at).filter(Boolean).sort().pop() || null;
   const finishedAt = finished ? lastStepAt : null;
-  return { done: Math.min(done.length, taskCount), frac: Math.min(1, done.length / taskCount), finished, finishedAt, lastStepAt, left: !alive };
+  return {
+    done: Math.min(done.length, taskCount), frac: Math.min(1, done.length / taskCount), finished, finishedAt, lastStepAt, left: !alive,
+    needsProof, waiting, sentBack, tickTimes: ticked.map(r => r.completedAt).filter(t => t && t >= c.startsAt).sort(),
+  };
+}
+
+// Too quick to be true: three or more steps ticked inside a minute. Said
+// once in a race's chat, so everyone can see it (and ask).
+const SPEED_STEPS = 3, SPEED_MS = 60000;
+function speedBurst(times) {
+  let best = null;
+  for (let i = 0, j = 0; j < times.length; j++) {
+    while (Date.parse(times[j]) - Date.parse(times[i]) > SPEED_MS) i++;
+    const n = j - i + 1;
+    if (n >= SPEED_STEPS && (!best || n > best.n)) best = { n, secs: Math.max(1, Math.round((Date.parse(times[j]) - Date.parse(times[i])) / 1000)) };
+  }
+  return best;
 }
 
 // The scoreboard: every player, their progress and pace, in race order.
@@ -234,8 +300,11 @@ function standings(c, viewerId) {
   const start = Date.parse(c.startsAt), end = Date.parse(c.endsAt), now = Date.now();
   const expected = Math.max(0, Math.min(1, (now - start) / ((end - start) || 1)));
   const organiser = c.ownerId === viewerId;
+  const checks = c.checks || 'none';
+  const progress = new Map();
   const players = members.map(m => {
-    const p = progressOf(m, c.taskCount);
+    const p = progressOf(m, c);
+    progress.set(m.userId, { m, p });
     const gap = p.frac - expected;
     const you = m.userId === viewerId;
     return {
@@ -243,6 +312,8 @@ function standings(c, viewerId) {
       userId: m.userId, name: you || organiser ? m.displayName : shownName(c, m), color: m.color, you,
       done: p.done, total: c.taskCount, frac: p.frac, finished: p.finished, finishedAt: p.finishedAt, joinedAt: m.joinedAt, left: p.left,
       pace: p.finished ? 'finished' : gap >= 0.05 ? 'ahead' : gap >= -0.05 ? 'on pace' : 'behind',
+      // steps ticked that don't count yet: waiting for proof or sign-off
+      ...(checks !== 'none' ? { pending: p.needsProof.length + p.waiting.length + p.sentBack.length } : {}),
       // The organiser sees when each person last ticked a step, to know who to check on.
       ...(organiser ? { lastStepAt: p.lastStepAt } : {}),
       ...(you ? { projectId: m.projectId } : {}),
@@ -261,7 +332,14 @@ function standings(c, viewerId) {
       p.place = place;
     });
   }
-  announce(c, members, players);
+  announce(c, members, players, progress);
+  // Your own steps still to prove, waiting for sign-off, or sent back.
+  const mine = progress.get(viewerId);
+  const step = r => ({ taskId: r.id, title: r.title, ...(r.note !== undefined ? { note: r.note } : {}) });
+  const yourSteps = checks !== 'none' && mine ? { needsProof: mine.p.needsProof.map(step), waiting: mine.p.waiting.map(step), sentBack: mine.p.sentBack.map(step) } : null;
+  // For the leader: every proof waiting for a decision (or, with proofs
+  // only, the newest to look over and send back if need be).
+  const reviews = organiser && checks !== 'none' ? reviewList(c, progress) : undefined;
   const winner = !together && (players.find(p => p.finished) || null);
   const steps = players.reduce((a, p) => a + p.done, 0);
   const me = players.find(p => p.you);
@@ -278,6 +356,7 @@ function standings(c, viewerId) {
     owner: organiser, joinToken: c.joinToken, joinCode: c.joinCode,
     lastNudgeAt: organiser ? c.lastNudgeAt : undefined,
     chat: chatSummary(c.id, viewerId),
+    checks, yourSteps, reviews,
     players,
   };
 }
@@ -345,20 +424,27 @@ function nudgesSince(userId, since) {
 }
 // ── The race or group's chat ──────────────────────────────────────────
 const ord = n => `${n}${(n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'}`;
-function postMessage(cid, userId, text, kind = 'msg', toUserId = null) {
-  const m = { id: crypto.randomUUID(), challengeId: cid, userId, kind, text, toUserId, createdAt: new Date().toISOString() };
-  conn.prepare('INSERT INTO challenge_messages (id, challengeId, userId, kind, text, toUserId, createdAt) VALUES (@id, @challengeId, @userId, @kind, @text, @toUserId, @createdAt)').run(m);
+function postMessage(cid, userId, text, kind = 'msg', toUserId = null, attachmentId = null) {
+  const m = { id: crypto.randomUUID(), challengeId: cid, userId, kind, text, toUserId, attachmentId, createdAt: new Date().toISOString() };
+  conn.prepare('INSERT INTO challenge_messages (id, challengeId, userId, kind, text, toUserId, attachmentId, createdAt) VALUES (@id, @challengeId, @userId, @kind, @text, @toUserId, @attachmentId, @createdAt)').run(m);
   return m;
 }
 const postEvent = (cid, text, userId = null) => postMessage(cid, userId, text, 'event');
 // The app's own lines, once each: someone halfway, someone finished (with
 // their place in a race). Checked whenever the scoreboard is worked out.
-function announce(c, members, players) {
+function announce(c, members, players, progress) {
   const byUser = new Map(members.map(m => [m.userId, m]));
   players.forEach(p => {
     const m = byUser.get(p.userId);
     if (!m) return;
     const name = shownName(c, m);
+    if (c.mode !== 'together' && !m.speedFlagged) {
+      const burst = speedBurst((progress.get(m.userId) || { p: { tickTimes: [] } }).p.tickTimes);
+      if (burst) {
+        conn.prepare('UPDATE challenge_members SET speedFlagged = 1 WHERE challengeId = ? AND userId = ?').run(c.id, m.userId);
+        postEvent(c.id, `⚡ ${name} ticked ${burst.n} steps in ${burst.secs} second${burst.secs === 1 ? '' : 's'}. Quick work, or worth a question?`, m.userId);
+      }
+    }
     if (p.finished && !m.finishAnnounced) {
       conn.prepare('UPDATE challenge_members SET finishAnnounced = 1, halfAnnounced = 1 WHERE challengeId = ? AND userId = ?').run(c.id, m.userId);
       postEvent(c.id, p.place ? `${name} finished ${ord(p.place)}${p.place <= 3 ? ` ${['', '🥇', '🥈', '🥉'][p.place]}` : ''}` : `${name} finished 🏁`, m.userId);
@@ -410,7 +496,7 @@ function messages(id, userId) {
   conn.prepare('INSERT INTO challenge_reads (challengeId, userId, readAt) VALUES (?,?,?) ON CONFLICT(challengeId, userId) DO UPDATE SET readAt = excluded.readAt').run(c.id, userId, now);
   return rows.map(m => {
     const a = authorOf(c, m.userId, userId);
-    return { id: m.id, kind: m.kind, text: m.kind === 'cheer' ? describe(c, m, userId) : m.text, author: a.name, color: a.color, leader: !!a.leader, you: m.userId === userId, createdAt: m.createdAt };
+    return { id: m.id, kind: m.kind, text: m.kind === 'cheer' ? describe(c, m, userId) : m.text, author: a.name, color: a.color, leader: !!a.leader, you: m.userId === userId, toYou: m.toUserId === userId, file: fileInfo(fileOf(m.attachmentId)), createdAt: m.createdAt };
   });
 }
 function say(id, userId, text) {
@@ -439,9 +525,105 @@ function cheersSeen(id, userId) {
   return true;
 }
 
+// ── Proof and sign-off ──────────────────────────────────────────────
+const fileOf = id => (id ? conn.prepare('SELECT id, mimetype, originalName FROM attachments WHERE id = ?').get(id) : null);
+const fileInfo = f => (f ? { id: f.id, mimetype: f.mimetype, name: f.originalName } : null);
+// What the leader has to look at: with sign-off, every ticked step that's
+// waiting; with proofs, the proofs from the last week (to send one back).
+function reviewList(c, progress) {
+  const out = [];
+  const weekAgo = new Date(Date.now() - 7 * DAY).toISOString();
+  progress.forEach(({ m, p }) => {
+    if (p.left || m.userId === c.ownerId) return;
+    if (c.checks === 'leader') {
+      p.waiting.forEach(r => out.push({ color: m.color, name: m.displayName, taskId: r.id, title: r.title, tickedAt: r.completedAt,
+        proofText: r.proof ? r.proof.proofText || '' : '', file: fileInfo(fileOf(r.proof && r.proof.attachmentId)) }));
+    } else {
+      conn.prepare("SELECT s.*, t.title FROM challenge_steps s JOIN tasks t ON t.id = s.taskId WHERE s.challengeId = ? AND s.userId = ? AND s.status = 'submitted' AND s.createdAt > ? AND t.status = 'Completed' AND t.deletedAt IS NULL ORDER BY s.createdAt DESC")
+        .all(c.id, m.userId, weekAgo).forEach(s => out.push({ color: m.color, name: m.displayName, taskId: s.taskId, title: s.title, tickedAt: s.createdAt,
+          proofText: s.proofText || '', file: fileInfo(fileOf(s.attachmentId)) }));
+    }
+  });
+  return out.sort((a, b) => String(a.tickedAt).localeCompare(String(b.tickedAt))).slice(0, 100);
+}
+// A step in this player's copy (or a sub-folder of it), or null.
+function stepIn(m, taskId) {
+  return conn.prepare(`SELECT t.* FROM tasks t JOIN projects p ON p.id = t.projectId
+    WHERE t.id = ? AND (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL`).get(String(taskId || ''), m.projectId, m.projectId);
+}
+// A player's proof for one ticked step: a note, a photo (or file) they've
+// uploaded to their own copy, or both. It goes in the chat for everyone.
+function submitProof(id, userId, { taskId, text, attachmentId }) {
+  const c = byId(id);
+  const m = c && memberRow(c.id, userId);
+  if (!m) return null;
+  if ((c.checks || 'none') === 'none') throw Object.assign(new Error("This one doesn't ask for proof"), { status: 400 });
+  const t = stepIn(m, taskId);
+  if (!t) throw Object.assign(new Error('That step is not in your copy'), { status: 404 });
+  if (t.status !== 'Completed') throw Object.assign(new Error('Tick the step off first, then add your proof'), { status: 400 });
+  const note = clean(text, 500);
+  let file = null;
+  if (attachmentId) {
+    file = db.getAttachmentById(String(attachmentId));
+    if (!file || file.projectId !== db.topLevelProjectId(m.projectId) || file.uploaderId !== userId) throw Object.assign(new Error('That photo was not found'), { status: 404 });
+  }
+  if (!note && !file) throw Object.assign(new Error('Add a photo or a few words to show it is done'), { status: 400 });
+  const now = new Date().toISOString();
+  conn.prepare(`INSERT INTO challenge_steps (challengeId, userId, taskId, proofText, attachmentId, status, note, createdAt, decidedAt) VALUES (?,?,?,?,?, 'submitted', NULL, ?, NULL)
+    ON CONFLICT(challengeId, userId, taskId) DO UPDATE SET proofText = excluded.proofText, attachmentId = excluded.attachmentId, status = 'submitted', note = NULL, createdAt = excluded.createdAt, decidedAt = NULL`)
+    .run(c.id, userId, t.id, note || null, file ? file.id : null, now);
+  return postMessage(c.id, userId, `Proof for “${clean(t.title, 120)}”${note ? `: ${note}` : ''}`, 'proof', null, file ? file.id : null);
+}
+// The leader approves a step (or every waiting step of one player, with
+// taskId 'all') or sends it back with a note. Sending back goes in the
+// chat, so the player sees why; approvals stay quiet.
+function review(id, userId, { color, taskId, decision, note }) {
+  const c = byId(id);
+  if (!c) return null;
+  if (c.ownerId !== userId) throw Object.assign(new Error('Only the leader can sign steps off'), { status: 403 });
+  if ((c.checks || 'none') === 'none') throw Object.assign(new Error("This one doesn't ask for sign-off"), { status: 400 });
+  const m = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ? AND color = ?').get(c.id, String(color || ''));
+  if (!m) throw Object.assign(new Error('That person has left'), { status: 404 });
+  if (!['approve', 'reject'].includes(decision)) throw Object.assign(new Error('Approve or send back'), { status: 400 });
+  const p = progressOf(m, c);
+  const open = c.checks === 'leader' ? p.waiting : conn.prepare("SELECT taskId AS id FROM challenge_steps WHERE challengeId = ? AND userId = ? AND status = 'submitted'").all(c.id, m.userId);
+  const ids = taskId === 'all' && decision === 'approve' ? open.map(r => r.id) : [String(taskId || '')];
+  const now = new Date().toISOString();
+  const why = clean(note, 300);
+  let n = 0;
+  ids.forEach(tid => {
+    const t = stepIn(m, tid);
+    if (!t || t.status !== 'Completed') return;
+    conn.prepare(`INSERT INTO challenge_steps (challengeId, userId, taskId, status, note, createdAt, decidedAt) VALUES (?,?,?,?,?,?,?)
+      ON CONFLICT(challengeId, userId, taskId) DO UPDATE SET status = excluded.status, note = excluded.note, decidedAt = excluded.decidedAt`)
+      .run(c.id, m.userId, t.id, decision === 'approve' ? 'approved' : 'rejected', decision === 'reject' ? why || null : null, now, now);
+    n++;
+    if (decision === 'reject') postMessage(c.id, userId, `Sent back “${clean(t.title, 120)}” for ${shownName(c, m)}${why ? `: ${why}` : ''}`, 'review', m.userId);
+  });
+  if (!n) throw Object.assign(new Error('That step is not ticked off any more'), { status: 404 });
+  return n;
+}
+// A proof photo or file, for anyone in the race or group (and its leader).
+function proofFile(id, userId, attachmentId) {
+  const c = byId(id);
+  if (!canChat(c, userId)) return null;
+  const used = conn.prepare('SELECT 1 FROM challenge_steps WHERE challengeId = ? AND attachmentId = ?').get(c.id, String(attachmentId))
+    || conn.prepare('SELECT 1 FROM challenge_messages WHERE challengeId = ? AND attachmentId = ?').get(c.id, String(attachmentId));
+  return used ? db.getAttachmentById(String(attachmentId)) : null;
+}
+// Just ticked a step in a copy that asks for proof? Then say so, so the
+// app can ask for it there and then.
+function proofWantedFor(userId, task) {
+  if (!task || task.status !== 'Completed') return null;
+  const m = conn.prepare('SELECT * FROM challenge_members WHERE projectId = ? AND userId = ?').get(db.topLevelProjectId(task.projectId), userId);
+  const c = m && byId(m.challengeId);
+  if (!c || (c.checks || 'none') === 'none' || (c.checks === 'leader' && c.ownerId === userId)) return null;
+  return { id: c.id, title: c.title, checks: c.checks, leaderRole: c.leaderRole || null, taskId: task.id, taskTitle: task.title };
+}
+
 // Leaving takes you off the road; your copy of the goal stays yours.
 function leave(id, userId) {
   return conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId).changes > 0;
 }
 
-module.exports = { createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+module.exports = { submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };

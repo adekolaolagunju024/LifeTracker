@@ -126,6 +126,11 @@
   "whatsNew": [
     {
       "date": "2026-10-14",
+      "title": "Proof and sign-off",
+      "text": "No more ticking everything to win. When you team up, choose how steps are checked: trust everyone, a photo or a few words for each step, or (in a group) the coach, teacher or leader signs each step off. Proof goes in the chat, the leader can approve steps one at a time or all at once, or send one back with a note, and a burst of steps ticked inside a minute is pointed out in a race's chat."
+    },
+    {
+      "date": "2026-10-14",
       "title": "Look around and zoom in 3D",
       "text": "On every 3D stage, drag (or swipe sideways) to look around or behind your character, and zoom with the scroll wheel, a pinch or the plus and minus buttons. The follow cam drifts back behind you after a moment, and Recentre puts the overview back."
     },

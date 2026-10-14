@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
 const challenges = require('../challenges');
+const { UPLOAD_DIR } = require('../storage');
 
 // Races between friends (backend/challenges.js). All signed in, except the
 // preview of a join link, which is public so a link opened before signing
@@ -92,6 +95,33 @@ router.post('/:id/cheer', (req, res) => {
 router.post('/:id/cheers-seen', (req, res) => {
   if (!challenges.cheersSeen(req.params.id, req.session.userId)) return res.status(404).json({ error: 'Race not found' });
   res.json({ success: true });
+});
+
+// Proof and sign-off: POST a proof {taskId, text, attachmentId} for a step
+// you've ticked (the photo uploaded to your copy first, via /api/uploads);
+// the leader POSTs a review {color, taskId ('all' to approve them all),
+// decision: approve|reject, note}; GET a proof's photo or file.
+router.post('/:id/proof', (req, res) => {
+  try {
+    const m = challenges.submitProof(req.params.id, req.session.userId, req.body || {});
+    if (!m) return res.status(404).json({ error: 'Race not found' });
+    res.status(201).json({ id: m.id });
+  } catch (e) { fail(res, e); }
+});
+router.post('/:id/review', (req, res) => {
+  try {
+    const n = challenges.review(req.params.id, req.session.userId, req.body || {});
+    if (n === null) return res.status(404).json({ error: 'Race not found' });
+    res.json({ decided: n });
+  } catch (e) { fail(res, e); }
+});
+router.get('/:id/proof-file/:attachmentId', (req, res) => {
+  const a = challenges.proofFile(req.params.id, req.session.userId, req.params.attachmentId);
+  const filePath = a && path.join(UPLOAD_DIR, a.filename);
+  if (!filePath || !fs.existsSync(filePath)) return res.status(404).json({ error: 'Not found' });
+  res.setHeader('Content-Type', a.mimetype);
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(a.originalName)}"`);
+  res.sendFile(filePath);
 });
 
 // POST /api/challenges/:id/leave

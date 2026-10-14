@@ -82,7 +82,12 @@ const API = {
   },
   getTask:    (id)      => request('GET',    `/tasks/${id}`),
   addTask:    (data)    => request('POST',   '/tasks', data),
-  updateTask: (id, d)   => request('PUT',    `/tasks/${id}`, d),
+  // A step ticked in a race or group that asks for proof: Race asks for it.
+  updateTask: async (id, d) => {
+    const saved = await request('PUT', `/tasks/${id}`, d);
+    if (saved && saved.proofWanted && window.Race) setTimeout(() => Race.askProof(saved.proofWanted), 700);
+    return saved;
+  },
   deleteTask: (id)      => request('DELETE', `/tasks/${id}`),
   duplicateTask: (id)   => request('POST',   `/tasks/${id}/duplicate`),
   bumpTaskProgress: (id, delta) => request('POST', `/tasks/${id}/progress`, { delta }),
@@ -127,6 +132,8 @@ const API = {
   unclearRace:     (id)      => request('DELETE', `/challenges/${id}/clear`),
   previewRaceCode: (code)    => request('GET', `/race-code/${encodeURIComponent(code)}`),
   remindRace:      (id)      => request('POST', `/challenges/${id}/remind`),
+  proveRaceStep:   (id, data) => request('POST', `/challenges/${id}/proof`, data),
+  reviewRaceStep:  (id, data) => request('POST', `/challenges/${id}/review`, data),
   register:        (email, password, acceptTerms, ref) => request('POST', '/auth/register', { email, password, acceptTerms, ref }),
   getReferral:     ()        => request('GET',    '/referrals/me'),
   sendReferralInvite: (email) => request('POST', '/referrals/invite', { email }),

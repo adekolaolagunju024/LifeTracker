@@ -96,7 +96,7 @@ test('a class: the teacher organises without a copy, students join by code, see 
   const teacher = await signUp();
   const [s1, s2] = [await signUp(), await signUp()];
   const goal = await goalWithTasks(teacher, ['Read chapter 1', 'Answer the questions', 'Write a summary', 'Peer review']);
-  const made = await call(teacher, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), mode: 'together', organiserOnly: true, nameMode: 'animals' });
+  const made = await call(teacher, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), mode: 'together', organiserOnly: true, nameMode: 'animals', checks: 'none' });
   assert.equal(made.status, 201);
   const cls = await made.json();
   assert.equal(cls.mode, 'together');
@@ -259,4 +259,121 @@ test("the leader's reminder goes into the group's chat", async () => {
   const thread = await (await call(p1, 'GET', `/api/challenges/${squad.id}/messages`)).json();
   const nudge = thread.find(m => m.kind === 'nudge');
   assert.ok(nudge && /^Coach /.test(nudge.author) && nudge.leader, 'from the coach, by role');
+});
+
+test('proof: with proofs asked for, a tick counts once there is a photo or a note, and the leader can send one back', async () => {
+  const ana = await signUp();
+  const ben = await signUp();
+  const goal = await goalWithTasks(ana, ['Run 2k', 'Run 5k']);
+  const race = await (await call(ana, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(14), displayName: 'Ana', checks: 'proof' })).json();
+  assert.equal(race.checks, 'proof');
+  const benCopy = (await (await call(ben, 'POST', `/api/challenges/join/${race.joinToken}`, { displayName: 'Ben' })).json()).projectId;
+  const [t1, t2] = await tasksOf(ben, benCopy);
+
+  // Ticked, but no proof yet: it doesn't count, and the app asks for it.
+  const ticked = await (await call(ben, 'PUT', `/api/tasks/${t1.id}`, { status: 'Completed' })).json();
+  assert.equal(ticked.proofWanted.id, race.id);
+  assert.equal(ticked.proofWanted.taskId, t1.id);
+  let board = await (await call(ben, 'GET', `/api/challenges/${race.id}`)).json();
+  let me = board.players.find(p => p.you);
+  assert.equal(me.done, 0);
+  assert.equal(me.pending, 1);
+  assert.deepEqual(board.yourSteps.needsProof.map(s => s.taskId), [t1.id]);
+
+  // Proof needs the step ticked, and something in it.
+  assert.equal((await call(ben, 'POST', `/api/challenges/${race.id}/proof`, { taskId: t2.id, text: 'done' })).status, 400);
+  assert.equal((await call(ben, 'POST', `/api/challenges/${race.id}/proof`, { taskId: t1.id, text: '  ' })).status, 400);
+  // A photo from someone else's project can't be passed off as yours.
+  const form = new FormData();
+  form.append('file', new Blob([Buffer.from('89504e470d0a1a0a', 'hex')], { type: 'image/png' }), 'x.png');
+  form.append('projectId', goal.id);
+  const anaPhoto = await (await fetch(`${server.base}/api/uploads`, { method: 'POST', headers: { Cookie: ana }, body: form })).json();
+  assert.equal((await call(ben, 'POST', `/api/challenges/${race.id}/proof`, { taskId: t1.id, attachmentId: anaPhoto.id })).status, 404);
+
+  // A photo of his own, from his copy: it counts, and it's in the chat for everyone.
+  const form2 = new FormData();
+  form2.append('file', new Blob([Buffer.from('89504e470d0a1a0a', 'hex')], { type: 'image/png' }), 'run.png');
+  form2.append('projectId', benCopy);
+  const photo = await (await fetch(`${server.base}/api/uploads`, { method: 'POST', headers: { Cookie: ben }, body: form2 })).json();
+  assert.equal((await call(ben, 'POST', `/api/challenges/${race.id}/proof`, { taskId: t1.id, text: '2k in 11 min', attachmentId: photo.id })).status, 201);
+  board = await (await call(ben, 'GET', `/api/challenges/${race.id}`)).json();
+  assert.equal(board.players.find(p => p.you).done, 1);
+  const chat = await (await call(ana, 'GET', `/api/challenges/${race.id}/messages`)).json();
+  const proof = chat.find(m => m.kind === 'proof');
+  assert.match(proof.text, /Run 2k.*2k in 11 min/);
+  assert.equal(proof.file.id, photo.id);
+  // Ana can see the photo through the race, though it's in Ben's project.
+  assert.equal((await call(ana, 'GET', `/api/challenges/${race.id}/proof-file/${photo.id}`)).status, 200);
+  assert.equal((await call(ana, 'GET', `/api/uploads/${photo.id}`)).status, 404);
+  const stranger = await signUp();
+  assert.equal((await call(stranger, 'GET', `/api/challenges/${race.id}/proof-file/${photo.id}`)).status, 404);
+
+  // The maker sees it to look over, and sends it back: it stops counting.
+  const anaBoard = await (await call(ana, 'GET', `/api/challenges/${race.id}`)).json();
+  assert.equal(anaBoard.reviews.length, 1);
+  assert.equal(anaBoard.reviews[0].file.id, photo.id);
+  assert.equal((await call(ben, 'POST', `/api/challenges/${race.id}/review`, { color: anaBoard.reviews[0].color, taskId: t1.id, decision: 'reject' })).status, 403);
+  assert.equal((await call(ana, 'POST', `/api/challenges/${race.id}/review`, { color: anaBoard.reviews[0].color, taskId: t1.id, decision: 'reject', note: 'That is a blank photo' })).status, 200);
+  board = await (await call(ben, 'GET', `/api/challenges/${race.id}`)).json();
+  assert.equal(board.players.find(p => p.you).done, 0);
+  assert.equal(board.yourSteps.sentBack[0].note, 'That is a blank photo');
+  assert.ok((await (await call(ben, 'GET', `/api/challenges/${race.id}/messages`)).json()).some(m => m.kind === 'review' && m.toYou));
+  // Proof again: counts again.
+  await call(ben, 'POST', `/api/challenges/${race.id}/proof`, { taskId: t1.id, text: 'Strava link: 2k in 11 min' });
+  board = await (await call(ben, 'GET', `/api/challenges/${race.id}`)).json();
+  assert.equal(board.players.find(p => p.you).done, 1);
+});
+
+test('sign-off: in a group the leader approves each step (one by one or all at once); their own steps need none', async () => {
+  const coach = await signUp();
+  const kid = await signUp();
+  const goal = await goalWithTasks(coach, ['Drill 1', 'Drill 2', 'Drill 3']);
+  const g = await (await call(coach, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(14), mode: 'together', leaderRole: 'coach', displayName: 'Sam' })).json();
+  assert.equal(g.checks, 'leader', 'a group is signed off by its leader unless told otherwise');
+  // A race can't be signed off by a leader: it has none.
+  const g2 = await goalWithTasks(coach, ['A']);
+  assert.equal((await (await call(coach, 'POST', '/api/challenges', { projectId: g2.id, endsAt: inDays(14), checks: 'leader', displayName: 'Sam' })).json()).checks, 'none');
+
+  // The coach's own ticks count as they are.
+  const [c1] = await tasksOf(coach, goal.id);
+  const own = await (await call(coach, 'PUT', `/api/tasks/${c1.id}`, { status: 'Completed' })).json();
+  assert.equal(own.proofWanted, null);
+
+  const kidCopy = (await (await call(kid, 'POST', `/api/challenges/join/${g.joinToken}`, { displayName: 'Kid' })).json()).projectId;
+  const steps = await tasksOf(kid, kidCopy);
+  for (const t of steps) {
+    const r = await (await call(kid, 'PUT', `/api/tasks/${t.id}`, { status: 'Completed' })).json();
+    assert.equal(r.proofWanted.checks, 'leader');
+  }
+  let board = await (await call(kid, 'GET', `/api/challenges/${g.id}`)).json();
+  assert.equal(board.players.find(p => p.you).done, 0);
+  assert.equal(board.yourSteps.waiting.length, 3);
+  assert.equal(board.players.find(p => !p.you).done, 1, "the coach's own step counts");
+
+  // The coach sees all three, with or without a proof, and approves one, then the rest.
+  let cb = await (await call(coach, 'GET', `/api/challenges/${g.id}`)).json();
+  assert.equal(cb.reviews.length, 3);
+  const color = cb.reviews[0].color;
+  assert.equal((await (await call(coach, 'POST', `/api/challenges/${g.id}/review`, { color, taskId: steps[0].id, decision: 'approve' })).json()).decided, 1);
+  board = await (await call(kid, 'GET', `/api/challenges/${g.id}`)).json();
+  assert.equal(board.players.find(p => p.you).done, 1);
+  assert.equal((await (await call(coach, 'POST', `/api/challenges/${g.id}/review`, { color, taskId: 'all', decision: 'approve' })).json()).decided, 2);
+  board = await (await call(kid, 'GET', `/api/challenges/${g.id}`)).json();
+  assert.equal(board.players.find(p => p.you).finished, true);
+  cb = await (await call(coach, 'GET', `/api/challenges/${g.id}`)).json();
+  assert.equal(cb.reviews.length, 0);
+});
+
+test('speed check: a burst of steps ticked inside a minute is pointed out in the race chat, once', async () => {
+  const ana = await signUp();
+  const ben = await signUp();
+  const goal = await goalWithTasks(ana, ['One', 'Two', 'Three', 'Four']);
+  const race = await (await call(ana, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(14), displayName: 'Ana' })).json();
+  const benCopy = (await (await call(ben, 'POST', `/api/challenges/join/${race.joinToken}`, { displayName: 'Ben' })).json()).projectId;
+  await finish(ben, benCopy);
+  await call(ana, 'GET', `/api/challenges/${race.id}`);
+  await call(ben, 'GET', `/api/challenges/${race.id}`);
+  const flags = (await (await call(ana, 'GET', `/api/challenges/${race.id}/messages`)).json()).filter(m => m.text.startsWith('⚡'));
+  assert.equal(flags.length, 1);
+  assert.match(flags[0].text, /Ben ticked 4 steps in \d+ seconds?/);
 });
