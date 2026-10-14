@@ -126,8 +126,23 @@ function chatPreviewTime(iso) {
 async function renderChats() {
   const wrap = document.getElementById('chats-list');
   try {
-    const chats = await API.getChatPreviews();
-    wrap.innerHTML = chats.length
+    const [chats, races] = await Promise.all([API.getChatPreviews(), API.listRaces().catch(() => [])]);
+    // Races and groups first: each has its own chat (js/race.js).
+    const raceRows = races.slice().sort((a, b) => ((b.chat && b.chat.last && b.chat.last.createdAt) || b.startsAt || '').localeCompare((a.chat && a.chat.last && a.chat.last.createdAt) || a.startsAt || '')).map(r => {
+      const last = r.chat && r.chat.last;
+      return `<button onclick="Race.openChat('${r.id}')" class="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 text-left">
+          <span class="w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0 bg-teal/10 text-teal">${icon(r.mode === 'together' ? 'users' : 'flag')}</span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2">
+              <p class="font-bold text-sm text-navy truncate">${esc(r.title)} <span class="font-semibold text-gray-400">· ${r.mode === 'together' ? 'Group' : 'Race'}</span></p>
+              ${last ? `<span class="text-[10px] text-gray-400 flex-shrink-0">${chatPreviewTime(last.createdAt)}</span>` : ''}
+            </div>
+            <p class="text-xs text-gray-500 truncate mt-0.5">${last ? esc(last.text) : '<span class="text-gray-400">No messages yet. Wish everyone luck</span>'}</p>
+          </div>
+          ${r.chat && r.chat.unread ? `<span class="rc-unread" aria-label="${r.chat.unread} unread">${r.chat.unread > 9 ? '9+' : r.chat.unread}</span>` : ''}
+        </button>`;
+    }).join('');
+    wrap.innerHTML = (raceRows ? `<p class="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">Teams and races</p>${raceRows}${chats.length ? '<p class="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">Shared projects</p>' : ''}` : '') + (chats.length
       ? chats.map(c => {
           const last = c.lastMessage;
           const preview = last
@@ -145,7 +160,7 @@ async function renderChats() {
               </div>
             </button>`;
         }).join('')
-      : `<p class="text-center text-gray-400 text-sm py-10">No shared projects yet — share a project (${icon('users')} Share) or accept an invite to start chatting with your team.</p>`;
+      : raceRows ? '' : `<p class="text-center text-gray-400 text-sm py-10">No chats yet. Share a project (${icon('users')} Share), or Team up on a goal, to start chatting.</p>`);
     // Visiting the inbox is "reading your mail" — clears the unread badge,
     // same as opening the notification bell does.
     await API.markNotificationsRead();
