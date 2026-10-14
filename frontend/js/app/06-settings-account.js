@@ -636,7 +636,8 @@ async function checkPendingInvites() {
 
 // ── NOTIFICATION BELL (invites + assigned tasks + chat/comment activity) ──
 function notificationCount(data) {
-  return data.invites.length + data.assignedTasks.length + data.chatActivity.length + data.commentActivity.length + (data.challengeNudges || []).length;
+  return data.invites.length + data.assignedTasks.length + data.chatActivity.length + data.commentActivity.length + (data.challengeNudges || []).length
+    + (data.teamActivity || []).length + (data.rewardActivity || []).length;
 }
 
 async function refreshNotificationBadge() {
@@ -704,6 +705,22 @@ function renderNotificationsList(data) {
     <button onclick="closeNotifications(); showPage('challenges'); setTimeout(() => Race.openDetail('${n.challengeId}'), 200);" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
       <span class="text-lg leading-none flex-shrink-0">${icon('flag')}</span>
       <span class="text-sm text-navy min-w-0">${esc(n.text)}</span>
+    </button>`));
+
+  // Races and groups: someone stuck, help offered, a step sent back or
+  // signed off, cheers, finishes, and steps waiting for your sign-off.
+  const TEAM_IC = { help: 'hand', offer: 'hand', sentback: 'undo', approved: 'badge-check', review: 'check', cheer: 'party', finish: 'trophy' };
+  (data.teamActivity || []).forEach(a => rows.push(`
+    <button onclick="closeNotifications(); ${['help', 'offer', 'sentback', 'cheer'].includes(a.kind) ? `Race.openChat('${a.challengeId}')` : `Race.openTeam('${a.challengeId}')`};" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
+      <span class="text-lg leading-none flex-shrink-0">${icon(TEAM_IC[a.kind] || 'users')}</span>
+      <span class="text-sm text-navy min-w-0">${esc(a.text)}<span class="block text-xs text-gray-400 truncate">${esc(a.icon || '')} ${esc(a.title)}</span></span>
+    </button>`));
+  // Rewards: pledged, earned, released, a message from whoever pledged.
+  const REWARD_IC = { pledged: 'gift', earned: 'trophy', released: 'gift', message: 'message-circle' };
+  (data.rewardActivity || []).forEach(a => rows.push(`
+    <button onclick="closeNotifications(); showPage('project-detail','${a.projectId}'); setTimeout(() => document.getElementById('detail-rewards')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 700);" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
+      <span class="text-lg leading-none flex-shrink-0">${icon(REWARD_IC[a.kind] || 'gift')}</span>
+      <span class="text-sm text-navy min-w-0">${esc(a.text)}</span>
     </button>`));
 
   data.commentActivity.forEach(c => rows.push(`

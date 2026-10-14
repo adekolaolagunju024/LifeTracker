@@ -10,6 +10,9 @@ router.get('/', (req, res) => {
   // Reminders from the organiser of a class or team you're in.
   const since = db.getUserById(req.session.userId).notificationsCheckedAt || '1970-01-01T00:00:00.000Z';
   data.challengeNudges = require('../challenges').nudgesSince(req.session.userId, since);
+  // Races and groups (help, offers, sign-off, cheers, finishes) and rewards.
+  data.teamActivity = require('../challenges').activitySince(req.session.userId, since);
+  data.rewardActivity = require('../pledges').activitySince(req.session.userId, since);
   res.json(data);
 });
 

@@ -224,6 +224,23 @@ function forOwner(p) {
   };
 }
 
+// For the owner's notification bell: rewards pledged, earned, released,
+// and messages from the people who pledged, since they last looked.
+function activitySince(ownerId, since) {
+  const out = [];
+  const goal = id => (db.prepare('SELECT title FROM projects WHERE id = ?').get(id) || {}).title || 'your goal';
+  db.prepare("SELECT * FROM pledges WHERE ownerId = ? AND source = 'link' AND createdAt > ?").all(ownerId, since)
+    .forEach(p => out.push({ projectId: p.projectId, kind: 'pledged', text: `${p.name} pledged ${rewardText(p)} for “${goal(p.projectId)}”`, at: p.createdAt }));
+  db.prepare('SELECT * FROM pledges WHERE ownerId = ? AND earnedAt > ?').all(ownerId, since)
+    .forEach(p => out.push({ projectId: p.projectId, kind: 'earned', text: `You earned ${rewardText(p)} from ${p.name}${p.source === 'link' ? '. Ask them to release it' : ''}`, at: p.earnedAt }));
+  db.prepare("SELECT * FROM pledges WHERE ownerId = ? AND source = 'link' AND givenAt > ?").all(ownerId, since)
+    .forEach(p => out.push({ projectId: p.projectId, kind: 'released', text: `${p.name} released ${rewardText(p)}${p.giftCode || p.giftLink || p.giftNote ? '. Your gift is waiting' : ''}`, at: p.givenAt }));
+  db.prepare(`SELECT p.projectId, p.name, COUNT(*) AS n, MAX(m.createdAt) AS at FROM pledge_messages m JOIN pledges p ON p.id = m.pledgeId
+    WHERE p.ownerId = ? AND m.fromOwner = 0 AND m.createdAt > ? GROUP BY p.id`).all(ownerId, since)
+    .forEach(r => out.push({ projectId: r.projectId, kind: 'message', text: `${r.name} sent you ${r.n === 1 ? 'a message' : `${r.n} messages`} about your reward`, at: r.at }));
+  return out.sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 10);
+}
+
 // ── Emails ──
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 let appUrl = process.env.APP_URL || '';
@@ -262,4 +279,4 @@ function emailOwnerNewPledge(p, g) {
   });
 }
 
-module.exports = { markReceived, setPayTo, messages, say, askRelease, emailPledger, RELATIONS, CURRENCIES, clean, rewardText, money, defaultCurrency, getLink, createLink, deleteLink, goalState, create, get, byManageToken, list, refresh, markGiven, withdraw, remove, summary, forOwner, emailOwnerNewPledge, setAppUrl, topLevel };
+module.exports = { activitySince, markReceived, setPayTo, messages, say, askRelease, emailPledger, RELATIONS, CURRENCIES, clean, rewardText, money, defaultCurrency, getLink, createLink, deleteLink, goalState, create, get, byManageToken, list, refresh, markGiven, withdraw, remove, summary, forOwner, emailOwnerNewPledge, setAppUrl, topLevel };

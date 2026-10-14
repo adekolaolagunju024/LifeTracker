@@ -538,6 +538,48 @@ function cheersSeen(id, userId) {
   return true;
 }
 
+// ── For the notification bell ───────────────────────────────────────
+// What's happened in your races and groups since you last looked, meant
+// for you: someone stuck, an offer of help or a step sent back to you,
+// steps signed off, cheers, finishes, and (for the leader) new proof or
+// steps waiting for sign-off. Nudges have their own list (nudgesSince).
+function activitySince(userId, since) {
+  const mine = conn.prepare(`SELECT DISTINCT c.* FROM challenges c LEFT JOIN challenge_members m ON m.challengeId = c.id
+    WHERE (m.userId = ? OR c.ownerId = ?) AND c.endsAt > ?`).all(userId, userId, new Date(Date.now() - 7 * DAY).toISOString());
+  const out = [];
+  const add = (c, kind, text, at) => out.push({ challengeId: c.id, title: c.title, icon: c.icon, kind, text, at });
+  mine.forEach(c => {
+    const name = uid => authorOf(c, uid, userId).name;
+    const rows = conn.prepare(`SELECT * FROM challenge_messages WHERE challengeId = ? AND createdAt > ? AND (userId IS NULL OR userId != ?)
+      AND kind IN ('help', 'offer', 'review', 'cheer', 'event', 'proof') ORDER BY createdAt`).all(c.id, since, userId);
+    const cheers = rows.filter(m => m.kind === 'cheer' && m.toUserId === userId);
+    rows.forEach(m => {
+      if (m.kind === 'help' && !m.closedAt) add(c, 'help', `${name(m.userId)} is stuck on “${(m.text.match(/“([^”]+)”/) || [])[1] || 'a blocker'}” and asked for help`, m.createdAt);
+      else if (m.kind === 'offer' && m.toUserId === userId) add(c, 'offer', `${name(m.userId)} can help with “${(m.text.match(/“([^”]+)”/) || [])[1] || 'your blocker'}”`, m.createdAt);
+      else if (m.kind === 'review' && m.toUserId === userId) add(c, 'sentback', `${name(m.userId)} ${m.text.replace(/ for [^:]+(?=:|$)/, '').replace(/^Sent/, 'sent')}`, m.createdAt);
+      else if (m.kind === 'event' && /finished/.test(m.text) && m.userId) add(c, 'finish', m.text, m.createdAt);
+    });
+    if (cheers.length) add(c, 'cheer', `${[...new Set(cheers.map(m => name(m.userId)))].slice(0, 2).join(' and ')} cheered you on ${cheers.map(m => m.text).slice(0, 5).join('')}`, cheers[cheers.length - 1].createdAt);
+    // Your steps the leader signed off.
+    const ok = conn.prepare("SELECT COUNT(*) AS n, MAX(decidedAt) AS at FROM challenge_steps WHERE challengeId = ? AND userId = ? AND status = 'approved' AND decidedAt > ?").get(c.id, userId, since);
+    if (ok.n && c.ownerId !== userId) add(c, 'approved', `${name(c.ownerId)} signed off ${ok.n} of your step${ok.n === 1 ? '' : 's'}`, ok.at);
+    // For the leader: steps newly waiting for you.
+    if (c.ownerId === userId && (c.checks || 'none') !== 'none') {
+      const board = standings(c, userId);
+      const fresh = (board.reviews || []).filter(r => r.tickedAt && r.tickedAt > since);
+      if (fresh.length) add(c, 'review', c.checks === 'leader' ? `${fresh.length} step${fresh.length === 1 ? '' : 's'} waiting for your sign-off` : `${fresh.length} new proof${fresh.length === 1 ? '' : 's'} to look over`, fresh[fresh.length - 1].tickedAt);
+    }
+  });
+  return out.sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 15);
+}
+// A push to one person, where they've turned push on.
+function pushTo(userId, payload) {
+  try {
+    const { sendPushToUser } = require('./push/webpush');
+    sendPushToUser(userId, payload).catch(() => {});
+  } catch { /* push not set up */ }
+}
+
 // ── Asking for help on a blocker ────────────────────────────────────
 // Stuck on a blocker in your copy? Ask the race or group: a 'help' line in
 // the chat (one open request per blocker) that anyone can answer with
@@ -578,6 +620,7 @@ function offerHelp(id, userId, messageId) {
     throw Object.assign(new Error("You've already offered. Say more in the chat"), { status: 409 });
   }
   const what = (h.text.match(/“([^”]+)”/) || [])[1] || 'that';
+  pushTo(h.userId, { title: c.title, body: `${authorOf(c, userId, h.userId).name} can help with “${what}”`, url: '/app', tag: `offer-${h.id}` });
   return postMessage(c.id, userId, `I can help with “${what}”`, 'offer', h.userId, null, h.id);
 }
 // A blocker was cleared: close any help asked about it, and say so.
@@ -654,6 +697,7 @@ function submitProof(id, userId, { taskId, text, attachmentId }) {
   conn.prepare(`INSERT INTO challenge_steps (challengeId, userId, taskId, proofText, attachmentId, status, note, createdAt, decidedAt) VALUES (?,?,?,?,?, 'submitted', NULL, ?, NULL)
     ON CONFLICT(challengeId, userId, taskId) DO UPDATE SET proofText = excluded.proofText, attachmentId = excluded.attachmentId, status = 'submitted', note = NULL, createdAt = excluded.createdAt, decidedAt = NULL`)
     .run(c.id, userId, t.id, note || null, file ? file.id : null, now);
+  if (c.checks === 'leader' && c.ownerId !== userId) pushTo(c.ownerId, { title: c.title, body: `${m.displayName} sent proof for “${clean(t.title, 80)}”. It's waiting for your sign-off`, url: '/app', tag: `proof-${c.id}` });
   return postMessage(c.id, userId, `Proof for “${clean(t.title, 120)}”${note ? `: ${note}` : ''}`, 'proof', null, file ? file.id : null);
 }
 // The leader approves a step (or every waiting step of one player, with
@@ -680,7 +724,10 @@ function review(id, userId, { color, taskId, decision, note }) {
       ON CONFLICT(challengeId, userId, taskId) DO UPDATE SET status = excluded.status, note = excluded.note, decidedAt = excluded.decidedAt`)
       .run(c.id, m.userId, t.id, decision === 'approve' ? 'approved' : 'rejected', decision === 'reject' ? why || null : null, now, now);
     n++;
-    if (decision === 'reject') postMessage(c.id, userId, `Sent back “${clean(t.title, 120)}” for ${shownName(c, m)}${why ? `: ${why}` : ''}`, 'review', m.userId);
+    if (decision === 'reject') {
+      postMessage(c.id, userId, `Sent back “${clean(t.title, 120)}” for ${shownName(c, m)}${why ? `: ${why}` : ''}`, 'review', m.userId);
+      pushTo(m.userId, { title: c.title, body: `Sent back: “${clean(t.title, 80)}”${why ? `. ${why}` : ''}`, url: '/app', tag: `review-${c.id}-${t.id}` });
+    }
   });
   if (!n) throw Object.assign(new Error('That step is not ticked off any more'), { status: 404 });
   return n;
@@ -708,4 +755,4 @@ function leave(id, userId) {
   return conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId).changes > 0;
 }
 
-module.exports = { askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+module.exports = { activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };

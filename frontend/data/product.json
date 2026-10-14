@@ -126,6 +126,11 @@
   "whatsNew": [
     {
       "date": "2026-10-14",
+      "title": "The bell keeps up with your team and rewards",
+      "text": "Notifications now tell you when a teammate is stuck and asks for help, when someone offers to help you, when a step is sent back or signed off, when steps are waiting for your sign-off, about cheers and finishes, and when a reward is pledged, earned, released or comes with a message. The important ones also arrive as a push, where you've turned push on."
+    },
+    {
+      "date": "2026-10-14",
       "title": "Ask for help on a blocker",
       "text": "Stuck on a blocker in a race, group or shared goal? Tap Ask for help on it and say what's in the way. It goes in the chat, the leader is told, and teammates can answer with I can help. Clear the blocker and the chat says you got past it, and who helped."
     },
