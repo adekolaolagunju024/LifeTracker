@@ -15,7 +15,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera, makeViewToggle, createRivals } from './journey3dKit.js';
+import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera, makeViewToggle, createRivals, createCamControls } from './journey3dKit.js';
 
 const MODEL_URL = '/assets/models/RobotExpressive.glb';
 const UI_FONT = '"Arial Black", Impact, "Arial Narrow", sans-serif';
@@ -126,6 +126,7 @@ export function createFootball3D(container) {
   renderer.toneMappingExposure = 1.05;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   root.appendChild(renderer.domElement);
+  const camCtl = createCamControls(root, renderer.domElement);
 
   const scene = new THREE.Scene();
   scene.background = canvasTexture(4, 256, (g, w, h) => {
@@ -1057,6 +1058,7 @@ export function createFootball3D(container) {
     if (!player) return;
     const pp = player.holder.position;
     const fwd = new THREE.Vector3(Math.sin(P.heading), 0, Math.cos(P.heading));
+    let user = null; // the follow and overview shots, which the player can adjust
     if (cam.goalTime > 4.6) {
       cam.goalTime -= dt;
       camDesired.set(pp.x + 3.2, 2.4, pp.z + 5.5);
@@ -1071,14 +1073,17 @@ export function createFootball3D(container) {
     } else if (cam.mode === 'overview') {
       camDesired.set(30, 34, 26);
       lookDesired.set(0, 0, -2);
+      user = 'overview';
     } else {
+      user = 'follow';
       const orbit = P.mode === 'idle' ? Math.sin(time * 0.25) * 1.6 : 0;
       const side = new THREE.Vector3(fwd.z, 0, -fwd.x);
       camDesired.copy(pp).addScaledVector(fwd, -6.5).addScaledVector(side, 1.8 + orbit).setY(3.4);
       lookDesired.copy(pp).addScaledVector(fwd, 3.5).setY(1.0);
       peekCamera(peek, pp, camDesired, lookDesired, dt);
     }
-    const k = 1 - Math.exp(-dt * (cam.goalTime > 0 ? 2.2 : 3));
+    if (user) camCtl.apply(camDesired, lookDesired, user, dt);
+    const k = 1 - Math.exp(-dt * camCtl.rate(cam.goalTime > 0 ? 2.2 : 3));
     camera.position.lerp(camDesired, k);
     cam.look.lerp(lookDesired, k);
     camera.lookAt(cam.look);

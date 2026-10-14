@@ -32,6 +32,16 @@ function injectKitStyles() {
       text-shadow: 0 4px 0 var(--jk-win-edge, #6b3a07), 0 12px 34px rgba(0,0,0,.6); text-transform: uppercase; }
     .jk-win span { display: block; margin-top: 8px; font: 700 clamp(13px, 2.4vw, 20px) system-ui, sans-serif; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.75); }
     @keyframes jk-win-pop { 0% { transform: scale(.3); opacity: 0; } 12% { transform: scale(1.08); opacity: 1; } 22% { transform: scale(1); } 85% { opacity: 1; } 100% { transform: translateY(-12px); opacity: 0; } }
+    .jk-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; flex-direction: column; gap: 4px; z-index: 2; }
+    .jk-zoom button { width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(214,226,255,.18); background: rgba(8,14,30,.72);
+      color: #e2e8f0; font: 700 18px/1 system-ui, sans-serif; cursor: pointer; display: grid; place-items: center; }
+    .jk-zoom button:hover { background: rgba(8,14,30,.9); }
+    .jk-zoom button:focus-visible { outline: 2px solid #fbbf24; outline-offset: 2px; }
+    .jk-zoom button[hidden] { display: none; }
+    .jk-hint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 2; pointer-events: none;
+      font: 600 12px system-ui, sans-serif; color: #fff; background: rgba(8,14,30,.72); border-radius: 999px; padding: 6px 12px; white-space: nowrap;
+      transition: opacity .4s; }
+    .jk-hint.gone { opacity: 0; }
     .jk-loading { position: absolute; inset: 0; display: grid; place-items: center; color: #b6c2d6; font: 600 14px system-ui, sans-serif; z-index: 1; text-align: center; padding: 0 16px; }
     .jk-loading[hidden] { display: none; }
     .jk-labels { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
@@ -94,6 +104,109 @@ export function makeViewToggle(container, onCam) {
   container.addEventListener('journeysetcam', fromApp);
   return { bar, start, select, label(mode, text) { if (btns[mode]) btns[mode].textContent = text; } };
 }
+// ── Camera controls the player drives ──────────────────────────────────
+// Every 3D stage works out where its camera wants to be; this lets the
+// person looking adjust that: drag (or swipe sideways) to look around or
+// behind, the wheel, a pinch or the + and − buttons to zoom. In the
+// follow cam the view drifts back behind the character a few seconds
+// after you let go; the overview keeps what you set until Recentre. The
+// wheel only zooms once you've clicked into the scene (or with Ctrl, as
+// a trackpad pinch sends), so scrolling the page never gets stuck on it.
+//   const ctl = createCamControls(root, canvas);
+//   ... in the camera update, for the follow/overview shots only:
+//   ctl.apply(camDesired, lookDesired, 'follow' | 'overview', dt)
+export function createCamControls(root, canvas) {
+  injectKitStyles(); // Football and Castle have their own shells
+  const S = { zoom: { follow: 1, overview: 1 }, yaw: { follow: 0, overview: 0 }, pitch: { follow: 0, overview: 0 }, mode: 'follow', dragging: false, last: 0, armed: false };
+  const ZMIN = 0.4, ZMAX = 2.2;
+  const zoomBy = f => { S.zoom[S.mode] = THREE.MathUtils.clamp(S.zoom[S.mode] * f, ZMIN, ZMAX); S.last = performance.now(); sync(); };
+  const box = document.createElement('div');
+  box.className = 'jk-zoom';
+  box.innerHTML = '<button type="button" data-z="in" aria-label="Zoom in" title="Zoom in">+</button><button type="button" data-z="out" aria-label="Zoom out" title="Zoom out">−</button><button type="button" data-z="reset" aria-label="Recentre the camera" title="Recentre" hidden>⟲</button>';
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    e.stopPropagation();
+    if (b.dataset.z === 'in') zoomBy(1 / 1.25);
+    else if (b.dataset.z === 'out') zoomBy(1.25);
+    else { S.zoom[S.mode] = 1; S.yaw[S.mode] = 0; S.pitch[S.mode] = 0; sync(); }
+  });
+  root.appendChild(box);
+  const reset = box.querySelector('[data-z="reset"]');
+  const moved = () => Math.abs(S.zoom[S.mode] - 1) > 0.02 || Math.abs(S.yaw[S.mode]) > 0.02 || Math.abs(S.pitch[S.mode]) > 0.02;
+  function sync() { reset.hidden = !moved(); }
+  // a one-time hint, the first time a 3D stage is shown
+  let hint = null;
+  try {
+    if (!localStorage.getItem('jkCamHint')) {
+      hint = document.createElement('div'); hint.className = 'jk-hint';
+      hint.textContent = matchMedia('(pointer: coarse)').matches ? 'Swipe sideways to look around · pinch to zoom' : 'Drag to look around · scroll to zoom';
+      root.appendChild(hint);
+      setTimeout(() => hint && hint.classList.add('gone'), 5000);
+    }
+  } catch { /* storage off: no hint */ }
+  const used = () => { if (hint) { hint.classList.add('gone'); hint = null; try { localStorage.setItem('jkCamHint', '1'); } catch { /* fine */ } } };
+  // drag and pinch
+  const pts = new Map();
+  let pinch0 = 0, zoom0 = 1;
+  canvas.addEventListener('pointerdown', e => {
+    S.armed = true;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); zoom0 = S.zoom[S.mode]; }
+    S.dragging = true; S.last = performance.now();
+  });
+  canvas.addEventListener('pointermove', e => {
+    const p = pts.get(e.pointerId); if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (pts.size >= 2) {
+      const [a, b] = [...pts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch0 > 0) { S.zoom[S.mode] = THREE.MathUtils.clamp(zoom0 * (pinch0 / d), ZMIN, ZMAX); used(); }
+    } else {
+      S.yaw[S.mode] -= dx * 0.008;
+      // up and down on a touch screen scrolls the page, so tilting is the mouse's
+      if (e.pointerType === 'mouse') S.pitch[S.mode] = THREE.MathUtils.clamp(S.pitch[S.mode] + dy * 0.006, -0.5, 0.7);
+      if (Math.abs(dx) + Math.abs(dy) > 2) used();
+    }
+    S.last = performance.now(); sync();
+  });
+  const up = e => { pts.delete(e.pointerId); if (!pts.size) { S.dragging = false; pinch0 = 0; } S.last = performance.now(); };
+  canvas.addEventListener('pointerup', up);
+  canvas.addEventListener('pointercancel', up);
+  canvas.addEventListener('pointerleave', e => { up(e); S.armed = false; });
+  canvas.addEventListener('wheel', e => {
+    if (!S.armed && !e.ctrlKey) return; // let the page scroll
+    e.preventDefault();
+    S.zoom[S.mode] = THREE.MathUtils.clamp(S.zoom[S.mode] * Math.exp(e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), ZMIN, ZMAX);
+    S.last = performance.now(); used(); sync();
+  }, { passive: false });
+  const tmp = new THREE.Vector3(), sph = new THREE.Spherical();
+  return {
+    get dragging() { return S.dragging; },
+    // Bends where the stage wants its camera by what the person has done.
+    apply(camDesired, look, mode, dt) {
+      if (S.mode !== mode) { S.mode = mode; sync(); }
+      // the follow cam drifts back behind the character once you let go
+      if (mode === 'follow' && !S.dragging && performance.now() - S.last > 2500) {
+        const k = Math.min(1, dt * 1.6);
+        S.yaw.follow -= S.yaw.follow * k; S.pitch.follow -= S.pitch.follow * k;
+        if (Math.abs(S.yaw.follow) < 0.002) S.yaw.follow = 0;
+        if (Math.abs(S.pitch.follow) < 0.002) S.pitch.follow = 0;
+        sync();
+      }
+      const z = S.zoom[mode], yaw = S.yaw[mode], pitch = S.pitch[mode];
+      if (z === 1 && !yaw && !pitch) return;
+      sph.setFromVector3(tmp.copy(camDesired).sub(look));
+      sph.radius *= z;
+      sph.theta += yaw;
+      sph.phi = THREE.MathUtils.clamp(sph.phi - pitch, 0.12, 1.5);
+      camDesired.copy(look).add(tmp.setFromSpherical(sph));
+    },
+    // how fast the camera follows: snappier while dragging
+    rate(base) { return S.dragging ? Math.max(base, 9) : base; },
+  };
+}
+
 export function createShell(container, { label, background, loadingText, winTitle, winText, winFill, winEdge }) {
   injectKitStyles();
   const root = document.createElement('div');
@@ -130,6 +243,7 @@ export function createShell(container, { label, background, loadingText, winTitl
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   root.insertBefore(renderer.domElement, loadingEl);
+  const camCtl = createCamControls(root, renderer.domElement);
 
   const timers = [];
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -176,7 +290,7 @@ export function createShell(container, { label, background, loadingText, winTitl
     });
   }
 
-  return { root, loadingEl, cam, viewToggle, winEl, renderer, timers, reduceMotion, showWin, spawnTaskLabel, updateTaskLabels };
+  return { root, loadingEl, cam, camCtl, viewToggle, winEl, renderer, timers, reduceMotion, showWin, spawnTaskLabel, updateTaskLabels };
 }
 
 // Sizes the renderer to the shell's own root (not the container, whose

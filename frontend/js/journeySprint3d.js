@@ -663,7 +663,7 @@ export function createSprint3D(container) {
   const peek = { at: new THREE.Vector3(), t: 0 };
   function updateCamera(dt, time) {
     const ap = athlete.holder.position;
-    let rate = 3;
+    let rate = 3, user = null;
     if (P.mode === 'finale' && P.finT < 3.6) {
       // side-on at the line from the stands, like the broadcast camera
       camDesired.copy(FIN).add(V(-3, 3.4, 11)); lookDesired.copy(ap).add(V(0, 1, 0)); rate = 2.4;
@@ -672,14 +672,17 @@ export function createSprint3D(container) {
       camDesired.copy(ap).add(V(Math.sin(a) * 6, 2.4, Math.cos(a) * 6)); lookDesired.copy(ap).add(V(0, 1.1, 0)); rate = 1.6;
     } else if (shell.cam.mode === 'overview') {
       overview(camDesired); lookDesired.set(0, 0, 0);
+      user = 'overview';
     } else {
+      user = 'follow';
       const dir = V(Math.sin(P.heading), 0, Math.cos(P.heading));
       const o = outward(ap);
       camDesired.copy(ap).addScaledVector(dir, -7.5).addScaledVector(o, 2.2).add(V(0, 3.4, 0));
       lookDesired.copy(ap).addScaledVector(dir, 5).add(V(0, 1, 0));
       peekCamera(peek, ap, camDesired, lookDesired, dt, 8, 3.6, 1.2);
     }
-    const k = 1 - Math.exp(-dt * rate);
+    if (user) shell.camCtl.apply(camDesired, lookDesired, user, dt);
+    const k = 1 - Math.exp(-dt * shell.camCtl.rate(rate));
     camera.position.lerp(camDesired, k);
     cam.look.lerp(lookDesired, k);
     camera.lookAt(cam.look);

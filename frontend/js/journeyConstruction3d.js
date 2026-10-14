@@ -1205,7 +1205,7 @@ export function createConstruction3D(container) {
     if (!builder) return;
     const pp = builder.holder.position;
     const fwd = V(Math.sin(P.heading), 0, Math.cos(P.heading));
-    let rate = 3;
+    let rate = 3, user = null;
     if (!reduceMotion) cam.orbit += dt * 0.05;
     if (P.mode === 'finale' || P.mode === 'victory') {
       camDesired.copy(entrance).add(V(-10, 12, 34));
@@ -1233,14 +1233,17 @@ export function createConstruction3D(container) {
     } else if (shell.cam.mode === 'overview') {
       siteView(camDesired, lookDesired);
       rate = 1.5;
+      user = 'overview';
     } else {
+      user = 'follow';
       const side = V(fwd.z, 0, -fwd.x);
       const orbit = P.mode === 'idle' ? Math.sin(performance.now() / 4000) * 1.4 : 0;
       camDesired.copy(pp).addScaledVector(fwd, -6.4).addScaledVector(side, 1.8 + orbit).setY(3.6);
       lookDesired.copy(pp).addScaledVector(fwd, 3.5).setY(1.1);
       peekCamera(peek, pp, camDesired, lookDesired, dt, 10, 5, 2.4);
     }
-    const k = 1 - Math.exp(-dt * rate);
+    if (user) shell.camCtl.apply(camDesired, lookDesired, user, dt);
+    const k = 1 - Math.exp(-dt * shell.camCtl.rate(rate));
     camera.position.lerp(camDesired, k);
     cam.look.lerp(lookDesired, k);
     camera.lookAt(cam.look);
