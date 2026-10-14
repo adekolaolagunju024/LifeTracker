@@ -85,6 +85,7 @@ const API = {
   // A step ticked in a race or group that asks for proof: Race asks for it.
   updateTask: async (id, d) => {
     const saved = await request('PUT', `/tasks/${id}`, d);
+    if (d && 'status' in d && window.Race) Race.forgetPlan(); // the planner's team chips change with it
     if (saved && saved.proofWanted && window.Race) setTimeout(() => Race.askProof(saved.proofWanted), 700);
     return saved;
   },

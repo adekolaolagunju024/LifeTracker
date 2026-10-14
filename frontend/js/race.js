@@ -1,4 +1,4 @@
-/* global icon, esc, API, APP, showToast, showActionToast, fireBigScreenConfetti, showPage, playJourneyFor, renderMountainScene, mountainState */
+/* global renderGantt, icon, esc, API, APP, showToast, showActionToast, fireBigScreenConfetti, showPage, playJourneyFor, renderMountainScene, mountainState */
 // ── RACE A FRIEND ───────────────────────────────────────────────
 // Make a race from one of your goals, share the link, and everyone who
 // joins races their own copy (backend/challenges.js). On the Journey every
@@ -599,10 +599,63 @@ const Race = (() => {
     };
   }
 
+  // ── In the planner (Kanban and Gantt) ──
+  // Which goals are someone's copy in a team-up, the state of their steps
+  // that don't count yet, and the groups they lead. Fetched once and kept
+  // for a short while, so redrawing the planner doesn't refetch each time.
+  let plan = null, planAt = 0;
+  async function planInfo() {
+    if (plan && Date.now() - planAt < 15000) return plan;
+    let list = [];
+    try { list = await API.listRaces(); } catch { return plan || { byProject: new Map(), steps: new Map(), leading: [] }; }
+    const byProject = new Map(), steps = new Map();
+    list.forEach(c => {
+      const me = c.players.find(p => p.you);
+      if (me && me.projectId) byProject.set(me.projectId, { id: c.id, kind: kindOf(c), title: c.title, endsAt: c.endsAt, lead: roleOf(c).label.toLowerCase() });
+      const y = c.yourSteps;
+      if (y) {
+        y.needsProof.forEach(st => steps.set(st.taskId, { state: 'proof', raceId: c.id, title: st.title }));
+        y.sentBack.forEach(st => steps.set(st.taskId, { state: 'back', raceId: c.id, title: st.title, note: st.note }));
+        y.waiting.forEach(st => steps.set(st.taskId, { state: 'wait', raceId: c.id, title: st.title, lead: roleOf(c).label.toLowerCase() }));
+      }
+    });
+    // groups you lead: your people, each with their progress
+    const leading = list.filter(c => c.owner && c.mode === 'together').map(c => ({ ...c, kind: kindOf(c), lead: roleOf(c).label.toLowerCase() }));
+    plan = { byProject, steps, leading };
+    planAt = Date.now();
+    return plan;
+  }
+  const forgetPlan = () => { plan = null; };
+  function openTeam(id) {
+    if (typeof showPage === 'function') showPage('challenges');
+    setTimeout(() => openDetail(id), 200);
+  }
+  // A small "Squad" / "Race" chip for a card or row in a team-up's copy.
+  // Compact (icon only, for the Gantt's narrow name column) or labelled.
+  function teamChip(team, compact = false) {
+    if (!team) return '';
+    const what = `Part of ${esc(team.kind.toLowerCase())}: ${esc(team.title)}. Open it`;
+    return `<button type="button" class="team-chip${compact ? ' compact' : ''}" onclick="event.stopPropagation(); Race.openTeam('${team.id}')" title="${what}" aria-label="${what}">${icon(team.kind === 'Race' ? 'flag' : 'users', 'tiny')}${compact ? '' : esc(team.kind)}</button>`;
+  }
+  // A step that doesn't count yet: needs proof, waiting, sent back.
+  function stepChip(taskId, compact = false) {
+    const st = plan && plan.steps.get(taskId);
+    if (!st) return '';
+    const c = compact ? ' compact' : '';
+    if (st.state === 'wait') {
+      const what = `Waiting for the ${esc(st.lead)} to sign it off`;
+      return `<span class="step-chip wait${c}" role="img" title="${what}" aria-label="${what}">${icon('clock', 'tiny')}${compact ? '' : what.replace(' to sign it off', '')}</span>`;
+    }
+    const back = st.state === 'back';
+    const what = back ? `Sent back${st.note ? `: ${esc(st.note)}` : ''}. Add proof again` : 'Needs proof: add a photo or a note so it counts';
+    return `<button type="button" class="step-chip ${back ? 'back' : 'proof'}${c}" data-task="${esc(taskId)}" data-title="${esc(st.title)}" onclick="event.stopPropagation(); Race.proveFrom('${st.raceId}', this)" title="${what}" aria-label="${what}">${icon('camera', 'tiny')}${compact ? '' : back ? 'Sent back' : 'Needs proof'}</button>`;
+  }
+
   // ── Proof and sign-off ──
   // Just ticked a step that wants proof (api.js updateTask calls this).
   function askProof(pw) {
     if (!pw) return;
+    forgetPlan();
     const lead = roleOf(pw).label.toLowerCase();
     const msg = pw.checks === 'leader' ? `“${pw.taskTitle}” is waiting for the ${lead} to sign it off` : `“${pw.taskTitle}” counts once you add proof`;
     showActionToast(msg, [{ label: pw.checks === 'leader' ? 'Add a photo' : 'Add proof', run: () => openProof(pw.id, pw.taskId, pw.taskTitle) }], 'camera');
@@ -641,6 +694,8 @@ const Race = (() => {
   }
   // Redraw whatever is showing this race after a proof or a decision.
   async function refresh(id) {
+    forgetPlan();
+    if (typeof APP !== 'undefined' && APP.currentPage === 'gantt' && typeof renderGantt === 'function') renderGantt();
     if (detailId === id) openDetail(id);
     if (current && current.id === id) {
       try { current = await API.getRace(id); } catch { return; }
@@ -722,6 +777,6 @@ const Race = (() => {
     });
   }
 
-  return { proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;

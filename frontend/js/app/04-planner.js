@@ -295,8 +295,9 @@ function plannerKeyView() {
 
 async function renderGantt() {
   try {
-    const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
+    const [tasks, projects, teams] = await Promise.all([API.getTasks(), API.getProjects(), window.Race ? Race.planInfo() : null]);
     const projectById = Object.fromEntries(projects.map(p => [p.id, p]));
+    APP.planTeams = teams;
     const cardFields = getCardFields();
     if (!APP.ganttViewMode) APP.ganttViewMode = 'month';
     if (APP.ganttProjectFilter === undefined) APP.ganttProjectFilter = savedProjectFilter();
@@ -334,8 +335,13 @@ async function renderGantt() {
       const filterProject = APP.ganttProjectFilter ? projectById[APP.ganttProjectFilter] : null;
       resetBtn.classList.toggle('hidden', !filterProject || !(filterProject.role === 'owner' || filterProject.role === 'editor'));
     }
-    const dated = dateSourceTasks
-      .flatMap(t => [t.startDate, t.endDate])
+    // A team-up's finish date, and the groups you lead (All Projects only),
+    // count too, so the finish line is on the chart.
+    const teamDates = teams ? [
+      ...[...teams.byProject].filter(([pid]) => !allowedGroupIds || allowedGroupIds.has(pid)).map(([, t]) => t.endsAt),
+      ...(APP.ganttProjectFilter ? [] : teams.leading.flatMap(c => [c.startsAt, c.endsAt])),
+    ] : [];
+    const dated = [...dateSourceTasks.flatMap(t => [t.startDate, t.endDate]), ...teamDates]
       .filter(Boolean)
       .map(d => new Date(d))
       .filter(d => !isNaN(d));
@@ -502,13 +508,18 @@ async function renderGantt() {
       }
 
       const isCollapsed = ganttCollapsed.has(groupId);
+      // A team-up's copy: its chip, and a chequered finish line at its finish date.
+      const team = teams && teams.byProject.get(groupProject && groupProject.parentId ? groupProject.parentId : groupId);
+      const finishLine = team && new Date(team.endsAt) >= start && new Date(team.endsAt) <= end
+        ? `<div class="team-finish-line" style="left:${posPct(new Date(team.endsAt))}%" title="${esc(team.title)}: finish by ${esc(formatDateShort(team.endsAt.slice(0, 10)))}"></div>` : '';
 
       rowsHTML += `
         <div class="grid gantt-grid-row group border-b border-gray-200 gantt-cat-row" style="grid-template-columns:${GANTT_GRID_COLS}">
           <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-2 font-bold text-xs overflow-hidden">
             <span class="gantt-keep text-gray-400 text-[10px] flex-shrink-0 transition-transform cursor-pointer" style="${isCollapsed ? '' : 'transform:rotate(90deg)'}" onclick="toggleGanttGroup('${groupId}')" title="${isCollapsed ? 'Expand' : 'Collapse'}">▶</span>
             <span class="gantt-keep w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${color}"></span>
-            <span class="gantt-title-text truncate cursor-pointer hover:underline flex-1 min-w-0" style="color:${color}" onclick="showPage('project-detail','${groupId}')" title="Open this project">${emojiIcon(groupProject?.icon || '')} ${esc(groupTitle)}</span>
+            <span class="gantt-title-text truncate cursor-pointer hover:underline flex-1 ${team ? 'min-w-[4.5rem]' : 'min-w-0'}" style="color:${color}" onclick="showPage('project-detail','${groupId}')" title="Open this project">${emojiIcon(groupProject?.icon || '')} ${esc(groupTitle)}</span>
+            ${team ? Race.teamChip(team, true) : ''}
             ${cardFields.schedule ? miniProjectScheduleBadge(pts) : ''}
             ${canEditGroup ? `
             <button onclick="event.stopPropagation();editProject('${groupId}')" class="flex-shrink-0 hidden group-hover:inline text-gray-400 hover:text-gray-600 px-1" title="Edit project details">${icon('edit')}</button>
@@ -519,7 +530,7 @@ async function renderGantt() {
           <div class="gantt-sticky gantt-sticky-3 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDateShort(catStart)}</div>
           <div class="gantt-sticky gantt-sticky-4 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDateShort(catEnd)}</div>
           <div class="gantt-sticky gantt-sticky-5 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDuration(catStart, catEnd)}</div>
-          <div class="gantt-bar-area h-8">${gridlines}${summaryBar}${todayLine}${projectStartLines}</div>
+          <div class="gantt-bar-area h-8">${gridlines}${summaryBar}${todayLine}${projectStartLines}${finishLine}${finishLine ? `<span class="team-finish-flag" style="left:${posPct(new Date(team.endsAt))}%">${icon('flag', 'tiny')}Finish</span>` : ''}</div>
         </div>`;
 
       if (isCollapsed) return;
@@ -555,7 +566,7 @@ async function renderGantt() {
             <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-1 overflow-hidden">
               ${canEditGroup ? `<span class="flex-shrink-0 hidden group-hover:inline cursor-grab text-gray-300 hover:text-gray-500 px-0.5" onmousedown="ganttRowMouseDown(event, '${t.id}', '${t.projectId}', '${groupId}')" title="Drag to reorder">⠿</span>` : ''}
               <span class="gantt-status-dot gantt-keep" role="img" style="background:${statusColor(t.status)}" title="${({ 'Not Started': 'To do', 'In Progress': 'Doing', Completed: 'Done' })[t.status] || t.status}" aria-label="${({ 'Not Started': 'To do', 'In Progress': 'Doing', Completed: 'Done' })[t.status] || t.status}"></span>
-              <span class="gantt-title-text flex-1 min-w-[6rem] text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="${canEditGroup ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" title="${esc(t.title)} (click to ${canEditGroup ? 'edit' : 'view'})">${esc(t.title)}</span>${watchSlot(t.id)}
+              <span class="gantt-title-text flex-1 min-w-[6rem] text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="${canEditGroup ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" title="${esc(t.title)} (click to ${canEditGroup ? 'edit' : 'view'})">${esc(t.title)}</span>${window.Race ? Race.stepChip(t.id, true) : ''}${watchSlot(t.id)}
               ${cardFields.priority ? miniPriorityBadge(t.priority) : ''}
               ${cardFields.tags ? miniTagBadges(t.tags) : ''}
               ${cardFields.checklist ? miniChecklistBadge(t) : ''}
@@ -585,7 +596,45 @@ async function renderGantt() {
                 onchange="updateGanttTaskDate('${t.id}', 'endDate', this.value)">
             </div>
             <div class="gantt-sticky gantt-sticky-5 px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${formatDuration(t.startDate, t.endDate)}</div>
-            <div class="gantt-bar-area">${gridlines}${todayLine}${projectStartLines}${marker}</div>
+            <div class="gantt-bar-area">${gridlines}${todayLine}${projectStartLines}${finishLine}${marker}</div>
+          </div>`;
+      });
+    });
+
+    // Groups you lead (with All Projects showing): one row per person,
+    // their bar running from the start to the finish date and filled as
+    // far as they've got, with steps waiting for your sign-off.
+    if (teams && !APP.ganttProjectFilter) teams.leading.forEach(c => {
+      const s0 = new Date(c.startsAt), e0 = new Date(c.endsAt);
+      const left = posPct(s0), width = Math.max(0.8, posPct(e0) - left);
+      const waitingFor = color => (c.reviews || []).filter(r => r.color === color).length;
+      const cell = (n, txt) => `<div class="gantt-sticky gantt-sticky-${n} px-3 py-2 border-r border-gray-200 flex items-center text-[10px] text-gray-400 whitespace-nowrap overflow-hidden">${txt}</div>`;
+      const lid = `lead-${c.id}`;
+      const collapsed = ganttCollapsed.has(lid);
+      rowsHTML += `
+        <div class="grid gantt-grid-row border-b border-gray-200 gantt-cat-row gantt-lead-row" style="grid-template-columns:${GANTT_GRID_COLS}">
+          <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-2 font-bold text-xs overflow-hidden">
+            <span class="gantt-keep text-gray-400 text-[10px] flex-shrink-0 cursor-pointer" style="${collapsed ? '' : 'transform:rotate(90deg)'}" onclick="toggleGanttGroup('${lid}')" title="${collapsed ? 'Expand' : 'Collapse'}">▶</span>
+            <span class="gantt-title-text truncate cursor-pointer hover:underline flex-1 min-w-0 text-navy" onclick="Race.openTeam('${c.id}')" title="Open this ${esc(c.kind.toLowerCase())}">${emojiIcon(c.icon || '')} ${esc(c.title)}</span>
+            <span class="team-chip lead compact" role="img" title="You lead this ${esc(c.kind.toLowerCase())}" aria-label="You lead this ${esc(c.kind.toLowerCase())}">${icon('users', 'tiny')}</span>
+          </div>
+          ${cell(2, `${c.group.finished}/${c.group.players}`)}${cell(3, formatDateShort(c.startsAt.slice(0, 10)))}${cell(4, formatDateShort(c.endsAt.slice(0, 10)))}${cell(5, formatDuration(c.startsAt.slice(0, 10), c.endsAt.slice(0, 10)))}
+          <div class="gantt-bar-area h-8">${gridlines}${todayLine}<div class="gantt-summary-bar" style="left:${left}%;width:${width}%;background:#0D1B2A"></div><div class="team-finish-line" style="left:${posPct(e0)}%"></div></div>
+        </div>`;
+      if (collapsed) return;
+      c.players.forEach((p, i) => {
+        const w = waitingFor(p.color);
+        rowsHTML += `
+          <div class="grid gantt-grid-row border-b border-gray-100 bg-white ${i % 2 ? 'gantt-row-alt' : ''}" style="grid-template-columns:${GANTT_GRID_COLS};min-height:34px">
+            <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-1.5 overflow-hidden">
+              <span class="gantt-keep w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${esc(p.color)}"></span>
+              <span class="gantt-title-text flex-1 min-w-[6rem] text-xs text-gray-600 truncate cursor-pointer hover:text-teal" onclick="Race.openTeam('${c.id}')">${p.you ? 'You' : esc(p.name)}</span>
+              ${w ? `<button type="button" class="step-chip wait" onclick="Race.openTeam('${c.id}')" title="${w} step${w === 1 ? '' : 's'} waiting for your sign-off" aria-label="${w} step${w === 1 ? '' : 's'} waiting for your sign-off">${icon('check', 'tiny')}${w}</button>` : ''}
+            </div>
+            ${cell(2, `<span class="gantt-lead-pace"><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : esc(p.pace)}</span></span>`)}${cell(3, `${p.done}/${p.total} steps`)}${cell(4, '')}${cell(5, '')}
+            <div class="gantt-bar-area">${gridlines}${todayLine}
+              <div class="lead-bar" style="left:${left}%;width:${width}%" title="${esc(p.name)}: ${p.done} of ${p.total} steps"><i style="width:${Math.round(p.frac * 100)}%;background:${esc(p.color)}"></i></div>
+              <div class="team-finish-line" style="left:${posPct(e0)}%"></div></div>
           </div>`;
       });
     });
@@ -731,6 +780,19 @@ function setKanbanPriorityFilter(priority) {
   renderGantt();
 }
 
+// The team-up a goal (or one of its sub-folders) is your copy for, if any.
+function teamOfProject(proj, projectById) {
+  const teams = APP.planTeams;
+  if (!teams || !proj || !window.Race) return null;
+  const top = proj.parentId && projectById[proj.parentId] ? proj.parentId : proj.id;
+  return teams.byProject.get(top) || null;
+}
+// A card's team-up chip and, for a step that doesn't count yet, its state.
+function teamRow(t, proj, projectById) {
+  const team = teamOfProject(proj, projectById);
+  const step = window.Race ? Race.stepChip(t.id) : '';
+  return team || step ? `<div class="kanban-team-row">${team ? Race.teamChip(team) : ''}${step}</div>` : '';
+}
 function renderKanbanBoard(tasks, projectById) {
   const board = document.getElementById('kanban-board');
   if (!board) return;
@@ -776,6 +838,7 @@ function renderKanbanBoard(tasks, projectById) {
             </div>
           </div>
           ${cardFields.tags && (t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1.5">${miniTagBadges(t.tags)}</div>` : ''}
+          ${teamRow(t, proj, projectById)}
           <div class="kanban-card-foot">
             <span class="truncate flex items-center gap-1.5 min-w-0">${proj ? `<span class="truncate">${emojiIcon(proj.icon)} ${esc(proj.title)}</span>` : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}${statusUpdateBadge(t)}${obstacleBadge(t)}${waitingBadge(t)}<span data-reminder-slot="${t.id}">${window.Reminders ? Reminders.chip(t.id) : ''}</span></span>
             ${t.endDate ? `<span class="kanban-due ${isOverdue ? 'is-overdue' : ''}" title="${isOverdue ? 'Overdue' : 'Due'}">${formatDateShort(t.endDate)}</span>` : ''}
