@@ -217,3 +217,46 @@ test('a finished race can be cleared off your Teams list, and put back; a runnin
   assert.equal((await (await call(ben, 'GET', '/api/challenges')).json()).length, 1, 'back on Ben’s list');
   assert.equal((await call(await signUp(), 'POST', `/api/challenges/${race.id}/clear`)).status, 404, 'not theirs');
 });
+
+test('a race has its own chat: joins, halfway and finishes post themselves, cheers reach one player', async () => {
+  const [ana, ben] = [await signUp(), await signUp()];
+  const goal = await goalWithTasks(ana, ['One', 'Two']);
+  const race = await (await call(ana, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), displayName: 'Ana' })).json();
+  const benCopy = (await (await call(ben, 'POST', `/api/challenges/join/${race.joinToken}`, { displayName: 'Ben' })).json()).projectId;
+  assert.equal((await call(ana, 'POST', `/api/challenges/${race.id}/messages`, { text: 'Loser buys dinner 😄' })).status, 201);
+  assert.equal((await call(ana, 'POST', `/api/challenges/${race.id}/messages`, { text: '   ' })).status, 400);
+  // Ben has two unread lines (his own join doesn't count): Ana's message... and sees it
+  const benBoard = await (await call(ben, 'GET', `/api/challenges/${race.id}`)).json();
+  assert.equal(benBoard.chat.unread, 1, 'Ana’s message (his own join line is his)');
+  const tasks = await tasksOf(ben, benCopy);
+  await call(ben, 'PUT', `/api/tasks/${tasks[0].id}`, { status: 'Completed' });
+  await call(ben, 'GET', `/api/challenges/${race.id}`); // the scoreboard notices: halfway
+  await finish(ben, benCopy);
+  await call(ana, 'GET', `/api/challenges/${race.id}`); // finished, 1st
+  const thread = await (await call(ana, 'GET', `/api/challenges/${race.id}/messages`)).json();
+  assert.deepEqual(thread.map(m => [m.kind, m.kind === 'msg' ? m.author : m.text]), [['event', 'Ben joined'], ['msg', 'You'], ['event', 'Ben is halfway'], ['event', 'Ben finished 1st 🥇']]);
+  assert.equal((await (await call(ana, 'GET', `/api/challenges/${race.id}`)).json()).chat.unread, 0, 'reading marks it read');
+  // A cheer for Ben by his colour; Ben sees it once.
+  const benColor = benBoard.players.find(p => p.you).color;
+  assert.equal((await call(ana, 'POST', `/api/challenges/${race.id}/cheer`, { color: benColor, emoji: '🔥' })).status, 201);
+  assert.equal((await call(ana, 'POST', `/api/challenges/${race.id}/cheer`, { color: race.players[0].color, emoji: '🔥' })).status, 400, 'not yourself');
+  const seen = (await (await call(ben, 'GET', `/api/challenges/${race.id}`)).json()).chat.cheers;
+  assert.deepEqual(seen.map(c => [c.from, c.emoji]), [['Ana', '🔥']]);
+  await call(ben, 'POST', `/api/challenges/${race.id}/cheers-seen`);
+  assert.equal((await (await call(ben, 'GET', `/api/challenges/${race.id}`)).json()).chat.cheers.length, 0);
+  // Strangers can't read or write it.
+  const eve = await signUp();
+  assert.equal((await call(eve, 'GET', `/api/challenges/${race.id}/messages`)).status, 404);
+  assert.equal((await call(eve, 'POST', `/api/challenges/${race.id}/messages`, { text: 'hi' })).status, 404);
+});
+
+test("the leader's reminder goes into the group's chat", async () => {
+  const [coach, p1] = [await signUp(), await signUp()];
+  const goal = await goalWithTasks(coach, ['Run', 'Gym']);
+  const squad = await (await call(coach, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), mode: 'together', organiserOnly: true, leaderRole: 'coach' })).json();
+  await call(p1, 'POST', `/api/challenges/join-code/${squad.joinCode}`, { displayName: 'Sam' });
+  assert.equal((await call(coach, 'POST', `/api/challenges/${squad.id}/remind`)).status, 200);
+  const thread = await (await call(p1, 'GET', `/api/challenges/${squad.id}/messages`)).json();
+  const nudge = thread.find(m => m.kind === 'nudge');
+  assert.ok(nudge && /^Coach /.test(nudge.author) && nudge.leader, 'from the coach, by role');
+});

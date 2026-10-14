@@ -45,6 +45,27 @@ conn.exec(`
     text TEXT NOT NULL,
     createdAt TEXT NOT NULL
   );
+  -- The race or group's own chat: messages, the app's own lines when
+  -- someone joins, gets halfway or finishes ('event'), cheers ('cheer',
+  -- to one player) and the leader's reminders ('nudge').
+  CREATE TABLE IF NOT EXISTS challenge_messages (
+    id TEXT PRIMARY KEY,
+    challengeId TEXT NOT NULL,
+    userId TEXT,
+    kind TEXT NOT NULL DEFAULT 'msg',
+    text TEXT NOT NULL,
+    toUserId TEXT,
+    createdAt TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_challenge_messages ON challenge_messages(challengeId, createdAt);
+  -- How far each person has read their race's chat, and seen their cheers.
+  CREATE TABLE IF NOT EXISTS challenge_reads (
+    challengeId TEXT NOT NULL,
+    userId TEXT NOT NULL,
+    readAt TEXT,
+    cheersSeenAt TEXT,
+    PRIMARY KEY (challengeId, userId)
+  );
   -- Finished races and groups someone has cleared off their Teams list.
   -- Only their list: everyone else's scoreboard keeps them.
   CREATE TABLE IF NOT EXISTS challenge_cleared (
@@ -59,6 +80,9 @@ conn.exec(`
 // copy of their own; a short join code to read out in class; and how
 // names show to everyone (names, first names, or animals). A group says
 // who leads it (a coach, trainer, teacher, manager…), which sets its words.
+for (const col of ['halfAnnounced INTEGER NOT NULL DEFAULT 0', 'finishAnnounced INTEGER NOT NULL DEFAULT 0']) {
+  try { conn.exec(`ALTER TABLE challenge_members ADD COLUMN ${col}`); } catch { /* already there */ }
+}
 for (const col of ["mode TEXT NOT NULL DEFAULT 'race'", 'organiserOnly INTEGER NOT NULL DEFAULT 0', 'joinCode TEXT', "nameMode TEXT NOT NULL DEFAULT 'names'", 'lastNudgeAt TEXT', 'leaderRole TEXT']) {
   try { conn.exec(`ALTER TABLE challenges ADD COLUMN ${col}`); } catch { /* already there */ }
 }
@@ -158,6 +182,7 @@ function addMember(c, userId, displayName, ownProjectId = null) {
   const name = clean(displayName, 24) || clean((db.getProfile(userId) || {}).name, 24) || 'Player';
   conn.prepare('INSERT INTO challenge_members (challengeId, userId, projectId, displayName, color, joinedAt) VALUES (?,?,?,?,?,?)')
     .run(c.id, userId, project.id, name, color, new Date().toISOString());
+  if (userId !== c.ownerId) postEvent(c.id, `${shownName(c, { userId, displayName: name })} joined`, userId);
   return project;
 }
 
@@ -236,6 +261,7 @@ function standings(c, viewerId) {
       p.place = place;
     });
   }
+  announce(c, members, players);
   const winner = !together && (players.find(p => p.finished) || null);
   const steps = players.reduce((a, p) => a + p.done, 0);
   const me = players.find(p => p.you);
@@ -251,6 +277,7 @@ function standings(c, viewerId) {
     group: { finished: players.filter(p => p.finished).length, players: players.length, stepsPct: players.length ? Math.round((steps / (players.length * c.taskCount)) * 100) : 0, behind: players.filter(p => p.pace === 'behind').length },
     owner: organiser, joinToken: c.joinToken, joinCode: c.joinCode,
     lastNudgeAt: organiser ? c.lastNudgeAt : undefined,
+    chat: chatSummary(c.id, viewerId),
     players,
   };
 }
@@ -304,6 +331,7 @@ function remind(id, userId) {
   const add = conn.prepare('INSERT INTO challenge_nudges (challengeId, userId, text, createdAt) VALUES (?,?,?,?)');
   who.forEach(p => add.run(c.id, p.userId, text, now));
   conn.prepare('UPDATE challenges SET lastNudgeAt = ? WHERE id = ?').run(now, c.id);
+  postMessage(c.id, userId, `Keep going, everyone: the finish is ${new Date(c.endsAt).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}.`, 'nudge');
   try {
     const { sendPushToUser } = require('./push/webpush');
     who.forEach(p => sendPushToUser(p.userId, { title: c.title, body: text, url: '/app', tag: `nudge-${c.id}` }).catch(() => {}));
@@ -315,9 +343,105 @@ function nudgesSince(userId, since) {
   return conn.prepare(`SELECT n.challengeId, n.text, n.createdAt, c.title FROM challenge_nudges n JOIN challenges c ON c.id = n.challengeId
     WHERE n.userId = ? AND n.createdAt > ? ORDER BY n.createdAt DESC LIMIT 10`).all(userId, since);
 }
+// ── The race or group's chat ──────────────────────────────────────────
+const ord = n => `${n}${(n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'}`;
+function postMessage(cid, userId, text, kind = 'msg', toUserId = null) {
+  const m = { id: crypto.randomUUID(), challengeId: cid, userId, kind, text, toUserId, createdAt: new Date().toISOString() };
+  conn.prepare('INSERT INTO challenge_messages (id, challengeId, userId, kind, text, toUserId, createdAt) VALUES (@id, @challengeId, @userId, @kind, @text, @toUserId, @createdAt)').run(m);
+  return m;
+}
+const postEvent = (cid, text, userId = null) => postMessage(cid, userId, text, 'event');
+// The app's own lines, once each: someone halfway, someone finished (with
+// their place in a race). Checked whenever the scoreboard is worked out.
+function announce(c, members, players) {
+  const byUser = new Map(members.map(m => [m.userId, m]));
+  players.forEach(p => {
+    const m = byUser.get(p.userId);
+    if (!m) return;
+    const name = shownName(c, m);
+    if (p.finished && !m.finishAnnounced) {
+      conn.prepare('UPDATE challenge_members SET finishAnnounced = 1, halfAnnounced = 1 WHERE challengeId = ? AND userId = ?').run(c.id, m.userId);
+      postEvent(c.id, p.place ? `${name} finished ${ord(p.place)}${p.place <= 3 ? ` ${['', '🥇', '🥈', '🥉'][p.place]}` : ''}` : `${name} finished 🏁`, m.userId);
+    } else if (!p.finished && p.frac >= 0.5 && !m.halfAnnounced) {
+      conn.prepare('UPDATE challenge_members SET halfAnnounced = 1 WHERE challengeId = ? AND userId = ?').run(c.id, m.userId);
+      postEvent(c.id, `${name} is halfway`, m.userId);
+    }
+  });
+}
+// Who wrote it, as this viewer should see it: a player by their shown
+// name (real names for the organiser), the leader by role and name.
+function authorOf(c, userId, viewerId) {
+  if (!userId) return { name: 'Waypoint', color: '#64748B' };
+  const m = memberRow(c.id, userId);
+  if (m) return { name: userId === viewerId ? 'You' : c.ownerId === viewerId ? m.displayName : shownName(c, m), color: m.color };
+  const prof = (db.getProfile(userId) || {}).name || 'The organiser';
+  const ROLE = { coach: 'Coach', trainer: 'Trainer', teacher: 'Teacher', manager: 'Manager', leader: 'Team leader', organiser: 'Organiser' };
+  return { name: userId === viewerId ? 'You' : c.mode === 'together' ? `${ROLE[c.leaderRole] || 'Leader'} ${prof}` : prof, color: '#0D1B2A', leader: true };
+}
+const readRow = (cid, userId) => conn.prepare('SELECT * FROM challenge_reads WHERE challengeId = ? AND userId = ?').get(cid, userId) || {};
+// For the scoreboard: unread count, the last line, cheers you haven't seen.
+function chatSummary(cid, viewerId) {
+  const r = readRow(cid, viewerId);
+  const unread = conn.prepare("SELECT COUNT(*) AS n FROM challenge_messages WHERE challengeId = ? AND createdAt > ? AND (userId IS NULL OR userId != ?)").get(cid, r.readAt || '', viewerId).n;
+  const last = conn.prepare('SELECT * FROM challenge_messages WHERE challengeId = ? ORDER BY createdAt DESC LIMIT 1').get(cid);
+  const cheers = conn.prepare("SELECT * FROM challenge_messages WHERE challengeId = ? AND kind = 'cheer' AND toUserId = ? AND createdAt > ? ORDER BY createdAt").all(cid, viewerId, r.cheersSeenAt || '');
+  const c = byId(cid);
+  return {
+    unread,
+    last: last ? { text: describe(c, last, viewerId), createdAt: last.createdAt, kind: last.kind } : null,
+    cheers: cheers.map(m => ({ from: authorOf(c, m.userId, viewerId).name, emoji: m.text, at: m.createdAt })),
+  };
+}
+function describe(c, m, viewerId) {
+  if (m.kind === 'cheer') {
+    const to = m.toUserId === viewerId ? 'you' : authorOf(c, m.toUserId, viewerId).name;
+    return `${authorOf(c, m.userId, viewerId).name} cheered ${to} ${m.text}`;
+  }
+  if (m.kind === 'event') return m.text;
+  return `${authorOf(c, m.userId, viewerId).name}: ${m.text}`;
+}
+const canChat = (c, userId) => !!c && (c.ownerId === userId || isMember(c.id, userId));
+// The thread (the last 200 lines), marking it read.
+function messages(id, userId) {
+  const c = byId(id);
+  if (!canChat(c, userId)) return null;
+  const rows = conn.prepare('SELECT * FROM (SELECT * FROM challenge_messages WHERE challengeId = ? ORDER BY createdAt DESC LIMIT 200) ORDER BY createdAt').all(c.id);
+  const now = new Date().toISOString();
+  conn.prepare('INSERT INTO challenge_reads (challengeId, userId, readAt) VALUES (?,?,?) ON CONFLICT(challengeId, userId) DO UPDATE SET readAt = excluded.readAt').run(c.id, userId, now);
+  return rows.map(m => {
+    const a = authorOf(c, m.userId, userId);
+    return { id: m.id, kind: m.kind, text: m.kind === 'cheer' ? describe(c, m, userId) : m.text, author: a.name, color: a.color, leader: !!a.leader, you: m.userId === userId, createdAt: m.createdAt };
+  });
+}
+function say(id, userId, text) {
+  const c = byId(id);
+  if (!canChat(c, userId)) return null;
+  const t = clean(text, 1000);
+  if (!t) throw Object.assign(new Error('Write something first'), { status: 400 });
+  return postMessage(c.id, userId, t, 'msg');
+}
+// A cheer for one player, picked by their colour (no ids leave the server).
+const CHEERS = ['👏', '🔥', '💪', '🚀', '🎉'];
+function cheer(id, userId, color, emoji) {
+  const c = byId(id);
+  if (!canChat(c, userId)) return null;
+  const to = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ? AND color = ?').get(c.id, String(color || ''));
+  if (!to) throw Object.assign(new Error('That player has left'), { status: 404 });
+  if (to.userId === userId) throw Object.assign(new Error("You can't cheer yourself on. Try a friend"), { status: 400 });
+  const recent = conn.prepare("SELECT COUNT(*) AS n FROM challenge_messages WHERE challengeId = ? AND userId = ? AND kind = 'cheer' AND createdAt > ?").get(c.id, userId, new Date(Date.now() - 60000).toISOString()).n;
+  if (recent >= 6) throw Object.assign(new Error('Easy there. Give the cheers a minute'), { status: 429 });
+  return postMessage(c.id, userId, CHEERS.includes(emoji) ? emoji : '👏', 'cheer', to.userId);
+}
+function cheersSeen(id, userId) {
+  const c = byId(id);
+  if (!canChat(c, userId)) return null;
+  conn.prepare('INSERT INTO challenge_reads (challengeId, userId, cheersSeenAt) VALUES (?,?,?) ON CONFLICT(challengeId, userId) DO UPDATE SET cheersSeenAt = excluded.cheersSeenAt').run(c.id, userId, new Date().toISOString());
+  return true;
+}
+
 // Leaving takes you off the road; your copy of the goal stays yours.
 function leave(id, userId) {
   return conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId).changes > 0;
 }
 
-module.exports = { createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+module.exports = { createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };

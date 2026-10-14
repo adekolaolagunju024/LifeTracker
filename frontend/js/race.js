@@ -241,7 +241,7 @@ const Race = (() => {
       return `<div class="ch-card-row${c.doneForYou ? ' done' : ''}"><button type="button" class="ch-card" onclick="Race.openDetail('${c.id}')">
         <span class="ch-ic">${esc(c.icon || '🏁')}</span>
         <span class="ch-main"><b>${esc(c.title)}</b><small>${kindOf(c)}${c.mode === 'together' && c.owner ? ' · you lead' : ''} · ${c.over ? 'ended' : c.doneForYou ? 'finished' : `finish by ${esc(when(c.endsAt))}`}</small></span>
-        <span class="ch-line">${line}</span>${icon('chevron_right', 'tiny')}</button>
+        <span class="ch-line">${line}</span>${unreadBadge(c)}${icon('chevron_right', 'tiny')}</button>
         ${c.doneForYou ? `<button type="button" class="ch-clear" onclick="Race.clearFromList(['${c.id}'])" aria-label="Clear ${esc(c.title)} from your list" title="Clear from your list">${icon('close', 'tiny')}</button>` : ''}</div>`;
     };
     const finishedIds = list.filter(c => c.doneForYou).map(c => c.id);
@@ -272,6 +272,7 @@ const Race = (() => {
       <div class="ch-head"><span class="ch-ic big">${esc(c.icon || '🏁')}</span><div class="min-w-0"><h3>${esc(c.title)}</h3>
         <p>${kindOf(c)}${together && c.owner ? ` · you're the ${roleOf(c).label.toLowerCase()}` : ''} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}${c.stake ? ` · <span class="race-strip-stake">${esc(c.stake)}</span>` : ''}</p></div></div>
       <div class="ch-actions">
+        <button type="button" onclick="Race.openChat('${c.id}')">${icon('message-circle', 'tiny')}Chat${unreadBadge(c)}</button>
         <button type="button" onclick="Race.inviteFor('${c.id}')">${icon('user-plus', 'tiny')}Invite · <b>${esc(c.joinCode.replace(/(...)(...)/, '$1 $2'))}</b></button>
         ${me ? `<button type="button" onclick="playJourneyFor('${me.projectId}')">${icon('play', 'tiny')}My Journey</button>` : ''}
         ${!together && (c.winner || c.over) ? `<button type="button" onclick="Race.openReport('${c.id}')">${icon('trophy', 'tiny')}Scoreboard</button>` : ''}
@@ -283,7 +284,7 @@ const Race = (() => {
         <div class="ch-bar" role="img" aria-label="${pct}% finished"><i style="width:${pct}%"></i></div></div>` : ''}
       ${c.players.length ? `<div class="ch-table-wrap"><table class="ch-table"><thead><tr><th>${together ? '' : '#'}</th><th>Name</th><th>Steps</th><th>Pace</th>${c.owner ? '<th>Last step</th>' : ''}</tr></thead>
         <tbody>${c.players.map((p, i) => `<tr class="${p.you ? 'you' : ''}"><td class="pos">${together ? '' : p.place ? placeHtml(p.place) : i + 1}</td>
-          <td><span class="dot" style="background:${esc(p.color)}"></span>${p.you ? `You${c.owner ? '' : ''}` : esc(p.name)}</td>
+          <td><span class="dot" style="background:${esc(p.color)}"></span>${p.you ? 'You' : `<button type="button" class="rc-cheer" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.cheerIn('${c.id}', this)" title="Cheer ${esc(p.name)} on" aria-label="Cheer ${esc(p.name)} on">${esc(p.name)}</button>`}</td>
           <td><span class="ch-steps"><i style="width:${Math.round(p.frac * 100)}%"></i></span><span class="num">${p.done}/${p.total}</span></td>
           <td><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></td>
           ${c.owner ? `<td class="ago">${esc(ago(p.lastStepAt))}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
@@ -331,6 +332,7 @@ const Race = (() => {
     current = race;
     paintStrip(strip);
     announcePlace();
+    showCheers(race);
     if (race) {
       poll = setInterval(async () => {
         if (!document.getElementById('mountain-scene')?.offsetParent || !current) return;
@@ -341,11 +343,12 @@ const Race = (() => {
         current = fresh;
         paintStrip(document.getElementById('journey-race'));
         announcePlace();
+        showCheers(fresh);
         if (JSON.stringify(fresh.players.map(p => [p.name, p.done])) !== before) {
           renderMountainScene();
           moved.forEach(p => showToast(p.finished ? `${p.place ? `🏆 ${placeText(p.place)}` : '🏁'} ${p.name} finished` : `${p.name} is on step ${p.done} of ${p.total}`));
         }
-      }, 45000);
+      }, 20000);
     }
     return race;
   }
@@ -375,10 +378,100 @@ const Race = (() => {
       : r.over ? `${icon('flag', 'tiny')}<b>Time's up</b>` : `${icon('flag', 'tiny')}<b>Race</b> · ${daysLeft <= 0 ? 'ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}`;
     strip.classList.remove('hidden');
     strip.innerHTML = `<div class="race-strip-top"><span class="race-strip-title">${head2}${r.stake ? ` <span class="race-strip-stake">· ${esc(r.stake)}</span>` : ''}</span>
-        <span class="race-strip-actions">${r.mode !== 'together' && (r.winner || r.over) ? `<button type="button" onclick="Race.openReport('${r.id}')">${icon('trophy', 'tiny')}Scoreboard</button>` : ''}<button type="button" onclick="Race.invite()">${icon('user-plus', 'tiny')}Invite</button><button type="button" onclick="Race.leave()">Leave</button></span></div>
-      <ol class="race-board">${r.players.map((p, i) => `<li class="${p.you ? 'you' : ''}"><span class="pos">${r.mode === 'together' ? '' : p.place ? placeHtml(p.place) : i + 1}</span><i style="background:${esc(p.color)}"></i><b>${p.you ? 'You' : esc(p.name)}</b>
+        <span class="race-strip-actions">${r.mode !== 'together' && (r.winner || r.over) ? `<button type="button" onclick="Race.openReport('${r.id}')">${icon('trophy', 'tiny')}Scoreboard</button>` : ''}<button type="button" onclick="Race.openChat('${r.id}')">${icon('message-circle', 'tiny')}Chat${unreadBadge(r)}</button><button type="button" onclick="Race.invite()">${icon('user-plus', 'tiny')}Invite</button><button type="button" onclick="Race.leave()">Leave</button></span></div>
+      <ol class="race-board">${r.players.map((p, i) => `<li class="${p.you ? 'you' : ''}"><span class="pos">${r.mode === 'together' ? '' : p.place ? placeHtml(p.place) : i + 1}</span><i style="background:${esc(p.color)}"></i>${p.you ? '<b>You</b>' : `<button type="button" class="rc-cheer" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.cheerFrom(this)" title="Cheer ${esc(p.name)} on" aria-label="Cheer ${esc(p.name)} on">${esc(p.name)}</button>`}
         <span class="steps">${p.done}/${p.total}</span><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></li>`).join('')}</ol>`;
   }
+  // ── The race or group's chat ──
+  // One thread for everyone in it: messages, the app's own lines (joined,
+  // halfway, finished), cheers and the leader's reminders. Polled while open.
+  let chatPoll = null;
+  const unreadBadge = c => (c && c.chat && c.chat.unread ? `<span class="rc-unread" aria-label="${c.chat.unread} unread">${c.chat.unread > 9 ? '9+' : c.chat.unread}</span>` : '');
+  const chatTime = iso => { const d = new Date(iso); return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
+  async function openChat(id) {
+    let r;
+    try { r = await API.getRace(id); } catch (err) { showToast(err.message || 'Could not open the chat', 'error'); return; }
+    const form = dialog(`${head(r.title, 'message-circle')}
+      <p class="fb-note rc-sub">${esc(kindOf(r))} · ${r.players.length} ${r.players.length === 1 ? 'person' : 'people'}${r.mode !== 'together' ? ' · tap a name on the scoreboard to cheer them on' : ''}</p>
+      <div class="rc-list" id="rc-list" role="log" aria-live="polite" aria-label="Messages"><p class="rc-empty">Loading…</p></div>
+      <div class="rc-send"><input type="text" id="rc-text" maxlength="1000" placeholder="Say something to everyone" aria-label="Message" autocomplete="off"><button type="submit" class="fb-send" aria-label="Send">${icon('send', 'tiny')}</button></div>`);
+    form.classList.add('race-chat');
+    const list = form.querySelector('#rc-list');
+    let lastKey = '';
+    const draw = async () => {
+      let msgs;
+      try { msgs = await API.raceMessages(id); } catch { return; }
+      const key = msgs.map(m => m.id).join();
+      if (key === lastKey) return;
+      lastKey = key;
+      const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+      list.innerHTML = msgs.length ? msgs.map(m => m.kind === 'msg' || m.kind === 'nudge'
+        ? `<div class="rc-msg${m.you ? ' you' : ''}${m.kind === 'nudge' ? ' nudge' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${m.kind === 'nudge' ? `${icon('bell', 'tiny')} ` : ''}${esc(m.author)}</span><p>${esc(m.text)}</p><time>${esc(chatTime(m.createdAt))}</time></div>`
+        : `<div class="rc-event${m.kind === 'cheer' ? ' cheer' : ''}"><span>${esc(m.text)}</span><time>${esc(chatTime(m.createdAt))}</time></div>`).join('')
+        : '<p class="rc-empty">No messages yet. Say hello, or wish everyone luck.</p>';
+      if (atBottom || !lastKey.includes(',')) list.scrollTop = list.scrollHeight;
+    };
+    await draw();
+    list.scrollTop = list.scrollHeight;
+    clearInterval(chatPoll);
+    chatPoll = setInterval(() => { if (!form.isConnected) { clearInterval(chatPoll); return; } draw(); }, 4000);
+    form.querySelector('#rc-text').focus();
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const input = form.querySelector('#rc-text');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      try { await API.sayInRace(id, text); } catch (err) { input.value = text; showToast(err.message || 'Could not send it', 'error'); return; }
+      await draw();
+      list.scrollTop = list.scrollHeight;
+    });
+  }
+  // A cheer for one player: pick an emoji, it goes in the chat and pops
+  // over them on their own Journey.
+  const CHEERS = ['👏', '🔥', '💪', '🚀', '🎉'];
+  function cheerMenu(btn, id, color, name) {
+    document.querySelectorAll('.rc-cheer-pop').forEach(x => x.remove());
+    const pop = document.createElement('div');
+    pop.className = 'rc-cheer-pop';
+    pop.setAttribute('role', 'menu');
+    pop.innerHTML = `<small>Cheer ${esc(name)} on</small><div>${CHEERS.map(e => `<button type="button" role="menuitem" aria-label="Send ${e}">${e}</button>`).join('')}</div>`;
+    document.body.appendChild(pop);
+    const r = btn.getBoundingClientRect();
+    pop.style.left = `${Math.max(8, Math.min(window.innerWidth - pop.offsetWidth - 8, r.left))}px`;
+    pop.style.top = `${r.bottom + 6 + window.scrollY}px`;
+    pop.querySelectorAll('button').forEach((b, i) => b.addEventListener('click', async ev => {
+      ev.stopPropagation();
+      pop.remove();
+      try { await API.cheerInRace(id, color, CHEERS[i]); showToast(`${CHEERS[i]} Sent to ${name}`); } catch (err) { showToast(err.message || 'Could not send it', 'error'); }
+    }));
+    setTimeout(() => document.addEventListener('click', function off(e) { if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('click', off); } }), 0);
+  }
+  function cheerFrom(btn) { if (current) cheerMenu(btn, current.id, btn.dataset.color, btn.dataset.name); }
+  function cheerIn(id, btn) { cheerMenu(btn, id, btn.dataset.color, btn.dataset.name); }
+  // Cheers that came in for you: a toast, and the emoji floating up over
+  // the Journey. Shown once.
+  function showCheers(r) {
+    const list = (r && r.chat && r.chat.cheers) || [];
+    if (!list.length) return;
+    API.raceCheersSeen(r.id).catch(() => {});
+    r.chat.cheers = [];
+    const names = [...new Set(list.map(c => c.from))];
+    // a beat later, so a finish or achievement toast doesn't cover it
+    setTimeout(() => showToast(`${list.map(c => c.emoji).join('')} ${names.join(', ')} cheered you on`), 3500);
+    const scene = document.getElementById('mountain-scene');
+    if (!scene || !scene.offsetParent || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    list.slice(0, 8).forEach((c, i) => {
+      const e = document.createElement('span');
+      e.className = 'rc-float';
+      e.textContent = c.emoji;
+      e.style.left = `${35 + Math.random() * 30}%`;
+      e.style.animationDelay = `${i * 0.25}s`;
+      scene.parentElement.appendChild(e);
+      setTimeout(() => e.remove(), 3200 + i * 250);
+    });
+  }
+
   // Your finishing place, said once per race (with confetti on the podium),
   // then the report a tap away.
   function announcePlace() {
@@ -501,6 +594,6 @@ const Race = (() => {
     });
   }
 
-  return { youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;

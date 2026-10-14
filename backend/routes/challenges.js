@@ -67,6 +67,33 @@ router.delete('/:id/clear', (req, res) => {
   res.json({ success: true });
 });
 
+// The race or group's chat: GET the thread (marks it read), POST a
+// message {text}, POST a cheer {color, emoji} for one player, POST
+// cheers-seen once the cheers to you have been shown.
+router.get('/:id/messages', (req, res) => {
+  const m = challenges.messages(req.params.id, req.session.userId);
+  if (!m) return res.status(404).json({ error: 'Race not found' });
+  res.json(m);
+});
+router.post('/:id/messages', (req, res) => {
+  try {
+    const m = challenges.say(req.params.id, req.session.userId, (req.body || {}).text);
+    if (!m) return res.status(404).json({ error: 'Race not found' });
+    res.status(201).json({ id: m.id });
+  } catch (e) { fail(res, e); }
+});
+router.post('/:id/cheer', (req, res) => {
+  try {
+    const m = challenges.cheer(req.params.id, req.session.userId, (req.body || {}).color, (req.body || {}).emoji);
+    if (!m) return res.status(404).json({ error: 'Race not found' });
+    res.status(201).json({ id: m.id });
+  } catch (e) { fail(res, e); }
+});
+router.post('/:id/cheers-seen', (req, res) => {
+  if (!challenges.cheersSeen(req.params.id, req.session.userId)) return res.status(404).json({ error: 'Race not found' });
+  res.json({ success: true });
+});
+
 // POST /api/challenges/:id/leave
 router.post('/:id/leave', (req, res) => {
   if (!challenges.leave(req.params.id, req.session.userId)) return res.status(404).json({ error: 'Race not found' });

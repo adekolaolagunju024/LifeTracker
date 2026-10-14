@@ -126,6 +126,11 @@
   "whatsNew": [
     {
       "date": "2026-10-14",
+      "title": "Chat and cheers for races and groups",
+      "text": "Every race and group now has its own chat, in the Chats inbox and on the race strip. Waypoint posts when someone joins, gets halfway or finishes, and a coach's reminder lands there too. Tap someone's name to cheer them on: the emoji floats up over their Journey."
+    },
+    {
+      "date": "2026-10-14",
       "title": "A proper welcome on an empty dashboard",
       "text": "Before your first goal, the dashboard now shows three ways in: plan it with the assistant, start from a template or join a team with a code. Below them are the five Journey stages, so you can pick where your goal plays. A stray empty circle on the dashboard is gone too."
     },
