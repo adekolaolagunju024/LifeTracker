@@ -164,7 +164,7 @@ function setJourneyCompetitor(value) {
 // older saved "football3d"-style choice splits into the stage and the 3D
 // view.
 const RETIRED_JOURNEY_THEMES = ['road', 'race', 'ocean', 'corporate', 'life', 'launch'];
-const JOURNEY_STAGES = ['football', 'space', 'castle', 'construction'];
+const JOURNEY_STAGES = ['football', 'space', 'castle', 'construction', 'sprint'];
 function journeyPref(key) {
   try { return localStorage.getItem(key); } catch { return null; /* private mode etc */ }
 }

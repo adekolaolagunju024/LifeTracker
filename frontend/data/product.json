@@ -28,6 +28,13 @@
       "name": "Construction",
       "line": "Watch the building go up phase by phase as tasks are done.",
       "view": "2d"
+    },
+    {
+      "id": "sprint",
+      "emoji": "🏃",
+      "name": "Sprint Track",
+      "line": "Run your lane in an Olympic stadium, clear the hurdles and break the tape. Racing friends? Everyone gets a lane.",
+      "view": "3d"
     }
   ],
   "tour": [
@@ -117,6 +124,11 @@
     }
   ],
   "whatsNew": [
+    {
+      "date": "2026-10-14",
+      "title": "New stage: the Sprint Track",
+      "text": "Run your lane in an Olympic stadium, in 2D or 3D. Tasks are split boards by the track, blockers are hurdles you jump, and finishing breaks the tape for a personal best. Racing friends? Everyone gets their own lane, and the big screen shows who is leading."
+    },
     {
       "date": "2026-10-14",
       "title": "Clear finished races and groups from Teams",

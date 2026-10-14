@@ -1342,6 +1342,275 @@ const JourneyGame = (() => {
   };
 
   // ════════════════════════════════════════════════════════════════
+  // THEME: SPRINT — "The Final". An Olympic stadium seen from above: an
+  // eight-lane red track round a green infield, the stands full. You run
+  // lane 1 most of a lap, from the start of the back straight round the
+  // bend to the finish line at the end of the home straight; everyone
+  // racing you runs their own lane. Tasks are split-time boards by the
+  // track, blockers are hurdles, and the finish has a photo-finish board
+  // and a tape to break.
+  // ════════════════════════════════════════════════════════════════
+  // The track's shape for a layout: a stadium (two straights joined by
+  // half circles) round (cx, cy). Lane 1's line is at radius r1 from the
+  // straights' centre line; each lane is laneW wide, eight in all.
+  function sprintGeom(layout) {
+    return layout === LAYOUTS.tall
+      ? { vertical: true, cx: 210, cy: 404, L: 168, r1: 82, laneW: 11 }
+      : { vertical: false, cx: 400, cy: 276, L: 212, r1: 86, laneW: 11 };
+  }
+  const SPRINT_LANES = 8;
+  // A point at distance s along your run, at radius r. Wide: left along
+  // the top (back) straight, round the left bend, right along the bottom
+  // (home) straight. Tall: down the left, round the bottom, up the right.
+  function sprintPoint(g, s, r) {
+    const { cx, cy, L } = g;
+    const bend = Math.PI * r;
+    if (!g.vertical) {
+      if (s <= 2 * L) return { x: cx + L - s, y: cy - r };
+      if (s <= 2 * L + bend) { const a = -Math.PI / 2 - (s - 2 * L) / r; return { x: cx - L + r * Math.cos(a), y: cy + r * Math.sin(a) }; }
+      return { x: cx - L + (s - 2 * L - bend), y: cy + r };
+    }
+    if (s <= 2 * L) return { x: cx - r, y: cy - L + s };
+    if (s <= 2 * L + bend) { const a = Math.PI - (s - 2 * L) / r; return { x: cx + r * Math.cos(a), y: cy + L + r * Math.sin(a) }; }
+    return { x: cx + r, y: cy + L - (s - 2 * L - bend) };
+  }
+  const sprintRunLength = g => 4 * g.L + Math.PI * g.r1;
+  // The run as dense waypoints, so the shared spline follows the oval.
+  function sprintPoints(layout) {
+    const g = sprintGeom(layout);
+    const total = sprintRunLength(g), steps = 64;
+    return Array.from({ length: steps + 1 }, (_, i) => sprintPoint(g, (i / steps) * total, g.r1));
+  }
+  // Out from the track's centre line: the direction a higher lane lies in.
+  function sprintOutward(g, p) {
+    const q = g.vertical ? { x: g.cx, y: Math.max(g.cy - g.L, Math.min(g.cy + g.L, p.y)) } : { x: Math.max(g.cx - g.L, Math.min(g.cx + g.L, p.x)), y: g.cy };
+    const d = Math.hypot(p.x - q.x, p.y - q.y) || 1;
+    return { x: (p.x - q.x) / d, y: (p.y - q.y) / d };
+  }
+  // A rival's spot: the same distance round as lane 1's point, `lane`
+  // lanes out (0 is lane 1).
+  function sprintLanePoint(layoutKey, p, lane) {
+    const g = sprintGeom(layoutKey === 'tall' ? LAYOUTS.tall : LAYOUTS.wide);
+    const o = sprintOutward(g, p);
+    return { x: p.x + o.x * lane * g.laneW, y: p.y + o.y * lane * g.laneW };
+  }
+  // The stadium outline at radius r, as a path.
+  function sprintRing(g, r) {
+    const { cx, cy, L } = g;
+    return g.vertical
+      ? `M ${cx - r} ${cy - L} L ${cx - r} ${cy + L} A ${r} ${r} 0 0 0 ${cx + r} ${cy + L} L ${cx + r} ${cy - L} A ${r} ${r} 0 0 0 ${cx - r} ${cy - L} Z`
+      : `M ${cx + L} ${cy - r} L ${cx - L} ${cy - r} A ${r} ${r} 0 0 0 ${cx - L} ${cy + r} L ${cx + L} ${cy + r} A ${r} ${r} 0 0 0 ${cx + L} ${cy - r} Z`;
+  }
+  let sprintLayout = LAYOUTS.wide; // the layout being built, for the finish
+  function sprintDecorate(svg, layout, glowId, glowLgId) {
+    sprintLayout = layout;
+    const { w, h } = layout;
+    const g = sprintGeom(layout);
+    const rin = g.r1 - g.laneW / 2, rout = rin + SPRINT_LANES * g.laneW;
+    // The stands all round, then a concourse, then the track and infield.
+    svg.appendChild(el('rect', { x: 0, y: 0, width: w, height: h, fill: '#1e293b' }));
+    const kit = ['#e53935', '#ffffff', '#1e88e5', '#fdd835', '#10b981', '#f97316'];
+    const rows = g.vertical ? [[0, 0, w, 40], [0, h - 22, w, 22]] : [[0, 0, w, 44], [0, h - 26, w, 26]];
+    rows.forEach(([x, y, rw, rh]) => {
+      const fans = Math.round(rw / 11);
+      for (let row = 0; row < Math.floor(rh / 11); row++) {
+        for (let i = 0; i < fans; i++) {
+          svg.appendChild(el('circle', {
+            class: 'journey-crowd-bob', cx: x + (i + 0.5 + (row % 2) * 0.5) * (rw / fans), cy: y + 6 + row * 11, r: 3,
+            fill: kit[(i * 7 + row * 3) % kit.length], opacity: 0.9, style: `animation-delay:${(((i + row) % 9) * 0.13).toFixed(2)}s`,
+          }));
+        }
+      }
+    });
+    svg.appendChild(el('path', { d: sprintRing(g, rout + 12), fill: '#475569' }));
+    svg.appendChild(el('path', { d: sprintRing(g, rout + 2), fill: '#9a3412' }));
+    svg.appendChild(el('path', { d: sprintRing(g, rout), fill: '#c2410c' }));
+    // The infield, in mown stripes, with a long-jump pit and a throws circle.
+    const clipId = `sprint-infield-${++uid}`;
+    const clip = el('clipPath', { id: clipId });
+    clip.appendChild(el('path', { d: sprintRing(g, rin) }));
+    svg.appendChild(clip);
+    const field = el('g', { 'clip-path': `url(#${clipId})` });
+    for (let i = 0; i < 16; i++) {
+      field.appendChild(g.vertical
+        ? el('rect', { x: 0, y: g.cy - g.L - rin + i * ((2 * (g.L + rin)) / 16), width: w, height: (2 * (g.L + rin)) / 16 + 1, fill: i % 2 ? '#3f9d4a' : '#46a852' })
+        : el('rect', { x: g.cx - g.L - rin + i * ((2 * (g.L + rin)) / 16), y: 0, width: (2 * (g.L + rin)) / 16 + 1, height: h, fill: i % 2 ? '#3f9d4a' : '#46a852' }));
+    }
+    svg.appendChild(field);
+    svg.appendChild(el('path', { d: sprintRing(g, rin), fill: 'none', stroke: '#e2e8f0', 'stroke-width': 1.6 }));
+    const pit = g.vertical ? { x: g.cx - 12, y: g.cy - 60, w: 24, h: 70 } : { x: g.cx - 70, y: g.cy - 12, w: 90, h: 24 };
+    svg.appendChild(el('rect', { x: pit.x, y: pit.y, width: pit.w, height: pit.h, rx: 3, fill: '#e9d5a1', stroke: '#b45309', 'stroke-width': 0.8 }));
+    const throwAt = g.vertical ? { x: g.cx, y: g.cy + 70 } : { x: g.cx + 90, y: g.cy };
+    svg.appendChild(el('circle', { cx: throwAt.x, cy: throwAt.y, r: 9, fill: '#94a3b8', stroke: '#ffffff', 'stroke-width': 1.2 }));
+    svg.appendChild(el('path', { d: g.vertical ? `M ${throwAt.x} ${throwAt.y + 9} L ${throwAt.x - 30} ${throwAt.y + 70} M ${throwAt.x} ${throwAt.y + 9} L ${throwAt.x + 30} ${throwAt.y + 70}` : `M ${throwAt.x + 9} ${throwAt.y} L ${throwAt.x + 80} ${throwAt.y - 34} M ${throwAt.x + 9} ${throwAt.y} L ${throwAt.x + 80} ${throwAt.y + 34}`, fill: 'none', stroke: '#ffffff', 'stroke-width': 1, opacity: 0.6 }));
+    // The lane lines, and the numbers at the start.
+    for (let i = 1; i <= SPRINT_LANES; i++) svg.appendChild(el('path', { d: sprintRing(g, rin + i * g.laneW), fill: 'none', stroke: '#ffffff', 'stroke-width': 0.9, opacity: 0.85 }));
+    const total = sprintRunLength(g);
+    for (let lane = 0; lane < SPRINT_LANES; lane++) {
+      const p = sprintPoint(g, 6, g.r1 + lane * g.laneW);
+      const t = el('text', { x: p.x, y: p.y, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 6.5, 'font-weight': 800, fill: '#ffffff', opacity: 0.9, 'font-family': 'Arial, sans-serif' });
+      t.textContent = String(lane + 1);
+      svg.appendChild(t);
+    }
+    // The start and finish lines, across every lane: lane 1's point
+    // pushed out (the bends are longer further out, so the same distance
+    // along an outer lane would land somewhere else).
+    const across = (s, r) => { const p = sprintPoint(g, s, g.r1), o = sprintOutward(g, p); return { x: p.x + o.x * (r - g.r1), y: p.y + o.y * (r - g.r1) }; };
+    const s0 = across(0, rin), s1 = across(0, rout);
+    svg.appendChild(el('line', { x1: s0.x, y1: s0.y, x2: s1.x, y2: s1.y, stroke: '#ffffff', 'stroke-width': 2.4 }));
+    const f0 = across(total, rin), f1 = across(total, rout);
+    const sq = 3;
+    const cells = Math.round(Math.hypot(f1.x - f0.x, f1.y - f0.y) / sq);
+    for (let i = 0; i < cells; i++) {
+      for (let j = 0; j < 2; j++) {
+        const x = g.vertical ? f0.x + i * sq : f0.x - sq + j * sq, y = g.vertical ? f0.y - sq + j * sq : f0.y + i * sq;
+        svg.appendChild(el('rect', { x, y, width: sq, height: sq, fill: (i + j) % 2 ? '#111827' : '#ffffff' }));
+      }
+    }
+    // Floodlights, and their glow on the track.
+    const lights = g.vertical ? [[16, 52], [w - 16, 52], [16, h - 36], [w - 16, h - 36]] : [[22, 56], [w - 22, 56], [22, h - 36], [w - 22, h - 36]];
+    lights.forEach(([x, y]) => {
+      svg.appendChild(el('circle', { cx: x, cy: y, r: 46, fill: '#fff7c2', opacity: 0.14, filter: glowLgId ? `url(#${glowLgId})` : undefined }));
+      svg.appendChild(el('rect', { x: x - 11, y: y - 7, width: 22, height: 14, rx: 2, fill: '#334155', stroke: '#0f172a', 'stroke-width': 0.8 }));
+      for (let r = 0; r < 2; r++) for (let i = 0; i < 4; i++) svg.appendChild(el('rect', { x: x - 9 + i * 4.7, y: y - 5 + r * 5.2, width: 3.6, height: 4, rx: 0.8, fill: '#fffbe0' }));
+      svg.appendChild(el('circle', { cx: x, cy: y, r: 16, fill: '#fff7c2', opacity: 0.45, filter: glowId ? `url(#${glowId})` : undefined }));
+    });
+  }
+  // Little touches on the infield: a few marker cones and a spare hurdle.
+  function sprintScatter(layer, layout, isClear, rand) {
+    const g = sprintGeom(layout);
+    const rin = g.r1 - g.laneW / 2;
+    scatterProps(layer, layout, (x, y, m) => {
+      const q = g.vertical ? { x: g.cx, y: Math.max(g.cy - g.L, Math.min(g.cy + g.L, y)) } : { x: Math.max(g.cx - g.L, Math.min(g.cx + g.L, x)), y: g.cy };
+      return Math.hypot(x - q.x, y - q.y) < rin - 16 && isClear(x, y, m);
+    }, rand, {
+      count: 4, margin: 8, spacing: 50,
+      draw(gr, v) {
+        gr.appendChild(el('ellipse', { cx: 1, cy: 1, rx: 5, ry: 1.6, fill: '#0b1220', opacity: 0.25 }));
+        if (v < 0.6) {
+          gr.appendChild(el('path', { d: 'M -4 0 L -1.3 -8 L 1.3 -8 L 4 0 Z', fill: '#f97316', stroke: '#9a3412', 'stroke-width': 0.5 }));
+        } else {
+          sprintHurdle(gr, 0.7);
+        }
+      },
+    });
+  }
+  // A hurdle: two feet, two posts and a striped top bar.
+  function sprintHurdle(gr, k = 1) {
+    [-7, 7].forEach(x => {
+      gr.appendChild(el('rect', { x: (x - 2.4) * k, y: -1 * k, width: 4.8 * k, height: 1.6 * k, fill: '#334155' }));
+      gr.appendChild(el('rect', { x: (x - 0.6) * k, y: -12 * k, width: 1.2 * k, height: 12 * k, fill: '#cbd5e1' }));
+    });
+    gr.appendChild(el('rect', { x: -9 * k, y: -15 * k, width: 18 * k, height: 3.6 * k, fill: '#ffffff', stroke: '#111827', 'stroke-width': 0.4 * k }));
+    for (let x = -9; x < 9; x += 6) gr.appendChild(el('rect', { x: x * k, y: -15 * k, width: 3 * k, height: 3.6 * k, fill: '#111827' }));
+  }
+  // A sprinter: singlet in their colour with a race bib, black shorts,
+  // spikes, a headband; the shared limb rig swings arms and legs.
+  function sprintBuildAvatar(fill, shadowFilterId) {
+    const g = el('g', { class: 'journey-avatar' });
+    g.appendChild(el('ellipse', { cx: 2, cy: 24, rx: 15, ry: 3.4, fill: '#0b1220', opacity: 0.28 }));
+    const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    bob.appendChild(avatarLimb('journey-leg-back', '#8d5524', -3.4, 9, 3.8, 10.5, 3.4, 1.6, '#f8fafc'));
+    bob.appendChild(avatarLimb('journey-arm-back', '#8d5524', -7.2, -4, 3.4, 9, 1.8, 1.8, '#8d5524'));
+    bob.appendChild(el('rect', { x: -7.8, y: -9.5, width: 15.6, height: 14, rx: 5.5, fill, stroke: '#1f2937', 'stroke-width': 1 }));
+    bob.appendChild(el('rect', { x: -7.6, y: 3, width: 15.2, height: 6.5, rx: 2.4, fill: '#111827' }));
+    bob.appendChild(el('rect', { x: -4.6, y: -6.4, width: 9.2, height: 7, rx: 1, fill: '#ffffff', stroke: '#1f2937', 'stroke-width': 0.5 }));
+    const num = el('text', { class: 'journey-unflip', x: 0, y: -2.7, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 5, 'font-weight': 900, fill: '#111827', 'font-family': 'Arial, sans-serif' });
+    num.textContent = '1';
+    bob.appendChild(num);
+    bob.appendChild(avatarLimb('journey-leg-front', '#9a6230', 3.4, 9, 3.8, 10.5, 3.4, 1.6, '#f8fafc'));
+    bob.appendChild(avatarLimb('journey-arm-front', '#9a6230', 7.2, -4, 3.4, 9, 1.8, 1.8, '#9a6230'));
+    const head = el('g', { transform: 'translate(0,-17.5)' });
+    head.appendChild(el('circle', { cx: 0, cy: 0, r: 8.2, fill: '#9a6230', stroke: '#1f2937', 'stroke-width': 1 }));
+    head.appendChild(el('path', { d: 'M -8.2 -2 Q -8.4 -9.6 0 -9.6 Q 8.4 -9.6 8.2 -2 Q 6 -6.4 0 -6.6 Q -6 -6.4 -8.2 -2 Z', fill: '#111827' }));
+    head.appendChild(el('rect', { x: -8.4, y: -5.2, width: 16.8, height: 2.4, rx: 1, fill }));
+    [[-3, 0.6], [3, 0.6]].forEach(([ex, ey]) => {
+      head.appendChild(el('ellipse', { cx: ex, cy: ey, rx: 1.6, ry: 2, fill: '#ffffff' }));
+      head.appendChild(el('circle', { cx: ex + 0.3, cy: ey + 0.4, r: 1, fill: '#1f2937' }));
+    });
+    head.appendChild(el('path', { d: 'M -2.2 4.2 Q 0 5.8 2.2 4.2', fill: 'none', stroke: '#1f2937', 'stroke-width': 1, 'stroke-linecap': 'round' }));
+    bob.appendChild(head);
+    g.appendChild(bob);
+    return g;
+  }
+  // The finish: a tape across the lanes (it breaks when you cross it), a
+  // photo-finish camera on its tower and a board that reads FINISH.
+  function sprintBuildGoal(x, y, gradId, shadowFilterId, glowId) {
+    const g = sprintGeom(sprintLayout);
+    const span = (SPRINT_LANES - 0.5) * g.laneW;
+    const out = g.vertical ? { x: 1, y: 0 } : { x: 0, y: 1 };
+    const grp = el('g', { transform: `translate(${x},${y})` });
+    grp.appendChild(el('circle', { cx: 0, cy: 0, r: 30, fill: '#fff7c2', opacity: 0.28, filter: glowId ? `url(#${glowId})` : undefined }));
+    // the tape, from just inside lane 1 to the outside of lane 8
+    const x0 = -out.x * g.laneW * 0.6, y0 = -out.y * g.laneW * 0.6;
+    const tape = el('g', { class: 'journey-sprint-tape' });
+    tape.appendChild(el('line', { x1: x0, y1: y0 - 6, x2: out.x * span, y2: out.y * span - 6, stroke: '#ef4444', 'stroke-width': 1.8 }));
+    [[x0, y0], [out.x * span, out.y * span]].forEach(([px, py]) => {
+      tape.appendChild(el('rect', { x: px - 0.8, y: py - 12, width: 1.6, height: 12, fill: '#e2e8f0' }));
+    });
+    grp.appendChild(tape);
+    // the camera tower and board, just off the track on the infield side
+    const bx = -out.x * 26, by = -out.y * 26;
+    const board = el('g', { transform: `translate(${bx},${by})`, filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    board.appendChild(el('rect', { x: -1.2, y: -26, width: 2.4, height: 26, fill: '#64748b' }));
+    board.appendChild(el('rect', { x: -19, y: -40, width: 38, height: 15, rx: 2, fill: '#0f172a', stroke: '#fbbf24', 'stroke-width': 1 }));
+    const t = el('text', { x: 0, y: -32.2, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 7.6, 'font-weight': 900, fill: '#fbbf24', 'font-family': '"Courier New", monospace', 'letter-spacing': 0.6 });
+    t.textContent = 'FINISH';
+    board.appendChild(t);
+    board.appendChild(el('rect', { x: 4, y: -48, width: 10, height: 7, rx: 1.4, fill: '#1f2937' }));
+    board.appendChild(el('circle', { cx: 9, cy: -44.5, r: 2.4, fill: '#38bdf8', stroke: '#0f172a', 'stroke-width': 0.6 }));
+    grp.appendChild(board);
+    return grp;
+  }
+  // A split board by the track for each task: a post with a timing board,
+  // coloured by status, showing its number (or a tick).
+  function sprintBuildCheckpoint(i, isDone, isNext, blocked, scale, shadowFilterId) {
+    const color = isDone ? DONE_COLOR : isNext ? NEXT_COLOR : PENDING_COLOR;
+    const s = scale;
+    const g = el('g', { class: 'journey-flag' });
+    if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 0, cy: -20 * s, r: 14 * s, fill: NEXT_COLOR, opacity: 0.5 }));
+    g.appendChild(el('ellipse', { cx: 1.5 * s, cy: 0.5 * s, rx: 5 * s, ry: 1.6 * s, fill: '#0b1220', opacity: 0.25 }));
+    g.appendChild(el('rect', { x: -0.9 * s, y: -18 * s, width: 1.8 * s, height: 18 * s, fill: '#cbd5e1', stroke: '#475569', 'stroke-width': 0.4 * s }));
+    const board = el('rect', {
+      x: -8 * s, y: -30 * s, width: 16 * s, height: 12 * s, rx: 2 * s, fill: color, stroke: '#1f2937', 'stroke-width': 0.7 * s,
+      filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined,
+    });
+    g.appendChild(board);
+    g.appendChild(el('rect', { x: -6.6 * s, y: -28.8 * s, width: 13.2 * s, height: 3 * s, rx: 1 * s, fill: '#ffffff', opacity: 0.35 }));
+    const label = el('text', {
+      x: 0, y: -23.6 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
+      'font-size': 7 * s, 'font-weight': 900, fill: '#1f2937', 'font-family': 'Arial, sans-serif',
+    });
+    label.textContent = isDone ? '✓' : String(i + 1);
+    g.appendChild(label);
+    if (blocked) g.appendChild(drawFoes(blocked, s, SPRINT_FOES));
+    return g;
+  }
+  // Breaking the tape: the tape snaps, the photo-finish camera flashes,
+  // the crowd jumps up and the board calls it.
+  function sprintCelebrateFinish(entry, from, scale, burst) {
+    entry.shotPending = false;
+    const tape = entry.svg.querySelector('.journey-sprint-tape');
+    if (tape) tape.style.display = 'none';
+    const flash = el('rect', { x: 0, y: 0, width: '100%', height: '100%', fill: '#ffffff', opacity: 0.85, 'pointer-events': 'none' });
+    entry.svg.insertBefore(flash, entry.vignette);
+    flash.animate([{ opacity: 0.85 }, { opacity: 0 }], { duration: 450, easing: 'ease-out' }).onfinish = () => flash.remove();
+    entry.svg.classList.add('journey-cheer');
+    setTimeout(() => entry.svg.classList.remove('journey-cheer'), 3200);
+    finishFlourish(entry, 'PERSONAL BEST!', '#fde047', '#b91c1c', ['#fde047', '#ef4444', '#ffffff']);
+    burst();
+  }
+  // Blockers on the track: a hurdle, and a steeplechase barrier with its
+  // water pit, in turn.
+  const SPRINT_FOES = (g, k) => {
+    if (k % 2 === 0) { sprintHurdle(g, 1); return; }
+    g.appendChild(el('ellipse', { cx: 6, cy: 1, rx: 12, ry: 3.4, fill: '#38bdf8', opacity: 0.75 }));
+    [-9, 9].forEach(x => g.appendChild(el('rect', { x: x - 1.2, y: -12, width: 2.4, height: 12, fill: '#e2e8f0', stroke: '#475569', 'stroke-width': 0.4 })));
+    g.appendChild(el('rect', { x: -11, y: -15, width: 22, height: 5, rx: 1, fill: '#f8fafc', stroke: '#111827', 'stroke-width': 0.5 }));
+    for (let x = -11; x < 11; x += 5.5) g.appendChild(el('rect', { x, y: -15, width: 2.75, height: 5, fill: '#111827' }));
+  };
+
+  // ════════════════════════════════════════════════════════════════
   // THEME REGISTRY — picked by app.js (Settings-free: a small selector
   // right in the Journey header, see index.html's #journey-theme-select)
   // and passed in as state.theme on every sync() call.
@@ -1382,6 +1651,17 @@ const JourneyGame = (() => {
       path: { outline: '#8b6b45', fill: '#e8d5b0', dash: '#f97316', progress: '#fde047' },
       decorate: constructionDecorate, scatter: constructionScatter, buildAvatar: constructionBuildAvatar, buildGoal: constructionBuildGoal, buildCheckpoint: constructionBuildCheckpoint, foes: CONSTRUCTION_FOES,
       updateGoal: constructionUpdateGoal, celebrateFinish: constructionCelebrateFinish,
+    },
+    sprint: {
+      label: 'Sprint Track', avatarFill: '#2563eb', clearedWord: 'CLEARED!',
+      sky: [[0, '#1e293b'], [100, '#1e293b']],
+      goalGrad: [[0, '#fff2b8'], [55, '#ffcf3f'], [100, '#f5a623']],
+      // Your lane, not a road: lane 1 picked out, no centre dashes.
+      path: { outline: '#ffffff', fill: '#dc5a35', dash: 'none', progress: '#fde047' },
+      road: { shadow: 0, outline: 10.5, base: 8.5, sheen: 0, line: 0, progress: 3.4 },
+      points: sprintPoints, lanePoint: sprintLanePoint,
+      decorate: sprintDecorate, scatter: sprintScatter, buildAvatar: sprintBuildAvatar, buildGoal: sprintBuildGoal, buildCheckpoint: sprintBuildCheckpoint, foes: SPRINT_FOES,
+      celebrateFinish: sprintCelebrateFinish,
     },
   };
   function resolveThemeKey(key) { return THEMES[key] ? key : 'football'; }
@@ -1492,12 +1772,15 @@ const JourneyGame = (() => {
     // centerline, round caps/joins throughout. Colors come from the
     // theme; the shape (and therefore every checkpoint's exact position)
     // is identical across all four themes.
-    const d = pathD(layout.points);
-    const pathShadow = el('path', { d, fill: 'none', stroke: '#0b1220', 'stroke-width': 44, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.22, transform: 'translate(0,7)', filter: `url(#${glowId})` });
-    const pathOutline = el('path', { d, fill: 'none', stroke: theme.path.outline, 'stroke-width': 40, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
-    const pathBase = el('path', { d, fill: 'none', stroke: theme.path.fill, 'stroke-width': 32, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
-    const pathSheen = el('path', { d, fill: 'none', stroke: '#ffffff', 'stroke-width': 8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.22, transform: 'translate(0,-5)' });
-    const pathLine = el('path', { d, fill: 'none', stroke: theme.path.dash, 'stroke-width': 3.2, 'stroke-dasharray': '11 11', 'stroke-linecap': 'round' });
+    // A theme can run its own shape (the sprint track's oval) and draw
+    // the road thinner (a lane rather than a road).
+    const d = pathD(theme.points ? theme.points(layout) : layout.points);
+    const rw = { shadow: 44, outline: 40, base: 32, sheen: 8, line: 3.2, progress: 6, ...(theme.road || {}) };
+    const pathShadow = el('path', { d, fill: 'none', stroke: '#0b1220', 'stroke-width': rw.shadow, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.22, transform: 'translate(0,7)', filter: `url(#${glowId})` });
+    const pathOutline = el('path', { d, fill: 'none', stroke: theme.path.outline, 'stroke-width': rw.outline, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+    const pathBase = el('path', { d, fill: 'none', stroke: theme.path.fill, 'stroke-width': rw.base, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+    const pathSheen = el('path', { d, fill: 'none', stroke: '#ffffff', 'stroke-width': rw.sheen, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0.22, transform: 'translate(0,-5)' });
+    const pathLine = el('path', { d, fill: 'none', stroke: theme.path.dash, 'stroke-width': rw.line, 'stroke-dasharray': '11 11', 'stroke-linecap': 'round' });
     svg.appendChild(pathShadow);
     svg.appendChild(pathOutline);
     svg.appendChild(pathBase);
@@ -1511,7 +1794,7 @@ const JourneyGame = (() => {
     // fully hidden here (offset = full length) since nothing's walked yet.
     const progressLen = pathBase.getTotalLength();
     const progressPath = el('path', {
-      d, fill: 'none', stroke: theme.path.progress, 'stroke-width': 6, 'stroke-linecap': 'round',
+      d, fill: 'none', stroke: theme.path.progress, 'stroke-width': rw.progress, 'stroke-linecap': 'round',
       'stroke-dasharray': `${progressLen} ${progressLen}`, 'stroke-dashoffset': progressLen, opacity: 0.85,
     });
     svg.appendChild(progressPath);
@@ -1611,11 +1894,15 @@ const JourneyGame = (() => {
     const tagged = new Set(rivals.length <= 8 ? rivals : [...sorted.slice(0, 2), ...rivals.filter(r => r.leader)]);
     // Players on the same spot stand a little apart, so each can be seen.
     const atSpot = new Map();
+    // On the sprint track everyone has a lane of their own (you run lane
+    // 1), kept the same however the order changes.
+    const lanes = theme.lanePoint ? new Map(rivals.slice().sort((a, b) => `${a.color}${a.name}`.localeCompare(`${b.color}${b.name}`)).map((r, i) => [r, 1 + (i % 7)])) : null;
     rivals.forEach(r => {
       const key = Math.round(r.frac * 200);
       const here = atSpot.get(key) || 0; atSpot.set(key, here + 1);
-      const p = pointAtFrac(entry.roadBase, progressToPathFrac(r.frac, n, finishFrac));
-      const dx = (here % 2 ? 1 : -1) * Math.ceil(here / 2) * 16 * scale - (here ? 0 : 12 * scale);
+      let p = pointAtFrac(entry.roadBase, progressToPathFrac(r.frac, n, finishFrac));
+      if (lanes) p = theme.lanePoint(entry.layoutKey, p, lanes.get(r));
+      const dx = lanes ? 0 : (here % 2 ? 1 : -1) * Math.ceil(here / 2) * 16 * scale - (here ? 0 : 12 * scale);
       const s = scale * (tagged.has(r) ? 0.92 : 0.7);
       const g = theme.buildAvatar(r.color);
       g.setAttribute('transform', `translate(${(p.x + dx).toFixed(1)},${p.y.toFixed(1)}) scale(${s})`);
@@ -2002,6 +2289,7 @@ const JourneyGame = (() => {
     castle3d: { module: '/js/journeyCastle3d.js', factory: 'createCastle3D', fallback: 'castle', failed: false, loading: null },
     space3d: { module: '/js/journeySpace3d.js', factory: 'createSpace3D', fallback: 'space', failed: false, loading: null },
     construction3d: { module: '/js/journeyConstruction3d.js', factory: 'createConstruction3D', fallback: 'construction', failed: false, loading: null },
+    sprint3d: { module: '/js/journeySprint3d.js', factory: 'createSprint3D', fallback: 'sprint', failed: false, loading: null },
   };
   const instances3d = new Set();
   let webglOk = null;

@@ -108,7 +108,7 @@ function syncBottomNav(page) {
 // as a navy card with its Journey stage (one segment per stop, the next
 // stop outlined, the finish in pink) and a Play button, the next few
 // tasks to tick off right here, and this week against last week.
-const STAGE_NAMES = { football: 'Football', castle: 'Castle', space: 'Space', construction: 'Construction' };
+const STAGE_NAMES = { football: 'Football', castle: 'Castle', space: 'Space', construction: 'Construction', sprint: 'Sprint Track' };
 function dueLabel(endDate, todayKey) {
   if (!endDate) return { text: '', late: false };
   if (endDate < todayKey) {
