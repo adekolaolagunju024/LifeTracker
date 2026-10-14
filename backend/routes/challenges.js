@@ -54,6 +54,19 @@ router.get('/:id', (req, res) => {
   res.json(c);
 });
 
+// POST /api/challenges/:id/clear : off your Teams list once it's finished;
+// DELETE puts it back
+router.post('/:id/clear', (req, res) => {
+  try {
+    if (!challenges.clear(req.params.id, req.session.userId)) return res.status(404).json({ error: 'Race not found' });
+    res.json({ success: true });
+  } catch (e) { fail(res, e); }
+});
+router.delete('/:id/clear', (req, res) => {
+  if (!challenges.unclear(req.params.id, req.session.userId)) return res.status(404).json({ error: 'Race not found' });
+  res.json({ success: true });
+});
+
 // POST /api/challenges/:id/leave
 router.post('/:id/leave', (req, res) => {
   if (!challenges.leave(req.params.id, req.session.userId)) return res.status(404).json({ error: 'Race not found' });

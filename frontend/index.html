@@ -911,6 +911,21 @@
     .ch-list { display: grid; gap: 10px; }
     .ch-card { display: flex; align-items: center; gap: 12px; text-align: left; background: #fff; border: 1px solid #E3E6EA; border-radius: 16px; padding: 12px 14px; width: 100%; }
     .ch-card:hover { border-color: #0A7E8C; }
+    .ch-card-row { display: flex; align-items: stretch; gap: 8px; }
+    /* On a phone the status line sits under the title, not beside it. */
+    @media (max-width: 639px) {
+      .ch-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 12px; row-gap: 2px; }
+      .ch-card .ch-ic { grid-row: 1 / span 2; }
+      .ch-card .ch-line { grid-column: 2; grid-row: 2; white-space: normal; font-size: 12px; }
+      .ch-card > .ic { grid-column: 3; grid-row: 1 / span 2; align-self: center; }
+    }
+    .ch-card-row.done .ch-card { background: #F8FAFB; }
+    .ch-clear { flex: none; width: 44px; display: grid; place-items: center; border-radius: 14px; border: 1px solid #E3E6EA; background: #fff; color: #6B7684; }
+    .ch-clear:hover { color: #B91C1C; border-color: #FCA5A5; background: #FEF2F2; }
+    .ch-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; font-size: 13px; color: #556270; }
+    .ch-list-head button { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: #B91C1C; background: #FEF2F2; border-radius: 10px; padding: 6px 12px; }
+    .dark .ch-clear { background: #1A2436; border-color: #2A3648; color: #9AA8B8; }
+    .dark .ch-card-row.done .ch-card { background: #141D2B; }
     .ch-ic { font-size: 24px; line-height: 1; flex-shrink: 0; }
     .ch-ic.big { font-size: 34px; }
     .ch-main { flex: 1; min-width: 0; display: grid; }

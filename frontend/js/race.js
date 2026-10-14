@@ -237,13 +237,17 @@ const Race = (() => {
       const line = c.mode === 'together'
         ? `${c.group.finished} of ${c.group.players} finished · ${c.group.stepsPct}% of steps`
         : c.yourPlace ? `You finished ${placeHtml(c.yourPlace)}` : c.winner ? `${esc(c.winner.name)} won` : me ? `You're ${ordinal(c.players.indexOf(me) + 1)} of ${c.players.length}` : `${c.players.length} racing`;
-      return `<button type="button" class="ch-card" onclick="Race.openDetail('${c.id}')">
+      // a finished one has its own clear button beside the card
+      return `<div class="ch-card-row${c.doneForYou ? ' done' : ''}"><button type="button" class="ch-card" onclick="Race.openDetail('${c.id}')">
         <span class="ch-ic">${esc(c.icon || '🏁')}</span>
-        <span class="ch-main"><b>${esc(c.title)}</b><small>${kindOf(c)}${c.mode === 'together' && c.owner ? ' · you lead' : ''} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}</small></span>
-        <span class="ch-line">${line}</span>${icon('chevron_right', 'tiny')}</button>`;
+        <span class="ch-main"><b>${esc(c.title)}</b><small>${kindOf(c)}${c.mode === 'together' && c.owner ? ' · you lead' : ''} · ${c.over ? 'ended' : c.doneForYou ? 'finished' : `finish by ${esc(when(c.endsAt))}`}</small></span>
+        <span class="ch-line">${line}</span>${icon('chevron_right', 'tiny')}</button>
+        ${c.doneForYou ? `<button type="button" class="ch-clear" onclick="Race.clearFromList(['${c.id}'])" aria-label="Clear ${esc(c.title)} from your list" title="Clear from your list">${icon('close', 'tiny')}</button>` : ''}</div>`;
     };
+    const finishedIds = list.filter(c => c.doneForYou).map(c => c.id);
     box.innerHTML = `<form class="ch-join" id="ch-join-form"><label for="join-code">Got a code?</label>
         <div><input type="text" id="join-code" maxlength="9" autocomplete="off" autocapitalize="characters" placeholder="e.g. K7M 2QP"><button type="submit">Join</button></div></form>
+      ${finishedIds.length ? `<div class="ch-list-head"><span>${list.length} on your list${finishedIds.length ? ` · ${finishedIds.length} finished` : ''}</span><button type="button" onclick="Race.clearFromList([${finishedIds.map(id => `'${id}'`).join(',')}])">${icon('trash', 'tiny')}Clear finished</button></div>` : ''}
       ${list.length ? `<div class="ch-list">${list.map(card).join('')}</div>`
         : `<div class="ch-empty"><p><b>No teams yet.</b></p><p>Open any goal and choose <b>Team up</b>: lead a squad, class, team or your clients through it, or race friends to the finish.</p></div>`}`;
     document.getElementById('ch-join-form').addEventListener('submit', e => { e.preventDefault(); joinWithCode(document.getElementById('join-code').value); });
@@ -272,7 +276,8 @@ const Race = (() => {
         ${me ? `<button type="button" onclick="playJourneyFor('${me.projectId}')">${icon('play', 'tiny')}My Journey</button>` : ''}
         ${!together && (c.winner || c.over) ? `<button type="button" onclick="Race.openReport('${c.id}')">${icon('trophy', 'tiny')}Scoreboard</button>` : ''}
         ${c.owner ? `<button type="button" id="ch-remind" onclick="Race.remind('${c.id}')" ${c.group.behind || c.players.some(p => !p.finished && p.done === 0) ? '' : 'disabled'}>${icon('bell', 'tiny')}Remind those behind</button>` : ''}
-        ${me ? `<button type="button" class="quiet" onclick="Race.leaveFrom('${c.id}')">Leave</button>` : ''}
+        ${c.doneForYou ? `<button type="button" class="quiet" onclick="Race.clearFromList(['${c.id}'])">${icon('trash', 'tiny')}Clear from my list</button>`
+          : me ? `<button type="button" class="quiet" onclick="Race.leaveFrom('${c.id}')">Leave</button>` : ''}
       </div>
       ${together ? `<div class="ch-group"><div class="ch-group-top"><b>${c.group.finished} of ${c.group.players} finished</b><span>${c.group.stepsPct}% of all steps done${c.group.behind ? ` · ${c.group.behind} behind` : ''}</span></div>
         <div class="ch-bar" role="img" aria-label="${pct}% finished"><i style="width:${pct}%"></i></div></div>` : ''}
@@ -285,6 +290,16 @@ const Race = (() => {
         : `<div class="ch-empty"><p><b>No one has joined yet.</b></p><p>Share the link or read out the code <b>${esc(c.joinCode)}</b>. People join from <b>Teams › Join with a code</b>.</p></div>`}`;
   }
   function backToList() { detailId = null; renderPage(); }
+  // Finished ones off your list (only yours: everyone else's scoreboard
+  // keeps them), with an Undo.
+  async function clearFromList(ids) {
+    try { for (const id of ids) await API.clearRace(id); } catch (err) { showToast(err.message || 'Could not clear it', 'error'); }
+    detailId = null; renderPage();
+    showActionToast(ids.length === 1 ? 'Cleared from your list' : `${ids.length} cleared from your list`, [{ label: 'Undo', run: async () => {
+      for (const id of ids) { try { await API.unclearRace(id); } catch { /* gone */ } }
+      renderPage();
+    } }]);
+  }
   async function inviteFor(id) { try { showShare(await API.getRace(id), false); } catch (err) { showToast(err.message || 'Could not open it', 'error'); } }
   async function remind(id) {
     const btn = document.getElementById('ch-remind');
@@ -486,6 +501,6 @@ const Race = (() => {
     });
   }
 
-  return { youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;
