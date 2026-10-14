@@ -227,7 +227,7 @@ function renderObstacles(taskId, obstacles) {
   const canEdit = !!APP.taskObstaclesCanEdit;
   wrap.innerHTML = obstacles.length
     ? obstacles.map(o => `
-        <div class="flex items-center gap-2 ${o.resolved ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'} border rounded-lg px-2.5 py-1.5">
+        <div class="flex flex-wrap items-center gap-2 ${o.resolved ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'} border rounded-lg px-2.5 py-1.5">
           <input type="checkbox" ${o.resolved ? 'checked' : ''} ${canEdit ? '' : 'disabled'} onchange="toggleObstacleResolved('${o.id}', this.checked)" class="w-4 h-4 accent-green-600 flex-shrink-0" title="${o.resolved ? 'Cleared. Untick if it is back in the way' : 'Tick when this blocker is cleared'}" aria-label="${esc(o.name)} cleared">
           <span class="flex-1 min-w-0 text-sm truncate ${o.resolved ? 'line-through text-gray-400' : 'text-gray-800'}" title="${esc(o.name)}">${o.resolved ? '' : icon('blocker', 'tiny mr-1 text-red-600')}${esc(o.name)}</span>
           ${canEdit && !o.resolved ? `
@@ -235,12 +235,14 @@ function renderObstacles(taskId, obstacles) {
             <span class="text-xs font-bold text-red-700 w-6 text-center" aria-label="Size ${o.count}">×${o.count}</span>
             <button onclick="changeObstacleCount('${o.id}', ${o.count + 1})" ${o.count >= 5 ? 'disabled' : ''} class="w-6 h-6 rounded-md text-gray-600 hover:bg-white disabled:opacity-30" aria-label="Bigger blocker" title="Bigger (more enemies on the Journey)">+</button>
             <button onclick="Reports.openMedia(topProjectIdOf(APP.detailTaskProjectId), { kind: 'blocker', taskId: '${taskId}', caption: ${esc(JSON.stringify(o.name))} })" class="text-gray-400 hover:text-teal text-sm px-1" title="Add a photo of this blocker to the project report" aria-label="Add a photo of this blocker to the report">${icon('camera')}</button>
+            <span data-help-slot="${o.id}" data-name="${esc(o.name)}"></span>
             <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove blocker">${icon('trash')}</button>`
           : `<span class="text-xs font-bold ${o.resolved ? 'text-green-700' : 'text-red-700'}">×${o.count}</span>${canEdit ? `
             <button onclick="removeObstacle('${o.id}')" class="text-gray-300 hover:text-red-500 text-xs px-1" aria-label="Remove blocker">${icon('trash')}</button>` : ''}`}
         </div>`).join('')
     : `<p class="text-xs text-gray-400">Nothing in the way. Add a blocker if something is stopping you.</p>`;
   syncObstaclesToJourney(taskId, obstacles);
+  if (window.Race && canEdit) Race.fillHelpSlots(taskId, wrap);
   // Ticking the last blocker off unlocks "Mark done" right away.
   if (APP.detailTask && APP.detailTask.id === taskId) {
     APP.detailTask.obstacles = obstacles;

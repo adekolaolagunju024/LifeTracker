@@ -1,4 +1,4 @@
-/* global renderGantt, icon, esc, API, APP, showToast, showActionToast, fireBigScreenConfetti, showPage, playJourneyFor, renderMountainScene, mountainState */
+/* global openProjectChat, renderGantt, icon, esc, API, APP, showToast, showActionToast, fireBigScreenConfetti, showPage, playJourneyFor, renderMountainScene, mountainState */
 // ── RACE A FRIEND ───────────────────────────────────────────────
 // Make a race from one of your goals, share the link, and everyone who
 // joins races their own copy (backend/challenges.js). On the Journey every
@@ -307,7 +307,7 @@ const Race = (() => {
       ${reviewsHtml(c)}${yourStepsHtml(c)}
       ${c.players.length ? `<div class="ch-table-wrap"><table class="ch-table"><thead><tr><th>${together ? '' : '#'}</th><th>Name</th><th>Steps</th><th>Pace</th>${c.owner ? '<th>Last step</th>' : ''}</tr></thead>
         <tbody>${c.players.map((p, i) => `<tr class="${p.you ? 'you' : ''}"><td class="pos">${together ? '' : p.place ? placeHtml(p.place) : i + 1}</td>
-          <td><span class="dot" style="background:${esc(p.color)}"></span>${p.you ? 'You' : `<button type="button" class="rc-cheer" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.cheerIn('${c.id}', this)" title="Cheer ${esc(p.name)} on" aria-label="Cheer ${esc(p.name)} on">${esc(p.name)}</button>`}</td>
+          <td><span class="dot" style="background:${esc(p.color)}"></span>${p.you ? 'You' : `<button type="button" class="rc-cheer" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.cheerIn('${c.id}', this)" title="Cheer ${esc(p.name)} on" aria-label="Cheer ${esc(p.name)} on">${esc(p.name)}</button>`}${p.stuck ? ` <button type="button" class="stuck-chip" onclick="Race.openChat('${c.id}')" title="${p.you ? 'You asked' : `${esc(p.name)} asked`} for help on a blocker. Open the chat">${icon('hand', 'tiny')}stuck</button>` : ''}</td>
           <td><span class="ch-steps"><i style="width:${Math.round(p.frac * 100)}%"></i></span><span class="num">${p.done}/${p.total}</span>${p.pending ? `<span class="ch-pending" title="${p.pending} ticked, waiting to count">+${p.pending}</span>` : ''}</td>
           <td><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></td>
           ${c.owner ? `<td class="ago">${esc(ago(p.lastStepAt))}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
@@ -428,7 +428,10 @@ const Race = (() => {
       if (key === lastKey) return;
       lastKey = key;
       const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
-      list.innerHTML = msgs.length ? msgs.map(m => ['msg', 'nudge', 'proof', 'review'].includes(m.kind)
+      list.innerHTML = msgs.length ? msgs.map(m => m.kind === 'help'
+        ? `<div class="rc-help${m.open ? '' : ' done'}${m.you ? ' you' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${icon('hand', 'tiny')} ${esc(m.author)} ${m.open ? 'asks for help' : 'asked for help'}</span><p>${esc(m.text)}</p>
+            <div class="rc-help-foot">${!m.open ? `<span class="rc-help-ok">${icon('check', 'tiny')}Sorted</span>` : m.you ? `<span>${m.offers ? `${m.offers} offered to help` : 'Waiting for a reply'}</span>` : m.youOffered ? `<span>${icon('check', 'tiny')}You offered</span>` : `<button type="button" onclick="Race.offerHelp('${id}', '${m.id}', this)">${icon('hand', 'tiny')}I can help</button>${m.offers ? `<span>${m.offers} offered</span>` : ''}`}<time>${esc(chatTime(m.createdAt))}</time></div></div>`
+        : ['msg', 'nudge', 'proof', 'review', 'offer'].includes(m.kind)
         ? `<div class="rc-msg${m.you ? ' you' : ''}${m.kind === 'msg' ? '' : ` ${m.kind}`}${m.toYou ? ' to-you' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${m.kind === 'nudge' ? `${icon('bell', 'tiny')} ` : m.kind === 'proof' ? `${icon('camera', 'tiny')} ` : m.kind === 'review' ? `${icon('undo', 'tiny')} ` : ''}${esc(m.author)}</span><p>${esc(m.text)}</p>${proofThumb(id, m.file)}<time>${esc(chatTime(m.createdAt))}</time></div>`
         : `<div class="rc-event${m.kind === 'cheer' ? ' cheer' : ''}"><span>${esc(m.text)}</span><time>${esc(chatTime(m.createdAt))}</time></div>`).join('')
         : '<p class="rc-empty">No messages yet. Say hello, or wish everyone luck.</p>';
@@ -597,6 +600,75 @@ const Race = (() => {
       emoji: '🏆',
       message: `${place === 1 ? 'Gold' : place === 2 ? 'Silver' : place === 3 ? 'Bronze' : ordinal(place)}${place <= 3 ? ` cup, ${ordinal(place)}` : ''} of ${r.players.length} in “${r.title}”.${place > 1 && r.winner ? ` ${r.winner.name} won.` : ''}${r.stake && place === 1 ? ` Riding on it: ${r.stake}.` : ''}`,
     };
+  }
+
+  // ── Asking for help on a blocker ──
+  // In the task panel, each blocker gets "Ask for help" when there's
+  // somewhere to ask: a race or group this goal is your copy in, or the
+  // goal's own chat when it's shared with people.
+  async function fillHelpSlots(taskId, wrap) {
+    const slots = [...wrap.querySelectorAll('[data-help-slot]')];
+    if (!slots.length) return;
+    let where = { places: [], asked: [] }, shared = null;
+    try {
+      const [w, projects, tasks] = await Promise.all([API.helpPlaces(taskId), API.getProjects(), API.getTasks()]);
+      where = w;
+      const t = tasks.find(x => x.id === taskId);
+      const p = t && projects.find(x => x.id === t.projectId);
+      const top = p && (p.parentId ? projects.find(x => x.id === p.parentId) : p);
+      if (top && (top.role !== 'owner' || top.collaboratorCount > 0)) shared = { id: top.id, title: top.title };
+      helpCtx = { taskId, taskTitle: t ? t.title : '', places: w.places, shared };
+    } catch { return; }
+    if (!where.places.length && !shared) return;
+    slots.forEach(el => {
+      if (!el.isConnected) return;
+      const asked = where.asked.includes(el.dataset.helpSlot);
+      el.innerHTML = asked
+        ? `<span class="help-asked" title="You asked for help with this. Clearing it lets everyone know">${icon('hand', 'tiny')}Asked</span>`
+        : `<button type="button" class="help-btn" data-obstacle="${esc(el.dataset.helpSlot)}" data-name="${esc(el.dataset.name)}" onclick="Race.askHelp(this)" title="Ask your team for help with this blocker" aria-label="Ask for help with ${esc(el.dataset.name)}">${icon('hand', 'tiny')}Ask for help</button>`;
+    });
+  }
+  let helpCtx = null;
+  function askHelp(btn) {
+    const ctx = helpCtx;
+    if (!ctx) return;
+    const name = btn.dataset.name, obstacleId = btn.dataset.obstacle;
+    const options = [
+      ...ctx.places.map(pl => ({ value: `race:${pl.id}`, label: `${pl.mode === 'together' ? (ROLES[pl.leaderRole] || ROLES.leader).kind : 'Race'}: ${pl.title}`, note: pl.mode === 'together' ? `Everyone in it sees it, and the ${(ROLES[pl.leaderRole] || ROLES.leader).label.toLowerCase()} gets a nudge.` : 'Everyone racing sees it in the chat.' })),
+      ...(ctx.shared ? [{ value: `project:${ctx.shared.id}`, label: `Project chat: ${ctx.shared.title}`, note: 'Everyone you share this goal with sees it.' }] : []),
+    ];
+    const form = dialog(`${head('Ask for help', 'hand')}
+      <p class="fb-note">Stuck on <b>${esc(name)}</b>${ctx.taskTitle ? ` in <b>${esc(ctx.taskTitle)}</b>` : ''}? Ask the people going for it with you.</p>
+      ${options.length > 1 ? `<label for="help-where">Ask in</label><select id="help-where">${options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('')}</select>` : `<input type="hidden" id="help-where" value="${esc(options[0].value)}"><p class="fb-note"><b>${esc(options[0].label)}</b></p>`}
+      <p class="fb-note" id="help-where-note">${esc(options[0].note)}</p>
+      <label for="help-note">What's in the way? <span class="opt">(optional)</span></label>
+      <textarea id="help-note" maxlength="300" rows="3" placeholder="e.g. The supplier hasn't answered in a week. Anyone know another?"></textarea>
+      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">${icon('send', 'tiny')}Ask</button></div>`);
+    const sel = form.querySelector('#help-where');
+    if (sel.tagName === 'SELECT') sel.onchange = () => { form.querySelector('#help-where-note').textContent = (options.find(o => o.value === sel.value) || {}).note || ''; };
+    form.querySelector('#help-note').focus();
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const [kind, id] = sel.value.split(':');
+      const note = form.querySelector('#help-note').value.trim();
+      const b = form.querySelector('.fb-send');
+      b.disabled = true;
+      try {
+        if (kind === 'race') await API.askRaceHelp(id, obstacleId, note);
+        else await API.addProjectMessage(id, `🆘 Stuck on “${name}”${ctx.taskTitle ? ` in “${ctx.taskTitle}”` : ''}${note ? `: ${note}` : ''}`);
+      } catch (err) { b.disabled = false; showToast(err.message || 'Could not ask', 'error'); return; }
+      close();
+      showActionToast('🙋 Asked. Replies come in the chat', [{ label: 'Open chat', run: () => (kind === 'race' ? openChat(id) : (typeof openProjectChat === 'function' ? openProjectChat(id) : showPage('chats'))) }], 'hand');
+      const slot = document.querySelector(`[data-help-slot="${CSS.escape(obstacleId)}"]`);
+      if (slot && kind === 'race') slot.innerHTML = `<span class="help-asked">${icon('hand', 'tiny')}Asked</span>`;
+    });
+  }
+  async function offerHelp(id, messageId, btn) {
+    btn.disabled = true;
+    try { await API.offerRaceHelp(id, messageId); } catch (err) { btn.disabled = false; showToast(err.message || 'Could not send it', 'error'); return; }
+    showToast('🙌 They know you can help. Say how in the chat');
+    const input = document.getElementById('rc-text');
+    if (input) input.focus();
   }
 
   // ── In the planner (Kanban and Gantt) ──
@@ -777,6 +849,6 @@ const Race = (() => {
     });
   }
 
-  return { planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;

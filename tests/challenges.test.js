@@ -377,3 +377,50 @@ test('speed check: a burst of steps ticked inside a minute is pointed out in the
   assert.equal(flags.length, 1);
   assert.match(flags[0].text, /Ben ticked 4 steps in \d+ seconds?/);
 });
+
+test('help on a blocker: ask the group, a teammate offers, clearing it closes the request and says who helped', async () => {
+  const lead = await signUp();
+  const ana = await signUp();
+  const ben = await signUp();
+  const goal = await goalWithTasks(lead, ['Order materials', 'Build']);
+  const g = await (await call(lead, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(14), mode: 'together', organiserOnly: true, leaderRole: 'manager', checks: 'none' })).json();
+  const anaCopy = (await (await call(ana, 'POST', `/api/challenges/join/${g.joinToken}`, { displayName: 'Ana' })).json()).projectId;
+  await call(ben, 'POST', `/api/challenges/join/${g.joinToken}`, { displayName: 'Ben' });
+  const [step] = await tasksOf(ana, anaCopy);
+  const obstacle = await (await call(ana, 'POST', `/api/tasks/${step.id}/obstacles`, { name: 'Supplier not answering', count: 1 })).json();
+
+  // Where can Ana ask? This group.
+  const where = await (await call(ana, 'GET', `/api/challenges/help-places/${step.id}`)).json();
+  assert.deepEqual(where.places.map(p => p.id), [g.id]);
+  assert.deepEqual(where.asked, []);
+
+  // Someone else's blocker can't be asked about.
+  assert.equal((await call(ben, 'POST', `/api/challenges/${g.id}/help`, { obstacleId: obstacle.id })).status, 404);
+  assert.equal((await call(ana, 'POST', `/api/challenges/${g.id}/help`, { obstacleId: obstacle.id, note: 'A week now' })).status, 201);
+  assert.equal((await call(ana, 'POST', `/api/challenges/${g.id}/help`, { obstacleId: obstacle.id })).status, 409, 'one open request per blocker');
+  assert.deepEqual((await (await call(ana, 'GET', `/api/challenges/help-places/${step.id}`)).json()).asked, [obstacle.id]);
+
+  let board = await (await call(lead, 'GET', `/api/challenges/${g.id}`)).json();
+  assert.equal(board.players.find(p => p.name === 'Ana').stuck, 1);
+  let chat = await (await call(ben, 'GET', `/api/challenges/${g.id}/messages`)).json();
+  const help = chat.find(m => m.kind === 'help');
+  assert.match(help.text, /Supplier not answering.*Order materials.*A week now/);
+  assert.equal(help.open, true);
+
+  // Ben offers (once); Ana can't offer on her own.
+  assert.equal((await call(ana, 'POST', `/api/challenges/${g.id}/help/${help.id}/offer`)).status, 400);
+  assert.equal((await call(ben, 'POST', `/api/challenges/${g.id}/help/${help.id}/offer`)).status, 201);
+  assert.equal((await call(ben, 'POST', `/api/challenges/${g.id}/help/${help.id}/offer`)).status, 409);
+  chat = await (await call(ana, 'GET', `/api/challenges/${g.id}/messages`)).json();
+  assert.ok(chat.some(m => m.kind === 'offer' && m.toYou && /Supplier not answering/.test(m.text)));
+  assert.equal(chat.find(m => m.kind === 'help').offers, 1);
+
+  // Clearing the blocker closes it and thanks Ben.
+  await call(ana, 'PUT', `/api/tasks/obstacles/${obstacle.id}`, { resolved: true });
+  chat = await (await call(lead, 'GET', `/api/challenges/${g.id}/messages`)).json();
+  assert.equal(chat.find(m => m.kind === 'help').open, false);
+  assert.ok(chat.some(m => m.kind === 'event' && /Ana got past “Supplier not answering” with help from Ben/.test(m.text)));
+  board = await (await call(lead, 'GET', `/api/challenges/${g.id}`)).json();
+  assert.equal(board.players.find(p => p.name === 'Ana').stuck, 0);
+  assert.equal((await call(ben, 'POST', `/api/challenges/${g.id}/help/${help.id}/offer`)).status, 400, 'no offers once sorted');
+});
