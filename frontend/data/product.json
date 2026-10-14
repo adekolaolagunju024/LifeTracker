@@ -126,6 +126,11 @@
   "whatsNew": [
     {
       "date": "2026-10-14",
+      "title": "A title on printed charts",
+      "text": "Printing the Gantt chart or the Kanban board now puts a title at the top: the goal's name (or All projects), which view, the date and how many tasks are done. Untick Print a title under More to leave it off. Printouts also drop the toolbar and buttons."
+    },
+    {
+      "date": "2026-10-14",
       "title": "Fill in for me",
       "text": "Too busy to fill in a form? Tap Fill in for me and the assistant fills the empty fields from what you've typed and the goal it's for: a task's notes, priority and dates, a goal's description, icon, area and start, a status update, a Team up's finish date and stake, a request for help, or a coach's note when sending a step back. It only fills empty fields, never invents people or money, and nothing is saved until you check it."
     },

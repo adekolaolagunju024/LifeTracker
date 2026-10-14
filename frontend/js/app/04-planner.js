@@ -159,7 +159,37 @@ function setGanttProjectFilter(projectId) {
 async function printGanttChart() {
   APP.ganttPrintMode = true;
   await renderGantt();
+  fillGanttPrintTitle();
   window.print();
+}
+// The printed title: the goal (or "All projects"), which view, the date
+// and how far along it is. On unless "Print a title" in ⋯ More is unticked.
+const GANTT_PRINT_TITLE_KEY = 'waypoint-print-title';
+const ganttPrintTitleOn = () => { try { return localStorage.getItem(GANTT_PRINT_TITLE_KEY) !== 'off'; } catch { return true; } };
+function toggleGanttPrintTitle(on) {
+  try { localStorage.setItem(GANTT_PRINT_TITLE_KEY, on ? 'on' : 'off'); } catch { /* private mode */ }
+  syncGanttPrintTitle();
+}
+function syncGanttPrintTitle() {
+  const on = ganttPrintTitleOn();
+  document.getElementById('page-gantt').classList.toggle('print-no-title', !on);
+  const cb = document.getElementById('print-title-toggle');
+  if (cb) cb.checked = on;
+}
+function fillGanttPrintTitle() {
+  syncGanttPrintTitle();
+  const el = document.getElementById('gantt-print-title');
+  if (!el) return;
+  let view = 'timeline';
+  try { view = localStorage.getItem('ganttPageView') || 'timeline'; } catch { /* private mode */ }
+  const tasks = APP.ganttTasks || [];
+  const filter = APP.ganttProjectFilter;
+  const opt = filter && document.querySelector(`#gantt-project-filter option[value="${CSS.escape(filter)}"]`);
+  const name = filter ? (opt ? opt.textContent.trim() : 'Project') : 'All projects';
+  const shown = filter ? tasks.filter(t => document.querySelector(`#gantt-rows [data-task-id="${CSS.escape(t.id)}"], #kanban-board [data-task-id="${CSS.escape(t.id)}"]`)) : tasks;
+  const done = shown.filter(t => t.status === 'Completed').length;
+  const date = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  el.innerHTML = `<h1>${esc(name)}</h1><p>${view === 'kanban' ? 'Kanban board' : 'Gantt chart'} · printed ${esc(date)}${shown.length ? ` · ${done} of ${shown.length} tasks done` : ''}</p>`;
 }
 window.addEventListener('afterprint', () => {
   if (APP.ganttPrintMode) {
@@ -317,6 +347,7 @@ async function renderGantt() {
     loadGanttColWidths();
     loadGanttWrapText();
     loadGanttPrintColumns();
+    syncGanttPrintTitle();
 
 
     document.querySelectorAll('.gantt-view-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === APP.ganttViewMode));
