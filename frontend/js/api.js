@@ -100,6 +100,7 @@ const API = {
 
   // ── AI INSIGHTS ──
   getAIStatus:   ()  => request('GET',  '/ai/status'),
+  aiFill:        (data) => request('POST', '/ai/fill', data),
   // saved chats with the assistant
   getAssistantConversations: ()        => request('GET',    '/ai/conversations'),
   getAssistantConversation:  (id)      => request('GET',    `/ai/conversations/${id}`),

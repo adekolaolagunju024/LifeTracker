@@ -74,7 +74,7 @@ const APP_TOOL = {
           type: 'object',
           properties: {
             type: { type: 'string', enum: ['open_page', 'open_project', 'open_task', 'start_focus', 'complete_task', 'set_reminder', 'add_task'] },
-            page: { type: 'string', enum: ['dashboard', 'actions', 'calendar', 'gantt', 'projects', 'chats', 'settings', 'why'], description: 'For open_page' },
+            page: { type: 'string', enum: ['dashboard', 'actions', 'calendar', 'gantt', 'projects', 'chats', 'settings', 'why', 'challenges'], description: "For open_page. 'challenges' is the Teams page (races and groups they lead or are in)" },
             projectId: { type: 'string', description: 'For open_project and add_task' },
             taskId: { type: 'string', description: 'For open_task, start_focus, complete_task, set_reminder' },
             minutes: { type: 'integer', description: 'For start_focus: 5 to 90, default 25' },

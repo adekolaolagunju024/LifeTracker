@@ -937,6 +937,16 @@
     .dark .rc-help p { color: #E6EDF3; }
     .dark .help-btn { background: #0B1220; color: #FDBA74; border-color: #9A3412; }
     .dark .rc-msg.offer { background: #0B2A17; border-color: #166534; }
+    /* Fill in for me (js/aiFill.js) */
+    .ai-fill-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #6D28D9; background: #F5F3FF; border: 1px solid #DDD6FE; border-radius: 999px; padding: 5px 11px; min-height: 30px; white-space: nowrap; }
+    .ai-fill-btn:hover { background: #EDE9FE; }
+    .ai-fill-btn.busy { opacity: .7; cursor: progress; }
+    .ai-fill-btn.busy .ic { animation: ai-fill-spin 1.2s linear infinite; }
+    @keyframes ai-fill-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .ai-fill-btn.busy .ic { animation: none; } }
+    .ai-filled { box-shadow: 0 0 0 3px rgba(124, 58, 237, .28) !important; transition: box-shadow .3s; }
+    .ai-fill-row { display: flex; justify-content: flex-end; margin: -2px 0 6px; }
+    .dark .ai-fill-btn { color: #C4B5FD; background: #1E1433; border-color: #4C1D95; }
     /* Proof and sign-off */
     .race-card textarea { width: 100%; border: 1px solid #DDE3E8; border-radius: 12px; padding: 9px 12px; font: inherit; font-size: 16px; background: #fff; resize: vertical; }
     .race-card textarea:focus { outline: none; border-color: #0A7E8C; }
@@ -4240,6 +4250,7 @@
             class="flex-1 min-w-0 border border-gray-200 rounded-xl px-3.5 h-12 text-base font-semibold text-navy focus:outline-none focus:border-teal"
             onkeydown="if (event.key === 'Enter') { event.preventDefault(); saveProject(); }">
         </div>
+        <div class="ai-fill-row" style="margin:8px 0 0"><button type="button" id="proj-ai-fill" class="ai-fill-btn hidden" title="The assistant fills the empty fields. You check them before saving"><span class="ei" data-icon="sparkles"></span><span>Fill in for me</span></button></div>
         <div id="proj-look" class="hidden mt-2 border border-gray-200 rounded-xl p-3">
           <p class="text-xs font-semibold text-gray-500 mb-1.5">Icon</p>
           <div class="seg pick proj-icons" data-seg-for="proj-icon" role="radiogroup" aria-label="Icon"><button type="button" data-value="📁" aria-label="folder" title="folder"><span class="ei" data-icon="folder"></span></button><button type="button" data-value="🎓" aria-label="graduation" title="graduation"><span class="ei" data-icon="graduation"></span></button><button type="button" data-value="💼" aria-label="briefcase" title="briefcase"><span class="ei" data-icon="briefcase"></span></button><button type="button" data-value="💪" aria-label="dumbbell" title="dumbbell"><span class="ei" data-icon="dumbbell"></span></button><button type="button" data-value="🏃" aria-label="footprints" title="footprints"><span class="ei" data-icon="footprints"></span></button><button type="button" data-value="📚" aria-label="book" title="book"><span class="ei" data-icon="book"></span></button><button type="button" data-value="🏠" aria-label="home" title="home"><span class="ei" data-icon="home"></span></button><button type="button" data-value="❤️" aria-label="heart" title="heart"><span class="ei" data-icon="heart"></span></button><button type="button" data-value="✈️" aria-label="plane" title="plane"><span class="ei" data-icon="plane"></span></button><button type="button" data-value="🎨" aria-label="palette" title="palette"><span class="ei" data-icon="palette"></span></button><button type="button" data-value="💰" aria-label="wallet" title="wallet"><span class="ei" data-icon="wallet"></span></button><button type="button" data-value="🧠" aria-label="brain" title="brain"><span class="ei" data-icon="brain"></span></button><button type="button" data-value="🌱" aria-label="sprout" title="sprout"><span class="ei" data-icon="sprout"></span></button><button type="button" data-value="🚀" aria-label="rocket" title="rocket"><span class="ei" data-icon="rocket"></span></button><button type="button" data-value="🏆" aria-label="trophy" title="trophy"><span class="ei" data-icon="trophy"></span></button><button type="button" data-value="🎵" aria-label="music" title="music"><span class="ei" data-icon="music"></span></button><button type="button" data-value="🍳" aria-label="chef hat" title="chef hat"><span class="ei" data-icon="chef-hat"></span></button><button type="button" data-value="🛠️" aria-label="wrench" title="wrench"><span class="ei" data-icon="wrench"></span></button><button type="button" data-value="💻" aria-label="laptop" title="laptop"><span class="ei" data-icon="laptop"></span></button><button type="button" data-value="📈" aria-label="trending up" title="trending up"><span class="ei" data-icon="trending-up"></span></button><button type="button" data-value="🧘" aria-label="flower 2" title="flower 2"><span class="ei" data-icon="flower-2"></span></button><button type="button" data-value="👶" aria-label="baby" title="baby"><span class="ei" data-icon="baby"></span></button><button type="button" data-value="🐾" aria-label="paw print" title="paw print"><span class="ei" data-icon="paw-print"></span></button><button type="button" data-value="⚽" aria-label="volleyball" title="volleyball"><span class="ei" data-icon="volleyball"></span></button></div>
@@ -4600,6 +4611,7 @@
          Status and priority are tap-to-pick chips over the original
          selects, which stay as the source of truth for saveTask(). -->
     <div class="p-6 overflow-y-auto flex-1 space-y-5">
+      <div class="ai-fill-row" style="margin:0 0 -8px"><button type="button" id="task-ai-fill" class="ai-fill-btn hidden" title="The assistant fills the empty fields. You check them before saving"><span class="ei" data-icon="sparkles"></span><span>Fill in for me</span></button></div>
       <div>
         <input type="hidden" id="task-id">
         <label class="block text-xs font-bold text-gray-600 mb-1.5" for="task-title-in">What needs doing? *</label>
@@ -4793,6 +4805,7 @@
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Status Updates <span class="normal-case font-normal text-gray-300">— why it's still at this status</span></p>
       <div id="td-status-updates" class="space-y-3 mb-3"></div>
       <div id="td-status-update-box">
+        <div class="ai-fill-row"><button type="button" id="td-status-ai-fill" class="ai-fill-btn hidden" title="The assistant fills the empty fields. You check them before saving"><span class="ei" data-icon="sparkles"></span><span>Write it for me</span></button></div>
         <div class="flex gap-2">
           <div class="relative flex-1">
             <div class="hidden absolute bottom-full left-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-20 w-56" id="td-status-update-mention-list"></div>
@@ -5067,6 +5080,7 @@
 <script src="js/taskActions.js"></script>
 <script src="js/feedback.js"></script>
 <script src="js/race.js"></script>
+<script src="js/aiFill.js"></script>
 
 </body>
 </html>

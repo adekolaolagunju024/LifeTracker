@@ -1,4 +1,4 @@
-/* global openProjectChat, renderGantt, icon, esc, API, APP, showToast, showActionToast, fireBigScreenConfetti, showPage, playJourneyFor, renderMountainScene, mountainState */
+/* global AIFill, openProjectChat, renderGantt, icon, esc, API, APP, showToast, showActionToast, fireBigScreenConfetti, showPage, playJourneyFor, renderMountainScene, mountainState */
 // ── RACE A FRIEND ───────────────────────────────────────────────
 // Make a race from one of your goals, share the link, and everyone who
 // joins races their own copy (backend/challenges.js). On the Journey every
@@ -79,6 +79,15 @@ const Race = (() => {
     let ticked = 0;
     try { ticked = (await API.getTasks()).filter(t => t.projectId === projectId && t.status === 'Completed').length; } catch { /* none */ }
     const min = dayKey(Date.now() + 86400000);
+    const fill = window.AIFill ? AIFill.button({
+      form: 'Teaming up on a goal: a race between friends, or a group someone leads',
+      projectId: () => projectId,
+      context: () => (mode === 'race' ? 'They are racing friends to finish it first.' : `They lead a group (as ${(ROLES[form.querySelector('#race-role').value] || ROLES.leader).label}) through it.`),
+      fields: [
+        { key: 'end', label: 'Finish by date', type: 'date', el: '#race-end', hint: 'Realistic for the steps left in the goal', get: () => (form.querySelector('#race-end').dataset.touched ? form.querySelector('#race-end').value : '') },
+        { key: 'stake', label: "What's riding on it", type: 'text', el: '#race-stake', when: () => mode === 'race', hint: 'A light-hearted promise between friends, like who buys dinner. Never money' },
+      ],
+    }) : '';
     const form = dialog(`${head('Team up', 'users')}
       <div class="seg race-mode" role="radiogroup" aria-label="How you team up">
         <button type="button" role="radio" data-mode="together" aria-checked="true">${icon('users', 'tiny')}Lead a group</button>
@@ -87,11 +96,12 @@ const Race = (() => {
       <div class="together-only"><label for="race-role">You're the</label>
         <select id="race-role">${Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === 'leader' ? ' selected' : ''}>${r.label}</option>`).join('')}</select></div>
       <p class="fb-note" id="race-mode-note"></p>
+      ${fill ? `<div class="ai-fill-row">${fill}</div>` : ''}
       <label for="race-checks">How steps are checked</label>
       <select id="race-checks"></select>
       <p class="fb-note" id="race-checks-note"></p>
       <label for="race-end">Finish by</label>
-      <input type="date" id="race-end" min="${min}" value="${dayKey(Date.now() + 14 * 86400000)}" required>
+      <input type="date" id="race-end" min="${min}" value="${dayKey(Date.now() + 14 * 86400000)}" required oninput="this.dataset.touched = '1'">
       <div class="race-only"><label for="race-stake">What's riding on it? <span class="opt">(optional)</span></label>
       <input type="text" id="race-stake" maxlength="140" placeholder="e.g. Loser buys dinner"></div>
       <div class="together-only hidden">
@@ -641,6 +651,7 @@ const Race = (() => {
       <p class="fb-note">Stuck on <b>${esc(name)}</b>${ctx.taskTitle ? ` in <b>${esc(ctx.taskTitle)}</b>` : ''}? Ask the people going for it with you.</p>
       ${options.length > 1 ? `<label for="help-where">Ask in</label><select id="help-where">${options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('')}</select>` : `<input type="hidden" id="help-where" value="${esc(options[0].value)}"><p class="fb-note"><b>${esc(options[0].label)}</b></p>`}
       <p class="fb-note" id="help-where-note">${esc(options[0].note)}</p>
+      ${window.AIFill ? `<div class="ai-fill-row">${AIFill.button({ form: 'Asking teammates for help with a blocker', taskId: () => ctx.taskId, context: () => `The blocker: ${name}`, fields: [{ key: 'note', label: "What's in the way, and what help would be good", type: 'longtext', el: '#help-note', hint: 'Two short sentences in the first person, a clear ask' }] }, 'Write it for me')}</div>` : ''}
       <label for="help-note">What's in the way? <span class="opt">(optional)</span></label>
       <textarea id="help-note" maxlength="300" rows="3" placeholder="e.g. The supplier hasn't answered in a week. Anyone know another?"></textarea>
       <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">${icon('send', 'tiny')}Ask</button></div>`);
@@ -817,6 +828,7 @@ const Race = (() => {
     if (decision === 'reject') {
       const form = dialog(`${head('Send it back', 'undo')}
         <p class="fb-note"><b>${esc(btn.dataset.title)}</b> · ${esc(btn.dataset.name)}</p>
+        ${window.AIFill ? `<div class="ai-fill-row">${AIFill.button({ form: "A leader sending a step back to someone in their group because the proof isn't enough", context: () => `The step: ${btn.dataset.title}. The person: ${btn.dataset.name}.`, fields: [{ key: 'note', label: "What's missing", type: 'text', el: '#pr-note', hint: 'One kind, specific sentence on what proof would do' }] }, 'Write it for me')}</div>` : ''}
         <label for="pr-note">What's missing? <span class="opt">(they'll see this in the chat)</span></label>
         <textarea id="pr-note" maxlength="300" rows="3" placeholder="e.g. The photo doesn't show the finish time"></textarea>
         <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">Send back</button></div>`);
