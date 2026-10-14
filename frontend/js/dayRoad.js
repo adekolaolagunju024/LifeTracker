@@ -1,4 +1,4 @@
-/* global API, DayPace, showToast, clockText, taskErrorToast, taskGateMessage, showGateCard, refreshAfterStart, announceJourneyReward, Sfx, DayReport, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
+/* global Reminders, API, DayPace, showToast, clockText, taskErrorToast, taskGateMessage, showGateCard, refreshAfterStart, announceJourneyReward, Sfx, DayReport, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
 // ── TODAY'S ROAD ────────────────────────────────────────────────
 // Today's plan as a road: a stop for each task, You moving as you finish
 // them, and the Pacer keeping to the timetable by the clock (the maths is
@@ -136,6 +136,13 @@ const DayRoad = (() => {
   function summaryHTML(r) {
     return `<b class="droad-state ${r.state}">${esc(r.text)}</b> · ${r.done} of ${r.n} done · plan ends at ${clockText(fmt(r.planEnd))}`;
   }
+  // A reminder for one task on today's plan: the chip once one is set, or
+  // "Remind me", with its planned start offered first.
+  function remindBtn(it) {
+    const set = Reminders.chip(it.taskId);
+    if (set) return set;
+    return `<button type="button" class="dayroad-remind-btn" data-title="${esc(it.task.title)}" onclick="event.stopPropagation(); Reminders.openSheet('${it.taskId}', this.dataset.title, '${esc(it.start)}')" title="Remind me (rings like an alarm)" aria-label="Remind me about ${esc(it.task.title)}">${icon('alarm', 'tiny')}Remind me</button>`;
+  }
   function listHTML(r) {
     return r.items.map((it, k) => {
       const b = blockersOf(it.task);
@@ -150,7 +157,8 @@ const DayRoad = (() => {
               : (it.task.obstacles || []).length ? `<small class="clr">${icon('check', 'tiny')}All blockers cleared${it === r.next ? ' · you are here' : ''}</small>`
                 : it === r.next ? '<small>You are here</small>' : ''}</button>
           ${!it.done && (it.task.obstacles || []).length && typeof blockerChecklist === 'function' ? blockerChecklist(it.task, true, 'board') : ''}
-          ${window.TaskActions ? TaskActions.chip(it.task) : ''}</div>
+          ${window.TaskActions ? TaskActions.chip(it.task) : ''}
+          ${!it.done && window.Reminders ? `<span class="dayroad-remind" data-reminder-slot="${it.taskId}" data-road-start="${esc(it.start)}" data-title="${esc(it.task.title)}">${remindBtn(it)}</span>` : ''}</div>
         ${pacerHere ? `<span class="dayroad-pacerhere" title="Where the Pacer is now">${icon('timer')}</span>` : ''}
       </li>`;
     }).join('');

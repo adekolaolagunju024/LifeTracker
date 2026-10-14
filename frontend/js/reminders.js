@@ -199,10 +199,20 @@ const Reminders = (() => {
   }
 
   // ── Setting a reminder ──
-  function presets() {
+  // planned: a task's planned start today ("09:30", from Today's road),
+  // offered first as "When it starts" and "10 min before" while still ahead.
+  function presets(planned) {
     const now = new Date();
     const at = (h, m = 0, addDays = 0) => { const d = new Date(now); d.setDate(d.getDate() + addDays); d.setHours(h, m, 0, 0); return d; };
-    const out = [
+    const plan = [];
+    if (/^\d{1,2}:\d{2}$/.test(planned || '')) {
+      const [h, m] = planned.split(':').map(Number);
+      const start = at(h, m);
+      const before = new Date(start.getTime() - 10 * 60000);
+      if (before > now) plan.push(['10 min before it starts', before]);
+      if (start > now) plan.push(['When it starts', start]);
+    }
+    const out = [...plan,
       ['In 15 min', new Date(now.getTime() + 15 * 60000)],
       ['In 1 hour', new Date(now.getTime() + 60 * 60000)],
     ];
@@ -219,7 +229,7 @@ const Reminders = (() => {
     try { const reg = await navigator.serviceWorker.getRegistration(); return !!(reg && await reg.pushManager.getSubscription()); } catch { return false; }
   }
 
-  async function openSheet(taskId, title) {
+  async function openSheet(taskId, title, planned) {
     API.trackFeature('reminder');
     let taskTitle = title;
     if (!taskTitle) { try { taskTitle = (await API.getTask(taskId)).title; } catch { taskTitle = 'this task'; } }
@@ -227,7 +237,7 @@ const Reminders = (() => {
     const box = document.getElementById('modal-reminder');
     box.dataset.taskId = taskId;
     document.getElementById('reminder-task-title').textContent = taskTitle;
-    document.getElementById('reminder-presets').innerHTML = presets().map(([label, d]) =>
+    document.getElementById('reminder-presets').innerHTML = presets(planned).map(([label, d]) =>
       `<button type="button" class="reminder-preset" onclick="Reminders.save('${d.toISOString()}')">${esc(label)}<small>${esc(fmt(d.toISOString()))}</small></button>`).join('');
     const input = document.getElementById('reminder-custom');
     input.min = toLocalInput(new Date());
@@ -273,7 +283,12 @@ const Reminders = (() => {
 
   // Chips on screen ("⏰ 18:30") follow the list without a full re-render.
   function refreshChips() {
-    document.querySelectorAll('[data-reminder-slot]').forEach(slot => { slot.innerHTML = chip(slot.dataset.reminderSlot); });
+    document.querySelectorAll('[data-reminder-slot]').forEach(slot => {
+      const id = slot.dataset.reminderSlot;
+      // Today's road keeps a "Remind me" button where no reminder is set.
+      slot.innerHTML = chip(id) || (slot.dataset.roadStart != null
+        ? `<button type="button" class="dayroad-remind-btn" data-title="${esc(slot.dataset.title || '')}" onclick="event.stopPropagation(); Reminders.openSheet('${id}', this.dataset.title, '${esc(slot.dataset.roadStart)}')" title="Remind me (rings like an alarm)" aria-label="Remind me about ${esc(slot.dataset.title || 'this task')}">${icon('alarm', 'tiny')}Remind me</button>` : '');
+    });
     const btn = document.getElementById('td-reminder-btn');
     if (btn && typeof APP_currentDetailTaskId !== 'undefined' && APP_currentDetailTaskId) {
       const r = forTask(APP_currentDetailTaskId);
