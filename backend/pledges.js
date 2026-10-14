@@ -14,6 +14,24 @@ const { wrapEmailHtml, sendActivityEmail } = require('./email/activity');
 //
 // Waypoint never holds or moves money. Cash is settled between them.
 
+// A pledger can also hold the gift itself in the app: a ticket or voucher
+// code, a link (an e-ticket, a gift card) and a note. It stays hidden from
+// the goal's owner until the pledger checks their progress and releases
+// it. For cash, once it's earned the owner says how they'd like it sent
+// (a payment link, or details), which only the pledger sees; the pledger
+// sends it and releases. The two of them have their own thread.
+for (const col of ['giftCode TEXT', 'giftLink TEXT', 'giftNote TEXT', 'payTo TEXT', 'receivedAt TEXT', 'releaseAskedAt TEXT']) {
+  try { db.exec(`ALTER TABLE pledges ADD COLUMN ${col}`); } catch { /* already there */ }
+}
+db.exec(`CREATE TABLE IF NOT EXISTS pledge_messages (
+  id TEXT PRIMARY KEY,
+  pledgeId TEXT NOT NULL REFERENCES pledges(id) ON DELETE CASCADE,
+  fromOwner INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  createdAt TEXT NOT NULL
+)`);
+db.exec('CREATE INDEX IF NOT EXISTS idx_pledge_messages ON pledge_messages (pledgeId, createdAt)');
+
 const RELATIONS = ['parent', 'family', 'partner', 'friend', 'boss', 'coach', 'teacher', 'mentor', 'sponsor', 'other'];
 const CURRENCIES = ['GBP', 'USD', 'EUR', 'NGN', 'GHS', 'KES', 'ZAR', 'CAD', 'AUD', 'INR'];
 const SYMBOL_TO_CODE = { '£': 'GBP', '$': 'USD', '€': 'EUR', '₦': 'NGN', '₵': 'GHS', 'KSh': 'KES', R: 'ZAR', '₹': 'INR' };
@@ -55,7 +73,13 @@ function clean(body = {}) {
   if (condition === 'by_date' && byDate < todayKey()) throw new Error('That date has already passed');
   const email = clip(body.email, 200).toLowerCase();
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('That email address doesn’t look right');
-  return { name, relation, kind: amount != null ? 'cash' : 'other', amount, currency: amount != null ? currency : null, reward, message: clip(body.message, 400), condition, byDate, email: email || null };
+  // the held gift: all optional, and a link must be a web address
+  const giftLink = clip(body.giftLink, 500);
+  if (giftLink && !/^https:\/\/[^\s]+$/i.test(giftLink)) throw new Error('The gift link should start with https://');
+  return {
+    name, relation, kind: amount != null ? 'cash' : 'other', amount, currency: amount != null ? currency : null, reward, message: clip(body.message, 400), condition, byDate, email: email || null,
+    giftCode: clip(body.giftCode, 120) || null, giftLink: giftLink || null, giftNote: clip(body.giftNote, 400) || null,
+  };
 }
 
 // ── Links ──
@@ -98,8 +122,8 @@ function create(projectId, body, { source = 'link' } = {}) {
   const open = db.prepare("SELECT COUNT(*) AS n FROM pledges WHERE projectId = ? AND status IN ('pledged','earned')").get(projectId).n;
   if (open >= 50) throw new Error('This goal has as many pledges as it can hold');
   const row = { id: crypto.randomUUID(), projectId, ownerId: g.ownerId, ...c, manageToken: token(), status: 'pledged', source, createdAt: now() };
-  db.prepare(`INSERT INTO pledges (id, projectId, ownerId, name, relation, kind, amount, currency, reward, message, condition, byDate, email, manageToken, status, source, createdAt)
-    VALUES (@id, @projectId, @ownerId, @name, @relation, @kind, @amount, @currency, @reward, @message, @condition, @byDate, @email, @manageToken, @status, @source, @createdAt)`).run(row);
+  db.prepare(`INSERT INTO pledges (id, projectId, ownerId, name, relation, kind, amount, currency, reward, message, condition, byDate, email, manageToken, status, source, createdAt, giftCode, giftLink, giftNote)
+    VALUES (@id, @projectId, @ownerId, @name, @relation, @kind, @amount, @currency, @reward, @message, @condition, @byDate, @email, @manageToken, @status, @source, @createdAt, @giftCode, @giftLink, @giftNote)`).run(row);
   refresh(projectId); // finished already, or the date's gone
   return get(row.id);
 }
@@ -130,8 +154,50 @@ function refresh(projectId, { notify = true } = {}) {
   return earned;
 }
 
+// The pledger checked and released it (gave it): the held gift shows.
 function markGiven(id) {
   db.prepare("UPDATE pledges SET status = 'given', givenAt = ? WHERE id = ? AND status = 'earned'").run(now(), id);
+  return get(id);
+}
+// The owner has it in hand. A reward promised in person (no pledger page
+// to release it from) goes straight from earned to received.
+function markReceived(id) {
+  const p = get(id);
+  if (!p) return null;
+  if (p.status === 'earned') db.prepare("UPDATE pledges SET status = 'given', givenAt = ? WHERE id = ?").run(now(), id);
+  db.prepare('UPDATE pledges SET receivedAt = ? WHERE id = ? AND receivedAt IS NULL').run(now(), id);
+  return get(id);
+}
+// How the owner would like cash sent: only once it's earned, and only the
+// pledger sees it.
+function setPayTo(id, text) {
+  const v = clip(text, 300);
+  db.prepare('UPDATE pledges SET payTo = ? WHERE id = ?').run(v || null, id);
+  return get(id);
+}
+
+// ── The thread between the owner and the pledger ──
+function messages(id) {
+  return db.prepare('SELECT * FROM pledge_messages WHERE pledgeId = ? ORDER BY createdAt').all(id).map(m => ({ id: m.id, fromOwner: !!m.fromOwner, text: m.text, createdAt: m.createdAt }));
+}
+function say(id, fromOwner, text) {
+  const t = String(text ?? '').trim().slice(0, 1000);
+  if (!t) throw new Error('Write something first');
+  if (db.prepare('SELECT COUNT(*) AS n FROM pledge_messages WHERE pledgeId = ?').get(id).n >= 300) throw new Error('This thread is full');
+  const m = { id: crypto.randomUUID(), pledgeId: id, fromOwner: fromOwner ? 1 : 0, text: t, createdAt: now() };
+  db.prepare('INSERT INTO pledge_messages (id, pledgeId, fromOwner, text, createdAt) VALUES (@id, @pledgeId, @fromOwner, @text, @createdAt)').run(m);
+  return m;
+}
+// The owner asks the pledger to check and release an earned reward: a
+// line in the thread and, where they left an email, an email.
+function askRelease(id) {
+  const p = get(id);
+  if (!p || p.status !== 'earned') throw new Error('Only an earned reward can be released');
+  if (p.releaseAskedAt && Date.now() - Date.parse(p.releaseAskedAt) < 12 * 3600000) throw new Error('You asked recently. Give them a little time');
+  db.prepare('UPDATE pledges SET releaseAskedAt = ? WHERE id = ?').run(now(), id);
+  say(id, true, 'I’ve finished! Could you check my progress and release the reward when you’re happy?');
+  const g = goalState(p.projectId);
+  emailPledger(p, g, `${g.firstName === 'they' ? 'They' : g.firstName} asked you to release your reward`, `<b>${esc(g.title)}</b> is finished, and ${esc(g.firstName === 'they' ? 'they' : g.firstName)} asked you to check and release <b>${esc(rewardText(p))}</b>.`, 'Check and release').catch(e => console.error('Pledge email failed:', e.message));
   return get(id);
 }
 function withdraw(id) {
@@ -147,8 +213,15 @@ function summary(ownerId) {
 }
 
 // What the goal's owner sees: never the pledger's email or private link.
+// The held gift stays hidden until it's released.
 function forOwner(p) {
-  return { id: p.id, projectId: p.projectId, name: p.name, relation: p.relation, kind: p.kind, amount: p.amount, currency: p.currency, reward: p.reward, text: rewardText(p), message: p.message, condition: p.condition, byDate: p.byDate, status: p.status, source: p.source, createdAt: p.createdAt, earnedAt: p.earnedAt, givenAt: p.givenAt, notified: !!p.email };
+  const held = !!(p.giftCode || p.giftLink || p.giftNote);
+  const unread = db.prepare('SELECT COUNT(*) AS n FROM pledge_messages WHERE pledgeId = ? AND fromOwner = 0').get(p.id).n;
+  return {
+    id: p.id, projectId: p.projectId, name: p.name, relation: p.relation, kind: p.kind, amount: p.amount, currency: p.currency, reward: p.reward, text: rewardText(p), message: p.message, condition: p.condition, byDate: p.byDate, status: p.status, source: p.source, createdAt: p.createdAt, earnedAt: p.earnedAt, givenAt: p.givenAt, receivedAt: p.receivedAt || null, notified: !!p.email,
+    held, gift: held && p.status === 'given' ? { code: p.giftCode, link: p.giftLink, note: p.giftNote } : null,
+    payTo: p.payTo || null, releaseAskedAt: p.releaseAskedAt || null, messages: unread,
+  };
 }
 
 // ── Emails ──
@@ -170,6 +243,17 @@ async function emailEarned(p, g) {
     }),
   });
 }
+// A note to the pledger (when they left an email), linking their page.
+async function emailPledger(p, g, subject, bodyHtml, button) {
+  if (!p.email) return;
+  const t = getTransporter();
+  if (!t) return;
+  const url = `${(process.env.APP_URL || appUrl).replace(/\/$/, '')}/p/m/${p.manageToken}`;
+  await t.sendMail({
+    to: p.email, subject,
+    html: wrapEmailHtml({ heading: esc(subject), bodyHtml: `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 14px;">${bodyHtml}</p><a href="${esc(url)}" style="display:inline-block;background:#0A7E8C;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 22px;border-radius:8px;">${esc(button)}</a>` }),
+  });
+}
 function emailOwnerNewPledge(p, g) {
   return sendActivityEmail(g.ownerId, {
     subject: `${p.name} pledged a reward for “${g.title}”`,
@@ -178,4 +262,4 @@ function emailOwnerNewPledge(p, g) {
   });
 }
 
-module.exports = { RELATIONS, CURRENCIES, clean, rewardText, money, defaultCurrency, getLink, createLink, deleteLink, goalState, create, get, byManageToken, list, refresh, markGiven, withdraw, remove, summary, forOwner, emailOwnerNewPledge, setAppUrl, topLevel };
+module.exports = { markReceived, setPayTo, messages, say, askRelease, emailPledger, RELATIONS, CURRENCIES, clean, rewardText, money, defaultCurrency, getLink, createLink, deleteLink, goalState, create, get, byManageToken, list, refresh, markGiven, withdraw, remove, summary, forOwner, emailOwnerNewPledge, setAppUrl, topLevel };

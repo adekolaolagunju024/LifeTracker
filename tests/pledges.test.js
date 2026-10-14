@@ -56,7 +56,7 @@ test('someone pledges by link without an account; finishing the goal earns it; t
   assert.equal(mine.pledges[0].status, 'earned');
 
   const managePage = await (await fetch(`${server.base}${manage.split('?')[0]}`)).text();
-  assert.match(managePage, /Earned! Time to give it/);
+  assert.match(managePage, /Earned! Check and release it/);
   const given = await post(`${manage.split('?')[0]}/given`, {});
   assert.equal(given.status, 303);
   mine = (await api('GET', `/pledges?projectId=${p.id}`)).body;
@@ -91,4 +91,68 @@ test('only the goal owner sees pledges; turning the link off stops new pledges',
   assert.equal(mine.body.source, 'owner');
   assert.equal((await other('DELETE', `/pledges/${mine.body.id}`)).status, 404);
   assert.equal((await owner('DELETE', `/pledges/${mine.body.id}`)).status, 200);
+});
+
+test('a held gift stays hidden until the pledger checks and releases it; cash details reach only them; they share a thread', async () => {
+  const api = await signUp();
+  const { p, tasks } = await goal(api, 1);
+  const token = (await api('POST', '/pledges/link', { projectId: p.id })).body.link.split('/p/')[1];
+
+  // A gift link must be a web address.
+  const bad = await post(`/p/${token}`, { name: 'Gran', reward: 'Cinema trip', giftLink: 'javascript:alert(1)' });
+  assert.equal(bad.status, 400);
+
+  const res = await post(`/p/${token}`, { name: 'Gran', relation: 'family', reward: 'Cinema trip', giftCode: 'ODEON-7F3K', giftLink: 'https://example.com/ticket', giftNote: 'Screen 3, Saturday' });
+  const manage = res.headers.get('location').split('?')[0];
+  const cash = await post(`/p/${token}`, { name: 'Uncle Tunde', relation: 'family', currency: 'GBP', amount: '30' });
+  const cashManage = cash.headers.get('location').split('?')[0];
+
+  let mine = (await api('GET', `/pledges?projectId=${p.id}`)).body.pledges;
+  const gift = mine.find(x => x.name === 'Gran');
+  const money = mine.find(x => x.name === 'Uncle Tunde');
+  assert.equal(gift.held, true);
+  assert.equal(gift.gift, null, 'the gift is hidden before release');
+  assert.ok(!JSON.stringify(mine).includes('ODEON'), 'the code never reaches the owner early');
+
+  // Not earned yet: no release, no pay-to.
+  assert.equal((await api('PUT', `/pledges/${money.id}/pay-to`, { payTo: 'monzo.me/ada' })).status, 409);
+  assert.equal((await api('POST', `/pledges/${gift.id}/ask-release`)).status, 400);
+  // The pledger can't release before it's earned either.
+  await post(`${manage}/given`, {});
+  assert.equal((await api('GET', `/pledges?projectId=${p.id}`)).body.pledges.find(x => x.id === gift.id).status, 'pledged');
+
+  await api('PUT', `/tasks/${tasks[0].id}`, { status: 'Completed' });
+
+  // Cash: say how to send it; only the uncle's page shows it.
+  assert.equal((await api('PUT', `/pledges/${money.id}/pay-to`, { payTo: 'https://monzo.me/ada' })).status, 200);
+  assert.match(await (await fetch(`${server.base}${cashManage}`)).text(), /monzo\.me\/ada/);
+  assert.doesNotMatch(await (await fetch(`${server.base}${manage}`)).text(), /monzo\.me\/ada/);
+
+  // Ask Gran to release: a line in the thread; she replies; she sees the steps.
+  assert.equal((await api('POST', `/pledges/${gift.id}/ask-release`)).status, 200);
+  assert.equal((await api('POST', `/pledges/${gift.id}/ask-release`)).status, 400, 'once in a while, not repeatedly');
+  await post(`${manage}/say`, { text: 'Well done! Enjoy the film' });
+  const thread = (await api('GET', `/pledges/${gift.id}/messages`)).body;
+  assert.equal(thread.length, 2);
+  assert.equal(thread[0].fromOwner, true);
+  assert.equal(thread[1].text, 'Well done! Enjoy the film');
+  assert.equal((await api('POST', `/pledges/${gift.id}/messages`, { text: 'Thank you Gran!' })).status, 201);
+  const page = await (await fetch(`${server.base}${manage}`)).text();
+  assert.match(page, /Thank you Gran!/);
+  assert.match(page, /Step 1/);
+  assert.match(page, /Release the gift/);
+
+  // Released: the gift shows, then the owner marks it received.
+  await post(`${manage}/given`, {});
+  mine = (await api('GET', `/pledges?projectId=${p.id}`)).body.pledges;
+  const out = mine.find(x => x.id === gift.id);
+  assert.equal(out.status, 'given');
+  assert.deepEqual(out.gift, { code: 'ODEON-7F3K', link: 'https://example.com/ticket', note: 'Screen 3, Saturday' });
+  assert.equal(out.receivedAt, null);
+  await api('PUT', `/pledges/${gift.id}/received`);
+  assert.ok((await api('GET', `/pledges?projectId=${p.id}`)).body.pledges.find(x => x.id === gift.id).receivedAt);
+
+  // Another person's pledge thread is not yours.
+  const other = await signUp();
+  assert.equal((await other('GET', `/pledges/${gift.id}/messages`)).status, 404);
 });

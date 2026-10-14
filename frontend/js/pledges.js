@@ -8,7 +8,7 @@
 // between the people themselves. See backend/pledges.js.
 const Rewards = (() => {
   const REL = { parent: 'Parent', family: 'Family', partner: 'Partner', friend: 'Friend', boss: 'Boss', coach: 'Coach', teacher: 'Teacher', mentor: 'Mentor', sponsor: 'Sponsor', other: 'Other' };
-  const STATUS = { pledged: ['Promised', 'promised'], earned: ['Earned', 'earned'], given: ['Received', 'given'], withdrawn: ['Withdrawn', 'off'], missed: ['Date passed', 'off'] };
+  const STATUS = { pledged: ['Promised', 'promised'], earned: ['Earned', 'earned'], given: ['Released', 'given'], withdrawn: ['Withdrawn', 'off'], missed: ['Date passed', 'off'] };
   let state = null; // { projectId, title, link, pledges, currency, currencies, relations }
 
   async function renderProject(project) {
@@ -41,21 +41,87 @@ const Rewards = (() => {
     </div>`;
   }
   function row(p) {
-    const [label, cls] = STATUS[p.status] || ['', ''];
+    let [label, cls] = STATUS[p.status] || ['', ''];
+    if (p.status === 'given' && p.receivedAt) label = 'Received';
     const when = p.condition === 'by_date' ? `if you finish by ${new Date(p.byDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : 'when you finish';
+    const fromLink = p.source === 'link';
+    const first = esc((p.name || '').split(' ')[0] || 'them');
+    // Earned from someone's pledge: they check and release it. Cash: say how
+    // you'd like it sent. A gift they're holding shows once it's released.
+    const earnedBits = p.status === 'earned' && fromLink ? `<div class="rw-flow">
+        <p>${p.held ? `🎁 ${first} is holding a gift for you. ` : ''}${first} checks your progress and releases it.${p.releaseAskedAt ? ' You’ve asked them.' : ''}</p>
+        ${p.kind === 'cash' ? `<p class="rw-payto">${p.payTo ? `${icon('check', 'tiny')}You told them how to send it` : `${icon('info', 'tiny')}Tell ${first} how you’d like the money`}</p>` : ''}
+        <div class="rw-acts">
+          ${p.kind === 'cash' ? `<button type="button" class="rw-mini" onclick="Rewards.openPayTo('${p.id}')">${icon('wallet', 'tiny')}${p.payTo ? 'Change how to send it' : 'How to send it'}</button>` : ''}
+          ${!p.releaseAskedAt ? `<button type="button" class="rw-mini primary" onclick="Rewards.askRelease('${p.id}')">${icon('send', 'tiny')}Ask ${first} to release it</button>` : ''}
+          <button type="button" class="rw-mini" onclick="Rewards.received('${p.id}')" title="They handed it over in person">${icon('check', 'tiny')}Got it in person</button>
+        </div></div>` : '';
+    const gift = p.gift ? `<div class="rw-gift"><p class="rw-gift-k">${icon('gift', 'tiny')}Your gift from ${first}</p>
+        ${p.gift.code ? `<p class="rw-code"><span>${esc(p.gift.code)}</span><button type="button" onclick="Rewards.copyText(this.previousElementSibling.textContent)" aria-label="Copy the code">${icon('copy', 'tiny')}</button></p>` : ''}
+        ${p.gift.link ? `<p><a href="${esc(p.gift.link)}" target="_blank" rel="noopener noreferrer">${icon('external-link', 'tiny')}Open it</a></p>` : ''}
+        ${p.gift.note ? `<p class="rw-msg">${esc(p.gift.note)}</p>` : ''}</div>` : '';
     return `<div class="rw-row ${cls}">
       <span class="rw-av" aria-hidden="true">${esc((p.name || '?').trim().charAt(0).toUpperCase())}</span>
       <div class="min-w-0 flex-1">
-        <p class="rw-what">${esc(p.text)}</p>
+        <p class="rw-what">${esc(p.text)}${p.held && !p.gift ? ` <span class="rw-held" title="A gift is held for you, revealed when it's released">${icon('gift', 'tiny')}Gift held</span>` : ''}</p>
         <p class="rw-who">from ${esc(p.name)} · ${esc(REL[p.relation] || 'Other')}${p.status === 'pledged' ? ` · ${when}` : ''}</p>
         ${p.message ? `<p class="rw-msg">“${esc(p.message)}”</p>` : ''}
       </div>
       <div class="rw-side">
         <span class="rw-chip ${cls}">${label}</span>
-        ${p.status === 'earned' ? `<button type="button" class="rw-mini" onclick="Rewards.received('${p.id}')">${icon('check', 'tiny')}Got it</button>` : ''}
+        ${p.status === 'earned' && !fromLink ? `<button type="button" class="rw-mini" onclick="Rewards.received('${p.id}')">${icon('check', 'tiny')}Got it</button>` : ''}
+        ${p.status === 'given' && !p.receivedAt ? `<button type="button" class="rw-mini" onclick="Rewards.received('${p.id}')">${icon('check', 'tiny')}Got it</button>` : ''}
+        ${fromLink ? `<button type="button" class="rw-mini quiet" onclick="Rewards.openThread('${p.id}')" aria-label="Messages with ${esc(p.name)}">${icon('message-circle', 'tiny')}${p.messages ? `<span class="rw-count">${p.messages}</span>` : ''}</button>` : ''}
         <button type="button" class="rw-x" onclick="Rewards.remove('${p.id}')" aria-label="Remove this reward" title="Remove">${icon('trash')}</button>
       </div>
+      ${earnedBits || gift ? `<div class="rw-extra">${earnedBits}${gift}</div>` : ''}
     </div>`;
+  }
+  const find = id => state && state.pledges.find(p => p.id === id);
+  function copyText(t) { (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => showToast('Copied')).catch(() => showToast(t)); }
+  // How you'd like the cash sent: a payment link or details. Only the
+  // person who pledged it sees this, and only now it's earned.
+  function openPayTo(id) {
+    const p = find(id);
+    if (!p) return;
+    sheet(`<div class="dayplan-head"><div><p class="dayplan-kicker">Rewards</p><h3 id="sheet-title">How should ${esc(p.name)} send it?</h3>
+      <p class="dayplan-sub">A payment link (PayPal.me, Monzo, Revolut, Cash App…) or the details they need. Only ${esc(p.name)} sees this, on their own page.</p></div>
+      <button type="button" class="dayplan-x" onclick="Rewards.close()" aria-label="Close">${icon('close')}</button></div>
+      <form class="rw-form" onsubmit="event.preventDefault(); Rewards.savePayTo('${p.id}')">
+        <label>Payment link or details<textarea id="rw-payto" maxlength="300" rows="3" placeholder="e.g. https://monzo.me/ade or Sort code 00-00-00, account 12345678">${esc(p.payTo || '')}</textarea></label>
+        <p class="rw-note">${icon('lock', 'tiny')} Only share what you’re happy for them to see. Waypoint never moves the money: they send it, then release it.</p>
+        <div class="dayplan-foot"><span></span><button type="submit" class="dayplan-go" id="rw-save">${icon('check', 'tiny')}Save</button></div>
+      </form>`);
+    setTimeout(() => document.getElementById('rw-payto')?.focus(), 50);
+  }
+  async function savePayTo(id) {
+    try { await API.pledgePayTo(id, document.getElementById('rw-payto').value); close(); await refresh(); showToast('Saved. They’ll see it on their page'); } catch (e) { showToast(e.message || 'Could not save that', 'error'); }
+  }
+  async function askRelease(id) {
+    try { await API.pledgeAskRelease(id); await refresh(); showToast('Asked. It’s in your messages with them'); } catch (e) { showToast(e.message || 'Could not ask', 'error'); }
+  }
+  // The thread with the person who pledged.
+  async function openThread(id) {
+    const p = find(id);
+    if (!p) return;
+    let msgs = [];
+    try { msgs = await API.pledgeMessages(id); } catch (e) { showToast(e.message || 'Could not open it', 'error'); return; }
+    const when = iso => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    sheet(`<div class="dayplan-head"><div><p class="dayplan-kicker">Rewards · ${esc(p.text)}</p><h3 id="sheet-title">Messages with ${esc(p.name)}</h3>
+      <p class="dayplan-sub">${p.notified ? `They get an email when you write.` : `They see these on their pledge page.`}</p></div>
+      <button type="button" class="dayplan-x" onclick="Rewards.close()" aria-label="Close">${icon('close')}</button></div>
+      <div class="rw-thread" role="log" aria-label="Messages">${msgs.length ? msgs.map(m => `<div class="rw-tm ${m.fromOwner ? 'you' : ''}"><b>${m.fromOwner ? 'You' : esc(p.name)}</b><p>${esc(m.text)}</p><small>${esc(when(m.createdAt))}</small></div>`).join('') : '<p class="rw-note">No messages yet. Say thanks, or tell them how it went.</p>'}</div>
+      <form class="rw-send" onsubmit="event.preventDefault(); Rewards.say('${p.id}')"><input id="rw-say" maxlength="1000" autocomplete="off" placeholder="Write to ${esc(p.name)}" aria-label="Message"><button type="submit" class="dayplan-go" aria-label="Send">${icon('send', 'tiny')}</button></form>`);
+    const t = document.querySelector('.rw-thread');
+    if (t) t.scrollTop = t.scrollHeight;
+    setTimeout(() => document.getElementById('rw-say')?.focus(), 50);
+  }
+  async function say(id) {
+    const input = document.getElementById('rw-say');
+    const text = input.value.trim();
+    if (!text) return;
+    try { await API.pledgeSay(id, text); } catch (e) { showToast(e.message || 'Could not send it', 'error'); return; }
+    openThread(id);
   }
 
   // ── Invite: the goal's private pledge link ──
@@ -165,7 +231,7 @@ const Rewards = (() => {
       const { pledges } = await API.getPledges(projectId);
       const earned = pledges.filter(p => p.status === 'earned');
       if (!earned.length) return;
-      el.innerHTML = `<p class="pc-rw-kicker">${icon('gift', 'tiny')} You've earned</p>${earned.map(p => `<p class="pc-rw-row"><b>${esc(p.text)}</b> from ${esc(p.name)}</p>`).join('')}`;
+      el.innerHTML = `<p class="pc-rw-kicker">${icon('gift', 'tiny')} You've earned</p>${earned.map(p => `<p class="pc-rw-row"><b>${esc(p.text)}</b> from ${esc(p.name)}${p.source === 'link' ? `<small>${p.held ? 'A gift is waiting. ' : ''}${esc(p.name.split(' ')[0])} checks and releases it</small>` : ''}</p>`).join('')}`;
       el.classList.remove('hidden');
     } catch { /* not the owner, or offline */ }
   }
@@ -184,6 +250,6 @@ const Rewards = (() => {
     } catch { el.innerHTML = ''; }
   }
 
-  return { renderProject, openInvite, openAdd, saveAdd, copy, nativeShare, turnOff, received, remove, close, fillCelebration, paintDashLine };
+  return { copyText, openPayTo, savePayTo, askRelease, openThread, say, renderProject, openInvite, openAdd, saveAdd, copy, nativeShare, turnOff, received, remove, close, fillCelebration, paintDashLine };
 })();
 window.Rewards = Rewards;

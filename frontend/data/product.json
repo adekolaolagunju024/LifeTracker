@@ -126,6 +126,11 @@
   "whatsNew": [
     {
       "date": "2026-10-14",
+      "title": "Rewards: held gifts, release and messages",
+      "text": "Whoever pledges a reward can now hold the gift in Waypoint (a ticket, voucher or booking code, a link and a note), hidden until you've earned it. When you finish, they check your steps and release it, and the gift appears on your goal. For cash, tell them how you'd like it sent (only they see it); Waypoint never handles the money. You and they also get your own message thread."
+    },
+    {
+      "date": "2026-10-14",
       "title": "Team-ups in the planner",
       "text": "Steps from a race or group now carry a Squad, Class, Team or Race chip on Kanban and Gantt, and a step that doesn't count yet says so: needs proof, waiting for the coach, or sent back, with Add proof one tap away. The Gantt draws a chequered finish line at the team's finish date, and if you lead a group it shows one row per person, filled as far as they've got, with the steps waiting for your sign-off."
     },

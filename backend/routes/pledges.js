@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../db/db');
 const pledges = require('../pledges');
 const { rateLimit, byIp } = require('../middleware/rateLimit');
+const { sendActivityEmail } = require('../email/activity');
 
 const appUrl = req => process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
 const linkUrl = (req, token) => `${appUrl(req)}/p/${token}`;
@@ -46,11 +47,39 @@ function ownPledge(req, res) {
   if (!p || p.ownerId !== req.session.userId) { res.status(404).json({ error: 'Pledge not found' }); return null; }
   return p;
 }
-// The owner got it.
+// The owner has it in hand (released, or handed over in person).
 router.put('/:id/received', (req, res) => {
   const p = ownPledge(req, res); if (!p) return;
-  if (p.status !== 'earned') return res.status(409).json({ error: 'Only an earned reward can be marked received' });
-  res.json(pledges.forOwner(pledges.markGiven(p.id)));
+  if (!['earned', 'given'].includes(p.status)) return res.status(409).json({ error: 'Only an earned reward can be marked received' });
+  res.json(pledges.forOwner(pledges.markReceived(p.id)));
+});
+// How you'd like cash sent, once it's earned (only the pledger sees it).
+router.put('/:id/pay-to', (req, res) => {
+  const p = ownPledge(req, res); if (!p) return;
+  if (p.status !== 'earned') return res.status(409).json({ error: 'You can say how to send it once it’s earned' });
+  res.json(pledges.forOwner(pledges.setPayTo(p.id, (req.body || {}).payTo)));
+});
+// Ask the pledger to check and release an earned reward.
+router.post('/:id/ask-release', (req, res) => {
+  const p = ownPledge(req, res); if (!p) return;
+  pledges.setAppUrl(appUrl(req));
+  try { res.json(pledges.forOwner(pledges.askRelease(p.id))); } catch (e) { res.status(400).json({ error: e.message }); }
+});
+// The thread with the pledger.
+router.get('/:id/messages', (req, res) => {
+  const p = ownPledge(req, res); if (!p) return;
+  res.json(pledges.messages(p.id));
+});
+router.post('/:id/messages', (req, res) => {
+  const p = ownPledge(req, res); if (!p) return;
+  if (p.source !== 'link') return res.status(400).json({ error: 'This one was added by you, so there’s no one to message' });
+  try {
+    const m = pledges.say(p.id, true, (req.body || {}).text);
+    pledges.setAppUrl(appUrl(req));
+    const g = pledges.goalState(p.projectId);
+    pledges.emailPledger(p, g, `A message from ${g.firstName === 'they' ? 'them' : g.firstName} about your reward`, esc(m.text), 'Read and reply').catch(e => console.error('Pledge email failed:', e.message));
+    res.status(201).json({ id: m.id });
+  } catch (e) { res.status(400).json({ error: e.message }); }
 });
 router.delete('/:id', (req, res) => {
   const p = ownPledge(req, res); if (!p) return;
@@ -102,6 +131,11 @@ button{font:inherit;cursor:pointer}
 .chip.earned{background:#FEF3C7;color:#92400E}.chip.given{background:#DCFCE7;color:#14532D}.chip.off{background:#F1F3F5;color:#6B7280}
 .small{font-size:12px;color:#6B7280;line-height:1.5;margin-top:10px}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.actions form{margin:0}
+.gift{margin-top:16px;border:1px dashed #BFE3E6;border-radius:14px;padding:10px 14px;background:#F7FCFC}.gift summary{font-weight:800;font-size:14px;cursor:pointer}
+.release{border-top:1px solid #EEF1F4;margin-top:14px}.payto{background:#F3F5F7;border-radius:12px;padding:12px;margin-top:10px}
+.steps{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}.steps li{display:flex;gap:8px;align-items:baseline;font-size:14px}.steps li span{color:#9CA3AF;width:14px}.steps li.done span{color:#0A7E8C}.steps li b{font-weight:600;flex:1}.steps li small{font-size:12px;color:#6B7280}
+.thread{display:grid;gap:8px;margin:10px 0}.msg{border-radius:14px;padding:8px 12px;max-width:85%}.msg.you{justify-self:end;background:#E6F4F5}.msg.them{background:#F3F5F7}.msg b{font-size:11px}.msg p{white-space:pre-wrap}.msg small{font-size:11px;color:#6B7280}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 </style></head><body><div class="wrap"><a class="brand" href="/"><i></i>Waypoint</a>${body}</div></body></html>`;
 }
 function goalCard(g, lead) {
@@ -129,35 +163,81 @@ function pledgeForm(g, token, values = {}, error = '') {
     <label><input type="radio" name="condition" value="by_date" ${values.condition === 'by_date' ? 'checked' : ''}> If they finish by…</label></div>
     <input name="byDate" type="date" aria-label="Finish by date" value="${v('byDate')}" style="margin-top:8px">
     <label for="message">A note for them (optional)</label><textarea id="message" name="message" maxlength="400" placeholder="I believe in you.">${v('message')}</textarea>
+    <details class="gift" ${values.giftCode || values.giftLink || values.giftNote ? 'open' : ''}><summary>🎁 Hold the gift here (optional)</summary>
+      <p class="hint">Got a ticket, a voucher or a booking? Put it here and it stays hidden until you release it, once they’ve finished.</p>
+      <label for="giftCode">Ticket, voucher or booking code</label><input id="giftCode" name="giftCode" maxlength="120" value="${v('giftCode')}" placeholder="e.g. ODEON-7F3K-22">
+      <label for="giftLink">A link to it</label><input id="giftLink" name="giftLink" type="url" maxlength="500" value="${v('giftLink')}" placeholder="https://… (an e-ticket or gift card)">
+      <label for="giftNote">A note to go with it</label><input id="giftNote" name="giftNote" maxlength="400" value="${v('giftNote')}" placeholder="e.g. Screen 3, Saturday 7pm. Enjoy!">
+    </details>
     <label for="email">Your email (optional)</label><input id="email" name="email" type="email" maxlength="200" value="${v('email')}" autocomplete="email" placeholder="So we can tell you when they've earned it">
     <button class="go" type="submit">Pledge this reward</button>
-    <p class="small">Waypoint only keeps track of the promise. It doesn't take or send money: when they've earned it, you give it to them yourself. Your email is never shown to them.</p>
+    <p class="small">Waypoint keeps the promise and any gift you hold here. It doesn't take or send money: once they've earned it, you check their progress, send or hand over the reward yourself, and release it. Your email is never shown to them.</p>
   </form></div>`);
 }
 
+// The pledger's own page: the goal's steps (to check they're really
+// done), their pledge, releasing it (with how to send cash, once earned),
+// and their thread with the goal's owner.
+const fmtDay = d => new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 publicRouter.get('/m/:manage', (req, res) => {
   const p = pledges.byManageToken(req.params.manage);
   const g = p && pledges.goalState(p.projectId);
   if (!p || !g) return res.status(404).type('html').send(page('Not found', '<div class="card"><h2>This link doesn’t work any more</h2><p>The pledge or the goal has been removed.</p></div>'));
   pledges.refresh(p.projectId);
   const cur = pledges.get(p.id);
-  const chip = { pledged: ['Promised', ''], earned: ['Earned! Time to give it', 'earned'], given: ['Given. Thank you', 'given'], withdrawn: ['Withdrawn', 'off'], missed: ['The date passed', 'off'] }[cur.status];
+  const they = g.firstName === 'they' ? 'they' : g.firstName;
+  const They = they === 'they' ? 'They' : they;
+  const chip = { pledged: ['Promised', ''], earned: ['Earned! Check and release it', 'earned'], given: [cur.receivedAt ? `Released. ${They} got it` : 'Released. Thank you', 'given'], withdrawn: ['Withdrawn', 'off'], missed: ['The date passed', 'off'] }[cur.status];
   const fresh = req.query.new === '1';
-  res.type('html').send(page('Your pledge', `${fresh ? `<div class="card" style="border-color:#BFE3E6"><h2>Thank you, ${esc(cur.name)}</h2><p>${esc(g.firstName === 'they' ? 'They' : g.firstName)} can see your pledge now. Keep this page: bookmark it to follow along${cur.email ? ', and we’ll email you when it’s earned' : ''}.</p></div>` : ''}
-    ${goalCard(g, `${g.firstName === 'they' ? 'Their' : esc(g.firstName) + '’s'} goal`)}
+  const held = cur.giftCode || cur.giftLink || cur.giftNote;
+  const steps = pledgeSteps(cur.projectId);
+  const thread = pledges.messages(cur.id);
+  res.type('html').send(page('Your pledge', `${fresh ? `<div class="card" style="border-color:#BFE3E6"><h2>Thank you, ${esc(cur.name)}</h2><p>${esc(They)} can see your pledge now${held ? ' (your gift stays hidden until you release it)' : ''}. Keep this page: bookmark it to follow along${cur.email ? ', and we’ll email you when it’s earned' : ''}.</p></div>` : ''}
+    ${goalCard(g, `${they === 'they' ? 'Their' : esc(they) + '’s'} goal`)}
     <div class="card"><p class="kicker">Your pledge</p><p class="reward">${esc(pledges.rewardText(cur))}</p>
-    <p>${cur.condition === 'by_date' ? `If they finish by ${esc(new Date(cur.byDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }))}.` : 'When they finish.'}</p>
+    <p>${cur.condition === 'by_date' ? `If they finish by ${esc(fmtDay(cur.byDate))}.` : 'When they finish.'}</p>
+    ${held ? `<p class="small" style="margin-top:8px">🎁 You’re holding a gift for them${cur.giftCode ? `: code <b>${esc(cur.giftCode)}</b>` : ''}${cur.giftLink ? `, <a href="${esc(cur.giftLink)}" rel="noopener noreferrer">link</a>` : ''}. ${cur.status === 'given' ? 'They can see it now.' : 'They see it when you release it.'}</p>` : ''}
     <p style="margin-top:10px"><span class="chip ${chip[1]}">${chip[0]}</span></p>
+    ${cur.status === 'earned' ? `<div class="release">
+      <h2 style="margin-top:14px">Check, then release</h2>
+      <p>${esc(They)} finished every step${g.finishedOn ? ` on ${esc(fmtDay(g.finishedOn))}` : ''}. Look over the steps below${thread.length ? ' and your messages' : ''}; if you’re happy, release it.</p>
+      ${cur.kind === 'cash' ? (cur.payTo ? `<div class="payto"><p class="kicker">How ${esc(they)} would like it sent</p><p style="white-space:pre-wrap">${esc(cur.payTo)}</p></div><p class="small">Send it yourself, then release it here. Waypoint never handles the money.</p>` : `<p class="small">${esc(They)} hasn’t said how they’d like the money yet. You can ask below, or hand it over in person.</p>`) : ''}
+      <div class="actions"><form method="post" action="/p/m/${esc(cur.manageToken)}/given"><button class="go" style="margin:0;width:auto;padding:12px 18px" type="submit">${cur.kind === 'cash' ? 'I’ve sent it: release' : held ? 'Release the gift' : 'I’ve given it: release'}</button></form></div>
+    </div>` : ''}
     <div class="actions">
-      ${cur.status === 'earned' ? `<form method="post" action="/p/m/${esc(cur.manageToken)}/given"><button class="go" style="margin:0;width:auto;padding:12px 18px" type="submit">I’ve given it</button></form>` : ''}
       ${cur.status === 'pledged' ? `<form method="post" action="/p/m/${esc(cur.manageToken)}/withdraw"><button class="ghost" type="submit">Withdraw my pledge</button></form>` : ''}
     </div>
-    <p class="small">Only people with this link can see this page.</p></div>`));
+    <p class="small">Only people with this link can see this page.</p></div>
+    ${steps.length ? `<div class="card"><p class="kicker">Their steps</p><ul class="steps">${steps.map(t => `<li class="${t.status === 'Completed' ? 'done' : ''}"><span>${t.status === 'Completed' ? '✓' : '○'}</span><b>${esc(t.title)}</b><small>${t.status === 'Completed' && t.completedAt ? `done ${esc(fmtDay(t.completedAt))}` : t.status === 'In Progress' ? 'under way' : 'to do'}</small></li>`).join('')}</ul></div>` : ''}
+    ${cur.source === 'link' ? `<div class="card" id="thread"><p class="kicker">Messages with ${esc(they)}</p>
+      ${thread.length ? `<div class="thread">${thread.map(m => `<div class="msg ${m.fromOwner ? 'them' : 'you'}"><b>${m.fromOwner ? esc(They) : 'You'}</b><p>${esc(m.text)}</p><small>${esc(fmtDay(m.createdAt))}</small></div>`).join('')}</div>` : `<p class="small" style="margin-top:4px">Say well done, ask for a photo of the finish line, or ask how they’d like the reward.</p>`}
+      <form method="post" action="/p/m/${esc(cur.manageToken)}/say"><label for="say" class="sr">Message</label><textarea id="say" name="text" maxlength="1000" required placeholder="Write to ${esc(they)}"></textarea><button class="ghost" type="submit" style="margin-top:8px">Send</button></form></div>` : ''}`));
 });
+// The goal's steps, for the pledger to check them over.
+function pledgeSteps(projectId) {
+  const conn = require('../db/connection');
+  return conn.prepare(`SELECT t.title, t.status, t.completedAt FROM tasks t JOIN projects p ON p.id = t.projectId
+    WHERE (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL ORDER BY COALESCE(t.endDate, '9999'), t.sortOrder LIMIT 200`).all(projectId, projectId);
+}
 publicRouter.post('/m/:manage/given', (req, res) => {
   const p = pledges.byManageToken(req.params.manage);
-  if (p) pledges.markGiven(p.id);
+  if (p && p.status === 'earned') {
+    pledges.markGiven(p.id);
+    const g = pledges.goalState(p.projectId);
+    if (g) sendActivityEmail(g.ownerId, { subject: `${p.name} released your reward`, heading: `${esc(p.name)} released your reward`, bodyHtml: `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0;"><b>${esc(pledges.rewardText(p))}</b> for <b>${esc(g.title)}</b>.${p.giftCode || p.giftLink || p.giftNote ? ' Open the goal in Waypoint to see your gift.' : ''}</p>` }).catch(() => {});
+  }
   res.redirect(303, `/p/m/${encodeURIComponent(req.params.manage)}`);
+});
+publicRouter.post('/m/:manage/say', pledgeLimit, (req, res) => {
+  const p = pledges.byManageToken(req.params.manage);
+  if (p && p.source === 'link') {
+    try {
+      const m = pledges.say(p.id, false, req.body.text);
+      const g = pledges.goalState(p.projectId);
+      if (g) sendActivityEmail(g.ownerId, { subject: `${p.name} sent you a message about your reward`, heading: `A message from ${esc(p.name)}`, bodyHtml: `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0;">“${esc(m.text)}”</p>` }).catch(() => {});
+    } catch { /* empty or full: just show the page again */ }
+  }
+  res.redirect(303, `/p/m/${encodeURIComponent(req.params.manage)}#thread`);
 });
 publicRouter.post('/m/:manage/withdraw', (req, res) => {
   const p = pledges.byManageToken(req.params.manage);
