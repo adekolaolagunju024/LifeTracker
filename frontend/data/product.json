@@ -126,6 +126,11 @@
   "whatsNew": [
     {
       "date": "2026-10-14",
+      "title": "Remind me on Today's road",
+      "text": "Every task you've planned for today now has Remind me in the Today's road panel. It offers 10 minutes before it starts and when it starts, as well as the usual times, and rings like an alarm."
+    },
+    {
+      "date": "2026-10-14",
       "title": "The bell keeps up with your team and rewards",
       "text": "Notifications now tell you when a teammate is stuck and asks for help, when someone offers to help you, when a step is sent back or signed off, when steps are waiting for your sign-off, about cheers and finishes, and when a reward is pledged, earned, released or comes with a message. The important ones also arrive as a push, where you've turned push on."
     },
