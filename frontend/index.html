@@ -1780,6 +1780,29 @@
     .td-fact.is-soon .v small { color: #9A4410; }
     .dark .td-fact { background: #0F1726; border-color: #1F2A3D; } .dark .td-fact .v { color: #F1F5F9; }
     .dark .td-fact.is-late { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.3); } .dark .td-fact.is-late .v small { color: #FCA5A5; }
+    /* Dashboard: before the first goal, three ways in and the stages */
+    .first-goal { display: grid; gap: 10px; padding: 4px 0 6px; }
+    .first-goal-ways { display: grid; gap: 8px; }
+    @media (min-width: 900px) { .first-goal-ways { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .first-way { display: flex; align-items: flex-start; gap: 10px; text-align: left; border: 1px solid #E3E6EA; border-radius: 14px; padding: 12px; background: #fff; }
+    .first-way:hover { border-color: #0A7E8C; }
+    .first-way .ic { width: 20px; height: 20px; flex: none; color: #0A7E8C; margin-top: 1px; }
+    .first-way b { display: block; font-size: 14px; color: #0D1B2A; }
+    .first-way small { display: block; font-size: 12px; color: #556270; line-height: 1.35; margin-top: 2px; }
+    .first-way.primary { background: #0A7E8C; border-color: #0A7E8C; }
+    .first-way.primary .ic, .first-way.primary b { color: #fff; }
+    .first-way.primary small { color: #CDEDEF; }
+    .first-stages-head { font-size: 12px; font-weight: 700; color: #556270; margin-top: 6px; }
+    .first-stages { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+    .first-stage { flex: 1 0 112px; border-radius: 12px; overflow: hidden; border: 1px solid #E3E6EA; background: #0D1B2A; text-align: left; }
+    .first-stage img { display: block; width: 100%; height: 78px; object-fit: cover; }
+    .first-stage span { display: block; font-size: 12px; font-weight: 700; color: #fff; padding: 6px 8px; }
+    .dark .first-way { background: #141D2B; border-color: #2A3648; }
+    .dark .first-way b { color: #E6EDF3; }
+    .dark .first-way small { color: #9AA8B8; }
+    .dark .first-way.primary { background: #0A7E8C; border-color: #0A7E8C; }
+    .dark .first-way.primary b { color: #fff; }
+    .dark .first-stage { border-color: #2A3648; }
     /* Dashboard: Your focus */
     .focus-counts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
     .focus-count { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; border-radius: 999px; padding: 4px 10px; border: 0; cursor: pointer; }
@@ -2641,6 +2664,7 @@
     .dark .fc-play { background: #5EEAD4; color: #0D1B2A; }
     /* The goal as a small tile among three */
     .focus-card.tile { border-radius: 18px; padding: 16px; display: flex; flex-direction: column; }
+    .focus-card.tile.hidden { display: none; } /* its display: flex beat .hidden: an empty blob showed on the dashboard */
     .focus-card.tile .fc-foot { margin-top: auto; padding-top: 12px; }
     .focus-segs { display: grid; gap: 6px; }
     .focus-segs > span { height: 8px; border-radius: 6px; background: #E8ECEF; }
@@ -3188,8 +3212,8 @@
                  first with the reason, then what's due next. Actions holds
                  the full list. -->
             <div class="flex items-center justify-between gap-3 mb-2">
-              <p class="text-[15px] font-extrabold text-navy">Your focus</p>
-              <button onclick="showPage('actions')" class="text-xs font-bold text-teal hover:underline">All actions →</button>
+              <p class="text-[15px] font-extrabold text-navy" id="dash-upnext-title">Your focus</p>
+              <button onclick="showPage('actions')" class="text-xs font-bold text-teal hover:underline" id="dash-upnext-all">All actions →</button>
             </div>
             <div class="focus-counts" id="dash-attention-counts"></div>
             <div id="dash-upnext"><p class="text-sm text-gray-400 py-3">Loading…</p></div>

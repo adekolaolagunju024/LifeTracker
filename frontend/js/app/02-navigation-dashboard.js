@@ -121,6 +121,22 @@ function dueLabel(endDate, todayKey) {
   if (days < 7) return { text: new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short' }), late: false };
   return { text: formatDateShort(endDate), late: false };
 }
+// Three ways to start a goal: plan it with the assistant, start from a
+// template, or join someone's team with a code. Before the first one, a
+// strip of the Journey stages it can become (tap one to pick it).
+function firstGoalHTML(compact = false) {
+  const ways = `<div class="first-goal-ways">
+      <button type="button" class="first-way primary" onclick="openAssistant()">${icon('sparkles')}<span><b>Plan it with the assistant</b><small>Say what you want to finish. You get a plan with dated steps to approve.</small></span></button>
+      <button type="button" class="first-way" onclick="openAddProject(); setProjectStartMode('template')">${icon('clipboard')}<span><b>Start from a template</b><small>A ready plan: a 5k, a new language, a job hunt, a move.</small></span></button>
+      <button type="button" class="first-way" onclick="showPage('challenges')">${icon('users')}<span><b>Join a team</b><small>Got a code from a coach, teacher or friend? Join their goal.</small></span></button>
+    </div>`;
+  if (compact) return `<div class="first-goal">${ways}</div>`;
+  const stages = (typeof JOURNEY_STAGES !== 'undefined' ? JOURNEY_STAGES : []).map(id => `<button type="button" class="first-stage" onclick="setJourneyPref('journeyTheme', '${id}'); setJourneyPref('journeyView', '2d'); showToast('${esc(STAGE_NAMES[id] || id)} it is. Your first goal will play there')">
+      <img src="/showcase/stage-${id}.webp" alt="" loading="lazy"><span>${esc(STAGE_NAMES[id] || id)}</span></button>`).join('');
+  return `<div class="first-goal">${ways}
+    ${stages ? `<p class="first-stages-head">Every goal becomes a journey. Pick where yours plays:</p><div class="first-stages">${stages}</div>` : ''}</div>`;
+}
+
 function renderDashboardBento(tasks, allProjects) {
   const now = new Date();
   const todayKey = localDateKey(now);
@@ -193,7 +209,13 @@ function renderDashboardBento(tasks, allProjects) {
   const countChips = [['late', late.length, 'overdue', 'overdue'], ['blocked', blocked.length, 'blocked', 'blocker'], ['today', today.length, 'due today', 'clock'], ['waiting', waitingTasks.length, 'waiting', 'waiting']]
     .filter(([, n]) => n)
     .map(([cls, n, label, ic]) => `<button type="button" class="focus-count ${cls}" onclick="showPage('actions')" aria-label="${n} ${label}. Open Actions">${icon(ic)}${n} ${label}</button>`);
-  document.getElementById('dash-attention-counts').innerHTML = countChips.length ? countChips.join('') : `<span class="focus-count clear">${icon('done')}Nothing late or blocked</span>`;
+  // Before the first goal there's nothing to focus on: three ways to start
+  // one, and a look at the stages every goal becomes.
+  const firstRun = !tasks.length && !allProjects.length;
+  document.getElementById('dash-upnext-title').textContent = firstRun ? 'Start your first goal' : 'Your focus';
+  document.getElementById('dash-upnext-all').classList.toggle('hidden', firstRun || !tasks.length);
+  document.getElementById('dash-attention-counts').innerHTML = !open.length ? ''
+    : countChips.length ? countChips.join('') : `<span class="focus-count clear">${icon('done')}Nothing late or blocked</span>`;
   const rank = t => (dueKey(t) && dueKey(t) < todayKey ? 0 : dueKey(t) === todayKey ? 1 : blockersOf(t) ? 2 : waitingOn(t).length ? 3 : 4);
   const focusList = [...open].sort((a, b) => rank(a) - rank(b) || (dueKey(a) || '9999').localeCompare(dueKey(b) || '9999') || (a.priority === 'High' ? -1 : b.priority === 'High' ? 1 : 0));
   const SHOW = 3;
@@ -218,7 +240,8 @@ function renderDashboardBento(tasks, allProjects) {
       <span class="flex-shrink-0 w-20 text-right text-xs font-semibold ${due.late ? 'text-red-600' : dueKey(t) === todayKey ? 'text-amber-700' : 'text-gray-500'}">${esc(due.text)}</span>
       <button type="button" class="attention-act" onclick="Reminders.openSheet('${t.id}')" title="Remind me" aria-label="Set a reminder for ${esc(t.title)}">${icon('alarm')}</button>
     </div>`;
-  }).join('') + (more > 0 ? `<button type="button" class="focus-more" onclick="showPage('actions')">${more} more in Actions →</button>` : '') : '<p class="text-sm text-gray-500 py-4">Nothing open. Plan your next goal with the assistant, or start from a template.</p>';
+  }).join('') + (more > 0 ? `<button type="button" class="focus-more" onclick="showPage('actions')">${more} more in Actions →</button>` : '') : firstRun ? firstGoalHTML()
+    : `<p class="text-sm text-gray-500 pt-2 pb-3">Everything's done. What's next?</p>${firstGoalHTML(true)}`;
 
   // This week against last week.
   const DAY = 86400000;
