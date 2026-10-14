@@ -45,6 +45,14 @@ conn.exec(`
     text TEXT NOT NULL,
     createdAt TEXT NOT NULL
   );
+  -- Finished races and groups someone has cleared off their Teams list.
+  -- Only their list: everyone else's scoreboard keeps them.
+  CREATE TABLE IF NOT EXISTS challenge_cleared (
+    challengeId TEXT NOT NULL,
+    userId TEXT NOT NULL,
+    clearedAt TEXT NOT NULL,
+    PRIMARY KEY (challengeId, userId)
+  );
 `);
 // Phase 2, classes and teams: "together" (everyone aims to finish; no
 // winner) beside "race"; an organiser (a teacher) who runs it without a
@@ -230,7 +238,12 @@ function standings(c, viewerId) {
   }
   const winner = !together && (players.find(p => p.finished) || null);
   const steps = players.reduce((a, p) => a + p.done, 0);
+  const me = players.find(p => p.you);
+  // Finished as far as you're concerned: time's up, you've finished, or
+  // (when you only organise it) everyone has.
+  const doneForYou = now > end || (me ? me.finished : players.length > 0 && players.every(p => p.finished));
   return {
+    doneForYou,
     id: c.id, title: c.title, icon: c.icon, stake: c.stake, startsAt: c.startsAt, endsAt: c.endsAt, taskCount: c.taskCount,
     mode: c.mode, nameMode: c.nameMode, organiserOnly: !!c.organiserOnly, leaderRole: c.leaderRole || (c.mode === 'together' ? 'leader' : null),
     expected, over: now > end, winner: winner ? { name: winner.name, you: winner.you, finishedAt: winner.finishedAt } : null,
@@ -254,8 +267,24 @@ function forProject(projectId, userId) {
 }
 function listMine(userId) {
   return conn.prepare(`SELECT DISTINCT c.* FROM challenges c LEFT JOIN challenge_members m ON m.challengeId = c.id
-    WHERE m.userId = ? OR c.ownerId = ? ORDER BY c.createdAt DESC`)
-    .all(userId, userId).map(c => standings(c, userId)).filter(s => s.owner || s.players.some(p => p.you));
+    WHERE (m.userId = ? OR c.ownerId = ?)
+      AND NOT EXISTS (SELECT 1 FROM challenge_cleared x WHERE x.challengeId = c.id AND x.userId = ?)
+    ORDER BY c.createdAt DESC`)
+    .all(userId, userId, userId).map(c => standings(c, userId)).filter(s => s.owner || s.players.some(p => p.you));
+}
+// Clearing a finished one off your list (and putting it back). One still
+// running can't be cleared: leave it instead.
+function clear(id, userId) {
+  const s = get(id, userId);
+  if (!s) return null;
+  if (!s.doneForYou) throw Object.assign(new Error("It's still running. Leave it instead, or clear it once it's finished"), { status: 400 });
+  conn.prepare('INSERT OR IGNORE INTO challenge_cleared (challengeId, userId, clearedAt) VALUES (?,?,?)').run(id, userId, new Date().toISOString());
+  return true;
+}
+function unclear(id, userId) {
+  if (!get(id, userId)) return null;
+  conn.prepare('DELETE FROM challenge_cleared WHERE challengeId = ? AND userId = ?').run(id, userId);
+  return true;
 }
 
 // The organiser nudges everyone who's behind (or hasn't started): a note
@@ -291,4 +320,4 @@ function leave(id, userId) {
   return conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId).changes > 0;
 }
 
-module.exports = { createChallenge, preview, previewByCode, join, get, forProject, listMine, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+module.exports = { createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };

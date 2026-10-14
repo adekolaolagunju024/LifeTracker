@@ -118,6 +118,11 @@
   ],
   "whatsNew": [
     {
+      "date": "2026-10-14",
+      "title": "Clear finished races and groups from Teams",
+      "text": "Once a race or group is over for you, clear it off your Teams list, one at a time or all at once with Clear finished. Only your list changes: everyone else still sees it on their scoreboard, and Undo brings it back."
+    },
+    {
       "date": "2026-10-13",
       "title": "Project picker fixed on phones",
       "text": "With more than seven projects, opening the project picker on a phone brought up the keyboard, which closed the picker straight away. It now opens as a sheet and stays open: tap the search box when you want it."

@@ -198,3 +198,22 @@ test("the maker's own goal is used, unless a race would start them ahead", async
   const again = await (await call(ana, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), mode: 'together', displayName: 'Ana' })).json();
   assert.notEqual(again.players[0].projectId, goal.id);
 });
+
+test('a finished race can be cleared off your Teams list, and put back; a running one cannot', async () => {
+  const [ana, ben] = [await signUp(), await signUp()];
+  const goal = await goalWithTasks(ana, ['One', 'Two']);
+  const race = await (await call(ana, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), displayName: 'Ana' })).json();
+  const benCopy = (await (await call(ben, 'POST', `/api/challenges/join/${race.joinToken}`, { displayName: 'Ben' })).json()).projectId;
+  assert.equal(race.doneForYou, false);
+  assert.equal((await call(ben, 'POST', `/api/challenges/${race.id}/clear`)).status, 400, 'still running');
+  await finish(ben, benCopy);
+  const board = await (await call(ben, 'GET', `/api/challenges/${race.id}`)).json();
+  assert.equal(board.doneForYou, true, 'Ben has finished');
+  assert.equal((await call(ben, 'POST', `/api/challenges/${race.id}/clear`)).status, 200);
+  assert.equal((await (await call(ben, 'GET', '/api/challenges')).json()).length, 0, 'off Ben’s list');
+  assert.equal((await (await call(ana, 'GET', '/api/challenges')).json()).length, 1, 'still on Ana’s');
+  assert.equal((await (await call(ana, 'GET', `/api/challenges/${race.id}`)).json()).players.length, 2, 'Ben still on the scoreboard');
+  assert.equal((await call(ben, 'DELETE', `/api/challenges/${race.id}/clear`)).status, 200);
+  assert.equal((await (await call(ben, 'GET', '/api/challenges')).json()).length, 1, 'back on Ben’s list');
+  assert.equal((await call(await signUp(), 'POST', `/api/challenges/${race.id}/clear`)).status, 404, 'not theirs');
+});
