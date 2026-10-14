@@ -397,7 +397,9 @@ test('the landing page is filled in from product data: every stage, the latest n
   const html = await (await fetch(`${server.base}/`)).text();
   assert.doesNotMatch(html, /<!--@[a-z]+-->/);
   for (const stage of product.stages) assert.match(html, new RegExp(`/showcase/stage-${stage.id}\\.webp`));
-  assert.ok(html.includes(product.whatsNew[0].title.replace(/&/g, '&amp;')));
+  // escaped as the landing page escapes it (an apostrophe becomes &#39;)
+  const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  assert.ok(html.includes(esc(product.whatsNew[0].title)));
   assert.equal(await (await fetch(`${server.base}/landing.html`)).text(), html);
 });
 
