@@ -3,6 +3,10 @@ const db = require('../db/db');
 const pledges = require('../pledges');
 const { rateLimit, byIp } = require('../middleware/rateLimit');
 const { sendActivityEmail } = require('../email/activity');
+// A push to the goal's owner, where they've turned push on.
+const pushOwner = (userId, body, tag) => {
+  try { require('../push/webpush').sendPushToUser(userId, { title: 'Rewards', body, url: '/app', tag }).catch(() => {}); } catch { /* push not set up */ }
+};
 
 const appUrl = req => process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
 const linkUrl = (req, token) => `${appUrl(req)}/p/${token}`;
@@ -224,6 +228,7 @@ publicRouter.post('/m/:manage/given', (req, res) => {
   if (p && p.status === 'earned') {
     pledges.markGiven(p.id);
     const g = pledges.goalState(p.projectId);
+    if (g) pushOwner(g.ownerId, `${p.name} released ${pledges.rewardText(p)}${p.giftCode || p.giftLink || p.giftNote ? '. Your gift is waiting' : ''}`, `pledge-${p.id}`);
     if (g) sendActivityEmail(g.ownerId, { subject: `${p.name} released your reward`, heading: `${esc(p.name)} released your reward`, bodyHtml: `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0;"><b>${esc(pledges.rewardText(p))}</b> for <b>${esc(g.title)}</b>.${p.giftCode || p.giftLink || p.giftNote ? ' Open the goal in Waypoint to see your gift.' : ''}</p>` }).catch(() => {});
   }
   res.redirect(303, `/p/m/${encodeURIComponent(req.params.manage)}`);
@@ -234,6 +239,7 @@ publicRouter.post('/m/:manage/say', pledgeLimit, (req, res) => {
     try {
       const m = pledges.say(p.id, false, req.body.text);
       const g = pledges.goalState(p.projectId);
+      if (g) pushOwner(g.ownerId, `${p.name}: ${m.text.slice(0, 120)}`, `pledge-msg-${p.id}`);
       if (g) sendActivityEmail(g.ownerId, { subject: `${p.name} sent you a message about your reward`, heading: `A message from ${esc(p.name)}`, bodyHtml: `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0;">“${esc(m.text)}”</p>` }).catch(() => {});
     } catch { /* empty or full: just show the page again */ }
   }
@@ -262,6 +268,7 @@ publicRouter.post('/:token', pledgeLimit, (req, res) => {
     const p = pledges.create(g.id, req.body, { source: 'link' });
     db.logEvent(g.ownerId, 'pledge_received');
     pledges.emailOwnerNewPledge(p, g).catch(e => console.error('Pledge email failed:', e.message));
+    pushOwner(g.ownerId, `${p.name} pledged ${pledges.rewardText(p)} for “${g.title}”`, `pledge-${p.id}`);
     res.redirect(303, `/p/m/${p.manageToken}?new=1`);
   } catch (e) {
     res.status(400).type('html').send(pledgeForm(g, req.params.token, req.body, e.message));

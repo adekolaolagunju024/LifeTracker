@@ -156,3 +156,21 @@ test('a held gift stays hidden until the pledger checks and releases it; cash de
   const other = await signUp();
   assert.equal((await other('GET', `/pledges/${gift.id}/messages`)).status, 404);
 });
+
+test('the bell tells the owner about a new pledge, an earned one, a release and a message', async () => {
+  const api = await signUp();
+  const { p, tasks } = await goal(api, 1);
+  const token = (await api('POST', '/pledges/link', { projectId: p.id })).body.link.split('/p/')[1];
+  await api('POST', '/notifications/read');
+  const res = await post(`/p/${token}`, { name: 'Aunt Bisi', reward: 'Concert tickets', giftCode: 'TIX-42' });
+  const manage = res.headers.get('location').split('?')[0];
+  let bell = (await api('GET', '/notifications')).body.rewardActivity;
+  assert.ok(bell.some(a => a.kind === 'pledged' && /Aunt Bisi pledged Concert tickets for “Run a marathon”/.test(a.text)));
+  await api('PUT', `/tasks/${tasks[0].id}`, { status: 'Completed' });
+  await post(`${manage}/say`, { text: 'Brilliant!' });
+  await post(`${manage}/given`, {});
+  bell = (await api('GET', '/notifications')).body.rewardActivity;
+  assert.ok(bell.some(a => a.kind === 'earned'));
+  assert.ok(bell.some(a => a.kind === 'released' && /Your gift is waiting/.test(a.text)));
+  assert.ok(bell.some(a => a.kind === 'message' && /Aunt Bisi sent you a message/.test(a.text)));
+});
