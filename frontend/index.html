@@ -1297,6 +1297,43 @@
     .rw-chip.given { background: #DCFCE7; color: #14532D; }
     .rw-chip.off { background: #F1F3F5; color: #6B7280; }
     .rw-mini { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; color: #fff; background: #0A7E8C; border-radius: 8px; padding: 4px 9px; }
+    .rw-mini.quiet, .rw-acts .rw-mini { background: #fff; color: #0D1B2A; border: 1px solid #DDE3E8; }
+    .rw-acts .rw-mini.primary { background: #0A7E8C; color: #fff; border-color: #0A7E8C; }
+    .rw-row { flex-wrap: wrap; }
+    .rw-extra { flex-basis: 100%; padding-left: 42px; }
+    @media (max-width: 480px) { .rw-extra { padding-left: 0; } .rw-row > .min-w-0 { flex-basis: calc(100% - 42px); } .rw-row > .rw-side { flex-basis: 100%; justify-content: flex-start; padding-left: 42px; } }
+    .rw-send .dayplan-go { flex: 0 0 auto; width: auto; padding: 0 18px; }
+    .rw-flow { margin-top: 2px; font-size: 13px; color: #3B4552; }
+    .rw-payto { display: flex; align-items: center; gap: 4px; margin-top: 4px; font-size: 12px; font-weight: 700; color: #92400E; }
+    .rw-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .rw-acts .rw-mini { min-height: 32px; }
+    .rw-held { display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; font-size: 11px; font-weight: 800; color: #7C3AED; background: #F3E8FF; border-radius: 999px; padding: 2px 8px; }
+    .rw-gift { margin-top: 8px; border: 1px dashed #C4B5FD; background: #FAF5FF; border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; }
+    .rw-gift-k { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; color: #6D28D9; }
+    .rw-gift a { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: #0A7E8C; }
+    .rw-code { display: flex; align-items: center; gap: 6px; }
+    .rw-code span { font: 700 15px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; color: #0D1B2A; background: #fff; border-radius: 8px; padding: 4px 10px; overflow-wrap: anywhere; }
+    .rw-code button { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: #6D28D9; }
+    .rw-count { display: inline-grid; place-items: center; min-width: 16px; height: 16px; border-radius: 999px; background: #E4572E; color: #fff; font-size: 10px; padding: 0 4px; }
+    .rw-thread { max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding: 10px; background: #F4F6F8; border-radius: 14px; }
+    .rw-tm { align-self: flex-start; max-width: 85%; background: #fff; border: 1px solid #E3E6EA; border-radius: 14px; padding: 7px 11px; }
+    .rw-tm.you { align-self: flex-end; background: #E6F4F5; border-color: #BFE3E6; }
+    .rw-tm b { font-size: 11px; color: #556270; }
+    .rw-tm p { font-size: 14px; color: #0D1B2A; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .rw-tm small { font-size: 10px; color: #8A94A3; }
+    .rw-send { display: flex; gap: 8px; margin-top: 10px; }
+    .rw-send input { flex: 1; min-width: 0; border: 1px solid #DDE3E8; border-radius: 12px; padding: 10px 12px; font-size: 16px; }
+    .rw-form textarea { width: 100%; border: 1px solid #DDE3E8; border-radius: 12px; padding: 9px 12px; font: inherit; font-size: 16px; }
+    .pc-rw-row small { display: block; font-size: 12px; font-weight: 600; opacity: .8; }
+    .dark .rw-mini.quiet, .dark .rw-acts .rw-mini { background: #0B1220; color: #E6EDF3; border-color: #2A3648; }
+    .dark .rw-flow { color: #CBD5E1; }
+    .dark .rw-gift { background: #1E1433; border-color: #6D28D9; }
+    .dark .rw-code span { background: #0B1220; color: #E6EDF3; }
+    .dark .rw-thread { background: #0B1424; }
+    .dark .rw-tm { background: #141D2B; border-color: #2A3648; }
+    .dark .rw-tm.you { background: #0F2A30; border-color: #155E66; }
+    .dark .rw-tm p { color: #E6EDF3; }
+    .dark .rw-send input, .dark .rw-form textarea { background: #0B1424; border-color: #2A3648; color: #E6EDF3; }
     .rw-x { width: 28px; height: 28px; border-radius: 8px; color: #9AA3AF; display: flex; align-items: center; justify-content: center; }
     .rw-x:hover { background: #FEF2F2; color: #B91C1C; }
     .rw-x .ic { width: 15px; height: 15px; }
