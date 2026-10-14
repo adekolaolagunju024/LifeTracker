@@ -126,6 +126,11 @@
   "whatsNew": [
     {
       "date": "2026-10-14",
+      "title": "Team-ups in the planner",
+      "text": "Steps from a race or group now carry a Squad, Class, Team or Race chip on Kanban and Gantt, and a step that doesn't count yet says so: needs proof, waiting for the coach, or sent back, with Add proof one tap away. The Gantt draws a chequered finish line at the team's finish date, and if you lead a group it shows one row per person, filled as far as they've got, with the steps waiting for your sign-off."
+    },
+    {
+      "date": "2026-10-14",
       "title": "Proof and sign-off",
       "text": "No more ticking everything to win. When you team up, choose how steps are checked: trust everyone, a photo or a few words for each step, or (in a group) the coach, teacher or leader signs each step off. Proof goes in the chat, the leader can approve steps one at a time or all at once, or send one back with a note, and a burst of steps ticked inside a minute is pointed out in a race's chat."
     },

@@ -1042,9 +1042,9 @@
     .ch-table .ch-steps { display: inline-block; width: 64px; height: 6px; background: #EEF1F4; border-radius: 999px; overflow: hidden; vertical-align: middle; margin-right: 6px; }
     .ch-table .ch-steps i { display: block; height: 100%; background: #0A7E8C; }
     .ch-table .num { font: 600 12px ui-monospace, monospace; color: #556270; }
-    .ch-table .pace { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 7px; background: #F1F3F5; color: #556270; }
-    .ch-table .pace.ahead, .ch-table .pace.finished { background: #E4F4EC; color: #127A4A; }
-    .ch-table .pace.behind { background: #FDECEA; color: #B42318; }
+    .ch-table .pace, .gantt-lead-pace .pace { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 2px 7px; background: #F1F3F5; color: #556270; }
+    .ch-table .pace.ahead, .ch-table .pace.finished, .gantt-lead-pace .pace.ahead, .gantt-lead-pace .pace.finished { background: #E4F4EC; color: #127A4A; }
+    .ch-table .pace.behind, .gantt-lead-pace .pace.behind { background: #FDECEA; color: #B42318; }
     .ch-table .ago { color: #556270; }
     @media (max-width: 639px) { .ch-table .ch-steps { display: none; } .ch-table td, .ch-table th { padding-left: 9px; padding-right: 9px; } }
     .dark .ch-join, .dark .ch-card, .dark .ch-empty, .dark .ch-group, .dark .ch-table-wrap { background: #111B2B; border-color: #24324A; }
@@ -1779,6 +1779,29 @@
     .gantt-bar.gantt-dragging, .gantt-milestone.gantt-dragging, .gantt-summary-bar.gantt-dragging { box-shadow: 0 6px 18px rgba(13,27,42,.3); z-index: 9; cursor: grabbing; }
     #gantt-drag-tip { position: fixed; z-index: 1006; background: #0D1B2A; color: #fff; font-size: 12px; font-weight: 700; padding: 5px 9px; border-radius: 8px; pointer-events: none; white-space: nowrap; box-shadow: 0 6px 18px rgba(13,27,42,.25); }
     .gantt-bar-label { font-size: 10px; color: #fff; font-weight: 600; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Team-ups in the planner */
+    .team-chip { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; font-size: 10px; font-weight: 800; line-height: 1; color: #0A6A76; background: #E0F2F4; border-radius: 999px; padding: 3px 7px; white-space: nowrap; }
+    button.team-chip:hover { background: #C9E9ED; }
+    .team-chip.lead { color: #fff; background: #0D1B2A; }
+    .step-chip { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; font-size: 10px; font-weight: 800; line-height: 1; border-radius: 999px; padding: 3px 7px; white-space: nowrap; color: #475569; background: #F1F5F9; }
+    .step-chip.proof { color: #9A3412; background: #FFEDD5; }
+    .step-chip.back { color: #fff; background: #C2410C; }
+    .step-chip.wait { color: #0A6A76; background: #E0F2F4; }
+    button.step-chip:hover { filter: brightness(.95); }
+    .team-chip.compact, .step-chip.compact { padding: 3px 5px; }
+    .kanban-team-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .team-finish-line { position: absolute; top: 0; bottom: 0; width: 4px; margin-left: -2px; z-index: 5; pointer-events: none; background: repeating-linear-gradient(180deg, #0D1B2A 0 4px, #fff 4px 8px); opacity: .8; }
+    .team-finish-flag { position: absolute; top: 50%; transform: translate(4px, -50%); z-index: 6; display: inline-flex; align-items: center; gap: 2px; font-size: 9px; font-weight: 800; color: #0D1B2A; background: #fff; border: 1px solid #CBD5E1; border-radius: 999px; padding: 1px 5px; pointer-events: none; white-space: nowrap; }
+    .lead-bar { position: absolute; top: 50%; height: 14px; transform: translateY(-50%); background: #E8EDF2; border-radius: 999px; overflow: hidden; }
+    .lead-bar i { display: block; height: 100%; border-radius: 999px; }
+    .gantt-lead-row { background: #F8FAFC; }
+    .dark .team-chip { color: #7DD3DD; background: #0F2A30; }
+    .dark .team-chip.lead { color: #0D1B2A; background: #E6EDF3; }
+    .dark .step-chip.wait { color: #7DD3DD; background: #0F2A30; }
+    .dark .step-chip.proof { color: #FDBA74; background: #2A1A0B; }
+    .dark .lead-bar { background: #1E293B; }
+    .dark .gantt-lead-row { background: #0F1A2B; }
+    .dark .team-finish-flag { background: #141D2B; color: #E6EDF3; border-color: #2A3648; }
     .today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #EF4444; z-index: 5; pointer-events: none; }
     .project-start-line { position: absolute; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(180deg,#059669 0 6px,transparent 6px 10px); z-index: 5; pointer-events: none; }
     /* Frozen-column widths as CSS variables, not hardcoded pixels — lets
