@@ -126,6 +126,11 @@
   "whatsNew": [
     {
       "date": "2026-10-14",
+      "title": "A proper welcome on an empty dashboard",
+      "text": "Before your first goal, the dashboard now shows three ways in: plan it with the assistant, start from a template or join a team with a code. Below them are the five Journey stages, so you can pick where your goal plays. A stray empty circle on the dashboard is gone too."
+    },
+    {
+      "date": "2026-10-14",
       "title": "New stage: the Sprint Track",
       "text": "Run your lane in an Olympic stadium, in 2D or 3D. Tasks are split boards by the track, blockers are hurdles you jump, and finishing breaks the tape for a personal best. Racing friends? Everyone gets their own lane, and the big screen shows who is leading."
     },
