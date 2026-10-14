@@ -25,7 +25,11 @@ const fmt = (n, currency = '£') => currency + Math.round(n).toLocaleString();
 // A cost in the currency chosen in Settings (default £).
 const money = n => ((APP.profile && APP.profile.currency) || '£') + Number(n).toLocaleString();
 const pct = (a, b) => b > 0 ? Math.min(Math.round((a / b) * 100), 100) : 0;
-const esc = s => String(s).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Text for HTML, safe in content and in attribute values ("…" or '…'): a
+// title with a quote in it can't end the attribute and add its own
+// handler. (Escaping only < and > left that open: a goal title shared
+// through a race or project could run script for whoever opened it.)
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 // ── PRIORITY / STATUS COLORS (Gantt, task table) ─────────────────
 const PRIORITY_BORDER = { High: '#DC2626', Medium: '#F59E0B', Low: '#16A34A' };

@@ -155,6 +155,33 @@ test('phone: the project picker stays open when the keyboard comes up', { skip: 
   await ctx.close();
 });
 
+// A title is text wherever it's shown: quotes in it can't end an
+// attribute and add a handler (a goal title reaches other people through
+// races and shared projects), and & and quotes still read as typed.
+test('a project title with quotes in it stays text on every page', { skip: !CHROME && 'no Chrome found (set CHROME_PATH)' }, async () => {
+  const { page, ctx, errors } = await freshPage(SIZES[1]);
+  const title = 'R&D "Q4" plan" data-pwned="1" onfocus="window.__pwned=1" autofocus x="';
+  await page.goto(`${server.base}/app`, { waitUntil: 'networkidle0' });
+  await page.evaluate(async (email, t) => {
+    await API.register(email, 'testpass123', true); await API.updateProfile({ onboarded: true });
+    const p = await API.addProject({ title: t, isGoal: true });
+    await API.addTask({ projectId: p.id, title: `${t} task`, status: 'Not Started', priority: 'Medium' });
+  }, `e2e_xss_${Date.now()}@example.com`, title);
+  await page.goto(`${server.base}/app`, { waitUntil: 'networkidle0' });
+  await waitFor(page, () => typeof APP !== 'undefined' && APP.currentPage === 'dashboard', null, 'the dashboard');
+  for (const show of [() => showPage('dashboard'), () => showPage('projects'), () => { showPage('gantt'); setGanttPageView('timeline'); }, () => { showPage('gantt'); setGanttPageView('kanban'); }, () => showPage('actions'), () => showPage('calendar')]) {
+    await page.evaluate(show);
+    await sleep(700);
+    assert.equal(await page.evaluate(() => document.querySelectorAll('[data-pwned]').length), 0, 'no attribute added from the title');
+  }
+  assert.equal(await page.evaluate(() => !!window.__pwned), false, 'nothing ran');
+  await page.evaluate(() => showPage('projects'));
+  await sleep(500);
+  assert.ok((await page.$eval('#page-projects', el => el.innerText)).includes('R&D "Q4" plan"'), 'the title reads as typed');
+  assert.deepEqual(errors, [], 'no errors in the page');
+  await ctx.close();
+});
+
 test('every button and field on the main pages has a name', { skip: !CHROME && 'no Chrome found (set CHROME_PATH)' }, async () => {
   const { page, ctx } = await freshPage(SIZES[1]);
   await page.goto(`${server.base}/app`, { waitUntil: 'networkidle0' });

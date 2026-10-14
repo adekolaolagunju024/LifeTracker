@@ -1,6 +1,6 @@
 const { getTransporter } = require('./mailer');
 
-const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 // A personal one-off invite the user asked to send. It isn't gated on the
 // recipient's settings, because the recipient has never used Waypoint.

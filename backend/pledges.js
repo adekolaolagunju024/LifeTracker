@@ -152,7 +152,7 @@ function forOwner(p) {
 }
 
 // ── Emails ──
-const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 let appUrl = process.env.APP_URL || '';
 const setAppUrl = u => { if (u && !process.env.APP_URL) appUrl = u; };
 async function emailEarned(p, g) {

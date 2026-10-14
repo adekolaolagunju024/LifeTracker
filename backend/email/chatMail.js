@@ -3,7 +3,7 @@ const { getTransporter } = require('./mailer');
 
 const APP_URL = process.env.APP_URL || 'http://localhost:3000';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 // Emails a chat message out to the project's team (plus anyone extra CC'd
 // by the sender) — an explicit opt-in per message, not every message.

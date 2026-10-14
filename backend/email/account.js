@@ -1,6 +1,6 @@
 const { getTransporter } = require('./mailer');
 
-const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 // The "reset your password" email. Returns false when email isn't set up
 // on this server, so the caller can fall back to logging the link.
