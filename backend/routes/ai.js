@@ -254,6 +254,48 @@ When the user wants something done in the app (open a page, project or task; sta
 
 If the user describes a new goal and you have enough to plan it, call propose_project. If the user asks for changes to the project they have open, and that project's plan is included below, call propose_edits. That includes deleting a task the user wants gone (it goes to Trash and can be restored), and a task's blockers (the obstacles in its way, listed under each task): adding one, renaming it, changing its count, ticking it off as cleared, or removing it. It also covers a task's progress target (a count such as 20 pages, set through updateTask's targetCount and targetUnit, or cleared with 0) and its predecessors (the tasks it waits on, shown as "waits on" in the plan): addPredecessor and removePredecessor. If the user asks for their music (play my music, put my workout playlist on, I need focus music) call focus_music with action play, naming the playlist if they did; to stop or pause it, action pause; if they paste a music link to keep, call focus_music with action save. Otherwise reply in one or two short sentences, asking a question if you need one. Never say you have made a change: you only propose changes, and the user approves them.`;
 
+// POST /api/ai/fill {form, fields: [{key, label, type, options?, hint?}],
+// values: {key: what's there now}, context, projectId?, taskId?}
+// "Fill in for me": proposes values for the empty fields. Nothing is saved.
+router.post('/fill', aiQuota(), async (req, res) => {
+  if (!isAIConfigured()) return res.status(503).json({ error: 'The assistant is not set up on this server.' });
+  const userId = req.session.userId;
+  const fill = require('../ai/fill');
+  const fields = fill.cleanFields(req.body.fields);
+  const values = req.body.values && typeof req.body.values === 'object' ? req.body.values : {};
+  const empty = fields.filter(f => { const v = values[f.key]; return v == null || v === '' || (Array.isArray(v) && !v.length); });
+  if (!empty.length) return res.json({ values: {} });
+  const lines = [`Form: ${String(req.body.form || 'a form').slice(0, 60)}`];
+  const filled = fields.filter(f => !empty.includes(f));
+  if (filled.length) lines.push('Already filled in:', ...filled.map(f => `${f.label}: ${String(Array.isArray(values[f.key]) ? values[f.key].join('; ') : values[f.key]).slice(0, 400)}`));
+  if (req.body.context) lines.push(`Context: ${String(req.body.context).slice(0, 3000)}`);
+  // The goal (and step) it's about, read here rather than trusted from the page.
+  const task = req.body.taskId ? db.getTaskById(userId, req.body.taskId) : null;
+  const projectId = (task && task.projectId) || req.body.projectId;
+  const project = projectId ? db.getProjectById(userId, projectId) : null;
+  if (project) {
+    const top = project.parentId ? db.getProjectById(userId, project.parentId) || project : project;
+    const steps = db.listTasks(userId).filter(t => t.projectId === top.id || t.projectId === project.id).slice(0, 40);
+    lines.push(`Goal: ${top.title}${top.description ? ` (${top.description.slice(0, 300)})` : ''}`);
+    if (steps.length) lines.push(`Its steps: ${steps.map(t => `${t.title}${t.status === 'Completed' ? ' (done)' : t.endDate ? ` (due ${t.endDate.slice(0, 10)})` : ''}`).join('; ')}`);
+  }
+  if (task) lines.push(`This step: ${task.title} (${task.status}${task.endDate ? `, due ${task.endDate.slice(0, 10)}` : ''})${task.notes ? `, notes: ${task.notes.slice(0, 300)}` : ''}${(task.obstacles || []).filter(o => !o.resolved).length ? `, blockers: ${task.obstacles.filter(o => !o.resolved).map(o => o.name).join(', ')}` : ''}`);
+  lines.push(`Fill in: ${empty.map(f => f.label).join(', ')}`);
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    const profile = db.getProfile(userId) || {};
+    const out = await callAI({
+      system: fill.systemPrompt(today, profile.name && profile.name !== 'Your Name' ? profile.name.split(' ')[0] : ''),
+      messages: [{ role: 'user', content: lines.join('\n') }],
+      tools: [fill.fillTool(empty)], forceToolName: 'fill_form', maxTokens: 800,
+    });
+    res.json({ values: out.type === 'tool_use' ? fill.validate(empty, out.input, today) : {} });
+  } catch (e) {
+    console.error('AI fill error:', e);
+    res.status(502).json({ error: 'The assistant could not fill it in just now. Try again in a moment.' });
+  }
+});
+
 router.post('/assistant', aiQuota('assistant'), async (req, res) => {
   // The request is checked first (and attachments read) so a bad request
   // gets its own answer; whether AI is set up only matters for the call.
