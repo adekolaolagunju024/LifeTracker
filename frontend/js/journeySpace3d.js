@@ -872,7 +872,7 @@ export function createSpace3D(container) {
   const peek = { at: new THREE.Vector3(), t: 0 };
   function updateCamera(dt, time) {
     const rp = rocket.root.position.clone().add(V(0, ROCKET_MID, 0).applyQuaternion(rocket.root.quaternion));
-    let rate = 3;
+    let rate = 3, user = null;
     if (P.mode === 'finale' && P.finT < 6) {
       camDesired.copy(PAD).add(V(9, 5, 15)); lookDesired.copy(rp); rate = 2;
     } else if (P.mode === 'finale' || P.mode === 'victory') {
@@ -884,14 +884,17 @@ export function createSpace3D(container) {
     } else if (shell.cam.mode === 'overview') {
       camDesired.set(55, 38, 52);
       lookDesired.set(0, 0, -6);
+      user = 'overview';
     } else {
+      user = 'follow';
       const dir = (fly.dir || V(0, 0, -1)).clone().setY(fly.dir ? fly.dir.y * 0.5 : 0).normalize();
       const side = new THREE.Vector3().crossVectors(dir, UP).normalize();
       camDesired.copy(rp).addScaledVector(dir, -12.5).addScaledVector(side, 2.6).add(V(0, 4.2, 0));
       lookDesired.copy(rp).addScaledVector(dir, 6);
       peekCamera(peek, rp, camDesired, lookDesired, dt, 15, 5, 2.5);
     }
-    const k = 1 - Math.exp(-dt * rate);
+    if (user) shell.camCtl.apply(camDesired, lookDesired, user, dt);
+    const k = 1 - Math.exp(-dt * shell.camCtl.rate(rate));
     camera.position.lerp(camDesired, k);
     cam.look.lerp(lookDesired, k);
     camera.lookAt(cam.look);

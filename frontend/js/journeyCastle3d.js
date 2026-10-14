@@ -19,7 +19,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera, makeViewToggle, createRivals } from './journey3dKit.js';
+import { stageTasks, layoutSignature, nameTagSprite, pickFoes, resolveChanges, tagText, peekCamera, makeViewToggle, createRivals, createCamControls } from './journey3dKit.js';
 
 const KNIGHT_URL = '/assets/models/Knight.glb';
 const PRINCESS_URL = '/assets/models/Princess.glb';
@@ -108,6 +108,7 @@ export function createCastle3D(container) {
   renderer.toneMappingExposure = 1.0;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   root.appendChild(renderer.domElement);
+  const camCtl = createCamControls(root, renderer.domElement);
 
   // ── The road: village (south) → castle gate (north) ──────────────────
   const curve = new THREE.CatmullRomCurve3(
@@ -1678,7 +1679,7 @@ export function createCastle3D(container) {
     if (!knight) return;
     const kp = knight.holder.position;
     const fwd = new THREE.Vector3(Math.sin(P.heading), 0, Math.cos(P.heading));
-    let rate = 3;
+    let rate = 3, user = null;
     if (P.mode === 'finale') {
       const t = P.finT, F = P.fin, perp = V(F.toward.z, 0, -F.toward.x);
           if (t < 3.7) { camDesired.copy(kp).addScaledVector(F.toward, -7.5).addScaledVector(perp, 3.6).setY(3.3); lookDesired.copy(dragonHome).addScaledVector(F.toward, 1.2).addScaledVector(perp, 0.8).setY(2.6); }
@@ -1696,14 +1697,17 @@ export function createCastle3D(container) {
     } else if (cam.mode === 'overview') {
       camDesired.set(44, 52, 40);
       lookDesired.set(0, 0, -6);
+      user = 'overview';
     } else {
+      user = 'follow';
       const orbit = P.mode === 'idle' ? Math.sin(time * 0.25) * 1.6 : 0;
       const side = new THREE.Vector3(fwd.z, 0, -fwd.x);
       camDesired.copy(kp).addScaledVector(fwd, -6.4).addScaledVector(side, 1.8 + orbit).setY(kp.y + 3.4);
       lookDesired.copy(kp).addScaledVector(fwd, 3.5).setY(kp.y + 1.0);
       peekCamera(peek, kp, camDesired, lookDesired, dt, 10, 5, 2.5);
     }
-    const k = 1 - Math.exp(-dt * rate);
+    if (user) camCtl.apply(camDesired, lookDesired, user, dt);
+    const k = 1 - Math.exp(-dt * camCtl.rate(rate));
     camera.position.lerp(camDesired, k);
     cam.look.lerp(lookDesired, k);
     camera.lookAt(cam.look);
