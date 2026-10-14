@@ -7,8 +7,14 @@
 // Each form describes its fields: { key, label, type, el, options?, hint?,
 // get?, set? }, where type is text, longtext, date, number, choice or list.
 const AIFill = (() => {
-  let ready = null; // is the assistant set up on this server?
-  const configured = () => (ready = ready || API.getAIStatus().then(s => !!(s && s.configured)).catch(() => false));
+  // Is the assistant set up on this server? A plain request, not API's:
+  // signed out it answers 401, which API.request would turn into a reload
+  // (on the sign-in page, over and over). Not remembered until signed in.
+  let ready = null;
+  const configured = () => (ready = ready || fetch('/api/ai/status', { credentials: 'same-origin' })
+    .then(r => (r.ok ? r.json() : Promise.reject(new Error('signed out'))))
+    .then(s => !!(s && s.configured))
+    .catch(() => { ready = null; return false; }));
 
   const valueOf = f => {
     if (f.get) return f.get();
@@ -47,6 +53,11 @@ const AIFill = (() => {
     btn.onclick = () => run(id);
     configured().then(ok => btn.classList.toggle('hidden', !ok));
   }
+  // Once signed in: ask again, and show or hide every button in the page.
+  function recheck() {
+    ready = null;
+    configured().then(ok => specs.forEach((_, id) => { const b = document.getElementById(id); if (b) b.classList.toggle('hidden', !ok); }));
+  }
 
   async function run(id) {
     const spec = specs.get(id);
@@ -81,7 +92,7 @@ const AIFill = (() => {
       if (label) label.textContent = was;
     }
   }
-  return { button, attach, run, configured };
+  return { button, attach, run, configured, recheck };
 })();
 window.AIFill = AIFill;
 
