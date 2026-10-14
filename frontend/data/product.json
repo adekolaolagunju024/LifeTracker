@@ -126,6 +126,11 @@
   "whatsNew": [
     {
       "date": "2026-10-14",
+      "title": "Ask for help on a blocker",
+      "text": "Stuck on a blocker in a race, group or shared goal? Tap Ask for help on it and say what's in the way. It goes in the chat, the leader is told, and teammates can answer with I can help. Clear the blocker and the chat says you got past it, and who helped."
+    },
+    {
+      "date": "2026-10-14",
       "title": "Rewards: held gifts, release and messages",
       "text": "Whoever pledges a reward can now hold the gift in Waypoint (a ticket, voucher or booking code, a link and a note), hidden until you've earned it. When you finish, they check your steps and release it, and the gift appears on your goal. For cash, tell them how you'd like it sent (only they see it); Waypoint never handles the money. You and they also get your own message thread."
     },

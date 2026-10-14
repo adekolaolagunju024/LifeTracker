@@ -22,6 +22,9 @@ router.post('/', (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// GET /api/challenges/help-places/:taskId : where this step's blockers can be taken for help
+router.get('/help-places/:taskId', (req, res) => res.json(challenges.helpPlaces(req.session.userId, req.params.taskId)));
+
 // GET /api/challenges/for-project/:projectId : the race this goal is your copy for
 router.get('/for-project/:projectId', (req, res) => {
   res.json(challenges.forProject(req.params.projectId, req.session.userId));
@@ -122,6 +125,22 @@ router.get('/:id/proof-file/:attachmentId', (req, res) => {
   res.setHeader('Content-Type', a.mimetype);
   res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(a.originalName)}"`);
   res.sendFile(filePath);
+});
+
+// Help on a blocker: POST help {obstacleId, note}; POST help/:messageId/offer
+router.post('/:id/help', (req, res) => {
+  try {
+    const m = challenges.askHelp(req.params.id, req.session.userId, req.body || {});
+    if (!m) return res.status(404).json({ error: 'Race not found' });
+    res.status(201).json({ id: m.id });
+  } catch (e) { fail(res, e); }
+});
+router.post('/:id/help/:messageId/offer', (req, res) => {
+  try {
+    const m = challenges.offerHelp(req.params.id, req.session.userId, req.params.messageId);
+    if (!m) return res.status(404).json({ error: 'Race not found' });
+    res.status(201).json({ id: m.id });
+  } catch (e) { fail(res, e); }
 });
 
 // POST /api/challenges/:id/leave

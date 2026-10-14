@@ -241,6 +241,8 @@ router.put('/obstacles/:obstacleId', (req, res) => {
     if (!obstacle) return res.status(404).json({ error: 'Obstacle not found' });
     // Beating a blocker for the first time pays XP (backend/journey.js).
     const journeyReward = req.body && req.body.resolved === true ? journey.applyBlockerRewards(req.session.userId, obstacle) : null;
+    // Got past it: close any help asked about it in a race or group.
+    if (req.body && req.body.resolved === true) challenges.helpCleared(req.session.userId, obstacle.id);
     res.json({ ...obstacle, journeyReward });
   } catch (e) {
     res.status(400).json({ error: e.message });

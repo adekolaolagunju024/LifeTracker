@@ -93,6 +93,12 @@ for (const col of ["mode TEXT NOT NULL DEFAULT 'race'", 'organiserOnly INTEGER N
 try { conn.exec("ALTER TABLE challenges ADD COLUMN checks TEXT NOT NULL DEFAULT 'none'"); } catch { /* already there */ }
 try { conn.exec('ALTER TABLE challenge_members ADD COLUMN speedFlagged INTEGER NOT NULL DEFAULT 0'); } catch { /* already there */ }
 try { conn.exec('ALTER TABLE challenge_messages ADD COLUMN attachmentId TEXT'); } catch { /* already there */ }
+// Asking for help on a blocker: a 'help' message points at the blocker
+// (refId) and is closed when it's cleared; offers ('offer') point at the
+// help message.
+for (const col of ['refId TEXT', 'closedAt TEXT']) {
+  try { conn.exec(`ALTER TABLE challenge_messages ADD COLUMN ${col}`); } catch { /* already there */ }
+}
 conn.exec(`
   CREATE TABLE IF NOT EXISTS challenge_steps (
     challengeId TEXT NOT NULL,
@@ -314,6 +320,8 @@ function standings(c, viewerId) {
       pace: p.finished ? 'finished' : gap >= 0.05 ? 'ahead' : gap >= -0.05 ? 'on pace' : 'behind',
       // steps ticked that don't count yet: waiting for proof or sign-off
       ...(checks !== 'none' ? { pending: p.needsProof.length + p.waiting.length + p.sentBack.length } : {}),
+      // open requests for help on a blocker
+      stuck: conn.prepare("SELECT COUNT(*) AS n FROM challenge_messages WHERE challengeId = ? AND userId = ? AND kind = 'help' AND closedAt IS NULL").get(c.id, m.userId).n,
       // The organiser sees when each person last ticked a step, to know who to check on.
       ...(organiser ? { lastStepAt: p.lastStepAt } : {}),
       ...(you ? { projectId: m.projectId } : {}),
@@ -424,9 +432,9 @@ function nudgesSince(userId, since) {
 }
 // ── The race or group's chat ──────────────────────────────────────────
 const ord = n => `${n}${(n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'}`;
-function postMessage(cid, userId, text, kind = 'msg', toUserId = null, attachmentId = null) {
-  const m = { id: crypto.randomUUID(), challengeId: cid, userId, kind, text, toUserId, attachmentId, createdAt: new Date().toISOString() };
-  conn.prepare('INSERT INTO challenge_messages (id, challengeId, userId, kind, text, toUserId, attachmentId, createdAt) VALUES (@id, @challengeId, @userId, @kind, @text, @toUserId, @attachmentId, @createdAt)').run(m);
+function postMessage(cid, userId, text, kind = 'msg', toUserId = null, attachmentId = null, refId = null) {
+  const m = { id: crypto.randomUUID(), challengeId: cid, userId, kind, text, toUserId, attachmentId, refId, createdAt: new Date().toISOString() };
+  conn.prepare('INSERT INTO challenge_messages (id, challengeId, userId, kind, text, toUserId, attachmentId, refId, createdAt) VALUES (@id, @challengeId, @userId, @kind, @text, @toUserId, @attachmentId, @refId, @createdAt)').run(m);
   return m;
 }
 const postEvent = (cid, text, userId = null) => postMessage(cid, userId, text, 'event');
@@ -496,7 +504,12 @@ function messages(id, userId) {
   conn.prepare('INSERT INTO challenge_reads (challengeId, userId, readAt) VALUES (?,?,?) ON CONFLICT(challengeId, userId) DO UPDATE SET readAt = excluded.readAt').run(c.id, userId, now);
   return rows.map(m => {
     const a = authorOf(c, m.userId, userId);
-    return { id: m.id, kind: m.kind, text: m.kind === 'cheer' ? describe(c, m, userId) : m.text, author: a.name, color: a.color, leader: !!a.leader, you: m.userId === userId, toYou: m.toUserId === userId, file: fileInfo(fileOf(m.attachmentId)), createdAt: m.createdAt };
+    const offered = m.kind === 'help' ? conn.prepare("SELECT COUNT(*) AS n FROM challenge_messages WHERE kind = 'offer' AND refId = ?").get(m.id).n : 0;
+    const youOffered = m.kind === 'help' && !!conn.prepare("SELECT 1 FROM challenge_messages WHERE kind = 'offer' AND refId = ? AND userId = ?").get(m.id, userId);
+    return {
+      id: m.id, kind: m.kind, text: m.kind === 'cheer' ? describe(c, m, userId) : m.text, author: a.name, color: a.color, leader: !!a.leader, you: m.userId === userId, toYou: m.toUserId === userId, file: fileInfo(fileOf(m.attachmentId)), createdAt: m.createdAt,
+      ...(m.kind === 'help' ? { open: !m.closedAt, offers: offered, youOffered } : {}),
+    };
   });
 }
 function say(id, userId, text) {
@@ -523,6 +536,75 @@ function cheersSeen(id, userId) {
   if (!canChat(c, userId)) return null;
   conn.prepare('INSERT INTO challenge_reads (challengeId, userId, cheersSeenAt) VALUES (?,?,?) ON CONFLICT(challengeId, userId) DO UPDATE SET cheersSeenAt = excluded.cheersSeenAt').run(c.id, userId, new Date().toISOString());
   return true;
+}
+
+// ── Asking for help on a blocker ────────────────────────────────────
+// Stuck on a blocker in your copy? Ask the race or group: a 'help' line in
+// the chat (one open request per blocker) that anyone can answer with
+// "I can help", and that closes itself when the blocker is cleared.
+function blockerIn(m, obstacleId) {
+  return conn.prepare(`SELECT o.*, t.title AS taskTitle FROM task_obstacles o JOIN tasks t ON t.id = o.taskId JOIN projects p ON p.id = t.projectId
+    WHERE o.id = ? AND (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL`).get(String(obstacleId || ''), m.projectId, m.projectId);
+}
+function askHelp(id, userId, { obstacleId, note }) {
+  const c = byId(id);
+  const m = c && memberRow(c.id, userId);
+  if (!m) return null;
+  const o = blockerIn(m, obstacleId);
+  if (!o) throw Object.assign(new Error('That blocker is not on a step in this one'), { status: 404 });
+  if (o.resolvedAt) throw Object.assign(new Error("You've already cleared that one"), { status: 400 });
+  if (conn.prepare("SELECT 1 FROM challenge_messages WHERE challengeId = ? AND kind = 'help' AND refId = ? AND closedAt IS NULL").get(c.id, o.id)) {
+    throw Object.assign(new Error("You've already asked about this one. It's in the chat"), { status: 409 });
+  }
+  const why = clean(note, 300);
+  const msg = postMessage(c.id, userId, `Stuck on “${clean(o.name, 120)}” in “${clean(o.taskTitle, 120)}”${why ? `: ${why}` : ''}`, 'help', null, null, o.id);
+  // The leader hears about it straight away, where they've turned push on.
+  if (c.ownerId !== userId) {
+    try {
+      const { sendPushToUser } = require('./push/webpush');
+      sendPushToUser(c.ownerId, { title: c.title, body: `${m.displayName} is stuck on “${o.name}”`, url: '/app', tag: `help-${o.id}` }).catch(() => {});
+    } catch { /* push not set up */ }
+  }
+  return msg;
+}
+function offerHelp(id, userId, messageId) {
+  const c = byId(id);
+  if (!canChat(c, userId)) return null;
+  const h = conn.prepare("SELECT * FROM challenge_messages WHERE id = ? AND challengeId = ? AND kind = 'help'").get(String(messageId || ''), c.id);
+  if (!h) throw Object.assign(new Error('That request has gone'), { status: 404 });
+  if (h.closedAt) throw Object.assign(new Error("They've already got past it"), { status: 400 });
+  if (h.userId === userId) throw Object.assign(new Error("That's your own request"), { status: 400 });
+  if (conn.prepare("SELECT 1 FROM challenge_messages WHERE kind = 'offer' AND refId = ? AND userId = ?").get(h.id, userId)) {
+    throw Object.assign(new Error("You've already offered. Say more in the chat"), { status: 409 });
+  }
+  const what = (h.text.match(/“([^”]+)”/) || [])[1] || 'that';
+  return postMessage(c.id, userId, `I can help with “${what}”`, 'offer', h.userId, null, h.id);
+}
+// A blocker was cleared: close any help asked about it, and say so.
+function helpCleared(userId, obstacleId) {
+  const open = conn.prepare("SELECT * FROM challenge_messages WHERE kind = 'help' AND refId = ? AND userId = ? AND closedAt IS NULL").all(String(obstacleId), userId);
+  open.forEach(h => {
+    conn.prepare('UPDATE challenge_messages SET closedAt = ? WHERE id = ?').run(new Date().toISOString(), h.id);
+    const c = byId(h.challengeId);
+    const m = c && memberRow(c.id, userId);
+    if (!m) return;
+    const what = (h.text.match(/“([^”]+)”/) || [])[1] || 'a blocker';
+    const helpers = conn.prepare("SELECT DISTINCT userId FROM challenge_messages WHERE kind = 'offer' AND refId = ?").all(h.id).map(r => r.userId);
+    const names = helpers.map(u => memberRow(c.id, u)).filter(Boolean).map(x => shownName(c, x));
+    postEvent(c.id, `✅ ${shownName(c, m)} got past “${what}”${names.length ? ` with help from ${names.join(' and ')}` : ''}`, userId);
+  });
+  return open.length;
+}
+// Where a step's blockers can be taken for help: the races and groups its
+// goal is your copy in, and which blockers already have an open request.
+function helpPlaces(userId, taskId) {
+  const t = conn.prepare('SELECT t.id, t.projectId FROM tasks t WHERE t.id = ? AND t.deletedAt IS NULL').get(String(taskId || ''));
+  if (!t) return { places: [], asked: [] };
+  const rows = conn.prepare('SELECT * FROM challenge_members WHERE projectId = ? AND userId = ?').all(db.topLevelProjectId(t.projectId), userId);
+  const places = rows.map(m => byId(m.challengeId)).filter(Boolean).map(c => ({ id: c.id, title: c.title, mode: c.mode, leaderRole: c.leaderRole || null }));
+  const asked = conn.prepare(`SELECT DISTINCT m.refId FROM challenge_messages m JOIN task_obstacles o ON o.id = m.refId
+    WHERE m.kind = 'help' AND m.userId = ? AND m.closedAt IS NULL AND o.taskId = ?`).all(userId, t.id).map(r => r.refId);
+  return { places, asked };
 }
 
 // ── Proof and sign-off ──────────────────────────────────────────────
@@ -626,4 +708,4 @@ function leave(id, userId) {
   return conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId).changes > 0;
 }
 
-module.exports = { submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+module.exports = { askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
