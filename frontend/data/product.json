@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "Settings in one tap",
+      "text": "There's now a gear in the top bar that opens Settings straight away, on your phone too. And Settings at the bottom of the sidebar no longer disappears off the screen in a short browser window or when you have lots of goals: the list scrolls and Settings stays put."
+    },
+    {
+      "date": "2026-10-16",
       "title": "A clear Home, and your team from the Journey",
       "text": "Tapping Home or Dashboard now always takes you to a clear dashboard: any task panel, dialog, map or full-screen view left open closes on the way (your focus timer keeps counting in its bar). And when the goal you're playing is part of a team, the Journey's Team up button becomes Open team, straight to the team's page with the chat and who's doing what."
     },
