@@ -133,8 +133,16 @@ async function renderJourneyView() {
     renderMountainTaskList();
     loadDailyQuests().then(g => g && updateJourneyLevelBadge(g));
     // A race (Race a friend): the other players join you on the road.
+    // In a team-up, Team up becomes Open team (or Open race): its page, with
+    // the chat, the plan and who's doing what, as the Gantt and Kanban chips do.
     if (window.Race) Race.load(projectId).then(race => {
-      document.getElementById('journey-race-btn')?.classList.toggle('hidden', !!race);
+      const btn = document.getElementById('journey-race-btn');
+      if (btn) {
+        btn.classList.remove('hidden');
+        btn.innerHTML = race ? `${icon(race.mode === 'race' ? 'flag' : 'users', 'tiny')}Open ${race.mode === 'race' ? 'race' : 'team'}` : `${icon('users', 'tiny')}Team up`;
+        btn.title = race ? `Open ${race.title}: the chat, the plan and who's doing what` : 'Lead a squad, class, team or clients through this goal, or race friends';
+        btn.onclick = race ? () => Race.openTeam(race.id) : () => Race.openCreate(mountainState && mountainState.projectId);
+      }
       if (race) { competitorSel?.classList.add('hidden'); renderMountainScene(); }
     });
   } catch (e) {

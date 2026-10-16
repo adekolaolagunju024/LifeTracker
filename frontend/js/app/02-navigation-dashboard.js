@@ -6,7 +6,32 @@
 // A lightweight back button — there's no real browser routing here (one
 // index.html, no history.pushState), so "back" is an in-app stack of
 // wherever showPage() was called from, not actual browser history.
+// Home means the dashboard on its own: everything open on top of a page
+// closes (the task panel, dialogs and sheets, full-screen views, menus).
+// Left alone: a focus session's small bar and the music bar (they sit to one
+// side), the full-screen focus timer shrinks back to its bar and keeps
+// counting, and a reminder that's ringing stays until it's answered.
+function clearOverlays() {
+  const run = fn => { try { fn(); } catch { /* that part isn't loaded */ } };
+  const drop = id => document.getElementById(id)?.remove();
+  run(() => closeTaskDetail());
+  run(() => closeAssistant());
+  run(() => document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open')));
+  run(() => closeWeeklyRecap());
+  run(() => dismissProjectCompleteOverlay());
+  run(() => closePalette());
+  run(() => closeNotifications());
+  run(() => closeGlobalSearch());
+  run(() => closeGateCard());
+  run(() => closeProjectDetailMenu());
+  ['Race', 'Feedback', 'DayReport', 'Rewards', 'ProjectPicker', 'GoalMap'].forEach(m => run(() => window[m] && window[m].close()));
+  run(() => window.DayRoad && DayRoad.closeFull());
+  run(() => window.Jarvis && (Jarvis.fullClose(), Jarvis.closePlanner()));
+  ['levelup-overlay', 'project-complete-race', 'status-menu', 'gantt-drag-tip', 'metric-tip'].forEach(drop);
+}
+
 function showPage(id, projectId = null, _skipHistory = false) {
+  if (id === 'dashboard') clearOverlays();
   if (id !== 'gantt' && isJourneyFullscreen()) setJourneyFullscreen(false);
   if (!_skipHistory && APP.currentPage !== undefined) {
     const isSamePlace = APP.currentPage === id && APP.currentProjectId === projectId;
