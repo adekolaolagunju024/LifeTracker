@@ -17,7 +17,8 @@ async function request(method, path, body = null) {
   if (!res.ok) {
     const text = await res.text();
     let message = text, code;
-    try { const j = JSON.parse(text); message = j.error || text; code = j.code; } catch {}
+    let teamId;
+    try { const j = JSON.parse(text); message = j.error || text; code = j.code; teamId = j.teamId; } catch {}
 
     // A session that expired mid-use — reload so app.js re-checks auth
     // and shows the login screen. Never do this for the auth endpoints
@@ -27,6 +28,7 @@ async function request(method, path, body = null) {
     }
     const err = new Error(message);
     if (code) err.code = code; // e.g. BLOCKERS_PENDING, WAITING_ON_PREDECESSORS
+    if (teamId) err.teamId = teamId; // TEAM_EXISTS: the team this goal already has
     throw err;
   }
   return res.json();

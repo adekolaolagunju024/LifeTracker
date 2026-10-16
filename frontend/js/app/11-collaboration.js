@@ -126,7 +126,11 @@ function chatPreviewTime(iso) {
 async function renderChats() {
   const wrap = document.getElementById('chats-list');
   try {
-    const [chats, races] = await Promise.all([API.getChatPreviews(), API.listRaces().catch(() => [])]);
+    const [allChats, races] = await Promise.all([API.getChatPreviews(), API.listRaces().catch(() => [])]);
+    // A "Split the work" team's goal is shared with the team, so it would
+    // show twice: once here as a team, once as a shared project. It's the team.
+    const teamGoals = new Set(races.filter(r => r.mode === 'split').flatMap(r => [r.goalId, ...r.players.filter(p => p.you).map(p => p.projectId)]).filter(Boolean));
+    const chats = allChats.filter(c => !teamGoals.has(c.projectId));
     // Races and groups first: each has its own chat (js/race.js).
     const raceRows = races.slice().sort((a, b) => ((b.chat && b.chat.last && b.chat.last.createdAt) || b.startsAt || '').localeCompare((a.chat && a.chat.last && a.chat.last.createdAt) || a.startsAt || '')).map(r => {
       const last = r.chat && r.chat.last;
@@ -134,7 +138,7 @@ async function renderChats() {
           <span class="w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0 bg-teal/10 text-teal">${icon((r.mode === 'together' || r.mode === 'split') ? 'users' : 'flag')}</span>
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between gap-2">
-              <p class="font-bold text-sm text-navy truncate">${esc(r.title)} <span class="font-semibold text-gray-400">· ${(r.mode === 'together' || r.mode === 'split') ? 'Group' : 'Race'}</span></p>
+              <p class="font-bold text-sm text-navy truncate">${esc(r.title)} <span class="font-semibold text-gray-400">· ${r.mode === 'split' ? 'Team' : r.mode === 'together' ? 'Group' : 'Race'}</span></p>
               ${last ? `<span class="text-[10px] text-gray-400 flex-shrink-0">${chatPreviewTime(last.createdAt)}</span>` : ''}
             </div>
             <p class="text-xs text-gray-500 truncate mt-0.5">${last ? esc(last.text) : '<span class="text-gray-400">No messages yet. Wish everyone luck</span>'}</p>

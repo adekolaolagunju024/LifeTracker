@@ -172,9 +172,11 @@ test('a group says who leads it: a coach, a trainer, a teacher…; races have no
   const preview = await (await call(player, 'GET', `/api/race-code/${squad.joinCode}`)).json();
   assert.equal(preview.leaderRole, 'coach', 'the invite says who is asking');
   // An unknown role falls back to a team leader; a race has none.
-  const odd = await (await call(coach, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), mode: 'together', leaderRole: 'emperor', displayName: 'Sam' })).json();
+  const goal2 = await goalWithTasks(coach, ['Swim', 'Bike']);
+  const odd = await (await call(coach, 'POST', '/api/challenges', { projectId: goal2.id, endsAt: inDays(7), mode: 'together', leaderRole: 'emperor', displayName: 'Sam' })).json();
   assert.equal(odd.leaderRole, 'leader');
-  const race = await (await call(coach, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), leaderRole: 'coach', displayName: 'Sam' })).json();
+  const goal3 = await goalWithTasks(coach, ['Stretch', 'Rest']);
+  const race = await (await call(coach, 'POST', '/api/challenges', { projectId: goal3.id, endsAt: inDays(7), leaderRole: 'coach', displayName: 'Sam' })).json();
   assert.equal(race.leaderRole, null);
 });
 
@@ -194,9 +196,14 @@ test("the maker's own goal is used, unless a race would start them ahead", async
   const race = await (await call(ana, 'POST', '/api/challenges', { projectId: other.id, endsAt: inDays(7), displayName: 'Ana' })).json();
   assert.notEqual(race.players[0].projectId, other.id);
   assert.equal(race.players[0].done, 0, 'everyone starts level');
-  // A goal already in a group keeps its place there: a second one copies.
-  const again = await (await call(ana, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), mode: 'together', displayName: 'Ana' })).json();
-  assert.notEqual(again.players[0].projectId, goal.id);
+  // A goal already in a running team can't start a second one (that read as
+  // a duplicate everywhere): you're pointed at the team it has.
+  const res = await call(ana, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(7), mode: 'together', displayName: 'Ana' });
+  assert.equal(res.status, 409);
+  const body = await res.json();
+  assert.equal(body.code, 'TEAM_EXISTS');
+  assert.equal(body.teamId, group.id);
+  assert.deepEqual((await (await call(ana, 'GET', '/api/challenges')).json()).map(c => c.id).sort(), [group.id, race.id].sort(), 'no second team made');
 });
 
 test('a finished race can be cleared off your Teams list, and put back; a running one cannot', async () => {

@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "No more doubled-up teams",
+      "text": "A goal can now have one team at a time: choosing Team up on a goal that already has one takes you to that team instead of quietly starting another (and another copy of the goal). Chats lists a team's goal once, and leftover empty teams are gone from your list."
+    },
+    {
+      "date": "2026-10-16",
       "title": "Settings in one tap",
       "text": "There's now a gear in the top bar that opens Settings straight away, on your phone too. And Settings at the bottom of the sidebar no longer disappears off the screen in a short browser window or when you have lots of goals: the list scrolls and Settings stays put."
     },
