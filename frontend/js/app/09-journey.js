@@ -165,8 +165,8 @@ function setJourneyCompetitor(value) {
 // view.
 const RETIRED_JOURNEY_THEMES = ['road', 'race', 'ocean', 'corporate', 'life', 'launch'];
 const JOURNEY_STAGES = ['football', 'space', 'castle', 'construction', 'sprint', 'mountain'];
-// Stages drawn in 2D only (no 3D world): the view toggle hides for them.
-const JOURNEY_2D_ONLY = ['mountain'];
+// Stages drawn in 2D only (no 3D world yet): the view toggle hides for them.
+const JOURNEY_2D_ONLY = [];
 const stageHas3D = stage => !JOURNEY_2D_ONLY.includes(stage);
 function journeyPref(key) {
   try { return localStorage.getItem(key); } catch { return null; /* private mode etc */ }
