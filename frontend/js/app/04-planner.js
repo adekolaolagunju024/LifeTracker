@@ -584,7 +584,8 @@ async function renderGantt() {
               ${canEditGroup ? `onmousedown="ganttBarMouseDown(event,'${t.id}','move')" ontouchstart="ganttBarMouseDown(event,'${t.id}','move')"` : ''}>
               ${canEditGroup ? `<span class="gantt-resize-handle is-left" aria-hidden="true" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-left')" ontouchstart="ganttBarMouseDown(event,'${t.id}','resize-left')"></span>` : ''}
               <span class="gantt-bar-label">${isDone ? icon('check', 'tiny') : pendingFoes(t) ? `${icon('blocker', 'tiny')}${pendingFoes(t)} ` : ''}<span>${esc(t.title)}</span></span>
-              ${canEditGroup ? `<span class="gantt-resize-handle is-right" aria-hidden="true" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-right')" ontouchstart="ganttBarMouseDown(event,'${t.id}','resize-right')"></span>` : ''}
+              ${canEditGroup ? `<span class="gantt-resize-handle is-right" aria-hidden="true" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-right')" ontouchstart="ganttBarMouseDown(event,'${t.id}','resize-right')"></span>
+              <span class="gantt-link-handle" role="button" aria-label="Link ${esc(t.title)} to a task that waits on it" title="Drag onto another task to make it wait on this one" onmousedown="ganttLinkStart(event,'${t.id}')" ontouchstart="ganttLinkStart(event,'${t.id}')"></span>` : ''}
             </div>`;
         } else if (te) {
           const pctPos = posPct(te);
@@ -598,7 +599,7 @@ async function renderGantt() {
             <div class="gantt-sticky gantt-sticky-1 px-4 py-2 border-r border-gray-200 flex items-center gap-1 overflow-hidden">
               ${canEditGroup ? `<span class="flex-shrink-0 hidden group-hover:inline cursor-grab text-gray-300 hover:text-gray-500 px-0.5" onmousedown="ganttRowMouseDown(event, '${t.id}', '${t.projectId}', '${groupId}')" title="Drag to reorder">⠿</span>` : ''}
               <span class="gantt-status-dot gantt-keep" role="img" style="background:${statusColor(t.status)}" title="${({ 'Not Started': 'To do', 'In Progress': 'Doing', Completed: 'Done' })[t.status] || t.status}" aria-label="${({ 'Not Started': 'To do', 'In Progress': 'Doing', Completed: 'Done' })[t.status] || t.status}"></span>
-              <span class="gantt-title-text flex-1 min-w-[6rem] text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="${canEditGroup ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" title="${esc(t.title)} (click to ${canEditGroup ? 'edit' : 'view'})">${esc(t.title)}</span>${window.Race ? Race.stepChip(t.id, true) : ''}${watchSlot(t.id)}
+              <span class="gantt-title-text flex-1 min-w-[6rem] text-xs text-gray-600 hover:text-teal truncate cursor-pointer" onclick="openTaskDetail('${t.id}')" title="${esc(t.title)} (click to open)">${esc(t.title)}</span>${window.Race ? Race.stepChip(t.id, true) : ''}${watchSlot(t.id)}
               ${cardFields.priority ? miniPriorityBadge(t.priority) : ''}
               ${cardFields.tags ? miniTagBadges(t.tags) : ''}
               ${cardFields.checklist ? miniChecklistBadge(t) : ''}
@@ -862,7 +863,7 @@ function renderKanbanBoard(tasks, projectById) {
         <div class="kanban-card group" data-task-id="${t.id}" data-status="${status}"
           ${canEdit ? `onmousedown="kanbanCardMouseDown(event, '${t.id}', '${status}')" ontouchstart="kanbanCardMouseDown(event, '${t.id}', '${status}')"` : ''}>
           <div class="flex items-start justify-between gap-2">
-            <span class="kanban-card-title" role="button" tabindex="0" onclick="${canEdit ? `editTask('${t.id}')` : `openTaskDetail('${t.id}')`}" onkeydown="if(event.key==='Enter')this.click()">${esc(t.title)}</span>
+            <span class="kanban-card-title" role="button" tabindex="0" onclick="openTaskDetail('${t.id}')" onkeydown="if(event.key==='Enter')this.click()">${esc(t.title)}</span>
             <div class="flex-shrink-0 flex items-center gap-1.5 pt-0.5">
               ${watchSlot(t.id)}
               ${cardFields.priority ? `<span class="kanban-prio" title="${esc(t.priority)} priority"><i style="background:${priorityBorderColor(t.priority)}"></i>${esc(t.priority)}</span>` : ''}
@@ -1206,6 +1207,56 @@ function addDaysToDateStr(dateStr, days) {
 const ganttPointX = e => (e.touches && e.touches[0] ? e.touches[0].clientX : e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : e.clientX);
 const ganttPointY = e => (e.touches && e.touches[0] ? e.touches[0].clientY : e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : e.clientY);
 
+// The shortcut for dependencies: drag from the dot at the end of a bar onto
+// another task, and that task waits on this one (a handover arrow appears).
+let ganttLink = null;
+function ganttLinkStart(e, fromId) {
+  e.preventDefault(); e.stopPropagation();
+  const rows = document.getElementById('gantt-rows');
+  const from = rows && rows.querySelector(`.gantt-grid-row[data-task-id="${fromId}"] .gantt-bar`);
+  if (!from) return;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'gantt-link-drag');
+  svg.innerHTML = '<defs><marker id="gantt-link-head" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#0A7E8C"/></marker></defs><path marker-end="url(#gantt-link-head)"/>';
+  document.body.appendChild(svg);
+  ganttLink = { fromId, from, svg, target: null };
+  const pt = ev => (ev.touches && ev.touches[0]) || (ev.changedTouches && ev.changedTouches[0]) || ev;
+  const move = ev => {
+    if (ev.cancelable) ev.preventDefault();
+    const { clientX: x, clientY: y } = pt(ev);
+    const r = ganttLink.from.getBoundingClientRect();
+    const x1 = r.right, y1 = r.top + r.height / 2, mx = Math.max(x1 + 10, (x1 + x) / 2);
+    svg.lastChild.setAttribute('d', `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y}, ${x} ${y}`);
+    const row = document.elementFromPoint(x, y)?.closest('.gantt-grid-row[data-task-id]');
+    const target = row && row.dataset.taskId !== fromId ? row : null;
+    if (ganttLink.target !== target) {
+      ganttLink.target?.classList.remove('gantt-link-target');
+      target?.classList.add('gantt-link-target');
+      ganttLink.target = target;
+    }
+  };
+  const end = () => {
+    document.removeEventListener('mousemove', move); document.removeEventListener('touchmove', move);
+    document.removeEventListener('mouseup', end); document.removeEventListener('touchend', end); document.removeEventListener('touchcancel', end);
+    const link = ganttLink; ganttLink = null;
+    link.svg.remove();
+    if (link.target) { link.target.classList.remove('gantt-link-target'); ganttLinkMake(link.fromId, link.target.dataset.taskId); }
+  };
+  document.addEventListener('mousemove', move); document.addEventListener('touchmove', move, { passive: false });
+  document.addEventListener('mouseup', end); document.addEventListener('touchend', end); document.addEventListener('touchcancel', end);
+  move(e);
+}
+async function ganttLinkMake(fromId, toId) {
+  const all = APP.ganttTasks || [];
+  const from = all.find(t => t.id === fromId), to = all.find(t => t.id === toId);
+  if (!from || !to) return;
+  const before = (to.predecessors || []).map(p => p.id);
+  if (before.includes(fromId)) { showToast(`“${to.title}” already waits on “${from.title}”`); return; }
+  try { await API.setPredecessors(toId, [...before, fromId]); } catch (err) { showToast('🔗 ' + (err.message || 'Could not link them'), 'error'); return; }
+  renderGantt();
+  showActionToast(`🔗 “${to.title}” now waits on “${from.title}”`, [{ label: 'Undo', run: async () => { await API.setPredecessors(toId, before).catch(() => {}); renderGantt(); } }], 'link');
+}
+
 function ganttBarMouseDown(e, taskId, mode) {
   const barEl = mode === 'milestone' ? e.currentTarget : e.currentTarget.closest('.gantt-bar');
   ganttDragStart(e, { taskId, mode, barEl, start: barEl.dataset.start || '', end: barEl.dataset.end || '' });
@@ -1340,7 +1391,7 @@ async function ganttMouseUp(e) {
   // a tap: open the task (a summary bar has no single task to open).
   if (!d.active || d.moved < 4) {
     if (e && e.type === 'touchcancel') return;
-    if (d.mode !== 'summary') editTask(d.taskId);
+    if (d.mode !== 'summary') openTaskDetail(d.taskId);
     else if (d.active) renderGantt();
     return;
   }

@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "Link tasks right on the Gantt",
+      "text": "To make one task wait on another, drag the small dot at the end of its bar onto the task that comes next, and a handover arrow appears (Undo is right there if you change your mind). Clicking a task in the Gantt or Kanban now opens its full panel too, with Do it, Just start, notes and blockers, instead of going straight to the edit form."
+    },
+    {
+      "date": "2026-10-16",
       "title": "Gantt links like the timeline",
       "text": "The links between tasks on the Gantt chart are now the same handover arrows as the team timeline: a dashed curve from the end of one task into the start of the next, with an arrowhead. They steer around task names so the chart stays easy to read, and the Key explains them."
     },

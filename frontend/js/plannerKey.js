@@ -57,6 +57,7 @@ const PlannerKey = (() => {
         item(vline('today'), 'Today'),
         item(vline('start'), "A goal's start date"),
         item(arrow(), 'A handover', 'The next task can start once the one before it is done'),
+        item('<i class="pkey-linkdot"></i>', 'Link dot', 'At the end of a bar: drag it onto another task to make that task wait on this one'),
       ]),
       group('Status dot', ['Not Started', 'In Progress', 'Completed'].map(s => item(dot(STATUS_COLOR[s]), { 'Not Started': 'To do', 'In Progress': 'Doing', Completed: 'Done' }[s]))),
       group('Badges', BADGES),
