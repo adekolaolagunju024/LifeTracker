@@ -1,4 +1,4 @@
-// Waypoint app, part 4 of 12: The Planner: Gantt chart, Kanban board, dependency arrows, drag to move.
+// KolaWay app, part 4 of 12: The Planner: Gantt chart, Kanban board, dependency arrows, drag to move.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 
@@ -16,7 +16,7 @@ const GANTT_GRID_COLS = 'var(--gc1) var(--gc2) var(--gc3) var(--gc4) var(--gc5) 
 
 // ── GANTT COLUMN RESIZE (Excel-style drag-to-widen) ─────────────
 const GANTT_COL_MIN_WIDTH = 50;
-const GANTT_COL_STORAGE_KEY = 'waypoint-gantt-col-widths';
+const GANTT_COL_STORAGE_KEY = 'kolaway-gantt-col-widths';
 const GANTT_COL_DEFAULTS = { 1: 200, 2: 90, 3: 100, 4: 100, 5: 70 };
 
 function loadGanttColWidths() {
@@ -62,7 +62,7 @@ function toggleGanttWrapText() {
 // Task/Project always prints. Screen view is untouched either way; the
 // print-hide-* classes only do anything under @media print (see stylesheet).
 const GANTT_PRINT_COL_DEFAULTS = { status: true, start: true, due: true, duration: true };
-const GANTT_PRINT_COL_STORAGE_KEY = 'waypoint-gantt-print-columns';
+const GANTT_PRINT_COL_STORAGE_KEY = 'kolaway-gantt-print-columns';
 
 function loadGanttPrintColumns() {
   let cols = { ...GANTT_PRINT_COL_DEFAULTS };
@@ -164,7 +164,7 @@ async function printGanttChart() {
 }
 // The printed title: the goal (or "All projects"), which view, the date
 // and how far along it is. On unless "Print a title" in ⋯ More is unticked.
-const GANTT_PRINT_TITLE_KEY = 'waypoint-print-title';
+const GANTT_PRINT_TITLE_KEY = 'kolaway-print-title';
 const ganttPrintTitleOn = () => { try { return localStorage.getItem(GANTT_PRINT_TITLE_KEY) !== 'off'; } catch { return true; } };
 function toggleGanttPrintTitle(on) {
   try { localStorage.setItem(GANTT_PRINT_TITLE_KEY, on ? 'on' : 'off'); } catch { /* private mode */ }

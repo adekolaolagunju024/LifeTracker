@@ -1,4 +1,4 @@
-// Waypoint app, part 1 of 12: Shared state, helpers, colours, badges, task gates and menus.
+// KolaWay app, part 1 of 12: Shared state, helpers, colours, badges, task gates and menus.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 

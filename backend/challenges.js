@@ -13,7 +13,7 @@ const db = require('./db/db');
 // the last of them was ticked, so the winner is decided by the tasks
 // themselves, not by who happened to open the app first.
 //
-// A stake is a promise in words ("loser buys dinner"), never money: Waypoint
+// A stake is a promise in words ("loser buys dinner"), never money: KolaWay
 // doesn't hold or move money between players.
 conn.exec(`
   CREATE TABLE IF NOT EXISTS challenges (
@@ -505,7 +505,7 @@ function announce(c, members, players, progress) {
 // Who wrote it, as this viewer should see it: a player by their shown
 // name (real names for the organiser), the leader by role and name.
 function authorOf(c, userId, viewerId) {
-  if (!userId) return { name: 'Waypoint', color: '#64748B' };
+  if (!userId) return { name: 'KolaWay', color: '#64748B' };
   const m = memberRow(c.id, userId);
   if (m) return { name: userId === viewerId ? 'You' : c.ownerId === viewerId ? m.displayName : shownName(c, m), color: m.color, leader: userId === c.ownerId && isGroup(c) };
   const prof = (db.getProfile(userId) || {}).name || 'The organiser';

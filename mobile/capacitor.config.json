@@ -1,6 +1,6 @@
 {
   "appId": "com.lifetracker.app",
-  "appName": "Waypoint",
+  "appName": "KolaWay",
   "webDir": "www",
   "server": {
     "url": "https://waypointapp.com",

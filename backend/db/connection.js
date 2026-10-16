@@ -21,7 +21,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS profile (
     userId TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL DEFAULT 'Your Name',
-    tagline TEXT NOT NULL DEFAULT 'Every Goal, One Path',
+    tagline TEXT NOT NULL DEFAULT 'Stop postponing. Start progressing.',
     currency TEXT NOT NULL DEFAULT '£',
     targetNetWorth REAL NOT NULL DEFAULT 100000,
     targetDate TEXT NOT NULL DEFAULT '2027-05-01',
@@ -86,7 +86,7 @@ db.exec(`
     googleDriveConnected INTEGER NOT NULL DEFAULT 0,
     googleDriveRefreshToken TEXT,
     googleDriveFolderId TEXT,
-    googleDriveFolderName TEXT NOT NULL DEFAULT 'Waypoint Backups',
+    googleDriveFolderName TEXT NOT NULL DEFAULT 'KolaWay Backups',
     googleDriveLastBackupAt TEXT
   );
 
@@ -177,6 +177,8 @@ addColumnIfMissing('users', "resetTokenExpires TEXT");
   addColumnIfMissing('users', "verifyTokenExpires TEXT");
   if (!hadIt) db.exec("UPDATE users SET emailVerifiedAt = createdAt WHERE emailVerifiedAt IS NULL");
 }
+// The old default tagline becomes the new promise; one someone wrote stays.
+db.prepare("UPDATE profile SET tagline = 'Stop postponing. Start progressing.' WHERE tagline = 'Every Goal, One Path'").run();
 addColumnIfMissing('profile', "emailDigestEnabled INTEGER NOT NULL DEFAULT 0");
 addColumnIfMissing('profile', "lastDigestSentDate TEXT");
 // Soft delete: "deleting" a project or task just stamps deletedAt instead of
@@ -433,7 +435,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_task_dependencies_pred ON task_dependencies(predecessorId);
 `);
 
-// Saved conversations with the Waypoint assistant, so a chat survives
+// Saved conversations with the KolaWay assistant, so a chat survives
 // closing the window and can be picked up again from its history. The
 // messages are kept as a JSON array of { role, content, kind?, attachmentName? }
 // (an attached file's contents are never stored, just its name).
@@ -469,7 +471,7 @@ addColumnIfMissing('task_obstacles', "xpAwardedAt TEXT");
 addColumnIfMissing('users', "totpSecret TEXT");
 addColumnIfMissing('users', "totpPendingSecret TEXT");
 addColumnIfMissing('users', "totpEnabledAt TEXT");
-// Waypoint Pro (backend/billing.js): set only by Stripe's signed webhook.
+// KolaWay Pro (backend/billing.js): set only by Stripe's signed webhook.
 addColumnIfMissing('users', "plan TEXT NOT NULL DEFAULT 'free'");
 addColumnIfMissing('users', "planStatus TEXT");
 addColumnIfMissing('users', "planRenewsAt TEXT");
@@ -573,7 +575,7 @@ db.exec(`
 
 // Reward pledges (backend/pledges.js): someone who believes in you (a
 // parent, boss, coach, friend, teacher) promises a reward, cash or
-// anything else, for finishing a goal. Waypoint tracks the promise from
+// anything else, for finishing a goal. KolaWay tracks the promise from
 // pledged to earned to given; any money changes hands between them.
 // pledge_links is the goal's private "pledge a reward" link (one per goal;
 // deleting the row turns it off). Each pledge has its own manageToken, the

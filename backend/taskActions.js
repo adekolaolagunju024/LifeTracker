@@ -1,5 +1,5 @@
 // ── TASK ACTIONS ────────────────────────────────────────────────
-// What a task is for, so Waypoint can open the right app when its turn
+// What a task is for, so KolaWay can open the right app when its turn
 // comes (frontend/js/taskActions.js builds the link): an email, a
 // WhatsApp message, a call or text, a meeting, directions, a booking or
 // any web link. Stored on the task as JSON; this keeps only known kinds

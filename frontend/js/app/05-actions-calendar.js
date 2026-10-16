@@ -1,4 +1,4 @@
-// Waypoint app, part 5 of 12: Actions and the calendar.
+// KolaWay app, part 5 of 12: Actions and the calendar.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 

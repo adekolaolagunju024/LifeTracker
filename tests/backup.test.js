@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'waypoint-backup-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kolaway-backup-'));
 process.env.DB_PATH = path.join(tmp, 'app.sqlite');
 process.env.BACKUP_DIR = path.join(tmp, 'backups');
 const db = require('../backend/db/connection');

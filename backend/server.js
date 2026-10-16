@@ -90,7 +90,7 @@ app.post('/api/stripe/webhook', ...billingRoutes.webhook);
 app.use(express.json({ limit: '20mb' }));
 app.use(session({
   store: new SqliteStore({ client: db, expired: { clear: true, intervalMs: 15 * 60 * 1000 } }),
-  secret: process.env.SESSION_SECRET || 'waypoint-dev-secret-change-me',
+  secret: process.env.SESSION_SECRET || 'kolaway-dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -235,7 +235,7 @@ const adopted = require('./storage').adoptLegacyUploads();
 if (adopted) console.log(`Copied ${adopted} uploaded file(s) onto the data volume`);
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 Waypoint running at http://localhost:${PORT}\n`);
+  console.log(`\n🚀 KolaWay running at http://localhost:${PORT}\n`);
 });
 
 // The private copy started to photograph the app for the landing page

@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const { randomUUID } = require('crypto');
 
-const dbFile = path.join(os.tmpdir(), `waypoint-reports-test-${Date.now()}.sqlite`);
+const dbFile = path.join(os.tmpdir(), `kolaway-reports-test-${Date.now()}.sqlite`);
 process.env.DB_PATH = dbFile;
 const db = require('../backend/db/db');
 const { buildPortfolioReport, renderPortfolioHtml } = require('../backend/reports/portfolio');

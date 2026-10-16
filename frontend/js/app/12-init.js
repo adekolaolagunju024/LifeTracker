@@ -1,4 +1,4 @@
-// Waypoint app, part 12 of 12: Export and import, start-up, version notice, shortcuts, progress reports.
+// KolaWay app, part 12 of 12: Export and import, start-up, version notice, shortcuts, progress reports.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 
@@ -15,7 +15,7 @@ async function exportData() {
     );
     const a = document.createElement('a');
     a.href     = URL.createObjectURL(blob);
-    a.download = 'waypoint_backup_' + new Date().toISOString().slice(0, 10) + '.json';
+    a.download = 'kolaway_backup_' + new Date().toISOString().slice(0, 10) + '.json';
     a.click();
     showToast('✅ Data exported!');
   } catch (e) { showToast('❌ Export failed', 'error'); }
@@ -132,14 +132,14 @@ function showNewVersionNotice() {
   bar.id = 'new-version-notice';
   bar.setAttribute('role', 'status');
   bar.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-navy text-white text-sm font-semibold pl-4 pr-2 py-2 rounded-xl shadow-2xl';
-  bar.innerHTML = '<span id="new-version-text">A new version of Waypoint is ready.</span><button class="bg-teal hover:bg-teal/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg" onclick="location.reload()">Reload</button><button class="text-white/60 hover:text-white text-lg leading-none px-1" aria-label="Dismiss" onclick="this.parentElement.remove()">×</button>';
+  bar.innerHTML = '<span id="new-version-text">A new version of KolaWay is ready.</span><button class="bg-teal hover:bg-teal/90 text-white text-xs font-bold px-3 py-1.5 rounded-lg" onclick="location.reload()">Reload</button><button class="text-white/60 hover:text-white text-lg leading-none px-1" aria-label="Dismiss" onclick="this.parentElement.remove()">×</button>';
   document.body.appendChild(bar);
   // Say what's new, from the same log the landing page shows
   // (frontend/data/product.json).
   fetch('/data/product.json', { cache: 'no-store' }).then(r => r.json()).then(p => {
     const latest = p && p.whatsNew && p.whatsNew[0];
     const text = document.getElementById('new-version-text');
-    if (latest && text) text.textContent = `New in Waypoint: ${latest.title}.`;
+    if (latest && text) text.textContent = `New in KolaWay: ${latest.title}.`;
   }).catch(() => { /* the plain message stays */ });
 }
 checkForNewVersion();

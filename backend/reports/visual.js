@@ -69,7 +69,7 @@ function reportHtml(snapshot) {
   .footer { margin-top: 24px; font-size: 10px; color: #9CA3AF; }
 </style></head>
 <body>
-  <h1>${esc(profile.name)}'s Waypoint Report</h1>
+  <h1>${esc(profile.name)}'s KolaWay Report</h1>
   <p class="sub">Generated ${new Date().toLocaleString()}</p>
 
   <div class="kpis">
@@ -91,7 +91,7 @@ function reportHtml(snapshot) {
     ${projectRows}
   </table>
 
-  <p class="footer">${overdueCount} task${overdueCount === 1 ? '' : 's'} overdue · Waypoint</p>
+  <p class="footer">${overdueCount} task${overdueCount === 1 ? '' : 's'} overdue · KolaWay</p>
 </body></html>`;
 }
 
