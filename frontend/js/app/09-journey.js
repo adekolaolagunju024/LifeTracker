@@ -164,7 +164,10 @@ function setJourneyCompetitor(value) {
 // older saved "football3d"-style choice splits into the stage and the 3D
 // view.
 const RETIRED_JOURNEY_THEMES = ['road', 'race', 'ocean', 'corporate', 'life', 'launch'];
-const JOURNEY_STAGES = ['football', 'space', 'castle', 'construction', 'sprint'];
+const JOURNEY_STAGES = ['football', 'space', 'castle', 'construction', 'sprint', 'mountain'];
+// Stages drawn in 2D only (no 3D world): the view toggle hides for them.
+const JOURNEY_2D_ONLY = ['mountain'];
+const stageHas3D = stage => !JOURNEY_2D_ONLY.includes(stage);
 function journeyPref(key) {
   try { return localStorage.getItem(key); } catch { return null; /* private mode etc */ }
 }
@@ -184,7 +187,7 @@ function getJourneyView() {
   return implied;
 }
 const getJourneyCam = () => (journeyPref('journeyCam') === 'overview' ? 'overview' : journeyPref('journeyCam') === 'follow' ? 'follow' : '');
-function getJourneyTheme() { return getJourneyStage() + (getJourneyView() === '3d' ? '3d' : ''); }
+function getJourneyTheme() { const s = getJourneyStage(); return s + (getJourneyView() === '3d' && stageHas3D(s) ? '3d' : ''); }
 function setJourneyTheme(stage) {
   getJourneyView(); // settles the view before the old stage name is replaced
   setJourneyPref('journeyTheme', stage);
@@ -219,8 +222,9 @@ function journeyCanDo3D() {
 function renderJourneyViewBar() {
   const bar = document.getElementById('journey-view-bar');
   if (!bar) return;
-  bar.classList.toggle('hidden', !journeyCanDo3D());
-  if (!journeyCanDo3D()) return;
+  const can = journeyCanDo3D() && stageHas3D(getJourneyStage());
+  bar.classList.toggle('hidden', !can);
+  if (!can) return;
   const view = getJourneyView();
   const cam = getJourneyCam() || 'follow';
   const overview = getJourneyStage() === 'construction' ? 'Site view' : 'Overview';

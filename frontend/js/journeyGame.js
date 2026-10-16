@@ -1611,6 +1611,224 @@ const JourneyGame = (() => {
   };
 
   // ════════════════════════════════════════════════════════════════
+  // THEME: MOUNTAIN — "The Summit". Looking up a winding trail towards a
+  // snow-capped peak, the hiker seen from behind. The trail narrows as it
+  // climbs and everything on it gets smaller with distance (theme.depth),
+  // so the summit really is a long way up.
+  // ════════════════════════════════════════════════════════════════
+  const MOUNTAIN_KNOTS = {
+    wide: [[410, 474], [250, 432], [560, 382], [300, 330], [520, 286], [350, 246], [480, 210], [380, 178], [450, 150], [415, 126]],
+    tall: [[210, 752], [70, 660], [350, 578], [90, 494], [320, 424], [130, 362], [280, 310], [170, 268], [250, 234], [205, 206]],
+  };
+  const mountainKey = layout => (layout === LAYOUTS.tall ? 'tall' : 'wide');
+  // How big things are at a height on screen: full size at the bottom,
+  // a third at the summit.
+  function mountainDepthAt(layoutKey, y) {
+    const k = MOUNTAIN_KNOTS[layoutKey];
+    const top = k[k.length - 1][1], bottom = k[0][1];
+    const t = Math.max(0, Math.min(1, (y - top) / (bottom - top)));
+    return 0.34 + 0.72 * t;
+  }
+  // The trail as dense points along the same smooth curve the engine
+  // draws (pathD's Catmull-Rom), so the tapered trail under it matches.
+  function mountainPoints(layout) {
+    const k = MOUNTAIN_KNOTS[mountainKey(layout)].map(([x, y]) => ({ x, y }));
+    const out = [];
+    for (let i = 0; i < k.length - 1; i++) {
+      const p0 = k[i - 1] || k[i], p1 = k[i], p2 = k[i + 1], p3 = k[i + 2] || p2;
+      const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
+      const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
+      for (let s = 0; s < 12; s++) {
+        const t = s / 12, u = 1 - t;
+        out.push({
+          x: u * u * u * p1.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * p2.x,
+          y: u * u * u * p1.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * p2.y,
+        });
+      }
+    }
+    out.push(k[k.length - 1]);
+    return out;
+  }
+  // A tree, a pine or a round one, in the scene's greens.
+  function mountainTree(g, v, k = 1) {
+    if (v < 0.55) {
+      g.appendChild(el('rect', { x: -1.4 * k, y: -6 * k, width: 2.8 * k, height: 6 * k, fill: '#6b4f2a' }));
+      [[-22, 9], [-16, 7.4], [-10, 5.8]].forEach(([y, w], i) => g.appendChild(el('path', { d: `M ${-w * k} ${(y + 12) * k} L 0 ${(y - 2) * k} L ${w * k} ${(y + 12) * k} Z`, fill: ['#1f6f4a', '#26845a', '#2f9a68'][i] })));
+    } else {
+      g.appendChild(el('rect', { x: -1.4 * k, y: -8 * k, width: 2.8 * k, height: 8 * k, fill: '#6b4f2a' }));
+      g.appendChild(el('circle', { cx: 0, cy: -14 * k, r: 8 * k, fill: v < 0.8 ? '#3f9d58' : '#c9c35a' }));
+      g.appendChild(el('circle', { cx: -2.6 * k, cy: -16.4 * k, r: 3.4 * k, fill: '#ffffff', opacity: 0.16 }));
+    }
+  }
+  function mountainDecorate(svg, layout, glowId) {
+    const { w, h } = layout;
+    const tall = layout === LAYOUTS.tall;
+    const peak = tall ? { x: 205, y: 120 } : { x: 415, y: 40 };
+    const base = tall ? 470 : 300; // where the mountain meets the meadow
+    // sky
+    const skyId = `mountain-sky-${++uid}`;
+    const sky = el('linearGradient', { id: skyId, x1: 0, y1: 0, x2: 0, y2: 1 });
+    [[0, '#9fd3f2'], [70, '#d8eefb'], [100, '#eef7ee']].forEach(([o, c]) => sky.appendChild(el('stop', { offset: `${o}%`, 'stop-color': c })));
+    svg.appendChild(sky);
+    svg.appendChild(el('rect', { x: 0, y: 0, width: w, height: h, fill: `url(#${skyId})` }));
+    // clouds
+    (tall ? [[60, 70, 1], [340, 150, 0.8], [300, 40, 0.6]] : [[120, 50, 1.2], [690, 80, 1], [560, 30, 0.7]]).forEach(([x, y, s]) => {
+      const c = el('g', { transform: `translate(${x},${y}) scale(${s})`, opacity: 0.95 });
+      [[0, 0, 22], [20, -6, 18], [38, 2, 16], [-18, 4, 14]].forEach(([cx, cy, r]) => c.appendChild(el('circle', { cx, cy, r, fill: '#ffffff' })));
+      svg.appendChild(c);
+    });
+    // distant ranges, paler with distance
+    const range = (pts, fill) => svg.appendChild(el('path', { d: `M 0 ${h} L ${pts.map(([x, y]) => `${x} ${y}`).join(' L ')} L ${w} ${h} Z`, fill }));
+    if (tall) {
+      range([[0, 330], [60, 250], [120, 300], [170, 230], [220, 280], [300, 210], [360, 270], [420, 240]], '#b9cbd6');
+      range([[0, 380], [80, 300], [150, 350], [260, 290], [330, 330], [420, 300]], '#9fb6c3');
+    } else {
+      range([[0, 220], [90, 150], [170, 200], [250, 130], [330, 190], [520, 120], [610, 170], [700, 110], [800, 170]], '#b9cbd6');
+      range([[0, 250], [120, 180], [220, 230], [600, 190], [700, 230], [800, 200]], '#9fb6c3');
+    }
+    // the mountain: a lit face and a shadowed face, the snow cap, a few ridges
+    const lx = tall ? -220 : -360, rx = tall ? 230 : 390;
+    // (its foot runs on below the meadow line so no edge shows at the sides)
+    svg.appendChild(el('path', { d: `M ${peak.x + lx} ${base} L ${peak.x - 40} ${peak.y + 70} L ${peak.x} ${peak.y} L ${peak.x + 18} ${base} L ${peak.x + 18} ${base + 14} L ${peak.x + lx} ${base + 14} Z`, fill: '#7b86c9' }));
+    svg.appendChild(el('path', { d: `M ${peak.x} ${peak.y} L ${peak.x + 46} ${peak.y + 60} L ${peak.x + 90} ${peak.y + 74} L ${peak.x + rx} ${base} L ${peak.x + rx} ${base + 14} L ${peak.x + 18} ${base + 14} Z`, fill: '#5a64a8' }));
+    svg.appendChild(el('path', { d: `M ${peak.x - 34} ${peak.y + 60} L ${peak.x} ${peak.y} L ${peak.x + 44} ${peak.y + 58} L ${peak.x + 26} ${peak.y + 50} L ${peak.x + 12} ${peak.y + 66} L ${peak.x - 4} ${peak.y + 48} L ${peak.x - 18} ${peak.y + 64} Z`, fill: '#ffffff' }));
+    svg.appendChild(el('path', { d: `M ${peak.x + 44} ${peak.y + 58} L ${peak.x + 70} ${peak.y + 96} L ${peak.x + 58} ${peak.y + 92} L ${peak.x + 50} ${peak.y + 104} Z`, fill: '#eef2ff', opacity: 0.85 }));
+    // the meadow: rolling slopes in two greens, then the foreground
+    svg.appendChild(el('path', { d: `M 0 ${base - 6} Q ${w * 0.25} ${base - 30} ${w * 0.5} ${base + 4} T ${w} ${base - 10} L ${w} ${h} L 0 ${h} Z`, fill: '#9ccd5c' }));
+    svg.appendChild(el('path', { d: `M 0 ${base + 70} Q ${w * 0.3} ${base + 30} ${w * 0.62} ${base + 64} T ${w} ${base + 50} L ${w} ${h} L 0 ${h} Z`, fill: '#86c04a' }));
+    svg.appendChild(el('path', { d: `M 0 ${h - (tall ? 120 : 70)} Q ${w * 0.4} ${h - (tall ? 170 : 110)} ${w} ${h - (tall ? 110 : 60)} L ${w} ${h} L 0 ${h} Z`, fill: '#74b042' }));
+    // the trail itself: wide at your feet, a thread near the top. Drawn
+    // as short round-capped strokes, each as wide as the trail is there, so
+    // the tight switchbacks never fold over themselves.
+    const pts = mountainPoints(layout);
+    const key = mountainKey(layout);
+    const trail = (extra, attrs) => {
+      const g = el('g', { 'stroke-linecap': 'round', ...attrs });
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        g.appendChild(el('line', { x1: a.x.toFixed(1), y1: a.y.toFixed(1), x2: b.x.toFixed(1), y2: b.y.toFixed(1), 'stroke-width': (46 * mountainDepthAt(key, (a.y + b.y) / 2) + extra).toFixed(2) }));
+      }
+      svg.appendChild(g);
+    };
+    trail(0, { stroke: '#5d7a35', opacity: 0.3, transform: 'translate(0,3)' });
+    trail(2.8, { stroke: '#c9b48a' });
+    trail(0, { stroke: '#efe3c8' });
+    // a signpost, a tent and a log pile beside the trail, low on the slope
+    const camp = tall ? { x: 340, y: 690 } : { x: 690, y: 420 };
+    const tent = el('g', { transform: `translate(${camp.x},${camp.y})` });
+    tent.appendChild(el('ellipse', { cx: 0, cy: 2, rx: 30, ry: 5, fill: '#3d6b22', opacity: 0.35 }));
+    tent.appendChild(el('path', { d: 'M -26 0 L 0 -30 L 26 0 Z', fill: '#b91c1c' }));
+    tent.appendChild(el('path', { d: 'M 0 -30 L 26 0 L 34 0 L 6 -30 Z', fill: '#7f1d1d' }));
+    tent.appendChild(el('path', { d: 'M -6 0 L 0 -14 L 6 0 Z', fill: '#3f0d0d' }));
+    [[-40, -4], [-36, -9], [-44, -9]].forEach(([x, y]) => tent.appendChild(el('rect', { x, y, width: 16, height: 5, rx: 2.5, fill: '#a0703f', stroke: '#6b4423', 'stroke-width': 0.6 })));
+    svg.appendChild(tent);
+    const sign = tall ? { x: 40, y: 600 } : { x: 160, y: 400 };
+    const sp = el('g', { transform: `translate(${sign.x},${sign.y})` });
+    sp.appendChild(el('rect', { x: -1.6, y: -26, width: 3.2, height: 26, fill: '#7c5a32' }));
+    sp.appendChild(el('path', { d: 'M -2 -26 L 22 -26 L 28 -21 L 22 -16 L -2 -16 Z', fill: '#a8794a', stroke: '#6b4423', 'stroke-width': 0.8 }));
+    const st = el('text', { x: 11, y: -20.6, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 5.4, 'font-weight': 800, fill: '#3b2a17', 'font-family': 'Arial, sans-serif' });
+    st.textContent = 'SUMMIT';
+    sp.appendChild(st);
+    svg.appendChild(sp);
+    // wild flowers along the bottom edge
+    for (let i = 0; i < (tall ? 26 : 40); i++) {
+      const x = (i * 97.3) % w, y = h - 6 - ((i * 37) % (tall ? 60 : 40));
+      const c = ['#ffffff', '#c084fc', '#facc15', '#f472b6', '#a78bfa'][i % 5];
+      svg.appendChild(el('path', { d: `M ${x} ${y + 8} L ${x} ${y}`, stroke: '#3f7a2a', 'stroke-width': 1 }));
+      svg.appendChild(el('circle', { cx: x, cy: y, r: 2.6, fill: c }));
+      svg.appendChild(el('circle', { cx: x, cy: y, r: 0.9, fill: '#f59e0b' }));
+    }
+  }
+  // Trees all over the slopes, smaller further up (scatterProps scales by
+  // height), kept off the trail.
+  function mountainScatter(layer, layout, isClear, rand) {
+    const tall = layout === LAYOUTS.tall;
+    const minY = tall ? 260 : 170;
+    scatterProps(layer, layout, (x, y, m) => {
+      // not on the mountain's rock, only the green slopes
+      return y > (tall ? 330 : 200) && isClear(x, y, m);
+    }, rand, { count: tall ? 34 : 46, margin: 16, spacing: 24, minScale: 0.32, minY, sway: true, draw: (g, v) => mountainTree(g, v) });
+  }
+  // A hiker seen from behind: a big rucksack with a bedroll, a jacket in
+  // their colour, a beanie, and a walking pole. No face: you're behind them.
+  function mountainBuildAvatar(fill, shadowFilterId) {
+    const g = el('g', { class: 'journey-avatar' });
+    g.appendChild(el('ellipse', { cx: 0, cy: 24, rx: 13, ry: 3.2, fill: '#1f3a12', opacity: 0.3 }));
+    const bob = el('g', { class: 'journey-avatar-bob', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    bob.appendChild(avatarLimb('journey-leg-back', '#334155', -3.6, 8, 4.4, 11, 3.6, 1.8, '#5b3a1e'));
+    bob.appendChild(avatarLimb('journey-leg-front', '#3f4c63', 3.6, 8, 4.4, 11, 3.6, 1.8, '#5b3a1e'));
+    // the pole, in the right hand
+    bob.appendChild(el('path', { d: 'M 11 -2 L 15 23', stroke: '#475569', 'stroke-width': 1.3, 'stroke-linecap': 'round' }));
+    bob.appendChild(avatarLimb('journey-arm-back', fill, -9, -6, 3.8, 10, 2, 2, '#e0ac69'));
+    bob.appendChild(avatarLimb('journey-arm-front', fill, 9, -6, 3.8, 10, 2, 2, '#e0ac69'));
+    // jacket, then the rucksack over it
+    bob.appendChild(el('rect', { x: -9, y: -10, width: 18, height: 19, rx: 6, fill, stroke: '#1f2937', 'stroke-width': 1 }));
+    bob.appendChild(el('rect', { x: -7.6, y: -12.5, width: 15.2, height: 17.5, rx: 4.5, fill: '#b45309', stroke: '#5b2c0a', 'stroke-width': 1 }));
+    bob.appendChild(el('rect', { x: -5.4, y: -3.6, width: 10.8, height: 6.4, rx: 2, fill: '#92400e', stroke: '#5b2c0a', 'stroke-width': 0.6 }));
+    bob.appendChild(el('path', { d: 'M -7.6 -8 L 7.6 -8', stroke: '#5b2c0a', 'stroke-width': 0.8 }));
+    bob.appendChild(el('rect', { x: -9, y: -16.5, width: 18, height: 5.2, rx: 2.6, fill: '#15803d', stroke: '#14532d', 'stroke-width': 0.7 }));
+    // head from behind: hair and a beanie with a bobble
+    const head = el('g', { transform: 'translate(0,-21)' });
+    head.appendChild(el('circle', { cx: 0, cy: 0, r: 7.4, fill: '#4a2c17', stroke: '#1f2937', 'stroke-width': 1 }));
+    head.appendChild(el('path', { d: 'M -7.6 -1 Q -7.6 -8.6 0 -8.6 Q 7.6 -8.6 7.6 -1 Z', fill: '#dc2626', stroke: '#1f2937', 'stroke-width': 0.8 }));
+    head.appendChild(el('rect', { x: -7.8, y: -2.4, width: 15.6, height: 2.6, rx: 1.2, fill: '#fca5a5' }));
+    head.appendChild(el('circle', { cx: 0, cy: -9.6, r: 2.4, fill: '#fef3c7', stroke: '#1f2937', 'stroke-width': 0.6 }));
+    bob.appendChild(head);
+    g.appendChild(bob);
+    return g;
+  }
+  // The summit: a big orange flag on the peak, glowing.
+  function mountainBuildGoal(x, y, gradId, shadowFilterId, glowId) {
+    const grp = el('g', { transform: `translate(${x},${y})` });
+    grp.appendChild(el('circle', { cx: 0, cy: -10, r: 26, fill: '#fff7c2', opacity: 0.4, filter: glowId ? `url(#${glowId})` : undefined }));
+    const f = el('g', { class: 'journey-summit-flag', filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined });
+    f.appendChild(el('rect', { x: -0.9, y: -34, width: 1.8, height: 34, fill: '#374151' }));
+    f.appendChild(el('path', { class: 'journey-flag-cloth', d: 'M 0.9 -34 Q 10 -37 18 -32 Q 24 -29 30 -31 L 26 -24 L 30 -17 Q 22 -15 14 -19 Q 8 -22 0.9 -20 Z', fill: 'url(#' + gradId + ')', stroke: '#c2410c', 'stroke-width': 0.8 }));
+    f.appendChild(el('circle', { cx: 0, cy: 0, r: 4, fill: '#ffffff', stroke: '#ef4444', 'stroke-width': 2 }));
+    grp.appendChild(f);
+    return grp;
+  }
+  // A trail marker for each task: a white disc with a coloured centre on the
+  // trail, and a blue pennant beside it.
+  function mountainBuildCheckpoint(i, isDone, isNext, blocked, scale, shadowFilterId) {
+    const color = isDone ? DONE_COLOR : isNext ? NEXT_COLOR : PENDING_COLOR;
+    const s = scale;
+    const g = el('g', { class: 'journey-flag' });
+    if (isNext) g.appendChild(el('circle', { class: 'journey-next-glow', cx: 0, cy: -2 * s, r: 16 * s, fill: NEXT_COLOR, opacity: 0.45 }));
+    g.appendChild(el('rect', { x: 5 * s, y: -30 * s, width: 1.6 * s, height: 26 * s, fill: '#475569' }));
+    g.appendChild(el('path', { d: `M ${6.6 * s} ${-30 * s} L ${20 * s} ${-26 * s} L ${6.6 * s} ${-21 * s} Z`, fill: isDone ? '#16a34a' : '#3b82f6', stroke: '#1e3a8a', 'stroke-width': 0.5 * s }));
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 8 * s, fill: '#ffffff', stroke: '#cbd5e1', 'stroke-width': 1 * s, filter: shadowFilterId ? `url(#${shadowFilterId})` : undefined }));
+    g.appendChild(el('circle', { cx: 0, cy: 0, r: 5.2 * s, fill: color }));
+    const label = el('text', { x: 0, y: 0.4 * s, 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-size': 6 * s, 'font-weight': 900, fill: '#1f2937', 'font-family': 'Arial, sans-serif' });
+    label.textContent = isDone ? '✓' : String(i + 1);
+    g.appendChild(label);
+    if (blocked) g.appendChild(drawFoes(blocked, s, MOUNTAIN_FOES));
+    return g;
+  }
+  // Blockers on the trail: a rockfall, a fallen log and a storm cloud, in turn.
+  const MOUNTAIN_FOES = (g, k) => {
+    if (k % 3 === 0) {
+      [[-7, 0, 6.5], [5, 1, 5.5], [-1, -7, 5]].forEach(([x, y, r]) => g.appendChild(el('path', { d: `M ${x - r} ${y + r * 0.6} L ${x - r * 0.6} ${y - r * 0.7} L ${x + r * 0.5} ${y - r} L ${x + r} ${y + r * 0.2} L ${x + r * 0.4} ${y + r * 0.8} Z`, fill: '#94a3b8', stroke: '#475569', 'stroke-width': 0.8 })));
+    } else if (k % 3 === 1) {
+      g.appendChild(el('rect', { x: -14, y: -6, width: 28, height: 7, rx: 3.5, fill: '#8b5a2b', stroke: '#5b3a1e', 'stroke-width': 0.8 }));
+      g.appendChild(el('circle', { cx: 14, cy: -2.5, r: 3.5, fill: '#d4a373', stroke: '#5b3a1e', 'stroke-width': 0.8 }));
+      g.appendChild(el('path', { d: 'M -4 -6 L -7 -12 M 4 -6 L 6 -11', stroke: '#5b3a1e', 'stroke-width': 1.2, 'stroke-linecap': 'round' }));
+    } else {
+      [[-6, -14, 7], [3, -16, 8], [10, -13, 6]].forEach(([x, y, r]) => g.appendChild(el('circle', { cx: x, cy: y, r, fill: '#64748b' })));
+      g.appendChild(el('path', { d: 'M 1 -9 L -3 -2 L 1 -2 L -2 5', stroke: '#fde047', 'stroke-width': 1.6, fill: 'none', 'stroke-linejoin': 'round' }));
+      [-6, 6].forEach(x => g.appendChild(el('path', { d: `M ${x} -7 L ${x - 1.5} -2`, stroke: '#7dd3fc', 'stroke-width': 1, 'stroke-linecap': 'round' })));
+    }
+  };
+  // Reaching the summit: the flag waves hard, the sky flashes gold.
+  function mountainCelebrateFinish(entry, from, scale, burst) {
+    entry.shotPending = false;
+    const flag = entry.svg.querySelector('.journey-summit-flag');
+    if (flag) flag.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.5)' }, { transform: 'scale(1.2)' }], { duration: 900, easing: 'ease-out', fill: 'forwards' });
+    finishFlourish(entry, 'SUMMIT!', '#fde047', '#c2410c', ['#fb923c', '#fde047', '#ffffff', '#60a5fa']);
+    burst();
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // THEME REGISTRY — picked by app.js (Settings-free: a small selector
   // right in the Journey header, see index.html's #journey-theme-select)
   // and passed in as state.theme on every sync() call.
@@ -1662,6 +1880,18 @@ const JourneyGame = (() => {
       points: sprintPoints, lanePoint: sprintLanePoint,
       decorate: sprintDecorate, scatter: sprintScatter, buildAvatar: sprintBuildAvatar, buildGoal: sprintBuildGoal, buildCheckpoint: sprintBuildCheckpoint, foes: SPRINT_FOES,
       celebrateFinish: sprintCelebrateFinish,
+    },
+    mountain: {
+      label: 'Mountain', avatarFill: '#2563eb', clearedWord: 'CLEARED!',
+      sky: [[0, '#9fd3f2'], [70, '#d8eefb'], [100, '#74b042']],
+      goalGrad: [[0, '#fed7aa'], [55, '#fb923c'], [100, '#ea580c']],
+      // The trail is drawn by decorate (it narrows with distance); the
+      // engine adds only the centre line and the walked glow.
+      path: { outline: 'none', fill: 'none', dash: '#a8916a', progress: '#f59e0b' },
+      road: { shadow: 0, outline: 0, base: 0, sheen: 0, line: 1.6, progress: 3.2 },
+      points: mountainPoints, depth: (layoutKey, p) => mountainDepthAt(layoutKey, p.y),
+      decorate: mountainDecorate, scatter: mountainScatter, buildAvatar: mountainBuildAvatar, buildGoal: mountainBuildGoal, buildCheckpoint: mountainBuildCheckpoint, foes: MOUNTAIN_FOES,
+      celebrateFinish: mountainCelebrateFinish,
     },
   };
   function resolveThemeKey(key) { return THEMES[key] ? key : 'football'; }
@@ -1903,7 +2133,7 @@ const JourneyGame = (() => {
       let p = pointAtFrac(entry.roadBase, progressToPathFrac(r.frac, n, finishFrac));
       if (lanes) p = theme.lanePoint(entry.layoutKey, p, lanes.get(r));
       const dx = lanes ? 0 : (here % 2 ? 1 : -1) * Math.ceil(here / 2) * 16 * scale - (here ? 0 : 12 * scale);
-      const s = scale * (tagged.has(r) ? 0.92 : 0.7);
+      const s = scale * (tagged.has(r) ? 0.92 : 0.7) * depthAt(entry, p);
       const g = theme.buildAvatar(r.color);
       g.setAttribute('transform', `translate(${(p.x + dx).toFixed(1)},${p.y.toFixed(1)}) scale(${s})`);
       g.setAttribute('opacity', tagged.has(r) ? '0.92' : '0.6');
@@ -1919,6 +2149,7 @@ const JourneyGame = (() => {
     if (!entry.youTag || !entry.youTag.isConnected) return;
     const p = pointAtFrac(entry.roadBase, entry.curFrac == null ? 0 : entry.curFrac);
     const k = entry.tagK || 1;
+    scale *= depthAt(entry, p);
     entry.youTag.setAttribute('transform', `translate(${p.x.toFixed(1)},${(p.y - 40 * scale - 12 * k).toFixed(1)}) scale(${k.toFixed(3)})`);
   }
 
@@ -1955,8 +2186,16 @@ const JourneyGame = (() => {
     return finishFrac;
   }
 
+  // How big things stand at a point on the road: 1, or less further up a
+  // stage drawn in perspective (theme.depth, the Mountain).
+  function depthAt(entry, p) {
+    const t = getTheme(entry.themeKey);
+    return t.depth ? t.depth(entry.layoutKey, p) : 1;
+  }
+
   function placeAvatar(entry, frac, scale) {
     const p = pointAtFrac(entry.roadBase, frac);
+    scale *= depthAt(entry, p);
     entry.avatarLayer.setAttribute('transform', `translate(${p.x.toFixed(2)},${p.y.toFixed(2)}) scale(${scale})`);
     if (entry.youTag && entry.youTag.isConnected) { const k = entry.tagK || 1; entry.youTag.setAttribute('transform', `translate(${p.x.toFixed(1)},${(p.y - 40 * scale - 12 * k).toFixed(1)}) scale(${k.toFixed(3)})`); }
     // The "ground covered" glow trail is revealed up to exactly where the
@@ -2178,7 +2417,8 @@ const JourneyGame = (() => {
           if (celebrate) setTimeout(() => spawnTaskPopup(current(), pt.x - 34 * scale, pt.y - 62 * scale - j * 30, o.name, 'foe', theme.clearedWord), j * 450);
         });
       }
-      const pos = el('g', { transform: `translate(${pt.x},${pt.y})` });
+      const d = depthAt(entry, pt);
+      const pos = el('g', { transform: `translate(${pt.x},${pt.y})${d !== 1 ? ` scale(${d.toFixed(3)})` : ''}` });
       pos.appendChild(g);
       flagsLayer.appendChild(pos);
       entry.flagEls.push(g);
@@ -2238,7 +2478,7 @@ const JourneyGame = (() => {
     if (state.ghost) {
       const gp = pointAtFrac(roadBase, progressToPathFrac(state.ghost.frac, n, finishFrac));
       const g = theme.buildAvatar('#94a3b8');
-      g.setAttribute('transform', `translate(${gp.x},${gp.y}) scale(${scale})`);
+      g.setAttribute('transform', `translate(${gp.x},${gp.y}) scale(${scale * depthAt(entry, gp)})`);
       g.setAttribute('opacity', '0.55');
       ghostLayer.appendChild(g);
     }
