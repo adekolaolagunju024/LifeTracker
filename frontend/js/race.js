@@ -33,7 +33,10 @@ const Race = (() => {
     organiser: { label: 'Organiser', kind: 'Group', group: 'group', people: 'members' },
   };
   const roleOf = c => ROLES[c && c.leaderRole] || ROLES.leader;
-  const kindOf = c => (c.mode === 'together' ? roleOf(c).kind : 'Race');
+  // A group has a leader and no winner: a class or squad, each on their own
+  // copy ('together'), or a team splitting one shared goal ('split').
+  const isGrp = c => !!c && (c.mode === 'together' || c.mode === 'split');
+  const kindOf = c => (isGrp(c) ? roleOf(c).kind : 'Race');
 
   function dialog(html) {
     close();
@@ -91,6 +94,7 @@ const Race = (() => {
     const form = dialog(`${head('Team up', 'users')}
       <div class="seg race-mode" role="radiogroup" aria-label="How you team up">
         <button type="button" role="radio" data-mode="together" aria-checked="true">${icon('users', 'tiny')}Lead a group</button>
+        <button type="button" role="radio" data-mode="split" aria-checked="false">${icon('list-checks', 'tiny')}Split the work</button>
         <button type="button" role="radio" data-mode="race" aria-checked="false">${icon('flag', 'tiny')}Race friends</button>
       </div>
       <div class="together-only"><label for="race-role">You're the</label>
@@ -105,7 +109,7 @@ const Race = (() => {
       <div class="race-only"><label for="race-stake">What's riding on it? <span class="opt">(optional)</span></label>
       <input type="text" id="race-stake" maxlength="140" placeholder="e.g. Loser buys dinner"></div>
       <div class="together-only hidden">
-        <label class="race-check"><input type="checkbox" id="race-organise"> I'm leading, not taking part</label>
+        <label class="race-check organise-only"><input type="checkbox" id="race-organise"> I'm leading, not taking part</label>
         <label for="race-names">How names show to everyone</label>
         <select id="race-names"><option value="names">Their names</option><option value="first">First names only</option><option value="animals">Animal names (e.g. Swift Otter)</option></select>
       </div>
@@ -118,8 +122,9 @@ const Race = (() => {
     const checksSel = form.querySelector('#race-checks');
     const paintChecks = role => {
       const was = checksSel.value;
-      const opts = mode === 'race' ? [['none', 'Trust everyone'], ['proof', 'A photo or note for each step']]
-        : [['leader', `The ${role.label.toLowerCase()} signs each step off`], ['proof', 'A photo or note for each step'], ['none', 'Trust everyone']];
+      const lead = [['leader', `The ${role.label.toLowerCase()} signs each step off`], ['proof', 'A photo or note for each step'], ['none', 'Trust everyone']];
+      // a team splitting work trusts each other unless the leader says otherwise
+      const opts = mode === 'race' ? [['none', 'Trust everyone'], ['proof', 'A photo or note for each step']] : mode === 'split' ? [lead[2], lead[0], lead[1]] : lead;
       checksSel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
       checksSel.value = opts.some(o => o[0] === was) && checksSel.dataset.touched ? was : opts[0][0];
       form.querySelector('#race-checks-note').textContent = CHECKS_NOTE[checksSel.value](role);
@@ -132,10 +137,13 @@ const Race = (() => {
       if (!organiseTouched) form.querySelector('#race-organise').checked = ['Coach', 'Trainer', 'Teacher'].includes(role.label);
       form.querySelectorAll('.race-mode button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
       form.querySelectorAll('.race-only').forEach(el => el.classList.toggle('hidden', mode !== 'race'));
-      form.querySelectorAll('.together-only').forEach(el => el.classList.toggle('hidden', mode !== 'together'));
+      form.querySelectorAll('.together-only').forEach(el => el.classList.toggle('hidden', mode === 'race'));
+      form.querySelectorAll('.organise-only').forEach(el => el.classList.toggle('hidden', mode !== 'together'));
       const organising = mode === 'together' && form.querySelector('#race-organise').checked;
       form.querySelector('#race-name-wrap').classList.toggle('hidden', organising);
-      form.querySelector('#race-mode-note').textContent = mode === 'race'
+      form.querySelector('#race-mode-note').textContent = mode === 'split'
+        ? `One goal for the whole ${role.group}: hand each step to someone, or let them claim it, and everyone's part adds up to the finish. They work on this goal itself, shared with them, not a copy. You see who has what and who is behind.`
+        : mode === 'race'
         ? `Everyone who joins gets their own copy of this goal's steps. First to tick them all off wins. ${ticked ? `You've ticked ${ticked} already, so you'll race on a fresh copy and everyone starts level.` : 'You race on this goal as it is.'}`
         : `Your ${role.people} each get their own copy of the steps and aim to finish by the date. You see who is on track and can nudge anyone behind. They join with a link or a code.${organising ? '' : ' You take part on this goal as it is.'}`;
       form.querySelector('#race-make-label').textContent = mode === 'race' ? 'Make the race' : `Set up the ${role.kind.toLowerCase()}`;
@@ -169,7 +177,7 @@ const Race = (() => {
   function showShare(race, isNew) {
     const url = linkFor(race.joinToken);
     const me = race.players.find(p => p.you);
-    const together = race.mode === 'together';
+    const together = isGrp(race);
     const code = race.joinCode ? race.joinCode.replace(/(...)(...)/, '$1 $2') : '';
     const form = dialog(`${head(isNew ? (together ? `Your ${roleOf(race).group} is ready` : 'Your race is ready') : 'Invite people', together ? 'users' : 'flag')}
       <p class="fb-note">Send the link${code ? ', or read out the code' : ''}. They'll see <b>${esc(race.title)}</b>${race.stake ? `, the stake (${esc(race.stake)})` : ''} and the finish date, ${esc(when(race.endsAt))}.</p>
@@ -203,7 +211,7 @@ const Race = (() => {
       const p = await (await fetch(`/api/race-preview/${encodeURIComponent(token)}`)).json();
       if (p && p.title) {
         const note = document.getElementById('auth-race-note');
-        if (note) { note.innerHTML = `${icon('flag', 'tiny')}<span><b>${esc(p.owner)}</b> ${p.mode === 'together' ? 'invited you to' : 'challenged you to'} <b>${esc(p.title)}</b>. Sign in or create an account to join.</span>`; note.classList.remove('hidden'); }
+        if (note) { note.innerHTML = `${icon('flag', 'tiny')}<span><b>${esc(p.owner)}</b> ${isGrp(p) ? 'invited you to' : 'challenged you to'} <b>${esc(p.title)}</b>. Sign in or create an account to join.</span>`; note.classList.remove('hidden'); }
       }
     } catch { /* the join card after sign-in still works */ }
   }
@@ -228,7 +236,7 @@ const Race = (() => {
   async function joinCard(p, token) {
     let name = '';
     try { name = (await API.getProfile()).name || ''; } catch { /* blank */ }
-    const together = p.mode === 'together';
+    const together = isGrp(p);
     const role = roleOf(p);
     const namesNote = p.nameMode === 'animals' ? `The others see you by an animal name; the ${role.label.toLowerCase()} sees your name.`
       : p.nameMode === 'first' ? 'Others see your first name only.' : 'Everyone sees the name you give here.';
@@ -237,7 +245,7 @@ const Race = (() => {
       ${p.stake ? `<p class="race-stake">${icon('gift', 'tiny')}<span>Riding on it: <b>${esc(p.stake)}</b></span></p>` : ''}
       <label for="race-name">Your name</label>
       <input type="text" id="race-name" maxlength="24" value="${esc(name)}" placeholder="e.g. Sam" required>
-      <p class="fb-note">You get your own copy of the steps. ${together ? namesNote : 'Everyone sees how far along you are.'} No one sees your other goals.</p>
+      <p class="fb-note">${p.mode === 'split' ? `You join the goal itself, shared with you, and take on some of its steps. ${namesNote}` : `You get your own copy of the steps. ${together ? namesNote : 'Everyone sees how far along you are.'}`} No one sees your other goals.</p>
       <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Not now</button><button type="submit" class="fb-send" ${p.full ? 'disabled' : ''}>${icon(together ? 'users' : 'flag', 'tiny')}${p.full ? 'It is full' : together ? `Join the ${role.group}` : 'Join the race'}</button></div>`);
     form.addEventListener('submit', async e => {
       e.preventDefault();
@@ -266,13 +274,15 @@ const Race = (() => {
     try { list = await API.listRaces(); } catch { list = []; }
     const card = c => {
       const me = c.players.find(p => p.you);
-      const line = c.mode === 'together'
+      const line = c.mode === 'split'
+        ? `${c.group.stepsPct}% of the goal done${c.split && c.split.unclaimed ? ` · ${c.split.unclaimed} unclaimed` : ''}`
+        : isGrp(c)
         ? `${c.group.finished} of ${c.group.players} finished · ${c.group.stepsPct}% of steps`
         : c.yourPlace ? `You finished ${placeHtml(c.yourPlace)}` : c.winner ? `${esc(c.winner.name)} won` : me ? `You're ${ordinal(c.players.indexOf(me) + 1)} of ${c.players.length}` : `${c.players.length} racing`;
       // a finished one has its own clear button beside the card
       return `<div class="ch-card-row${c.doneForYou ? ' done' : ''}"><button type="button" class="ch-card" onclick="Race.openDetail('${c.id}')">
         <span class="ch-ic">${esc(c.icon || '🏁')}</span>
-        <span class="ch-main"><b>${esc(c.title)}</b><small>${kindOf(c)}${c.mode === 'together' && c.owner ? ' · you lead' : ''} · ${c.over ? 'ended' : c.doneForYou ? 'finished' : `finish by ${esc(when(c.endsAt))}`}</small></span>
+        <span class="ch-main"><b>${esc(c.title)}</b><small>${kindOf(c)}${isGrp(c) && c.owner ? ' · you lead' : ''} · ${c.over ? 'ended' : c.doneForYou ? 'finished' : `finish by ${esc(when(c.endsAt))}`}</small></span>
         <span class="ch-line">${line}</span>${unreadBadge(c)}${icon('chevron_right', 'tiny')}</button>
         ${c.doneForYou ? `<button type="button" class="ch-clear" onclick="Race.clearFromList(['${c.id}'])" aria-label="Clear ${esc(c.title)} from your list" title="Clear from your list">${icon('close', 'tiny')}</button>` : ''}</div>`;
     };
@@ -298,7 +308,7 @@ const Race = (() => {
     let c;
     try { c = await API.getRace(id); } catch (err) { detailId = null; showToast(err.message || 'Could not open it', 'error'); return renderPage(); }
     const me = c.players.find(p => p.you);
-    const together = c.mode === 'together';
+    const together = isGrp(c);
     const pct = c.group.players ? Math.round((c.group.finished / c.group.players) * 100) : 0;
     box.innerHTML = `<button type="button" class="ch-back" onclick="Race.backToList()">${icon('back', 'tiny')}All teams</button>
       <div class="ch-head"><span class="ch-ic big">${esc(c.icon || '🏁')}</span><div class="min-w-0"><h3>${esc(c.title)}</h3>
@@ -310,11 +320,11 @@ const Race = (() => {
         ${!together && (c.winner || c.over) ? `<button type="button" onclick="Race.openReport('${c.id}')">${icon('trophy', 'tiny')}Scoreboard</button>` : ''}
         ${c.owner ? `<button type="button" id="ch-remind" onclick="Race.remind('${c.id}')" ${c.group.behind || c.players.some(p => !p.finished && p.done === 0) ? '' : 'disabled'}>${icon('bell', 'tiny')}Remind those behind</button>` : ''}
         ${c.doneForYou ? `<button type="button" class="quiet" onclick="Race.clearFromList(['${c.id}'])">${icon('trash', 'tiny')}Clear from my list</button>`
-          : me ? `<button type="button" class="quiet" onclick="Race.leaveFrom('${c.id}')">Leave</button>` : ''}
+          : me && !(c.mode === 'split' && c.owner) ? `<button type="button" class="quiet" onclick="Race.leaveFrom('${c.id}')">Leave</button>` : ''}
       </div>
-      ${together ? `<div class="ch-group"><div class="ch-group-top"><b>${c.group.finished} of ${c.group.players} finished</b><span>${c.group.stepsPct}% of all steps done${c.group.behind ? ` · ${c.group.behind} behind` : ''}</span></div>
+      ${together && c.mode !== 'split' ? `<div class="ch-group"><div class="ch-group-top"><b>${c.group.finished} of ${c.group.players} finished</b><span>${c.group.stepsPct}% of all steps done${c.group.behind ? ` · ${c.group.behind} behind` : ''}</span></div>
         <div class="ch-bar" role="img" aria-label="${pct}% finished"><i style="width:${pct}%"></i></div></div>` : ''}
-      ${reviewsHtml(c)}${yourStepsHtml(c)}
+      ${c.mode === 'split' ? splitHtml(c) : ''}${reviewsHtml(c)}${yourStepsHtml(c)}
       ${c.players.length ? `<div class="ch-table-wrap"><table class="ch-table"><thead><tr><th>${together ? '' : '#'}</th><th>Name</th><th>Steps</th><th>Pace</th>${c.owner ? '<th>Last step</th>' : ''}</tr></thead>
         <tbody>${c.players.map((p, i) => `<tr class="${p.you ? 'you' : ''}"><td class="pos">${together ? '' : p.place ? placeHtml(p.place) : i + 1}</td>
           <td><span class="dot" style="background:${esc(p.color)}"></span>${p.you ? 'You' : `<button type="button" class="rc-cheer" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.cheerIn('${c.id}', this)" title="Cheer ${esc(p.name)} on" aria-label="Cheer ${esc(p.name)} on">${esc(p.name)}</button>`}${p.stuck ? ` <button type="button" class="stuck-chip" onclick="Race.openChat('${c.id}')" title="${p.you ? 'You asked' : `${esc(p.name)} asked`} for help on a blocker. Open the chat">${icon('hand', 'tiny')}stuck</button>` : ''}</td>
@@ -390,7 +400,7 @@ const Race = (() => {
     if (!current) return null;
     const leader = current.players[0];
     // A group has no winner, so no places and no leader.
-    const racing = current.mode !== 'together';
+    const racing = !isGrp(current);
     return current.players.filter(p => !p.you).map(p => {
       const isLeader = racing && !p.finished && p === leader && p.frac > 0;
       return { name: p.name, color: p.color, frac: p.frac, finished: p.finished, leader: isLeader, place: p.place || 0, badge: p.place ? placeText(p.place) : isLeader ? 'leading' : '' };
@@ -406,13 +416,14 @@ const Race = (() => {
     // Calendar days to the finish date (a race ending a fortnight on reads "14 days").
     const midnight = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
     const daysLeft = Math.round((midnight(r.endsAt) - midnight(Date.now())) / 86400000);
-    const head2 = r.mode === 'together' ? `${icon('users', 'tiny')}<b>${r.group.finished} of ${r.group.players} finished</b> · ${r.over ? 'ended' : daysLeft <= 0 ? 'ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}`
+    const head2 = r.mode === 'split' ? `${icon('list-checks', 'tiny')}<b>${r.group.stepsPct}% of the goal done</b>${r.split && r.split.unclaimed ? ` · ${r.split.unclaimed} unclaimed` : ''} · ${r.over ? 'ended' : daysLeft <= 0 ? 'ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}`
+      : isGrp(r) ? `${icon('users', 'tiny')}<b>${r.group.finished} of ${r.group.players} finished</b> · ${r.over ? 'ended' : daysLeft <= 0 ? 'ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}`
       : r.winner ? `${icon('trophy', 'tiny')}<b>${r.winner.you ? 'You won!' : `${esc(r.winner.name)} won`}</b>${r.yourPlace && r.yourPlace > 1 ? ` · you finished ${placeHtml(r.yourPlace)}` : ''}`
       : r.over ? `${icon('flag', 'tiny')}<b>Time's up</b>` : `${icon('flag', 'tiny')}<b>Race</b> · ${daysLeft <= 0 ? 'ends today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}`;
     strip.classList.remove('hidden');
     strip.innerHTML = `<div class="race-strip-top"><span class="race-strip-title">${head2}${r.stake ? ` <span class="race-strip-stake">· ${esc(r.stake)}</span>` : ''}</span>
-        <span class="race-strip-actions">${r.yourSteps && (r.yourSteps.needsProof.length + r.yourSteps.sentBack.length) ? `<button type="button" class="prove" onclick="Race.proveNext()">${icon('camera', 'tiny')}Prove ${r.yourSteps.needsProof.length + r.yourSteps.sentBack.length}</button>` : ''}${r.mode !== 'together' && (r.winner || r.over) ? `<button type="button" onclick="Race.openReport('${r.id}')">${icon('trophy', 'tiny')}Scoreboard</button>` : ''}<button type="button" onclick="Race.openChat('${r.id}')">${icon('message-circle', 'tiny')}Chat${unreadBadge(r)}</button><button type="button" onclick="Race.invite()">${icon('user-plus', 'tiny')}Invite</button><button type="button" onclick="Race.leave()">Leave</button></span></div>
-      <ol class="race-board">${r.players.map((p, i) => `<li class="${p.you ? 'you' : ''}"><span class="pos">${r.mode === 'together' ? '' : p.place ? placeHtml(p.place) : i + 1}</span><i style="background:${esc(p.color)}"></i>${p.you ? '<b>You</b>' : `<button type="button" class="rc-cheer" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.cheerFrom(this)" title="Cheer ${esc(p.name)} on" aria-label="Cheer ${esc(p.name)} on">${esc(p.name)}</button>`}
+        <span class="race-strip-actions">${r.yourSteps && (r.yourSteps.needsProof.length + r.yourSteps.sentBack.length) ? `<button type="button" class="prove" onclick="Race.proveNext()">${icon('camera', 'tiny')}Prove ${r.yourSteps.needsProof.length + r.yourSteps.sentBack.length}</button>` : ''}${!isGrp(r) && (r.winner || r.over) ? `<button type="button" onclick="Race.openReport('${r.id}')">${icon('trophy', 'tiny')}Scoreboard</button>` : ''}<button type="button" onclick="Race.openChat('${r.id}')">${icon('message-circle', 'tiny')}Chat${unreadBadge(r)}</button><button type="button" onclick="Race.invite()">${icon('user-plus', 'tiny')}Invite</button><button type="button" onclick="Race.leave()">Leave</button></span></div>
+      <ol class="race-board">${r.players.map((p, i) => `<li class="${p.you ? 'you' : ''}"><span class="pos">${isGrp(r) ? '' : p.place ? placeHtml(p.place) : i + 1}</span><i style="background:${esc(p.color)}"></i>${p.you ? '<b>You</b>' : `<button type="button" class="rc-cheer" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.cheerFrom(this)" title="Cheer ${esc(p.name)} on" aria-label="Cheer ${esc(p.name)} on">${esc(p.name)}</button>`}
         <span class="steps">${p.done}/${p.total}${p.pending ? `<small class="ch-pending" title="${p.pending} ticked, waiting to count">+${p.pending}</small>` : ''}</span><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></li>`).join('')}</ol>`;
   }
   // ── The race or group's chat ──
@@ -425,7 +436,7 @@ const Race = (() => {
     let r;
     try { r = await API.getRace(id); } catch (err) { showToast(err.message || 'Could not open the chat', 'error'); return; }
     const form = dialog(`${head(r.title, 'message-circle')}
-      <p class="fb-note rc-sub">${esc(kindOf(r))} · ${r.players.length} ${r.players.length === 1 ? 'person' : 'people'}${r.mode !== 'together' ? ' · tap a name on the scoreboard to cheer them on' : ''}</p>
+      <p class="fb-note rc-sub">${esc(kindOf(r))} · ${r.players.length} ${r.players.length === 1 ? 'person' : 'people'}${!isGrp(r) ? ' · tap a name on the scoreboard to cheer them on' : ''}</p>
       <div class="rc-list" id="rc-list" role="log" aria-live="polite" aria-label="Messages"><p class="rc-empty">Loading…</p></div>
       <div class="rc-send"><input type="text" id="rc-text" maxlength="1000" placeholder="Say something to everyone" aria-label="Message" autocomplete="off"><button type="submit" class="fb-send" aria-label="Send">${icon('send', 'tiny')}</button></div>`);
     form.classList.add('race-chat');
@@ -512,7 +523,7 @@ const Race = (() => {
   // then the report a tap away.
   function announcePlace() {
     const r = current;
-    if (!r || r.mode === 'together' || !r.yourPlace) return;
+    if (!r || isGrp(r) || !r.yourPlace) return;
     const key = `wp-race-placed:${r.id}`;
     try { if (localStorage.getItem(key)) return; localStorage.setItem(key, '1'); } catch { /* say it anyway */ }
     if (r.yourPlace <= 3 && typeof fireBigScreenConfetti === 'function') fireBigScreenConfetti();
@@ -576,7 +587,7 @@ const Race = (() => {
     const line = document.createElement('div');
     line.id = 'project-complete-race';
     line.className = 'pc-race';
-    if (r.mode === 'together') {
+    if (isGrp(r)) {
       line.innerHTML = `${icon('users', 'tiny')}<span>You're one of <b>${r.group.finished} of ${r.group.players}</b> to finish ${esc(r.title)}.</span>`;
     } else if (r.yourPlace) {
       const place = r.yourPlace;
@@ -598,7 +609,7 @@ const Race = (() => {
     if (!r) return null;
     current = r;
     paintStrip(document.getElementById('journey-race'));
-    if (r.mode === 'together') {
+    if (isGrp(r)) {
       return { heading: 'You finished!', emoji: '🏁', message: `You're one of ${r.group.finished} of ${r.group.players} to finish “${r.title}”.` };
     }
     if (!r.yourPlace) return null;
@@ -610,6 +621,49 @@ const Race = (() => {
       emoji: '🏆',
       message: `${place === 1 ? 'Gold' : place === 2 ? 'Silver' : place === 3 ? 'Bronze' : ordinal(place)}${place <= 3 ? ` cup, ${ordinal(place)}` : ''} of ${r.players.length} in “${r.title}”.${place > 1 && r.winner ? ` ${r.winner.name} won.` : ''}${r.stake && place === 1 ? ` Riding on it: ${r.stake}.` : ''}`,
     };
+  }
+
+  // ── Split the work: one goal, each step someone's ──
+  // The team's progress as one bar, each person's finished steps in their
+  // colour; then every step with who has it. The leader hands steps out
+  // (or shares out the unclaimed ones); anyone can take an unclaimed one.
+  function splitHtml(c) {
+    const sp = c.split;
+    if (!sp) return '';
+    const seg = sp.total ? sp.contrib.filter(m => m.done).map(m => `<i style="width:${(m.done / sp.total) * 100}%;background:${esc(m.color)}" title="${esc(m.name)}: ${m.done} done"></i>`).join('') : '';
+    const others = sp.done - sp.contrib.reduce((a, m) => a + m.done, 0);
+    const opts = cur => `<option value="">Unclaimed</option>${c.players.map(p => `<option value="${esc(p.color)}"${cur && cur.color === p.color ? ' selected' : ''}>${esc(p.you ? 'You' : p.name)}</option>`).join('')}`;
+    const step = st => {
+      const done = st.status === 'Completed';
+      const right = c.owner
+        ? `<select class="sp-assign" aria-label="Who does ${esc(st.title)}" data-task="${esc(st.taskId)}" onchange="Race.assign('${c.id}', this)" ${done ? 'disabled' : ''}>${opts(st.who)}</select>`
+        : st.who ? `<span class="sp-who"><i style="background:${esc(st.who.color)}"></i>${esc(st.who.name)}</span>`
+          : st.outside ? '<span class="sp-who">Someone else</span>'
+            : done ? '' : `<button type="button" class="sp-claim" data-task="${esc(st.taskId)}" onclick="Race.claim('${c.id}', this)">${icon('hand', 'tiny')}I'll take it</button>`;
+      return `<li class="${done ? 'done' : ''}${!st.who && !done ? ' open' : ''}"><span class="sp-dot">${done ? icon('check', 'tiny') : ''}</span>
+        <span class="sp-title">${esc(st.title)}${st.endDate ? `<small>due ${esc(new Date(st.endDate.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</small>` : ''}</span>${right}</li>`;
+    };
+    return `<div class="ch-group sp-group"><div class="ch-group-top"><b>${sp.done} of ${sp.total} steps done</b><span>${c.group.stepsPct}% of the goal${sp.unclaimed ? ` · ${sp.unclaimed} unclaimed` : ''}</span></div>
+        <div class="sp-bar" role="img" aria-label="${c.group.stepsPct}% of the goal done">${seg}${others > 0 ? `<i style="width:${(others / sp.total) * 100}%;background:#94A3B8"></i>` : ''}</div>
+        <div class="sp-legend">${sp.contrib.filter(m => m.total).map(m => `<span><i style="background:${esc(m.color)}"></i>${esc(m.name)} <b>${m.done}/${m.total}</b></span>`).join('')}</div></div>
+      <section class="sp-steps"><div class="sp-head"><h4>${icon('list-checks', 'tiny')}Who's doing what</h4>
+        ${c.owner && sp.unclaimed ? `<button type="button" class="sp-even" onclick="Race.splitEvenly('${c.id}', this)">${icon('users', 'tiny')}Share out ${sp.unclaimed} unclaimed</button>` : ''}</div>
+        ${sp.steps.length ? `<ul>${sp.steps.map(step).join('')}</ul>` : '<p class="fb-note">This goal has no steps yet. Add some on the goal, then hand them out.</p>'}</section>`;
+  }
+  async function assign(id, sel) {
+    sel.disabled = true;
+    try { await API.assignRaceStep(id, sel.dataset.task, sel.value); showToast(sel.value ? 'Handed over. They’ve been told' : 'Back to unclaimed'); } catch (err) { showToast(err.message || 'Could not do that', 'error'); }
+    forgetPlan(); openDetail(id);
+  }
+  async function claim(id, btn) {
+    btn.disabled = true;
+    try { await API.claimRaceStep(id, btn.dataset.task); showToast('🙌 It’s yours. It’s in your planner'); } catch (err) { btn.disabled = false; showToast(err.message || 'Could not take it', 'error'); return; }
+    forgetPlan(); openDetail(id);
+  }
+  async function splitEvenly(id, btn) {
+    btn.disabled = true;
+    try { const r = await API.splitRaceEvenly(id); showToast(`Shared out ${r.assigned} step${r.assigned === 1 ? '' : 's'}. Everyone’s been told`); } catch (err) { btn.disabled = false; showToast(err.message || 'Could not share them out', 'error'); return; }
+    forgetPlan(); openDetail(id);
   }
 
   // ── Asking for help on a blocker ──
@@ -644,7 +698,7 @@ const Race = (() => {
     if (!ctx) return;
     const name = btn.dataset.name, obstacleId = btn.dataset.obstacle;
     const options = [
-      ...ctx.places.map(pl => ({ value: `race:${pl.id}`, label: `${pl.mode === 'together' ? (ROLES[pl.leaderRole] || ROLES.leader).kind : 'Race'}: ${pl.title}`, note: pl.mode === 'together' ? `Everyone in it sees it, and the ${(ROLES[pl.leaderRole] || ROLES.leader).label.toLowerCase()} gets a nudge.` : 'Everyone racing sees it in the chat.' })),
+      ...ctx.places.map(pl => ({ value: `race:${pl.id}`, label: `${isGrp(pl) ? (ROLES[pl.leaderRole] || ROLES.leader).kind : 'Race'}: ${pl.title}`, note: isGrp(pl) ? `Everyone in it sees it, and the ${(ROLES[pl.leaderRole] || ROLES.leader).label.toLowerCase()} gets a nudge.` : 'Everyone racing sees it in the chat.' })),
       ...(ctx.shared ? [{ value: `project:${ctx.shared.id}`, label: `Project chat: ${ctx.shared.title}`, note: 'Everyone you share this goal with sees it.' }] : []),
     ];
     const form = dialog(`${head('Ask for help', 'hand')}
@@ -703,7 +757,7 @@ const Race = (() => {
       }
     });
     // groups you lead: your people, each with their progress
-    const leading = list.filter(c => c.owner && c.mode === 'together').map(c => ({ ...c, kind: kindOf(c), lead: roleOf(c).label.toLowerCase() }));
+    const leading = list.filter(c => c.owner && isGrp(c)).map(c => ({ ...c, kind: kindOf(c), lead: roleOf(c).label.toLowerCase() }));
     plan = { byProject, steps, leading };
     planAt = Date.now();
     return plan;
@@ -861,6 +915,6 @@ const Race = (() => {
     });
   }
 
-  return { cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { assign, claim, splitEvenly, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;

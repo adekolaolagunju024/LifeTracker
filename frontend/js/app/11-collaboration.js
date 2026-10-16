@@ -131,10 +131,10 @@ async function renderChats() {
     const raceRows = races.slice().sort((a, b) => ((b.chat && b.chat.last && b.chat.last.createdAt) || b.startsAt || '').localeCompare((a.chat && a.chat.last && a.chat.last.createdAt) || a.startsAt || '')).map(r => {
       const last = r.chat && r.chat.last;
       return `<button onclick="Race.openChat('${r.id}')" class="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 text-left">
-          <span class="w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0 bg-teal/10 text-teal">${icon(r.mode === 'together' ? 'users' : 'flag')}</span>
+          <span class="w-11 h-11 rounded-full flex items-center justify-center text-xl flex-shrink-0 bg-teal/10 text-teal">${icon((r.mode === 'together' || r.mode === 'split') ? 'users' : 'flag')}</span>
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between gap-2">
-              <p class="font-bold text-sm text-navy truncate">${esc(r.title)} <span class="font-semibold text-gray-400">· ${r.mode === 'together' ? 'Group' : 'Race'}</span></p>
+              <p class="font-bold text-sm text-navy truncate">${esc(r.title)} <span class="font-semibold text-gray-400">· ${(r.mode === 'together' || r.mode === 'split') ? 'Group' : 'Race'}</span></p>
               ${last ? `<span class="text-[10px] text-gray-400 flex-shrink-0">${chatPreviewTime(last.createdAt)}</span>` : ''}
             </div>
             <p class="text-xs text-gray-500 truncate mt-0.5">${last ? esc(last.text) : '<span class="text-gray-400">No messages yet. Wish everyone luck</span>'}</p>

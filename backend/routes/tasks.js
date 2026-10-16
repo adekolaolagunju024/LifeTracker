@@ -67,6 +67,8 @@ router.put('/:id', (req, res) => {
     const rewardsEarned = justCompleted ? pledges.refresh(task.projectId).length : 0;
     // A step in a race or group that wants proof: ask for it now.
     const proofWanted = justCompleted ? challenges.proofWantedFor(req.session.userId, task) : null;
+    // A shared goal: whoever was waiting on this step hears it's their turn.
+    if (justCompleted) challenges.splitHandoff(req.session.userId, task);
     res.json({ ...task, justCompleted, journeyReward, rewardsEarned, proofWanted });
     const assigneeChanged = task.assigneeId && task.assigneeId !== before?.assigneeId;
     if (assigneeChanged && task.assigneeId !== req.session.userId) {
