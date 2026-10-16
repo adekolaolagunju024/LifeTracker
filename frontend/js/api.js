@@ -90,6 +90,11 @@ const API = {
   updateTask: async (id, d) => {
     const saved = await request('PUT', `/tasks/${id}`, d);
     if (d && 'status' in d && window.Race) Race.forgetPlan(); // the planner's team chips change with it
+    // Finishing a goal opens the goals that were waiting on it.
+    if (saved && saved.unlocked && saved.unlocked.length && window.showActionToast) {
+      const g = saved.unlocked[0];
+      setTimeout(() => showActionToast(`🔓 Unlocked: ${g.title}${saved.unlocked.length > 1 ? ` and ${saved.unlocked.length - 1} more` : ''}`, [{ label: 'Open it', run: () => showPage('project-detail', g.id) }], 'unlock'), 2600);
+    }
     if (saved && saved.proofWanted && window.Race) setTimeout(() => Race.askProof(saved.proofWanted), 700);
     return saved;
   },

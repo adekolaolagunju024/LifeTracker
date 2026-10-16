@@ -126,6 +126,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "Goal map and locked goals",
+      "text": "Every goal now has a Map: one picture of the whole goal, with its phases as pins on a trail up to a summit flag, what's done in green, where you are now, and the goals it opens next. A goal can also wait on another one. Pick \"Unlocks after\" when you create or edit it, and its steps stay locked until that goal is finished; then you get a note saying it's open. You can download the map as an image."
+    },
+    {
+      "date": "2026-10-16",
       "title": "Team timeline",
       "text": "A team splitting a goal now has a Timeline beside Who's doing what: one row per person, their steps as bars on the dates, unclaimed steps in their own row, today marked, and an arrow wherever one person's step hands over to the next. You can see at a glance who's busy, who's free and where the handovers are."
     },

@@ -292,7 +292,7 @@ async function updateSidebar() {
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all ${APP.currentProjectId === proj.id ? 'active' : ''}"
         onclick="showPage('project-detail','${proj.id}')">
         <span class="icon-badge" style="background:${proj.color}33">${emojiIcon(proj.icon)}</span>
-        <span class="flex-1 text-left truncate">${esc(proj.title)}</span>
+        <span class="flex-1 text-left truncate">${esc(proj.title)}</span>${proj.locked ? `<span class="nav-lock" title="Unlocks after ${esc(proj.lockedBy.title)}" aria-label="Locked">${icon('lock')}</span>` : ''}
       </button>`).join('');
 
   } catch (e) { console.error('Sidebar error:', e); }

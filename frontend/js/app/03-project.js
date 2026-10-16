@@ -3,6 +3,37 @@
 // there) and share one global scope, exactly as when they were one file.
 
 // ── PROJECT DETAIL ──────────────────────────────────────────────
+// A locked goal says what it's waiting on (with Unlock now for its owner);
+// an open one that others wait on says what finishing it opens.
+async function renderGoalLock(proj) {
+  const box = document.getElementById('detail-lock');
+  if (!box) return;
+  box.classList.add('hidden');
+  if (proj.parentId) return;
+  if (proj.locked) {
+    box.innerHTML = `<div class="goal-lock"><span class="gl-ic">${icon('lock')}</span>
+      <p class="gl-text"><b>Locked</b> until you finish <b>${esc(proj.lockedBy.title)}</b>. You can plan it now; its steps can be ticked off once that goal is done.</p>
+      <button type="button" onclick="showPage('project-detail','${proj.lockedBy.id}')">${icon('start', 'tiny')}Open ${esc(proj.lockedBy.title)}</button>
+      ${proj.role === 'owner' ? `<button type="button" class="primary" onclick="unlockGoalNow('${proj.id}')">${icon('unlock', 'tiny')}Unlock now</button>` : ''}</div>`;
+    box.classList.remove('hidden');
+    return;
+  }
+  try {
+    const waiting = (await API.getProjects({ parentId: 'null' })).filter(g => g.unlockAfter === proj.id && g.locked);
+    if (!waiting.length || APP.currentProjectId !== proj.id) return;
+    box.innerHTML = `<div class="goal-lock is-open"><span class="gl-ic">${icon('key')}</span>
+      <p class="gl-text">Finishing this unlocks ${waiting.map(g => `<b>${esc(g.title)}</b>`).join(', ')}.</p>
+      <button type="button" onclick="GoalMap.open('${proj.id}')">${icon('map', 'tiny')}See the map</button></div>`;
+    box.classList.remove('hidden');
+  } catch { /* offline */ }
+}
+async function unlockGoalNow(id) {
+  try { await API.updateProject(id, { unlockAfter: null }); } catch (e) { showToast(e.message || 'Could not unlock it', 'error'); return; }
+  showToast('🔓 Unlocked');
+  renderProjectDetail(id);
+  updateSidebar();
+}
+
 async function renderProjectDetail(projectId) {
   try {
     const [proj, children, allTasks] = await Promise.all([
@@ -11,6 +42,7 @@ async function renderProjectDetail(projectId) {
       API.getTasks(),
     ]);
 
+    renderGoalLock(proj);
     document.getElementById('detail-icon').innerHTML        = emojiIcon(proj.icon);
     document.getElementById('detail-title').textContent     = proj.title;
     document.getElementById('detail-desc').textContent      = proj.description || '';

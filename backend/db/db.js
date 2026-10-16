@@ -564,6 +564,44 @@ function getCollaboratorCount(projectId) {
   return count;
 }
 
+// ── Locked goals ──
+// A goal can wait on another: it unlocks once every step of that goal (and
+// its sub-folders) is done. Until then its own steps can't be ticked off.
+function goalFinished(id) {
+  const r = db.prepare(`SELECT COUNT(*) AS n, SUM(CASE WHEN t.status = 'Completed' THEN 1 ELSE 0 END) AS done FROM tasks t JOIN projects p ON p.id = t.projectId
+    WHERE (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL`).get(id, id);
+  return r.n > 0 && r.done === r.n;
+}
+function lockOf(row) {
+  if (!row || row.parentId || !row.unlockAfter) return { lockedBy: null, locked: false };
+  const by = db.prepare('SELECT id, title, icon FROM projects WHERE id = ? AND deletedAt IS NULL').get(row.unlockAfter);
+  if (!by) return { lockedBy: null, locked: false };
+  return { lockedBy: { id: by.id, title: by.title, icon: by.icon }, locked: !goalFinished(by.id) };
+}
+// The goal a task belongs to, if it's still locked: { id, title } of the goal it waits on.
+function lockedGoalFor(taskProjectId) {
+  const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(topLevelProjectId(taskProjectId));
+  const l = lockOf(row);
+  return l.locked ? l.lockedBy : null;
+}
+// Goals that wait on this one (for "you unlocked…" when it's finished).
+const goalsWaitingOn = id => db.prepare('SELECT id, title, icon FROM projects WHERE unlockAfter = ? AND deletedAt IS NULL AND parentId IS NULL').all(id);
+// Setting what a goal waits on: another top-level goal of the same owner,
+// never itself and never in a loop.
+function setUnlockAfter(id, afterId) {
+  const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+  if (!row || row.parentId) throw new Error('Only a goal (not a sub-folder) can be locked behind another');
+  if (!afterId) { db.prepare('UPDATE projects SET unlockAfter = NULL WHERE id = ?').run(id); return; }
+  const after = db.prepare('SELECT * FROM projects WHERE id = ? AND deletedAt IS NULL').get(afterId);
+  if (!after || after.parentId || after.userId !== row.userId) throw new Error('Pick another of your goals');
+  if (after.id === id) throw new Error("A goal can't wait on itself");
+  for (let cur = after, hops = 0; cur && cur.unlockAfter && hops < 50; hops++) {
+    if (cur.unlockAfter === id) throw new Error("That would make the two goals wait on each other");
+    cur = db.prepare('SELECT * FROM projects WHERE id = ?').get(cur.unlockAfter);
+  }
+  db.prepare('UPDATE projects SET unlockAfter = ? WHERE id = ?').run(after.id, id);
+}
+
 function listProjects(userId, filters = {}) {
   let sql = `SELECT * FROM projects WHERE deletedAt IS NULL AND id IN ${accessibleProjectIdsSQL()}`;
   const params = threeUserIds(userId);
@@ -574,13 +612,13 @@ function listProjects(userId, filters = {}) {
     params.push(filters.parentId);
   }
   sql += ' ORDER BY createdAt ASC';
-  return db.prepare(sql).all(...params).map(p => ({ ...p, role: getProjectRole(userId, p.id), ownerName: getOwnerName(p.userId), collaboratorCount: getCollaboratorCount(p.id) }));
+  return db.prepare(sql).all(...params).map(p => ({ ...p, ...lockOf(p), role: getProjectRole(userId, p.id), ownerName: getOwnerName(p.userId), collaboratorCount: getCollaboratorCount(p.id) }));
 }
 
 function getProjectById(userId, id) {
   const row = db.prepare(`SELECT * FROM projects WHERE id = ? AND deletedAt IS NULL AND id IN ${accessibleProjectIdsSQL()}`).get(id, ...threeUserIds(userId));
   if (!row) return null;
-  return { ...row, role: getProjectRole(userId, id), ownerName: getOwnerName(row.userId), collaboratorCount: getCollaboratorCount(id) };
+  return { ...row, ...lockOf(row), role: getProjectRole(userId, id), ownerName: getOwnerName(row.userId), collaboratorCount: getCollaboratorCount(id) };
 }
 
 function createProject(userId, project) {
@@ -601,6 +639,7 @@ function createProject(userId, project) {
   db.prepare(`
     INSERT INTO projects (id, userId, parentId, title, description, icon, color, startDate, type, isGoal, createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?)
   `).run(project.id, ownerId, project.parentId || null, project.title, project.description || '', project.icon || '📁', project.color || '#0A7E8C', project.startDate || '', project.type || 'career', project.isGoal ? 1 : 0, project.createdAt);
+  if (project.unlockAfter && !project.parentId) setUnlockAfter(project.id, project.unlockAfter);
   return getProjectById(userId, project.id);
 }
 
@@ -619,6 +658,11 @@ function updateProjectById(userId, id, patch) {
   }
   db.prepare(`UPDATE projects SET title=?, description=?, icon=?, color=?, startDate=?, parentId=?, type=? WHERE id = ?`)
     .run(next.title, next.description, next.icon, next.color, next.startDate || '', next.parentId || null, next.type || 'career', id);
+  // what it waits on is the owner's call (it decides when the goal opens)
+  if ('unlockAfter' in patch && (patch.unlockAfter || null) !== (current.unlockAfter || null)) {
+    if (!isProjectOwner(userId, id)) throw new Error('Only the goal’s owner can lock or unlock it');
+    setUnlockAfter(id, patch.unlockAfter || null);
+  }
   return getProjectById(userId, id);
 }
 
@@ -1980,7 +2024,7 @@ function removeReportMedia(userId, mediaId) {
   return true;
 }
 
-module.exports = { topLevelProjectId, setVerifyToken, getUserByVerifyToken, markEmailVerified, isEmailVerified,
+module.exports = { lockedGoalFor, goalsWaitingOn, goalFinished, topLevelProjectId, setVerifyToken, getUserByVerifyToken, markEmailVerified, isEmailVerified,
   liveStreak,
   getPledgeLinkTarget,
   listReportMedia, listProjectAttachments, addReportMedia, removeReportMedia,

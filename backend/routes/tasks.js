@@ -55,6 +55,11 @@ router.put('/reorder', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const before = db.getTaskById(req.session.userId, req.params.id);
+    // A locked goal's steps wait until the goal it's behind is finished.
+    if (before && req.body && req.body.status === 'Completed' && before.status !== 'Completed') {
+      const by = db.lockedGoalFor(before.projectId);
+      if (by) return res.status(409).json({ error: `This goal unlocks once you finish “${by.title}”`, code: 'GOAL_LOCKED' });
+    }
     const task = db.updateTaskById(req.session.userId, req.params.id, req.body);
     if (!task) return res.status(404).json({ error: 'Task not found' });
     // Lets the client celebrate a completion without re-deriving it itself —
@@ -69,7 +74,10 @@ router.put('/:id', (req, res) => {
     const proofWanted = justCompleted ? challenges.proofWantedFor(req.session.userId, task) : null;
     // A shared goal: whoever was waiting on this step hears it's their turn.
     if (justCompleted) challenges.splitHandoff(req.session.userId, task);
-    res.json({ ...task, justCompleted, journeyReward, rewardsEarned, proofWanted });
+    // Finishing a goal opens any goal that was waiting on it.
+    const top = justCompleted ? db.topLevelProjectId(task.projectId) : null;
+    const unlocked = top && db.goalFinished(top) ? db.goalsWaitingOn(top) : [];
+    res.json({ ...task, justCompleted, journeyReward, rewardsEarned, proofWanted, unlocked });
     const assigneeChanged = task.assigneeId && task.assigneeId !== before?.assigneeId;
     if (assigneeChanged && task.assigneeId !== req.session.userId) {
       const project = db.getProjectById(req.session.userId, task.projectId);
