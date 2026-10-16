@@ -40,9 +40,8 @@
       "id": "mountain",
       "emoji": "⛰️",
       "name": "Mountain",
-      "line": "Hike a winding trail up to the summit flag, seen from just behind your climber, past rockfalls and storm clouds.",
-      "view": "2d",
-      "only2d": true
+      "line": "Hike a winding trail to a snowy summit, seen from just behind your climber. Heave boulders off the path and raise the flag at the top.",
+      "view": "3d"
     }
   ],
   "tour": [
@@ -132,6 +131,11 @@
     }
   ],
   "whatsNew": [
+    {
+      "date": "2026-10-16",
+      "title": "Mountain in 3D",
+      "text": "The Mountain stage now has a 3D view too. Your hiker climbs a switchback trail cut into a real mountain, through pine woods and past rock up to the snow, with the camera just behind them. Boulders block the trail until you clear them, then roll away down the slope, and finishing your goal raises your flag on the summit."
+    },
     {
       "date": "2026-10-16",
       "title": "A new stage: Mountain",

@@ -2530,6 +2530,7 @@ const JourneyGame = (() => {
     space3d: { module: '/js/journeySpace3d.js', factory: 'createSpace3D', fallback: 'space', failed: false, loading: null },
     construction3d: { module: '/js/journeyConstruction3d.js', factory: 'createConstruction3D', fallback: 'construction', failed: false, loading: null },
     sprint3d: { module: '/js/journeySprint3d.js', factory: 'createSprint3D', fallback: 'sprint', failed: false, loading: null },
+    mountain3d: { module: '/js/journeyMountain3d.js', factory: 'createMountain3D', fallback: 'mountain', failed: false, loading: null },
   };
   const instances3d = new Set();
   let webglOk = null;
