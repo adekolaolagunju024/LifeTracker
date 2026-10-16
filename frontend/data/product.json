@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "Gantt links like the timeline",
+      "text": "The links between tasks on the Gantt chart are now the same handover arrows as the team timeline: a dashed curve from the end of one task into the start of the next, with an arrowhead. They steer around task names so the chart stays easy to read, and the Key explains them."
+    },
+    {
+      "date": "2026-10-16",
       "title": "Clearer Gantt bars",
       "text": "Gantt bars now look like the team timeline: rounded, with each task's name in bold on the bar, a tick when it's done, and a slim stripe for its priority. Names on short tasks sit just beside the bar so you can always read them, and hovering a bar shows its status, priority and dates in words."
     },
