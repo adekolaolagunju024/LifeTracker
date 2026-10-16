@@ -39,7 +39,7 @@
   <!-- Tailwind, built ahead of time (npm run build:css; config in tailwind.config.js) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Nunito:wght@800;900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Nunito:wght@800;900&family=Caveat:wght@600;700&display=swap">
   <link rel="stylesheet" href="/css/app.css">
 
   <style>
@@ -173,26 +173,81 @@
     .reminder-preset { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; background: #F4F5F7; border: 1px solid #E3E6EA; border-radius: 14px; padding: 10px 12px; font-size: 13px; font-weight: 700; color: #0D1B2A; cursor: pointer; }
     .reminder-preset:hover { border-color: #0A7E8C; background: #F3FAFB; }
     .reminder-preset small { font-size: 11px; font-weight: 600; color: #5B6472; }
-    #alarm-overlay { position: fixed; inset: 0; z-index: 1000; background: radial-gradient(circle at 50% 30%, rgba(10,126,140,.97), rgba(13,27,42,.99) 70%); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 20px; animation: alarmin .25s ease-out both; }
+    /* The alarm (js/reminders.js): a calm screen like full-screen focus,
+       a big clock, a handwritten line, the stage at the bottom. */
+    #alarm-overlay { position: fixed; inset: 0; z-index: 1000; background: linear-gradient(180deg, #FFF9F5 0%, #F3F1FF 55%, #E9F3FF 100%); display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; animation: alarmin .25s ease-out both; }
+    #alarm-overlay .calm-art { position: fixed; left: 0; right: 0; bottom: 0; height: 38vh; background-size: cover; background-position: center 70%; -webkit-mask-image: linear-gradient(180deg, transparent, #000 45%); mask-image: linear-gradient(180deg, transparent, #000 45%); opacity: .9; pointer-events: none; }
     @keyframes alarmin { from { opacity: 0; } to { opacity: 1; } }
-    .alarm-card { width: min(400px, 100%); text-align: center; color: #fff; }
-    .alarm-bell .ic { width: 64px; height: 64px; color: #5EEAD4; stroke-width: 1.75; }
+    .alarm-card { position: relative; width: min(400px, 100%); text-align: center; color: #0D1B2A; margin-bottom: 18vh; }
+    .alarm-bell .ic { width: 22px; height: 22px; color: #E07A5F; stroke-width: 2; }
     .alarm-start .ic { width: 18px; height: 18px; vertical-align: -3px; }
-    .alarm-bell { font-size: 64px; line-height: 1; display: inline-block; animation: alarmshake 1s ease-in-out infinite; }
+    .alarm-bell { display: inline-block; animation: alarmshake 1s ease-in-out infinite; }
     @keyframes alarmshake { 0%, 50%, 100% { transform: rotate(0); } 10%, 30% { transform: rotate(-14deg); } 20%, 40% { transform: rotate(14deg); } }
-    .alarm-kicker { margin: 16px 0 6px; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #5EEAD4; }
-    .alarm-title { margin: 0; font-size: 28px; line-height: 1.15; font-weight: 800; overflow-wrap: anywhere; }
-    .alarm-sub { margin: 10px 0 18px; font-size: 14px; color: #C9D6E2; }
-    .alarm-blockers { text-align: left; background: rgba(239,68,68,.16); border: 1px solid rgba(252,165,165,.45); border-radius: 16px; padding: 12px 14px; margin-bottom: 14px; font-size: 14px; }
-    .alarm-blockers p { margin: 0; font-weight: 700; color: #FECACA; }
-    .alarm-blockers ul { margin: 6px 0 0; padding-left: 18px; color: #fff; }
-    .alarm-blockers.is-waiting { background: rgba(245,158,11,.16); border-color: rgba(252,211,77,.45); }
-    .alarm-blockers.is-waiting p { color: #FDE68A; }
-    .alarm-start { width: 100%; min-height: 56px; border: 0; border-radius: 18px; background: #5EEAD4; color: #0D1B2A; font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 30px rgba(94,234,212,.35); }
+    .alarm-clock { margin: 4px 0 0; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: clamp(64px, 18vw, 96px); line-height: 1; letter-spacing: -.02em; color: #0D1B2A; }
+    .calm-script { font-family: 'Caveat', 'Segoe Script', 'Brush Script MT', cursive; font-weight: 700; color: #C0675A; line-height: 1.05; }
+    .alarm-card .calm-script { font-size: 34px; margin: 8px 0 4px; }
+    .alarm-kicker { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #E07A5F; }
+    .alarm-title { margin: 10px 0 0; font-size: 24px; line-height: 1.2; font-weight: 800; overflow-wrap: anywhere; }
+    .alarm-sub { margin: 8px 0 16px; font-size: 14px; color: #556270; }
+    .alarm-blockers { text-align: left; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 16px; padding: 12px 14px; margin-bottom: 14px; font-size: 14px; }
+    .alarm-blockers p { margin: 0; font-weight: 700; color: #B91C1C; }
+    .alarm-blockers ul { margin: 6px 0 0; padding-left: 18px; color: #0D1B2A; }
+    .alarm-blockers.is-waiting { background: #FFFBEB; border-color: #FDE68A; }
+    .alarm-blockers.is-waiting p { color: #92400E; }
+    .alarm-start { width: 100%; min-height: 56px; border: 0; border-radius: 18px; background: #E07A5F; color: #fff; font-size: 17px; font-weight: 800; cursor: pointer; box-shadow: 0 10px 30px rgba(224,122,95,.35); }
     .alarm-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
-    .alarm-row button { min-height: 48px; border: 1px solid rgba(255,255,255,.25); border-radius: 14px; background: rgba(255,255,255,.08); color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; }
-    .alarm-row button:hover { background: rgba(255,255,255,.16); }
-    .alarm-dismiss { margin-top: 14px; background: none; border: 0; color: #9FB3C8; font-weight: 600; font-size: 14px; text-decoration: underline; cursor: pointer; padding: 8px; }
+    .alarm-row button { min-height: 48px; border: 1px solid #E5DCD6; border-radius: 14px; background: rgba(255,255,255,.85); color: #0D1B2A; font-weight: 700; font-size: 14px; cursor: pointer; }
+    .alarm-row button:hover { background: #fff; }
+    .alarm-dismiss { margin-top: 12px; background: rgba(255,255,255,.7); border: 0; border-radius: 999px; color: #556270; font-weight: 600; font-size: 14px; text-decoration: underline; cursor: pointer; padding: 8px 14px; }
+    #alarm-overlay .alarm-why { background: rgba(255,255,255,.75); border: 1px solid #EDE7F6; }
+    #alarm-overlay .alarm-why-mentor { color: #334155; }
+    #alarm-overlay .alarm-why-quote { color: #0D1B2A; }
+    #alarm-overlay .alarm-why-quote span { color: #64748B; }
+    .dark #alarm-overlay { background: linear-gradient(180deg, #111827 0%, #1E1B3A 60%, #0F1E33 100%); }
+    .dark .alarm-card, .dark .alarm-clock, .dark #alarm-overlay .alarm-why-quote { color: #F1F5F9; }
+    .dark .alarm-sub, .dark #alarm-overlay .alarm-why-mentor { color: #CBD5E1; }
+    .dark .alarm-row button, .dark .alarm-dismiss, .dark #alarm-overlay .alarm-why { background: rgba(15,23,42,.75); border-color: #334155; color: #E2E8F0; }
+    .dark .calm-script { color: #F4A99A; }
+
+    /* Full-screen focus (js/jarvis.js paintFull) */
+    #focus-hud.under-full { display: none !important; }
+    .focus-full { position: fixed; inset: 0; z-index: 980; display: flex; flex-direction: column; align-items: center; padding: max(14px, env(safe-area-inset-top)) 18px 18px; overflow-y: auto; background: linear-gradient(180deg, #FFFDFB 0%, #F6F2FF 60%, #EEF5FF 100%); color: #0D1B2A; animation: alarmin .25s ease-out both; outline: none; }
+    .focus-full .ff-art { position: fixed; left: 0; right: 0; bottom: 0; height: 40vh; background-size: cover; background-position: center 65%; -webkit-mask-image: linear-gradient(180deg, transparent, #000 50%); mask-image: linear-gradient(180deg, transparent, #000 50%); pointer-events: none; }
+    .ff-top { position: relative; width: min(560px, 100%); display: flex; align-items: center; justify-content: space-between; }
+    .ff-kicker { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #E07A5F; }
+    .ff-close { width: 40px; height: 40px; border-radius: 999px; display: grid; place-items: center; background: rgba(255,255,255,.9); border: 1px solid #ECE6F5; color: #475569; box-shadow: 0 4px 14px rgba(13,27,42,.08); }
+    .ff-script { position: relative; font-family: 'Caveat', 'Segoe Script', 'Brush Script MT', cursive; font-weight: 700; font-size: clamp(30px, 7vw, 44px); line-height: 1.05; color: #C0675A; text-align: center; max-width: 520px; margin: 10px 0 6px; }
+    .ff-dial { position: relative; width: min(300px, 78vw); aspect-ratio: 1; margin: 6px 0 4px; }
+    .ff-dial svg { width: 100%; height: 100%; display: block; }
+    .ff-face { fill: rgba(255,255,255,.75); stroke: #EFE3E0; stroke-width: 8; }
+    .ff-ticks line { stroke: #D6C3BE; stroke-width: 1.2; stroke-linecap: round; }
+    .ff-ticks line.maj { stroke: #B9A39D; stroke-width: 2; }
+    .ff-arc { fill: none; stroke: #E07A5F; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+    .ff-knob { fill: #fff; stroke: #E07A5F; stroke-width: 3; }
+    .focus-full.is-break .ff-arc, .focus-full.is-break .ff-knob { stroke: #16A34A; }
+    .ff-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 0 18%; text-align: center; }
+    .ff-time { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: clamp(48px, 14vw, 68px); line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+    .ff-task { font-size: 14px; font-weight: 700; color: #475569; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
+    .ff-task[role="button"] { cursor: pointer; text-decoration: underline dotted 1px; text-underline-offset: 3px; }
+    .ff-play { width: 52px; height: 52px; border-radius: 999px; display: grid; place-items: center; background: #F8D7CE; color: #B4533E; margin-top: 4px; }
+    .ff-play .ic { width: 22px; height: 22px; }
+    .focus-full.is-paused .ff-time { opacity: .55; }
+    .ff-actions { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 8px 0; }
+    .ff-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 999px; background: rgba(255,255,255,.9); border: 1px solid #ECE6F5; font-weight: 800; font-size: 14px; color: #0D1B2A; }
+    .ff-actions button.ff-yes { background: #0A7E8C; border-color: #0A7E8C; color: #fff; }
+    .ff-done { position: relative; width: min(460px, 100%); margin: 18px 0; background: #0D1B2A; color: #fff; border-radius: 22px; padding: 18px; }
+    .ff-music { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; width: min(420px, 100%); margin-top: auto; background: #fff; border-radius: 18px; padding: 10px 12px; box-shadow: 0 10px 30px rgba(13,27,42,.12); color: #0D1B2A; }
+    .ff-music .fm-name { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ff-music .fm-name.muted { color: #94A3B8; font-weight: 600; }
+    .ff-music .fm-icon { width: 38px; height: 38px; border-radius: 999px; display: grid; place-items: center; background: #F8D7CE; color: #B4533E; }
+    .ff-music .fm-ic { color: #E07A5F; }
+    .ff-music .fm-btn { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; color: #B4533E; background: #FDECE7; border-radius: 999px; padding: 8px 12px; }
+    @media (max-height: 640px) { .ff-dial { width: min(230px, 62vw); } .ff-script { margin: 4px 0; } }
+    .dark .focus-full { background: linear-gradient(180deg, #111827 0%, #1E1B3A 60%, #0F1E33 100%); color: #F1F5F9; }
+    .dark .ff-face { fill: rgba(15,23,42,.7); stroke: #334155; }
+    .dark .ff-task { color: #CBD5E1; }
+    .dark .ff-close, .dark .ff-actions button:not(.ff-yes), .dark .ff-music { background: rgba(15,23,42,.9); border-color: #334155; color: #E2E8F0; }
+    .dark .ff-script { color: #F4A99A; }
     @media (prefers-reduced-motion: reduce) { .alarm-bell, #alarm-overlay { animation: none; } }
     .dark .reminder-btn, .dark .reminder-chip { background: rgba(94,234,212,.12); color: #5EEAD4; }
     .dark .reminder-preset { background: #0F1726; border-color: #263449; color: #F1F5F9; }

@@ -126,6 +126,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "A calm full-screen focus, and a gentler alarm",
+      "text": "Tap Full screen on the focus timer for a calm screen of its own: a big dial with the time running round it, pause in the middle, a line from your own why in handwriting, your music at the bottom and the stage you play on underneath. It stays full screen for your next sessions until you shrink it. Reminders now ring on the same calm screen, with a big clock and the stage behind."
+    },
+    {
+      "date": "2026-10-16",
       "title": "Split the work",
       "text": "Team up has a third way: Split the work. One goal for the whole team, shared with everyone who joins (no copies). Hand each step to someone, let people claim one with I'll take it, or share out every unclaimed step in one tap. A bar shows everyone's part in their colour, the person whose step was waiting hears it's their turn, and if someone leaves their steps go back to unclaimed."
     },
