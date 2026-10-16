@@ -1997,9 +1997,9 @@
     /* Dependency arrows (finish-to-start) drawn over the rows, behind the bars. */
     #gantt-rows { position: relative; }
     .gantt-dep-layer { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 2; overflow: visible; }
-    .gantt-dep-layer path { fill: none; stroke-width: 1.6; }
-    .gantt-dep-layer .gantt-dep-done { stroke: #64748b; }
-    .gantt-dep-layer .gantt-dep-waiting { stroke: #f59e0b; stroke-dasharray: 5 3; }
+    /* the team timeline's handover arrows (.tl-links), not the arrowhead in <defs> */
+    .gantt-dep-layer > path { fill: none; stroke: #475569; stroke-width: 1.6; stroke-dasharray: 4 3; }
+    .dark .gantt-dep-layer > path { stroke: #94A3B8; }
     /* Bars styled like the team timeline (js/race.js timelineHtml): rounded,
        the name inside (or beside it when it won't fit, fitGanttLabels), a
        tick when done; priority is the stripe down the left edge. */

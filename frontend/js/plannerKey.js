@@ -20,7 +20,9 @@ const PlannerKey = (() => {
   const diamond = c => `<i class="pkey-diamond" style="background:${c};border-color:${c}"></i>`;
   const summary = c => `<i class="pkey-summary" style="background:${c};--c:${c}"></i>`;
   const vline = cls => `<i class="pkey-vline ${cls}"></i>`;
-  const arrow = waiting => `<svg viewBox="0 0 34 12" class="pkey-arrow"><path d="M1 6 H27" stroke="${waiting ? '#f59e0b' : '#64748b'}" stroke-width="2" ${waiting ? 'stroke-dasharray="5 3"' : ''} fill="none"/><path d="M26 2 L33 6 L26 10 Z" fill="${waiting ? '#f59e0b' : '#64748b'}"/></svg>`;
+  // the handover arrow, as on the Gantt and the team timeline
+  const arrow = () => '<svg viewBox="0 0 34 14" class="pkey-arrow"><path d="M1 2 C 14 2, 14 11, 26 11" stroke="#475569" stroke-width="1.6" stroke-dasharray="4 3" fill="none"/><path d="M26 7.5 L33 11 L26 14.5 Z" fill="#475569"/></svg>';
+  const stripe = c => `<i class="pkey-bar" style="background:#CBD5E1;border-color:transparent;box-shadow:inset 3px 0 0 ${c}"></i>`;
   const dot = c => `<i class="pkey-dot" style="background:${c}"></i>`;
   const badge = (cls, ic, text) => `<span class="pkey-badge ${cls}">${icon(ic, 'tiny')}${text}</span>`;
   const pill = (cls, ic, text) => `<span class="pkey-pill ${cls}">${icon(ic)} ${text}</span>`;
@@ -49,13 +51,12 @@ const PlannerKey = (() => {
         item(diamond(first), 'Diamond', 'Only a due date, no start date'),
         item(summary(shadeColor(first, -40)), 'Phase bar', "A phase's first to last date; drag it to move them all"),
       ]),
-      group('Outline: priority', PRIORITY(c => bar('#fff', c))),
+      group('Left stripe: priority', PRIORITY(stripe)),
       ...(goals.some(g => g.startDate) ? [group('Goal start dates', goals.filter(g => g.startDate).slice(0, 6).map(g => item(vline('start'), esc(g.title), `Starts ${formatDateShort(g.startDate)}`)))] : []),
       group('Lines and arrows', [
         item(vline('today'), 'Today'),
         item(vline('start'), "A goal's start date"),
-        item(arrow(false), 'Waits on a task that is done'),
-        item(arrow(true), 'Still waiting on that task'),
+        item(arrow(), 'A handover', 'The next task can start once the one before it is done'),
       ]),
       group('Status dot', ['Not Started', 'In Progress', 'Completed'].map(s => item(dot(STATUS_COLOR[s]), { 'Not Started': 'To do', 'In Progress': 'Doing', Completed: 'Done' }[s]))),
       group('Badges', BADGES),

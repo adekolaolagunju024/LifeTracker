@@ -1137,21 +1137,31 @@ function drawGanttDependencies() {
   tasks.forEach(t => t.predecessors.forEach(p => {
     const a = markerOf(p.id), b = markerOf(t.id);
     if (!a || !b) return;
+    // The same handover arrow as the team timeline (js/race.js
+    // drawHandoffs): out of the end of the earlier bar, curving across into
+    // the start of the next. When the earlier bar's name sits beside it, or
+    // the next task starts straight away, it leaves from under the bar
+    // instead, so it never runs through a name.
     const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
-    const x1 = ra.right - box.left, y1 = ra.top + ra.height / 2 - box.top;
-    const x2 = rb.left - box.left, y2 = rb.top + rb.height / 2 - box.top;
-    const out = x1 + 8, back = x2 - 8;
-    const midY = y2 > y1 ? rb.top - box.top - 4 : rb.bottom - box.top + 4;
-    const d = back >= out
-      ? `M ${x1} ${y1} H ${out} V ${y2} H ${x2 - 1}`
-      : `M ${x1} ${y1} H ${out} V ${midY} H ${back} V ${y2} H ${x2 - 1}`;
-    paths.push(`<path d="${d}" class="${p.status === 'Completed' ? 'gantt-dep-done' : 'gantt-dep-waiting'}" marker-end="url(#gantt-dep-arrow-${p.status === 'Completed' ? 'done' : 'waiting'})"><title>${esc(p.title)} → ${esc(t.title)}</title></path>`);
+    const x2 = rb.left - box.left - 2, y2 = rb.top + rb.height / 2 - box.top;
+    const nameBeside = a.classList.contains('label-out') && !a.classList.contains('label-left');
+    let d;
+    if (!nameBeside && x2 - (ra.right - box.left) >= 16) {
+      const x1 = ra.right - box.left, y1 = ra.top + ra.height / 2 - box.top;
+      const mx = Math.max(x1 + 10, (x1 + x2) / 2);
+      d = `M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${mx.toFixed(1)} ${y1.toFixed(1)}, ${mx.toFixed(1)} ${y2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+    } else {
+      const below = rb.top >= ra.top;
+      const x1 = ra.right - box.left - Math.min(8, ra.width / 2), y1 = (below ? ra.bottom : ra.top) - box.top;
+      const reach = Math.max(14, Math.min(40, Math.abs(x2 - x1) / 2));
+      d = `M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${x1.toFixed(1)} ${y2.toFixed(1)}, ${(x2 - reach).toFixed(1)} ${y2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+    }
+    paths.push(`<path d="${d}" marker-end="url(#gantt-dep-arrow)"><title>${esc(p.title)} → ${esc(t.title)}${p.status === 'Completed' ? '' : ' (waiting)'}</title></path>`);
   }));
   if (!paths.length) return;
   rows.insertAdjacentHTML('beforeend', `<svg class="gantt-dep-layer" width="${rows.scrollWidth}" height="${rows.scrollHeight}" aria-hidden="true">
     <defs>
-      <marker id="gantt-dep-arrow-done" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#64748b"/></marker>
-      <marker id="gantt-dep-arrow-waiting" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#f59e0b"/></marker>
+      <marker id="gantt-dep-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#475569"/></marker>
     </defs>${paths.join('')}</svg>`);
 }
 window.addEventListener('resize', () => { if (APP.currentPage === 'gantt') requestAnimationFrame(() => { fitGanttLabels(); drawGanttDependencies(); }); });
