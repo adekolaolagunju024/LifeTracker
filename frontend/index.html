@@ -1049,6 +1049,19 @@
     .dark .goal-lock { background: #1E1B3A; border-color: #3730A3; color: #C7D2FE; }
     .dark .goal-lock b { color: #E0E7FF; }
     .dark .goal-lock .gl-ic, .dark .goal-lock button:not(.primary) { background: #0B1220; border-color: #3730A3; color: #C7D2FE; }
+    /* Split the work, on a teammate's goal page (js/app/03-project.js renderSplitSwitch) */
+    .split-switch { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+    .split-switch .seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: #EEF1F4; }
+    .split-switch .seg button { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 800; color: #475569; }
+    .split-switch .seg button[aria-pressed="true"] { background: #fff; color: #0D1B2A; box-shadow: 0 1px 3px rgba(13,27,42,.15); }
+    .split-switch .seg b { font-size: 11px; font-weight: 800; background: #E2E8F0; color: #334155; border-radius: 999px; padding: 1px 7px; }
+    .split-switch .seg button[aria-pressed="true"] b { background: #0A7E8C; color: #fff; }
+    .split-switch p { font-size: 12.5px; color: #64748B; margin: 0; flex: 1 1 220px; }
+    .sp-inline .ch-group { margin-bottom: 12px; }
+    .ch-link { font-weight: 800; color: #0A7E8C; text-decoration: underline; text-underline-offset: 2px; }
+    .split-plan-on .detail-work, .split-plan-on #bulk-actions-bar { display: none !important; }
+    .dark .split-switch .seg { background: #1E293B; }
+    .dark .split-switch .seg button[aria-pressed="true"] { background: #0B1220; color: #E6EDF3; }
     .gm-overlay { position: fixed; inset: 0; z-index: 990; background: rgba(13,27,42,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
     .gm-card { position: relative; width: min(460px, 100%); max-height: 94vh; display: flex; flex-direction: column; background: #fff; border-radius: 24px; overflow: hidden; box-shadow: 0 30px 80px rgba(5,10,20,.4); }
     .gm-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
@@ -3642,9 +3655,13 @@
       <!-- Rewards people have pledged for finishing this goal (js/pledges.js), owner only -->
       <div class="hidden mb-5" id="detail-lock"></div>
       <div class="hidden mb-5" id="detail-rewards"></div>
+      <!-- Split the work, for a teammate: My steps (the list below) or the
+           team's Whole plan (js/race.js planInto) -->
+      <div class="hidden mb-4" id="detail-split"></div>
+      <div class="hidden mb-5" id="detail-split-plan"></div>
 
       <!-- Filters -->
-      <div class="flex gap-2 sm:gap-3 mb-4 flex-wrap xl:flex-nowrap">
+      <div class="detail-work flex gap-2 sm:gap-3 mb-4 flex-wrap xl:flex-nowrap">
         <input type="text" id="filter-search" aria-label="Search tasks" placeholder="Search tasks..."
           class="w-full xl:w-auto xl:flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal"
           oninput="applyFilters(APP.currentProjectId)">
@@ -3691,7 +3708,7 @@
       </div>
 
       <!-- Task Table -->
-      <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div class="detail-work bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto relative">
         <table class="w-full task-table">
           <thead><tr class="bg-navy text-white text-xs">

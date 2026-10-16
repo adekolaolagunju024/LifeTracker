@@ -545,6 +545,36 @@ function topLevelProjectId(projectId) {
   return row && row.parentId ? row.parentId : projectId;
 }
 
+// Split the work (backend/challenges.js): on a team that splits a goal,
+// a teammate (anyone but the team's leader) works on their own steps only.
+// They see just the steps that are theirs, can't tick off, edit or open
+// anyone else's, and a step they add is theirs. The whole plan, with who
+// has what and the unclaimed steps to take, is on the team page (and the
+// goal page's Whole plan switch), from challenges.splitBoard.
+// The goals (top-level project ids) this person is a teammate on.
+function splitGoalsOf(userId) {
+  try {
+    return db.prepare(`SELECT m.projectId FROM challenge_members m JOIN challenges c ON c.id = m.challengeId
+      WHERE m.userId = ? AND c.mode = 'split' AND c.ownerId != ?`).all(userId, userId).map(r => r.projectId);
+  } catch { return []; } // no team tables (a bare database)
+}
+// The split team this person is a teammate on for a project, or null.
+function splitTeamOf(userId, projectId) {
+  try {
+    const row = db.prepare(`SELECT c.id FROM challenge_members m JOIN challenges c ON c.id = m.challengeId
+      WHERE m.userId = ? AND m.projectId = ? AND c.mode = 'split' AND c.ownerId != ?`).get(userId, topLevelProjectId(projectId), userId);
+    return row ? row.id : null;
+  } catch { return null; }
+}
+// Hides other people's (and unclaimed) steps on those goals.
+function onlyOwnSplitSteps(userId, tasks) {
+  const goals = splitGoalsOf(userId);
+  if (!goals.length || !tasks.length) return tasks;
+  const marks = goals.map(() => '?').join(',');
+  const shut = new Set([...goals, ...db.prepare(`SELECT id FROM projects WHERE parentId IN (${marks})`).all(...goals).map(r => r.id)]);
+  return tasks.filter(t => !shut.has(t.projectId) || t.assigneeId === userId);
+}
+
 // ── PROJECTS (a project may have a parentId, making it a sub-folder) ──
 // The name on the project's own userId — for a shared project this is
 // "who owns this", surfaced in the UI as "Shared by X" for anyone who
@@ -618,7 +648,7 @@ function listProjects(userId, filters = {}) {
 function getProjectById(userId, id) {
   const row = db.prepare(`SELECT * FROM projects WHERE id = ? AND deletedAt IS NULL AND id IN ${accessibleProjectIdsSQL()}`).get(id, ...threeUserIds(userId));
   if (!row) return null;
-  return { ...row, ...lockOf(row), role: getProjectRole(userId, id), ownerName: getOwnerName(row.userId), collaboratorCount: getCollaboratorCount(id) };
+  return { ...row, ...lockOf(row), role: getProjectRole(userId, id), ownerName: getOwnerName(row.userId), collaboratorCount: getCollaboratorCount(id), splitTeamId: splitTeamOf(userId, id) };
 }
 
 function createProject(userId, project) {
@@ -789,13 +819,14 @@ function listTasks(userId, filters = {}) {
   if (filters.assigneeId)  { sql += ' AND t.assigneeId = ?';  params.push(filters.assigneeId); }
   if (filters.search)      { sql += ' AND LOWER(t.title) LIKE ?'; params.push('%' + filters.search.toLowerCase() + '%'); }
   sql += ' ORDER BY t.sortOrder ASC, t.createdAt ASC';
-  const tasks = db.prepare(sql).all(...params).map(t => ({ ...t, cost: t.cost || 0 }));
+  const tasks = onlyOwnSplitSteps(userId, db.prepare(sql).all(...params).map(t => ({ ...t, cost: t.cost || 0 })));
   return attachDependenciesToTasks(attachObstaclesToTasks(attachTagsToTasks(tasks)));
 }
 
 function getTaskById(userId, id) {
   const task = db.prepare(`SELECT t.*, ${CHECKLIST_COUNT_COLUMNS} FROM tasks t WHERE t.id = ? AND t.deletedAt IS NULL AND t.projectId IN ${accessibleProjectIdsSQL()}`).get(id, ...threeUserIds(userId));
   if (!task) return task;
+  if (task.assigneeId !== userId && splitTeamOf(userId, task.projectId)) return undefined;
   task.tags = getTaskTags(id);
   attachObstaclesToTasks([task]);
   attachDependenciesToTasks([task]);
@@ -826,6 +857,7 @@ function createTask(userId, task) {
   if (!project) throw new Error('Project not found');
   assertCanEditProject(userId, task.projectId);
   assertTaskNotBeforeProject(project, task.startDate);
+  if (splitTeamOf(userId, task.projectId)) task = { ...task, assigneeId: userId }; // a teammate's new step is theirs
   assertAssigneeCanAccessProject(task.assigneeId, task.projectId);
   // New tasks go to the bottom of their project's manual order — not
   // scoped to this creator's own tasks, so ordering stays correct when
@@ -850,7 +882,7 @@ function createTask(userId, task) {
 // each individual task (a collaborator can reorder tasks someone else
 // created, same as dragging a Kanban card).
 function reorderTasks(userId, projectId, taskIds) {
-  if (!canEditProject(userId, projectId)) return;
+  if (!canEditProject(userId, projectId) || splitTeamOf(userId, projectId)) return;
   const stmt = db.prepare('UPDATE tasks SET sortOrder = ? WHERE id = ? AND projectId = ?');
   const run = db.transaction((ids) => {
     ids.forEach((id, index) => stmt.run(index, id, projectId));
@@ -876,6 +908,11 @@ function updateTaskById(userId, id, patch) {
   const current = getTaskById(userId, id);
   if (!current) return null;
   assertCanEditProject(userId, current.projectId);
+  if (splitTeamOf(userId, current.projectId)) {
+    // a teammate's step stays theirs, in this goal (the leader hands steps out)
+    if ('assigneeId' in patch && (patch.assigneeId || null) !== userId) throw Object.assign(new Error('Only the team leader hands steps to someone else'), { status: 403 });
+    if (patch.projectId && topLevelProjectId(patch.projectId) !== topLevelProjectId(current.projectId)) throw Object.assign(new Error('A team step stays in the team goal'), { status: 403 });
+  }
   const next = { ...current, ...patch };
   const project = getProjectById(userId, next.projectId);
   if (!project) throw new Error('Project not found');
@@ -942,6 +979,7 @@ function deleteTaskById(userId, id) {
   const task = getTaskById(userId, id);
   if (!task) return;
   assertCanEditProject(userId, task.projectId);
+  if (splitTeamOf(userId, task.projectId)) throw Object.assign(new Error('Only the team leader removes steps from the plan'), { status: 403 });
   db.prepare('UPDATE tasks SET deletedAt = ? WHERE id = ? AND deletedAt IS NULL').run(new Date().toISOString(), id);
 }
 
@@ -2024,7 +2062,7 @@ function removeReportMedia(userId, mediaId) {
   return true;
 }
 
-module.exports = { lockedGoalFor, goalsWaitingOn, goalFinished, topLevelProjectId, setVerifyToken, getUserByVerifyToken, markEmailVerified, isEmailVerified,
+module.exports = { splitTeamOf, lockedGoalFor, goalsWaitingOn, goalFinished, topLevelProjectId, setVerifyToken, getUserByVerifyToken, markEmailVerified, isEmailVerified,
   liveStreak,
   getPledgeLinkTarget,
   listReportMedia, listProjectAttachments, addReportMedia, removeReportMedia,

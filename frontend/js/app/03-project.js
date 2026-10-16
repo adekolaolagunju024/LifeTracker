@@ -34,6 +34,31 @@ async function unlockGoalNow(id) {
   updateSidebar();
 }
 
+// Split the work, for a teammate: the page lists only their own steps (the
+// server only gives them those), with a switch to the team's Whole plan,
+// where they can see who's doing what and take an unclaimed step.
+const splitViewOf = {}; // goal id -> 'mine' | 'plan'
+function renderSplitSwitch(proj, mine) {
+  const bar = document.getElementById('detail-split'), plan = document.getElementById('detail-split-plan');
+  const page = document.getElementById('page-project-detail');
+  if (!bar || !plan) return;
+  const goal = proj.parentId || proj.id;
+  const view = proj.splitTeamId ? (splitViewOf[goal] || 'mine') : 'mine';
+  page.classList.toggle('split-plan-on', view === 'plan');
+  bar.classList.toggle('hidden', !proj.splitTeamId);
+  plan.classList.toggle('hidden', view !== 'plan');
+  if (!proj.splitTeamId) { plan.innerHTML = ''; return; }
+  bar.innerHTML = `<div class="split-switch"><div class="seg" role="group" aria-label="Show">
+      <button type="button" aria-pressed="${view === 'mine'}" onclick="setSplitView('${goal}', 'mine')">${icon('user', 'tiny')}My steps <b>${mine}</b></button>
+      <button type="button" aria-pressed="${view === 'plan'}" onclick="setSplitView('${goal}', 'plan')">${icon('users', 'tiny')}Whole plan</button></div>
+    <p>${view === 'mine' ? (mine ? 'The steps you’ve taken on. Only you work on these.' : 'You haven’t taken a step yet. Open the whole plan and pick one.') : 'Every step and who’s on it. Take an unclaimed one and it moves into My steps.'}</p></div>`;
+  if (view === 'plan') Race.planInto(proj.splitTeamId, plan);
+}
+function setSplitView(goal, view) {
+  splitViewOf[goal] = view;
+  renderProjectDetail(APP.currentProjectId);
+}
+
 async function renderProjectDetail(projectId) {
   try {
     const [proj, children, allTasks] = await Promise.all([
@@ -43,6 +68,8 @@ async function renderProjectDetail(projectId) {
     ]);
 
     renderGoalLock(proj);
+    const treeIds = new Set([proj.id, ...children.map(c => c.id)]);
+    renderSplitSwitch(proj, allTasks.filter(t => treeIds.has(t.projectId)).length);
     document.getElementById('detail-icon').innerHTML        = emojiIcon(proj.icon);
     document.getElementById('detail-title').textContent     = proj.title;
     document.getElementById('detail-desc').textContent      = proj.description || '';
