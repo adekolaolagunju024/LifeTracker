@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "A clear Home, and your team from the Journey",
+      "text": "Tapping Home or Dashboard now always takes you to a clear dashboard: any task panel, dialog, map or full-screen view left open closes on the way (your focus timer keeps counting in its bar). And when the goal you're playing is part of a team, the Journey's Team up button becomes Open team, straight to the team's page with the chat and who's doing what."
+    },
+    {
+      "date": "2026-10-16",
       "title": "Link tasks right on the Gantt",
       "text": "To make one task wait on another, drag the small dot at the end of its bar onto the task that comes next, and a handover arrow appears (Undo is right there if you change your mind). Clicking a task in the Gantt or Kanban now opens its full panel too, with Do it, Just start, notes and blockers, instead of going straight to the edit form."
     },
