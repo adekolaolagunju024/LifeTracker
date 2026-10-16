@@ -1,4 +1,4 @@
-// Waypoint app, part 11 of 12: Sharing, chats, tags and checklists.
+// KolaWay app, part 11 of 12: Sharing, chats, tags and checklists.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 
@@ -40,7 +40,7 @@ async function renderShareCollaborators(projectId) {
           <span class="w-2 h-2 rounded-full flex-shrink-0 bg-amber-400" title="Waiting for them to sign up"></span>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-semibold text-navy truncate">${esc(person.email)}</p>
-            <p class="text-xs text-gray-400 truncate">Invited · waiting for them to join Waypoint</p>
+            <p class="text-xs text-gray-400 truncate">Invited · waiting for them to join KolaWay</p>
           </div>
           <span class="text-xs font-semibold text-gray-500 flex-shrink-0">${ROLE_LABEL[person.role] || person.role}</span>
           ${isOwner ? `<button onclick="cancelEmailInviteConfirm('${projectId}','${esc(person.email)}')" class="text-gray-300 hover:text-red-500 text-xs px-1 flex-shrink-0" title="Cancel invite" aria-label="Cancel the invite to ${esc(person.email)}">${icon('close')}</button>` : ''}

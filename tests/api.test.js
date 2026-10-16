@@ -28,7 +28,7 @@ test('registration with accepted terms succeeds and issues a session', async () 
 
 test('signed-out visitors see the landing page at /', async () => {
   const html = await (await fetch(`${server.base}/`)).text();
-  assert.match(html, /Turn a goal into a plan\s+<span class="text-teal">you'll actually finish/);
+  assert.match(html, /Stop postponing\.\s+<span class="text-teal">Start progressing\./);
 });
 
 test('/app always serves the application shell', async () => {
@@ -591,7 +591,7 @@ test('two-step sign-in: set up, sign in with a code (no replays), recovery codes
   const email = uniqueEmail();
   const cookie = sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email, password: 'testpass123', acceptTerms: true })));
   const setup = await (await fetch(`${server.base}/api/auth/2fa/setup`, authed(cookie, 'POST'))).json();
-  assert.match(setup.otpauthUrl, /^otpauth:\/\/totp\/Waypoint/);
+  assert.match(setup.otpauthUrl, /^otpauth:\/\/totp\/KolaWay/);
   assert.match(setup.qrSvg, /<svg/);
   assert.equal((await fetch(`${server.base}/api/auth/2fa/enable`, authed(cookie, 'POST', { code: '000000' }))).status, 400);
   const enabled = await (await fetch(`${server.base}/api/auth/2fa/enable`, authed(cookie, 'POST', { code: twofactor.codeForStep(setup.secret, twofactor.stepAt()) }))).json();

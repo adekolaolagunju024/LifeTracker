@@ -104,7 +104,7 @@ const CUR_SYMBOL = { GBP: '£', USD: '$', EUR: '€', NGN: '₦', GHS: '₵', KE
 
 function page(title, body) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
-<title>${esc(title)} · Waypoint</title>
+<title>${esc(title)} · KolaWay</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:'Plus Jakarta Sans',-apple-system,Segoe UI,Arial,sans-serif;background:#F3F5F7;color:#0D1B2A}
@@ -140,7 +140,7 @@ button{font:inherit;cursor:pointer}
 .steps{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}.steps li{display:flex;gap:8px;align-items:baseline;font-size:14px}.steps li span{color:#9CA3AF;width:14px}.steps li.done span{color:#0A7E8C}.steps li b{font-weight:600;flex:1}.steps li small{font-size:12px;color:#6B7280}
 .thread{display:grid;gap:8px;margin:10px 0}.msg{border-radius:14px;padding:8px 12px;max-width:85%}.msg.you{justify-self:end;background:#E6F4F5}.msg.them{background:#F3F5F7}.msg b{font-size:11px}.msg p{white-space:pre-wrap}.msg small{font-size:11px;color:#6B7280}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-</style></head><body><div class="wrap"><a class="brand" href="/"><i></i>Waypoint</a>${body}</div></body></html>`;
+</style></head><body><div class="wrap"><a class="brand" href="/"><i></i>KolaWay</a>${body}</div></body></html>`;
 }
 function goalCard(g, lead) {
   return `<div class="card hero"><p class="kicker">${esc(lead)}</p><h1>${esc(g.title)}</h1>
@@ -175,7 +175,7 @@ function pledgeForm(g, token, values = {}, error = '') {
     </details>
     <label for="email">Your email (optional)</label><input id="email" name="email" type="email" maxlength="200" value="${v('email')}" autocomplete="email" placeholder="So we can tell you when they've earned it">
     <button class="go" type="submit">Pledge this reward</button>
-    <p class="small">Waypoint keeps the promise and any gift you hold here. It doesn't take or send money: once they've earned it, you check their progress, send or hand over the reward yourself, and release it. Your email is never shown to them.</p>
+    <p class="small">KolaWay keeps the promise and any gift you hold here. It doesn't take or send money: once they've earned it, you check their progress, send or hand over the reward yourself, and release it. Your email is never shown to them.</p>
   </form></div>`);
 }
 
@@ -205,7 +205,7 @@ publicRouter.get('/m/:manage', (req, res) => {
     ${cur.status === 'earned' ? `<div class="release">
       <h2 style="margin-top:14px">Check, then release</h2>
       <p>${esc(They)} finished every step${g.finishedOn ? ` on ${esc(fmtDay(g.finishedOn))}` : ''}. Look over the steps below${thread.length ? ' and your messages' : ''}; if you’re happy, release it.</p>
-      ${cur.kind === 'cash' ? (cur.payTo ? `<div class="payto"><p class="kicker">How ${esc(they)} would like it sent</p><p style="white-space:pre-wrap">${esc(cur.payTo)}</p></div><p class="small">Send it yourself, then release it here. Waypoint never handles the money.</p>` : `<p class="small">${esc(They)} hasn’t said how they’d like the money yet. You can ask below, or hand it over in person.</p>`) : ''}
+      ${cur.kind === 'cash' ? (cur.payTo ? `<div class="payto"><p class="kicker">How ${esc(they)} would like it sent</p><p style="white-space:pre-wrap">${esc(cur.payTo)}</p></div><p class="small">Send it yourself, then release it here. KolaWay never handles the money.</p>` : `<p class="small">${esc(They)} hasn’t said how they’d like the money yet. You can ask below, or hand it over in person.</p>`) : ''}
       <div class="actions"><form method="post" action="/p/m/${esc(cur.manageToken)}/given"><button class="go" style="margin:0;width:auto;padding:12px 18px" type="submit">${cur.kind === 'cash' ? 'I’ve sent it: release' : held ? 'Release the gift' : 'I’ve given it: release'}</button></form></div>
     </div>` : ''}
     <div class="actions">
@@ -229,7 +229,7 @@ publicRouter.post('/m/:manage/given', (req, res) => {
     pledges.markGiven(p.id);
     const g = pledges.goalState(p.projectId);
     if (g) pushOwner(g.ownerId, `${p.name} released ${pledges.rewardText(p)}${p.giftCode || p.giftLink || p.giftNote ? '. Your gift is waiting' : ''}`, `pledge-${p.id}`);
-    if (g) sendActivityEmail(g.ownerId, { subject: `${p.name} released your reward`, heading: `${esc(p.name)} released your reward`, bodyHtml: `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0;"><b>${esc(pledges.rewardText(p))}</b> for <b>${esc(g.title)}</b>.${p.giftCode || p.giftLink || p.giftNote ? ' Open the goal in Waypoint to see your gift.' : ''}</p>` }).catch(() => {});
+    if (g) sendActivityEmail(g.ownerId, { subject: `${p.name} released your reward`, heading: `${esc(p.name)} released your reward`, bodyHtml: `<p style="font-size:14px;color:#374151;line-height:1.6;margin:0;"><b>${esc(pledges.rewardText(p))}</b> for <b>${esc(g.title)}</b>.${p.giftCode || p.giftLink || p.giftNote ? ' Open the goal in KolaWay to see your gift.' : ''}</p>` }).catch(() => {});
   }
   res.redirect(303, `/p/m/${encodeURIComponent(req.params.manage)}`);
 });

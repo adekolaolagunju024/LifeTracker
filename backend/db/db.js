@@ -11,7 +11,7 @@ function createUser({ id, email, passwordHash, createdAt, acceptedTermsAt = null
   // default into the table at CREATE TABLE time, so editing the DEFAULT in
   // code has no effect on a database (local or the live one) that already
   // exists with the table already created.
-  db.prepare(`INSERT INTO profile (userId, tagline) VALUES (?, ?)`).run(id, 'Every Goal, One Path');
+  db.prepare(`INSERT INTO profile (userId, tagline) VALUES (?, ?)`).run(id, 'Stop postponing. Start progressing.');
   db.prepare(`INSERT INTO integrations (userId) VALUES (?)`).run(id);
   claimEmailInvites(id, email);
   return getUserById(id);
@@ -1121,7 +1121,7 @@ function inviteCollaborator(inviterUserId, projectId, email, role = 'editor') {
   if (!invitee) {
     // No account yet: hold the invite until they sign up with this email.
     if (db.prepare('SELECT 1 FROM project_email_invites WHERE projectId = ? AND email = ?').get(projectId, cleanEmail)) {
-      throw new Error('Already invited. Waiting for them to join Waypoint');
+      throw new Error('Already invited. Waiting for them to join KolaWay');
     }
     const pending = { id: uuid(), projectId, email: cleanEmail, role, invitedBy: inviterUserId, createdAt: new Date().toISOString() };
     db.prepare('INSERT INTO project_email_invites (id, projectId, email, role, invitedBy, createdAt) VALUES (?,?,?,?,?,?)')

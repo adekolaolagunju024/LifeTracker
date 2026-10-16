@@ -7,7 +7,7 @@ const crypto = require('crypto');
 // Backblaze B2 and the like all take the same signed PUT. It's off unless
 // these are set (see .env.example):
 //   BACKUP_S3_ENDPOINT           https://<account>.r2.cloudflarestorage.com
-//   BACKUP_S3_BUCKET             waypoint-backups
+//   BACKUP_S3_BUCKET             kolaway-backups
 //   BACKUP_S3_ACCESS_KEY_ID      …
 //   BACKUP_S3_SECRET_ACCESS_KEY  …
 //   BACKUP_S3_REGION             auto (R2) or e.g. eu-west-2 (S3)

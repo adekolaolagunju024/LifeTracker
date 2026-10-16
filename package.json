@@ -1,5 +1,5 @@
 {
-  "name": "waypoint",
+  "name": "kolaway",
   "version": "1.0.0",
   "description": "A general-purpose personal goal tracker",
   "main": "backend/server.js",

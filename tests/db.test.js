@@ -7,7 +7,7 @@ const { randomUUID } = require('crypto');
 
 // Must be set before the db module loads, so these tests run against a
 // throwaway database rather than the developer's real one.
-const dbFile = path.join(os.tmpdir(), `waypoint-db-test-${Date.now()}.sqlite`);
+const dbFile = path.join(os.tmpdir(), `kolaway-db-test-${Date.now()}.sqlite`);
 process.env.DB_PATH = dbFile;
 const db = require('../backend/db/db');
 const Database = require('better-sqlite3');

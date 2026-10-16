@@ -9,11 +9,11 @@ async function sendPasswordResetEmail(toEmail, resetUrl) {
   if (!transporter) return false;
   await transporter.sendMail({
     to: toEmail,
-    subject: 'Reset your Waypoint password',
+    subject: 'Reset your KolaWay password',
     html: `<!doctype html><html><body style="margin:0;padding:24px;background:#F3F4F6;font-family:-apple-system,Segoe UI,Arial,sans-serif;">
       <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:28px;">
         <p style="font-size:16px;font-weight:700;color:#0D1B2A;margin:0 0 12px;">Reset your password</p>
-        <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px;">Someone (hopefully you) asked to reset the password for this Waypoint account. The link below works for one hour.</p>
+        <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px;">Someone (hopefully you) asked to reset the password for this KolaWay account. The link below works for one hour.</p>
         <a href="${esc(resetUrl)}" style="display:inline-block;background:#0A7E8C;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 22px;border-radius:8px;">Choose a new password</a>
         <p style="font-size:12px;color:#6B7280;line-height:1.6;margin:20px 0 0;">If you didn't ask for this, you can ignore this email and your password will stay the same.</p>
       </div>
@@ -29,13 +29,13 @@ async function sendVerifyEmail(toEmail, verifyUrl) {
   if (!transporter) return false;
   await transporter.sendMail({
     to: toEmail,
-    subject: 'Confirm your email for Waypoint',
+    subject: 'Confirm your email for KolaWay',
     html: `<!doctype html><html><body style="margin:0;padding:24px;background:#F3F4F6;font-family:-apple-system,Segoe UI,Arial,sans-serif;">
       <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px;padding:28px;">
         <p style="font-size:16px;font-weight:700;color:#0D1B2A;margin:0 0 12px;">Confirm your email</p>
-        <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px;">Thanks for joining Waypoint. Tap below to confirm this is your address, so password resets and invites reach you. The link works for two days.</p>
+        <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px;">Thanks for joining KolaWay. Tap below to confirm this is your address, so password resets and invites reach you. The link works for two days.</p>
         <a href="${esc(verifyUrl)}" style="display:inline-block;background:#0A7E8C;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 22px;border-radius:8px;">Confirm my email</a>
-        <p style="font-size:12px;color:#6B7280;line-height:1.6;margin:20px 0 0;">If you didn't sign up for Waypoint, you can ignore this email.</p>
+        <p style="font-size:12px;color:#6B7280;line-height:1.6;margin:20px 0 0;">If you didn't sign up for KolaWay, you can ignore this email.</p>
       </div>
     </body></html>`,
   });
@@ -50,11 +50,11 @@ async function sendProjectInviteEmail({ toEmail, inviterName, projectTitle, join
   if (!transporter) return false;
   await transporter.sendMail({
     to: toEmail,
-    subject: `${inviterName} invited you to "${projectTitle}" on Waypoint`,
+    subject: `${inviterName} invited you to "${projectTitle}" on KolaWay`,
     html: `<!doctype html><html><body style="margin:0;padding:24px;background:#F4F5F7;font-family:-apple-system,Segoe UI,Arial,sans-serif;">
       <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:20px;padding:28px;border:1px solid #E3E6EA;">
         <p style="font-size:16px;font-weight:700;color:#0D1B2A;margin:0 0 12px;">${esc(inviterName)} invited you to plan together</p>
-        <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px;">You've been invited to the project <strong>${esc(projectTitle)}</strong> on Waypoint, a planner that turns goals into plans and makes finishing them a game. Create a free account with this email address and the project will be waiting for you to accept.</p>
+        <p style="font-size:14px;color:#374151;line-height:1.6;margin:0 0 20px;">You've been invited to the project <strong>${esc(projectTitle)}</strong> on KolaWay, a planner that turns goals into plans and makes finishing them a game. Create a free account with this email address and the project will be waiting for you to accept.</p>
         <a href="${esc(joinUrl)}" style="display:inline-block;background:#0A7E8C;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 22px;border-radius:10px;">Join the project</a>
         <p style="font-size:12px;color:#6B7280;line-height:1.6;margin:20px 0 0;">If you weren't expecting this, you can ignore this email.</p>
       </div>

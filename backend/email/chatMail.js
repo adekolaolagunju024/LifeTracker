@@ -34,12 +34,12 @@ async function sendChatMessageEmail(senderId, projectId, message, ccEmails = [])
           <tr><td align="center">
             <table width="480" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;">
               <tr><td style="background:#0D1B2A;padding:20px 24px;">
-                <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5EEAD4;">Waypoint · ${esc(project.title)}</p>
+                <p style="margin:0;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5EEAD4;">KolaWay · ${esc(project.title)}</p>
               </td></tr>
               <tr><td style="padding:24px;">
                 <p style="margin:0 0 12px;font-size:14px;color:#0D1B2A;"><strong>${esc(sender.name)}</strong> posted in the project chat:</p>
                 <p style="margin:0;font-size:15px;line-height:1.5;color:#1B3A5C;background:#F3F4F6;border-radius:10px;padding:14px 16px;white-space:pre-wrap;">${esc(message.text) || 'Sent a photo or file'}</p>
-                <p style="margin:20px 0 0;font-size:12px;color:#9CA3AF;">Reply from inside Waypoint — <a href="${APP_URL}" style="color:#0A7E8C;">open the app</a></p>
+                <p style="margin:20px 0 0;font-size:12px;color:#9CA3AF;">Reply from inside KolaWay — <a href="${APP_URL}" style="color:#0A7E8C;">open the app</a></p>
               </td></tr>
             </table>
           </td></tr>

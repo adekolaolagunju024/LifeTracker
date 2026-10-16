@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db/connection');
 
-// ── WAYPOINT PRO (Stripe) ───────────────────────────────────────
+// ── KOLAWAY PRO (Stripe) ───────────────────────────────────────
 // Free stays free: every feature works. Pro is a subscription that lifts
 // the daily AI allowance tenfold (and is where future extras go). Payment
 // happens on Stripe's own checkout page, so card details never reach us;
@@ -13,7 +13,7 @@ const db = require('./db/connection');
 //   STRIPE_WEBHOOK_SECRET   whsec_… (from the webhook endpoint in Stripe)
 //   STRIPE_PRICE_MONTHLY    price_… for the monthly plan
 //   STRIPE_PRICE_YEARLY     price_… for the yearly plan (optional)
-//   APP_URL                 https://waypointapp.com (for the return links)
+//   APP_URL                 https://yourdomain.com (for the return links)
 
 const API = 'https://api.stripe.com/v1';
 const isConfigured = () => !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_MONTHLY);

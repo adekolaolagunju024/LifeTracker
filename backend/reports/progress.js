@@ -251,7 +251,7 @@ svg.addEventListener('pointermove',mv);svg.addEventListener('pointerleave',lv);s
   ${MEDIA_CSS}
   @media print{body{background:#fff}.page{box-shadow:none;margin:0;max-width:none;border-radius:0} section{break-inside:avoid}}
 </style></head><body><div class="page">
-<header><div class="brand">Waypoint · Progress report</div><h1>${emojiIcon(r.project.icon)} ${esc(r.project.title)}</h1>
+<header><div class="brand">KolaWay · Progress report</div><h1>${emojiIcon(r.project.icon)} ${esc(r.project.title)}</h1>
 <div class="meta">${r.project.ownerName ? `Owner: ${esc(r.project.ownerName)} · ` : ''}${live ? 'Live report, updated' : 'Generated'} ${esc(longDate(r.today))}${r.schedule.start && r.schedule.end ? ` · Plan: ${esc(shortDate(r.schedule.start))} – ${esc(longDate(r.schedule.end))}` : ''}</div>
 <span class="pill">${esc(r.status.label)}${r.status.gap !== undefined && r.status.key !== 'ontrack' ? ` (${r.status.gap > 0 ? '+' : ''}${r.status.gap} pts)` : ''}</span></header>
 <main>
@@ -272,7 +272,7 @@ ${timeline}
 ${r.waiting.length ? `<section><h2>Waiting on other tasks</h2><ul>${r.waiting.map(w => `<li><span>${icon('link')}${esc(w.title)}</span><em>after ${esc(w.on.join(', '))}</em></li>`).join('')}</ul></section>` : ''}
 ${renderMediaSection(r.media, mediaSrc)}
 </main>
-<footer><span>${live ? 'This page updates itself whenever the plan changes.' : `Generated ${esc(new Date(r.generatedAt).toUTCString())}`}</span><span>Made with ${appUrl ? `<a href="${esc(appUrl)}">Waypoint</a>` : 'Waypoint'}</span></footer>
+<footer><span>${live ? 'This page updates itself whenever the plan changes.' : `Generated ${esc(new Date(r.generatedAt).toUTCString())}`}</span><span>Made with ${appUrl ? `<a href="${esc(appUrl)}">KolaWay</a>` : 'KolaWay'}</span></footer>
 </div></body></html>`;
 }
 

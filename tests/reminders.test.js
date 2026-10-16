@@ -6,7 +6,7 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 
 // A throwaway database, set before the db module loads.
-const dbFile = path.join(os.tmpdir(), `waypoint-reminders-test-${Date.now()}.sqlite`);
+const dbFile = path.join(os.tmpdir(), `kolaway-reminders-test-${Date.now()}.sqlite`);
 process.env.DB_PATH = dbFile;
 const db = require('../backend/db/db');
 const { checkTaskReminders } = require('../backend/push/scheduler');
