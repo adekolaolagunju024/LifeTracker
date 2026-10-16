@@ -83,6 +83,8 @@ conn.exec(`
 for (const col of ['halfAnnounced INTEGER NOT NULL DEFAULT 0', 'finishAnnounced INTEGER NOT NULL DEFAULT 0']) {
   try { conn.exec(`ALTER TABLE challenge_members ADD COLUMN ${col}`); } catch { /* already there */ }
 }
+// Split the work: one shared goal (goalId), each step assigned to someone.
+try { conn.exec('ALTER TABLE challenges ADD COLUMN goalId TEXT'); } catch { /* already there */ }
 for (const col of ["mode TEXT NOT NULL DEFAULT 'race'", 'organiserOnly INTEGER NOT NULL DEFAULT 0', 'joinCode TEXT', "nameMode TEXT NOT NULL DEFAULT 'names'", 'lastNudgeAt TEXT', 'leaderRole TEXT']) {
   try { conn.exec(`ALTER TABLE challenges ADD COLUMN ${col}`); } catch { /* already there */ }
 }
@@ -115,9 +117,12 @@ conn.exec(`
 `);
 conn.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_challenges_code ON challenges(joinCode) WHERE joinCode IS NOT NULL');
 
+// A group (no winner, a leader): a class or squad on copies ('together'),
+// or a team splitting one shared goal between them ('split').
+const isGroup = c => c && (c.mode === 'together' || c.mode === 'split');
 const MAX_PLAYERS = 30;      // a race
 const MAX_TOGETHER = 60;     // a class or team
-const maxFor = c => (c.mode === 'together' ? MAX_TOGETHER : MAX_PLAYERS);
+const maxFor = c => (isGroup(c) ? MAX_TOGETHER : MAX_PLAYERS);
 // Easy to read out loud and type: no 0/O, 1/I/L.
 const CODE_ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 function newCode() {
@@ -149,8 +154,8 @@ const dateKey = ms => new Date(ms).toISOString().slice(0, 10);
 const LEADER_ROLES = ['coach', 'trainer', 'teacher', 'manager', 'leader', 'organiser'];
 // A race has no leader to sign steps off, so it's trust or proof; a group
 // can also have its leader approve each step (and does unless told not to).
-const checksFor = (mode, checks) => (mode === 'together'
-  ? (['none', 'proof', 'leader'].includes(checks) ? checks : 'leader')
+const checksFor = (mode, checks) => (mode === 'together' || mode === 'split'
+  ? (['none', 'proof', 'leader'].includes(checks) ? checks : mode === 'split' ? 'none' : 'leader')
   : (checks === 'proof' ? 'proof' : 'none'));
 function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, organiserOnly, nameMode, leaderRole, checks }) {
   const top = db.topLevelProjectId(projectId);
@@ -172,22 +177,27 @@ function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, 
     template: JSON.stringify(template), taskCount: tasks.length, stake: clean(stake, 140) || null,
     startsAt: new Date(now).toISOString(), endsAt: new Date(end).toISOString(),
     joinToken: crypto.randomBytes(16).toString('hex'), createdAt: new Date(now).toISOString(),
-    mode: mode === 'together' ? 'together' : 'race',
+    mode: ['together', 'split'].includes(mode) ? mode : 'race',
     organiserOnly: mode === 'together' && organiserOnly ? 1 : 0,
+    goalId: mode === 'split' ? top : null,
     nameMode: ['names', 'first', 'animals'].includes(nameMode) ? nameMode : 'names',
-    leaderRole: mode === 'together' ? (LEADER_ROLES.includes(leaderRole) ? leaderRole : 'leader') : null,
+    leaderRole: mode === 'together' || mode === 'split' ? (LEADER_ROLES.includes(leaderRole) ? leaderRole : 'leader') : null,
     joinCode: newCode(),
     checks: checksFor(mode, checks),
   };
-  conn.prepare(`INSERT INTO challenges (id, ownerId, title, icon, template, taskCount, stake, startsAt, endsAt, joinToken, createdAt, mode, organiserOnly, nameMode, leaderRole, joinCode, checks)
-    VALUES (@id, @ownerId, @title, @icon, @template, @taskCount, @stake, @startsAt, @endsAt, @joinToken, @createdAt, @mode, @organiserOnly, @nameMode, @leaderRole, @joinCode, @checks)`).run(c);
+  conn.prepare(`INSERT INTO challenges (id, ownerId, title, icon, template, taskCount, stake, startsAt, endsAt, joinToken, createdAt, mode, organiserOnly, nameMode, leaderRole, joinCode, checks, goalId)
+    VALUES (@id, @ownerId, @title, @icon, @template, @taskCount, @stake, @startsAt, @endsAt, @joinToken, @createdAt, @mode, @organiserOnly, @nameMode, @leaderRole, @joinCode, @checks, @goalId)`).run(c);
   // The maker takes part on the goal they already have, not a duplicate of
   // it. Only a race where they've already ticked steps gets them a fresh
   // copy, so everyone starts level; and a goal already in another race or
   // group keeps its place there.
   const started = tasks.some(t => t.status === 'Completed');
   const elsewhere = conn.prepare('SELECT 1 FROM challenge_members WHERE projectId = ?').get(top);
-  if (!c.organiserOnly) addMember(c, userId, displayName, (c.mode === 'together' || !started) && !elsewhere ? top : null);
+  if (c.mode === 'split') {
+    // the whole team works on this goal itself; it can't already be someone's race
+    if (elsewhere) throw Object.assign(new Error('That goal is already in a race or group. Pick another, or leave that one first'), { status: 400 });
+    addMember(c, userId, displayName, top);
+  } else if (!c.organiserOnly) addMember(c, userId, displayName, (c.mode === 'together' || !started) && !elsewhere ? top : null);
   return c;
 }
 
@@ -242,8 +252,18 @@ function join(token, userId, displayName) {
   if (already) return { challenge: c, projectId: already.projectId, already: true };
   if (Date.parse(c.endsAt) < Date.now()) throw Object.assign(new Error('That race has already finished'), { status: 400 });
   const count = conn.prepare('SELECT COUNT(*) AS n FROM challenge_members WHERE challengeId = ?').get(c.id).n;
-  if (count >= maxFor(c)) throw Object.assign(new Error(c.mode === 'together' ? 'That group is full' : 'That race is full'), { status: 400 });
+  if (count >= maxFor(c)) throw Object.assign(new Error(isGroup(c) ? 'That group is full' : 'That race is full'), { status: 400 });
   if (c.ownerId === userId && c.organiserOnly) throw Object.assign(new Error("You're organising this one, so you don't have a copy to race"), { status: 400 });
+  if (c.mode === 'split') {
+    const goal = conn.prepare('SELECT id FROM projects WHERE id = ? AND deletedAt IS NULL').get(c.goalId);
+    if (!goal) throw Object.assign(new Error("That team's goal has been removed"), { status: 404 });
+    // a teammate on the goal itself: it shows in their projects, shared with them
+    const had = conn.prepare('SELECT * FROM project_collaborators WHERE projectId = ? AND userId = ?').get(goal.id, userId);
+    if (!had) conn.prepare('INSERT INTO project_collaborators (id, projectId, userId, role, invitedAt, joinedAt) VALUES (?,?,?,?,?,?)').run(crypto.randomUUID(), goal.id, userId, 'editor', new Date().toISOString(), new Date().toISOString());
+    else if (!had.joinedAt || had.role === 'viewer' || had.role === 'commenter') conn.prepare("UPDATE project_collaborators SET joinedAt = COALESCE(joinedAt, ?), role = 'editor' WHERE id = ?").run(new Date().toISOString(), had.id);
+    addMember(c, userId, displayName, goal.id);
+    return { challenge: c, projectId: goal.id, already: false };
+  }
   const project = addMember(c, userId, displayName);
   return { challenge: c, projectId: project.id, already: false };
 }
@@ -256,9 +276,11 @@ function join(token, userId, displayName) {
 // a step counts from is when it was ticked or proven, whichever came
 // later, never when the leader got round to approving it.
 function progressOf(m, c) {
-  const taskCount = c.taskCount;
+  const taskCount = c.mode === 'split' ? 0 : c.taskCount;
+  const split = c.mode === 'split';
+  // In a split goal, your part is the steps assigned to you.
   const rows = conn.prepare(`SELECT t.id, t.title, t.status, t.completedAt FROM tasks t JOIN projects p ON p.id = t.projectId
-    WHERE (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL`).all(m.projectId, m.projectId);
+    WHERE (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL${split ? ' AND t.assigneeId = ?' : ''}`).all(...[m.projectId, m.projectId, ...(split ? [m.userId] : [])]);
   const alive = conn.prepare('SELECT 1 FROM projects WHERE id = ? AND deletedAt IS NULL').get(m.projectId);
   const checks = c.checks || 'none';
   const proofs = checks === 'none' ? new Map()
@@ -281,8 +303,9 @@ function progressOf(m, c) {
   const finished = !!alive && rows.length > 0 && done.length === rows.length && done.length >= taskCount;
   const lastStepAt = done.map(r => r.at).filter(Boolean).sort().pop() || null;
   const finishedAt = finished ? lastStepAt : null;
+  const total = split ? rows.length : taskCount;
   return {
-    done: Math.min(done.length, taskCount), frac: Math.min(1, done.length / taskCount), finished, finishedAt, lastStepAt, left: !alive,
+    total, done: Math.min(done.length, total), frac: total ? Math.min(1, done.length / total) : 0, finished, finishedAt, lastStepAt, left: !alive,
     needsProof, waiting, sentBack, tickTimes: ticked.map(r => r.completedAt).filter(t => t && t >= c.startsAt).sort(),
   };
 }
@@ -316,8 +339,8 @@ function standings(c, viewerId) {
     return {
       // The organiser (a teacher) always sees real names; everyone else as the organiser chose.
       userId: m.userId, name: you || organiser ? m.displayName : shownName(c, m), color: m.color, you,
-      done: p.done, total: c.taskCount, frac: p.frac, finished: p.finished, finishedAt: p.finishedAt, joinedAt: m.joinedAt, left: p.left,
-      pace: p.finished ? 'finished' : gap >= 0.05 ? 'ahead' : gap >= -0.05 ? 'on pace' : 'behind',
+      done: p.done, total: p.total, frac: p.frac, finished: p.finished, finishedAt: p.finishedAt, joinedAt: m.joinedAt, left: p.left,
+      pace: p.finished ? 'finished' : c.mode === 'split' && !p.total ? 'no steps yet' : gap >= 0.05 ? 'ahead' : gap >= -0.05 ? 'on pace' : 'behind',
       // steps ticked that don't count yet: waiting for proof or sign-off
       ...(checks !== 'none' ? { pending: p.needsProof.length + p.waiting.length + p.sentBack.length } : {}),
       // open requests for help on a blocker
@@ -328,7 +351,7 @@ function standings(c, viewerId) {
     };
   }).filter(p => !p.left);
   players.sort((a, b) => (b.finished - a.finished) || (a.finished ? String(a.finishedAt).localeCompare(String(b.finishedAt)) : b.frac - a.frac));
-  const together = c.mode === 'together';
+  const together = isGroup(c);
   // Finishing places in a race: 1st, 2nd, 3rd... by when each player
   // ticked their last step (the same moment shares a place). A class or
   // team isn't a competition, so no places there.
@@ -350,6 +373,7 @@ function standings(c, viewerId) {
   const reviews = organiser && checks !== 'none' ? reviewList(c, progress) : undefined;
   const winner = !together && (players.find(p => p.finished) || null);
   const steps = players.reduce((a, p) => a + p.done, 0);
+  const split = c.mode === 'split' ? splitBoard(c, members, viewerId, organiser) : null;
   const me = players.find(p => p.you);
   // Finished as far as you're concerned: time's up, you've finished, or
   // (when you only organise it) everyone has.
@@ -357,10 +381,13 @@ function standings(c, viewerId) {
   return {
     doneForYou,
     id: c.id, title: c.title, icon: c.icon, stake: c.stake, startsAt: c.startsAt, endsAt: c.endsAt, taskCount: c.taskCount,
-    mode: c.mode, nameMode: c.nameMode, organiserOnly: !!c.organiserOnly, leaderRole: c.leaderRole || (c.mode === 'together' ? 'leader' : null),
+    mode: c.mode, nameMode: c.nameMode, organiserOnly: !!c.organiserOnly, leaderRole: c.leaderRole || (isGroup(c) ? 'leader' : null),
     expected, over: now > end, winner: winner ? { name: winner.name, you: winner.you, finishedAt: winner.finishedAt } : null,
     yourPlace: (players.find(p => p.you) || {}).place || null,
-    group: { finished: players.filter(p => p.finished).length, players: players.length, stepsPct: players.length ? Math.round((steps / (players.length * c.taskCount)) * 100) : 0, behind: players.filter(p => p.pace === 'behind').length },
+    group: split
+      ? { finished: players.filter(p => p.finished).length, players: players.length, stepsPct: split.total ? Math.round((split.done / split.total) * 100) : 0, behind: players.filter(p => p.pace === 'behind').length, goalDone: split.total > 0 && split.done === split.total }
+      : { finished: players.filter(p => p.finished).length, players: players.length, stepsPct: players.length ? Math.round((steps / (players.length * c.taskCount)) * 100) : 0, behind: players.filter(p => p.pace === 'behind').length },
+    split,
     owner: organiser, joinToken: c.joinToken, joinCode: c.joinCode,
     lastNudgeAt: organiser ? c.lastNudgeAt : undefined,
     chat: chatSummary(c.id, viewerId),
@@ -446,7 +473,7 @@ function announce(c, members, players, progress) {
     const m = byUser.get(p.userId);
     if (!m) return;
     const name = shownName(c, m);
-    if (c.mode !== 'together' && !m.speedFlagged) {
+    if (!isGroup(c) && !m.speedFlagged) {
       const burst = speedBurst((progress.get(m.userId) || { p: { tickTimes: [] } }).p.tickTimes);
       if (burst) {
         conn.prepare('UPDATE challenge_members SET speedFlagged = 1 WHERE challengeId = ? AND userId = ?').run(c.id, m.userId);
@@ -470,7 +497,7 @@ function authorOf(c, userId, viewerId) {
   if (m) return { name: userId === viewerId ? 'You' : c.ownerId === viewerId ? m.displayName : shownName(c, m), color: m.color };
   const prof = (db.getProfile(userId) || {}).name || 'The organiser';
   const ROLE = { coach: 'Coach', trainer: 'Trainer', teacher: 'Teacher', manager: 'Manager', leader: 'Team leader', organiser: 'Organiser' };
-  return { name: userId === viewerId ? 'You' : c.mode === 'together' ? `${ROLE[c.leaderRole] || 'Leader'} ${prof}` : prof, color: '#0D1B2A', leader: true };
+  return { name: userId === viewerId ? 'You' : isGroup(c) ? `${ROLE[c.leaderRole] || 'Leader'} ${prof}` : prof, color: '#0D1B2A', leader: true };
 }
 const readRow = (cid, userId) => conn.prepare('SELECT * FROM challenge_reads WHERE challengeId = ? AND userId = ?').get(cid, userId) || {};
 // For the scoreboard: unread count, the last line, cheers you haven't seen.
@@ -550,7 +577,7 @@ function weekFor(userId) {
   rows.forEach(c => {
     const s = standings(c, userId);
     const me = s.players.find(p => p.you);
-    if (c.mode !== 'together') {
+    if (!isGroup(c)) {
       if (me && ((me.finished && me.finishedAt > since) || (s.over && Date.parse(c.endsAt) > Date.parse(since)))) {
         races.push({ id: c.id, title: c.title, icon: c.icon, place: me.place || null, players: s.players.length, finished: me.finished, done: me.done, total: me.total, stake: c.stake, winner: s.winner && !s.winner.you ? s.winner.name : null });
       }
@@ -781,9 +808,134 @@ function proofWantedFor(userId, task) {
   return { id: c.id, title: c.title, checks: c.checks, leaderRole: c.leaderRole || null, taskId: task.id, taskTitle: task.title };
 }
 
-// Leaving takes you off the road; your copy of the goal stays yours.
+// ── Split the work ──────────────────────────────────────────────────
+// One goal for the whole team: every step belongs to someone (or is
+// unclaimed), and each person's share adds up to the finish.
+function splitBoard(c, members, viewerId, organiser) {
+  const byUser = new Map(members.map(m => [m.userId, m]));
+  const rows = conn.prepare(`SELECT t.id, t.title, t.status, t.endDate, t.assigneeId, t.sortOrder FROM tasks t JOIN projects p ON p.id = t.projectId
+    WHERE (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL
+    ORDER BY COALESCE(t.endDate, '9999'), t.sortOrder LIMIT 300`).all(c.goalId, c.goalId);
+  const who = id => {
+    const m = id && byUser.get(id);
+    if (!m) return null;
+    return { color: m.color, name: id === viewerId ? 'You' : organiser ? m.displayName : shownName(c, m), you: id === viewerId };
+  };
+  const steps = rows.map(t => ({ taskId: t.id, title: t.title, status: t.status, endDate: t.endDate || null, who: who(t.assigneeId), outside: !!t.assigneeId && !byUser.has(t.assigneeId) }));
+  const contrib = members.map(m => ({ color: m.color, name: m.userId === viewerId ? 'You' : organiser ? m.displayName : shownName(c, m), done: rows.filter(t => t.assigneeId === m.userId && t.status === 'Completed').length, total: rows.filter(t => t.assigneeId === m.userId).length }));
+  return {
+    total: rows.length, done: rows.filter(t => t.status === 'Completed').length,
+    unclaimed: rows.filter(t => !t.assigneeId && t.status !== 'Completed').length,
+    steps, contrib,
+  };
+}
+const splitOf = (id, userId) => {
+  const c = byId(id);
+  if (!c || c.mode !== 'split') return null;
+  if (!(c.ownerId === userId || isMember(c.id, userId))) return null;
+  return c;
+};
+const stepOfGoal = (c, taskId) => conn.prepare(`SELECT t.* FROM tasks t JOIN projects p ON p.id = t.projectId
+  WHERE t.id = ? AND (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL`).get(String(taskId || ''), c.goalId, c.goalId);
+function setAssignee(c, t, userId) {
+  conn.prepare('UPDATE tasks SET assigneeId = ?, assigneeAssignedAt = ? WHERE id = ?').run(userId, userId ? new Date().toISOString() : null, t.id);
+}
+// The leader gives a step to someone (by colour), or back to unclaimed ('').
+function assignStep(id, userId, { taskId, color }) {
+  const c = splitOf(id, userId);
+  if (!c) return null;
+  if (c.ownerId !== userId) throw Object.assign(new Error('Only the leader hands out steps. You can claim an unclaimed one'), { status: 403 });
+  const t = stepOfGoal(c, taskId);
+  if (!t) throw Object.assign(new Error('That step is not in this goal'), { status: 404 });
+  let m = null;
+  if (color) {
+    m = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ? AND color = ?').get(c.id, String(color));
+    if (!m) throw Object.assign(new Error('That person has left'), { status: 404 });
+  }
+  setAssignee(c, t, m ? m.userId : null);
+  if (m && m.userId !== userId) {
+    postMessage(c.id, userId, `“${clean(t.title, 120)}” is yours, ${shownName(c, m)}`, 'event', m.userId);
+    pushTo(m.userId, { title: c.title, body: `You've been given “${clean(t.title, 80)}”`, url: '/app', tag: `assign-${t.id}` });
+  }
+  return true;
+}
+// Anyone in the team takes an unclaimed step.
+function claimStep(id, userId, taskId) {
+  const c = splitOf(id, userId);
+  const m = c && memberRow(c.id, userId);
+  if (!m) return null;
+  const t = stepOfGoal(c, taskId);
+  if (!t) throw Object.assign(new Error('That step is not in this goal'), { status: 404 });
+  if (t.assigneeId && t.assigneeId !== userId) throw Object.assign(new Error('Someone has already got that one'), { status: 409 });
+  if (t.status === 'Completed') throw Object.assign(new Error("That one's already done"), { status: 400 });
+  setAssignee(c, t, userId);
+  postEvent(c.id, `${shownName(c, m)} took “${clean(t.title, 120)}”`, userId);
+  return true;
+}
+// The leader shares out every unclaimed step, in order of due date, to
+// whoever has the fewest open steps (the leader too, if they're the only one).
+function splitEvenly(id, userId) {
+  const c = splitOf(id, userId);
+  if (!c) return null;
+  if (c.ownerId !== userId) throw Object.assign(new Error('Only the leader can share the steps out'), { status: 403 });
+  const members = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ? ORDER BY joinedAt').all(c.id);
+  const others = members.filter(m => m.userId !== userId);
+  const pool = others.length ? others : members;
+  if (!pool.length) throw Object.assign(new Error('No one has joined yet. Share the link or the code first'), { status: 400 });
+  const open = conn.prepare(`SELECT t.* FROM tasks t JOIN projects p ON p.id = t.projectId
+    WHERE (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL AND t.status != 'Completed'`).all(c.goalId, c.goalId);
+  const load = new Map(pool.map(m => [m.userId, open.filter(t => t.assigneeId === m.userId).length]));
+  const todo = open.filter(t => !t.assigneeId).sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999') || (a.sortOrder || 0) - (b.sortOrder || 0));
+  todo.forEach(t => {
+    const next = pool.reduce((best, m) => (load.get(m.userId) < load.get(best.userId) ? m : best), pool[0]);
+    setAssignee(c, t, next.userId);
+    load.set(next.userId, load.get(next.userId) + 1);
+  });
+  if (todo.length) {
+    postEvent(c.id, `The steps are shared out: ${pool.map(m => `${shownName(c, m)} ${load.get(m.userId)}`).join(', ')}`, userId);
+    pool.forEach(m => { if (m.userId !== userId) pushTo(m.userId, { title: c.title, body: `You've got ${load.get(m.userId)} step${load.get(m.userId) === 1 ? '' : 's'} in “${c.title}”`, url: '/app', tag: `split-${c.id}` }); });
+  }
+  return todo.length;
+}
+// A step done in a shared goal: whoever was waiting on it hears it's their turn.
+function splitHandoff(userId, task) {
+  if (!task || task.status !== 'Completed') return 0;
+  const goalId = db.topLevelProjectId(task.projectId);
+  const c = conn.prepare("SELECT * FROM challenges WHERE mode = 'split' AND goalId = ?").get(goalId);
+  if (!c) return 0;
+  const next = conn.prepare(`SELECT t.* FROM task_dependencies d JOIN tasks t ON t.id = d.taskId
+    WHERE d.predecessorId = ? AND t.deletedAt IS NULL AND t.status != 'Completed' AND t.assigneeId IS NOT NULL AND t.assigneeId != ?`).all(task.id, userId);
+  const doneBy = memberRow(c.id, userId);
+  let n = 0;
+  next.forEach(t => {
+    const waiting = conn.prepare(`SELECT COUNT(*) AS n FROM task_dependencies d JOIN tasks p ON p.id = d.predecessorId
+      WHERE d.taskId = ? AND p.deletedAt IS NULL AND p.status != 'Completed'`).get(t.id).n;
+    const m = memberRow(c.id, t.assigneeId);
+    if (waiting || !m) return;
+    postMessage(c.id, userId, `Your turn, ${shownName(c, m)}: “${clean(task.title, 100)}” is done, so “${clean(t.title, 100)}” can start`, 'event', m.userId);
+    pushTo(m.userId, { title: c.title, body: `Your turn: ${doneBy ? shownName(c, doneBy) : 'someone'} finished “${clean(task.title, 60)}”, so “${clean(t.title, 60)}” can start`, url: '/app', tag: `turn-${t.id}` });
+    n++;
+  });
+  return n;
+}
+
+// Leaving takes you off the road; your copy of the goal stays yours. In a
+// split goal your open steps go back to unclaimed and the goal stops being
+// shared with you (the leader can't leave their own goal).
 function leave(id, userId) {
+  const c = byId(id);
+  if (c && c.mode === 'split') {
+    if (c.ownerId === userId) throw Object.assign(new Error("It's your goal, so you can't leave it. Clear it once it's finished"), { status: 400 });
+    const m = memberRow(c.id, userId);
+    if (!m) return false;
+    const freed = conn.prepare(`UPDATE tasks SET assigneeId = NULL, assigneeAssignedAt = NULL WHERE assigneeId = ? AND status != 'Completed' AND deletedAt IS NULL
+      AND projectId IN (SELECT id FROM projects WHERE id = ? OR parentId = ?)`).run(userId, c.goalId, c.goalId).changes;
+    conn.prepare('DELETE FROM project_collaborators WHERE projectId = ? AND userId = ?').run(c.goalId, userId);
+    conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId);
+    postEvent(c.id, `${shownName(c, m)} left${freed ? `. ${freed} step${freed === 1 ? ' is' : 's are'} unclaimed again` : ''}`, null);
+    return true;
+  }
   return conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId).changes > 0;
 }
 
-module.exports = { weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+module.exports = { assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };

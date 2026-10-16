@@ -146,10 +146,34 @@ router.post('/:id/help/:messageId/offer', (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// Split the work: the leader assigns a step {taskId, color} (color '' to
+// unclaim it) or shares out every unclaimed step; anyone claims one.
+router.post('/:id/assign', (req, res) => {
+  try {
+    if (!challenges.assignStep(req.params.id, req.session.userId, req.body || {})) return res.status(404).json({ error: 'Team not found' });
+    res.json({ success: true });
+  } catch (e) { fail(res, e); }
+});
+router.post('/:id/claim', (req, res) => {
+  try {
+    if (!challenges.claimStep(req.params.id, req.session.userId, (req.body || {}).taskId)) return res.status(404).json({ error: 'Team not found' });
+    res.json({ success: true });
+  } catch (e) { fail(res, e); }
+});
+router.post('/:id/split-evenly', (req, res) => {
+  try {
+    const n = challenges.splitEvenly(req.params.id, req.session.userId);
+    if (n === null) return res.status(404).json({ error: 'Team not found' });
+    res.json({ assigned: n });
+  } catch (e) { fail(res, e); }
+});
+
 // POST /api/challenges/:id/leave
 router.post('/:id/leave', (req, res) => {
-  if (!challenges.leave(req.params.id, req.session.userId)) return res.status(404).json({ error: 'Race not found' });
-  res.json({ success: true });
+  try {
+    if (!challenges.leave(req.params.id, req.session.userId)) return res.status(404).json({ error: 'Race not found' });
+    res.json({ success: true });
+  } catch (e) { fail(res, e); }
 });
 
 module.exports = router;
