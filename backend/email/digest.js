@@ -51,16 +51,16 @@ function buildDigestHtml({ name, overdueRows, todayRows, tomorrowRows }) {
       <tr><td align="center">
         <table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;">
           <tr><td style="background:linear-gradient(135deg,#0D1B2A,#1B3A5C);padding:24px 28px;">
-            <div style="color:#fff;font-weight:800;font-size:16px;">Waypoint</div>
+            <div style="color:#fff;font-weight:800;font-size:16px;">Wayrise</div>
             <div style="color:rgba(255,255,255,.5);font-size:12px;margin-top:2px;">Your daily digest, ${firstName}</div>
           </td></tr>
           <tr><td style="padding:8px 28px 28px;">
             <table width="100%" cellpadding="0" cellspacing="0">${body}</table>
             <div style="margin-top:24px;text-align:center;">
-              <a href="${APP_URL}" style="display:inline-block;background:#0A7E8C;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 20px;border-radius:8px;">Open Waypoint →</a>
+              <a href="${APP_URL}" style="display:inline-block;background:#0A7E8C;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 20px;border-radius:8px;">Open Wayrise →</a>
             </div>
             <p style="margin-top:24px;font-size:11px;color:#9CA3AF;text-align:center;">
-              You're getting this because email digests are turned on in your Waypoint Settings. Turn them off any time from there.
+              You're getting this because email digests are turned on in your Wayrise Settings. Turn them off any time from there.
             </p>
           </td></tr>
         </table>
@@ -119,7 +119,7 @@ async function runDailyDigest() {
       if (html) {
         await transporter.sendMail({
           to: u.email,
-          subject: 'Your Waypoint digest',
+          subject: 'Your Wayrise digest',
           html,
         });
         console.log(`Digest email sent to user ${u.userId}`); // ids, not addresses, in logs

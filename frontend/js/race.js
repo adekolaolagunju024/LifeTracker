@@ -4,7 +4,7 @@
 // joins races their own copy (backend/challenges.js). On the Journey every
 // player stands on the same road with their name over their head
 // (journeyGame.js drawRivals), and a strip above it is the scoreboard.
-// A stake is a promise in words; Waypoint never takes or pays out money.
+// A stake is a promise in words; Wayrise never takes or pays out money.
 const Race = (() => {
   let lastFocus = null;
   let current = null; // the race on the Journey now
@@ -122,7 +122,7 @@ const Race = (() => {
       </div>
       <div id="race-name-wrap"><label for="race-name">Your name on the road</label>
       <input type="text" id="race-name" maxlength="24" value="${esc(name)}" placeholder="e.g. Ade"></div>
-      <p class="fb-note race-only">A stake is a promise between you. Waypoint never takes or pays out money.</p>
+      <p class="fb-note race-only">A stake is a promise between you. Wayrise never takes or pays out money.</p>
       <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">${icon('users', 'tiny')}<span id="race-make-label">Set up the team</span></button></div>`);
     let mode = 'together';
     let organiseTouched = false;

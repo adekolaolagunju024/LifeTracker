@@ -10,16 +10,16 @@ function wrapEmailHtml({ heading, bodyHtml }) {
       <tr><td align="center">
         <table width="520" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:16px;overflow:hidden;">
           <tr><td style="background:linear-gradient(135deg,#0D1B2A,#1B3A5C);padding:22px 26px;">
-            <div style="color:#fff;font-weight:800;font-size:15px;">Waypoint</div>
+            <div style="color:#fff;font-weight:800;font-size:15px;">Wayrise</div>
           </td></tr>
           <tr><td style="padding:24px 26px 28px;">
             <div style="font-size:15px;font-weight:700;color:#0D1B2A;margin-bottom:10px;">${heading}</div>
             ${bodyHtml}
             <div style="margin-top:22px;">
-              <a href="${APP_URL}" style="display:inline-block;background:#0A7E8C;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 20px;border-radius:8px;">Open Waypoint →</a>
+              <a href="${APP_URL}" style="display:inline-block;background:#0A7E8C;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:10px 20px;border-radius:8px;">Open Wayrise →</a>
             </div>
             <p style="margin-top:22px;font-size:11px;color:#9CA3AF;">
-              You're getting this because activity emails are turned on in your Waypoint Settings. Turn them off any time from there.
+              You're getting this because activity emails are turned on in your Wayrise Settings. Turn them off any time from there.
             </p>
           </td></tr>
         </table>

@@ -69,7 +69,7 @@ function readIdToken(idToken) {
 }
 
 // Who signed in, and whether their email can be trusted to match an
-// existing Waypoint account. Work or school accounts can carry an email
+// existing Wayrise account. Work or school accounts can carry an email
 // their organisation never verified (the "nOAuth" problem), so for those
 // it only counts as verified when Microsoft says so (the xms_edov
 // optional claim). Unverified ones may still sign up with a fresh

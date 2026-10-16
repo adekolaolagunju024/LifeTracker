@@ -12,7 +12,7 @@ const { wrapEmailHtml, sendActivityEmail } = require('./email/activity');
 // finished by the date they set) → given. Missed if a date passes first,
 // withdrawn if the pledger takes it back.
 //
-// Waypoint never holds or moves money. Cash is settled between them.
+// Wayrise never holds or moves money. Cash is settled between them.
 
 // A pledger can also hold the gift itself in the app: a ticket or voucher
 // code, a link (an e-ticket, a gift card) and a note. It stays hidden from

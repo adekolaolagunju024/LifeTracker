@@ -297,7 +297,7 @@ export function createFootball3D(container) {
     g.fillStyle = grd; g.fillRect(0, 0, w, h);
     g.fillStyle = '#ffffff'; g.font = '800 40px "Big Shoulders Display", Impact, sans-serif'; g.textBaseline = 'middle';
     // A whole number of labels per tile, evenly spaced, so the repeat has no seam.
-    const label = 'WAYPOINT  ·  EVERY GOAL, ONE PATH', count = Math.max(1, Math.floor(w / (g.measureText(label).width + 60))), step = w / count;
+    const label = 'WAYRISE  ·  EVERY GOAL, ONE PATH', count = Math.max(1, Math.floor(w / (g.measureText(label).width + 60))), step = w / count;
     for (let k = 0; k < count; k++) g.fillText(label, k * step + 30, h / 2 + 2);
   }, { repeat: true });
   function ledBoard(x, z, len, rotY) {

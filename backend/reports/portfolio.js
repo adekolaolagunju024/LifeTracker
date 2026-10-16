@@ -93,7 +93,7 @@ function renderPortfolioHtml(r, { appUrl = '', mediaSrc = null, title = '' } = {
   ${MEDIA_CSS}
   @media print{body{background:#fff}.page{box-shadow:none;margin:0;max-width:none;border-radius:0} section,tr{break-inside:avoid}}
 </style></head><body><div class="page">
-<header><div class="brand">Waypoint · Portfolio report</div><h1>${esc(heading)}</h1>
+<header><div class="brand">Wayrise · Portfolio report</div><h1>${esc(heading)}</h1>
 <div class="meta">${r.projectCount} project${r.projectCount === 1 ? '' : 's'} · Generated ${esc(longDate(r.today))}</div></header>
 <main>
 <div class="tiles">${tile(`${r.pct}%`, 'overall complete')}${tile(`${r.done}/${r.total}`, 'tasks done')}${tile(r.inProgress, 'in progress')}${tile(r.counts.behind + r.counts.slightly, 'projects behind')}${tile(r.overdue, 'tasks overdue')}${tile(r.blockers, 'open blockers')}</div>
@@ -114,7 +114,7 @@ ${a.blockers.length || a.overdueItems.length ? `<ul>${a.blockers.map(o => `<li><
 </div>
 ${renderMediaSection(r.media, mediaSrc, { showProject: true })}
 </main>
-<footer><span>Generated ${esc(new Date(r.generatedAt).toUTCString())}</span><span>Made with ${appUrl ? `<a href="${esc(appUrl)}">Waypoint</a>` : 'Waypoint'}</span></footer>
+<footer><span>Generated ${esc(new Date(r.generatedAt).toUTCString())}</span><span>Made with ${appUrl ? `<a href="${esc(appUrl)}">Wayrise</a>` : 'Wayrise'}</span></footer>
 </div></body></html>`;
 }
 

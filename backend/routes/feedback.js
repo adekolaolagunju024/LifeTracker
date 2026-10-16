@@ -7,7 +7,7 @@ const { getTransporter } = require('../email/mailer');
 
 // ── REPORT A PROBLEM ────────────────────────────────────────────
 // From the app's "Report a problem": saved, and emailed to whoever looks
-// after this Waypoint (SUPPORT_EMAIL, else ADMIN_EMAILS, else the first
+// after this Wayrise (SUPPORT_EMAIL, else ADMIN_EMAILS, else the first
 // account), with reply-to set to the person so answering is one click.
 // The owner also sees them on the Metrics page.
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -36,7 +36,7 @@ router.post('/', limit, async (req, res) => {
   if (mail && to.length) {
     mail.sendMail({
       to, replyTo: user.email,
-      subject: `Waypoint problem report: ${message.slice(0, 60)}${message.length > 60 ? '…' : ''}`,
+      subject: `Wayrise problem report: ${message.slice(0, 60)}${message.length > 60 ? '…' : ''}`,
       html: `<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;font-size:14px;color:#0D1B2A;line-height:1.6">
         <p style="white-space:pre-wrap;margin:0 0 16px">${esc(message)}</p>
         <p style="color:#556270;font-size:12px;margin:0">From ${esc(user.email || 'unknown')} · page: ${esc(page || '?')}<br>${esc(userAgent)}<br>${esc(row.createdAt)}</p>

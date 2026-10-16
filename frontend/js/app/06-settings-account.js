@@ -1,4 +1,4 @@
-// Waypoint app, part 6 of 12: Settings, trash, notifications, push, sign-in, onboarding, Google Drive.
+// Wayrise app, part 6 of 12: Settings, trash, notifications, push, sign-in, onboarding, Google Drive.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 
@@ -500,10 +500,10 @@ async function submitAuthRegister() {
   const acceptTerms = document.getElementById('auth-register-terms').checked;
   if (!acceptTerms) return showAuthError('auth-register-error', 'Please agree to the Terms and Privacy Policy to create an account');
   let ref = null;
-  try { ref = localStorage.getItem('waypointRef'); } catch {}
+  try { ref = localStorage.getItem('wayriseRef'); } catch {}
   try {
     await API.register(email, password, acceptTerms, ref || undefined);
-    try { localStorage.removeItem('waypointRef'); } catch {}
+    try { localStorage.removeItem('wayriseRef'); } catch {}
     offerToSaveCredential(email, password);
     closeAuth();
     await afterAuth();

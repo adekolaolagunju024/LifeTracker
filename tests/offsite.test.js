@@ -6,7 +6,7 @@ const path = require('path');
 const http = require('http');
 const zlib = require('zlib');
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'waypoint-offsite-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wayrise-offsite-'));
 process.env.DB_PATH = path.join(tmp, 'app.sqlite');
 process.env.BACKUP_DIR = path.join(tmp, 'backups');
 const db = require('../backend/db/connection');
@@ -26,7 +26,7 @@ before(async () => {
   await new Promise(r => server.listen(0, r));
   Object.assign(process.env, {
     BACKUP_S3_ENDPOINT: `http://127.0.0.1:${server.address().port}`,
-    BACKUP_S3_BUCKET: 'waypoint-backups',
+    BACKUP_S3_BUCKET: 'wayrise-backups',
     BACKUP_S3_ACCESS_KEY_ID: 'AKIDEXAMPLE',
     BACKUP_S3_SECRET_ACCESS_KEY: 'secret',
     BACKUP_S3_REGION: 'auto',
@@ -62,17 +62,17 @@ test('the nightly job sends the database compressed, and each upload once', asyn
   fs.writeFileSync(path.join(storage.UPLOAD_DIR, 'one.png'), 'photo-1');
   let result = await backup.nightly();
   assert.equal(result.ok, true);
-  const dbPut = puts.find(p => p.url.startsWith('/waypoint-backups/db/lifetracker-'));
+  const dbPut = puts.find(p => p.url.startsWith('/wayrise-backups/db/lifetracker-'));
   assert.ok(dbPut, 'database sent');
   assert.match(dbPut.headers.authorization, /^AWS4-HMAC-SHA256 /);
   assert.equal(zlib.gunzipSync(dbPut.body).subarray(0, 15).toString(), 'SQLite format 3');
-  assert.equal(puts.filter(p => p.url === '/waypoint-backups/uploads/one.png').length, 1);
+  assert.equal(puts.filter(p => p.url === '/wayrise-backups/uploads/one.png').length, 1);
 
   fs.writeFileSync(path.join(storage.UPLOAD_DIR, 'two.pdf'), 'doc-2');
   result = await backup.nightly();
   assert.equal(result.offsite.files, 1); // only the new one
-  assert.equal(puts.filter(p => p.url === '/waypoint-backups/uploads/one.png').length, 1);
-  assert.equal(puts.filter(p => p.url === '/waypoint-backups/uploads/two.pdf').length, 1);
+  assert.equal(puts.filter(p => p.url === '/wayrise-backups/uploads/one.png').length, 1);
+  assert.equal(puts.filter(p => p.url === '/wayrise-backups/uploads/two.pdf').length, 1);
   assert.equal(backup.lastResult().ok, true);
 });
 

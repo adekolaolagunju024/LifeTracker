@@ -28,10 +28,10 @@ test('nothing that is not an email is ever verified', () => {
 });
 
 test('the state check accepts only the value issued for this session, once', () => {
-  const req = { session: {}, query: {}, protocol: 'https', get: () => 'waypointapp.com' };
+  const req = { session: {}, query: {}, protocol: 'https', get: () => 'wayrise.example' };
   process.env.MICROSOFT_CLIENT_ID = 'cid';
   const url = new URL(ms.authUrl(req, { scopes: ms.SIGN_IN_SCOPES, path: '/api/auth/microsoft/callback', stateKey: 'k' }));
-  assert.equal(url.searchParams.get('redirect_uri'), 'https://waypointapp.com/api/auth/microsoft/callback');
+  assert.equal(url.searchParams.get('redirect_uri'), 'https://wayrise.example/api/auth/microsoft/callback');
   assert.equal(url.searchParams.get('client_id'), 'cid');
   const state = url.searchParams.get('state');
   req.query.state = 'forged';

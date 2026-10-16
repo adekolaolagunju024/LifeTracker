@@ -1,4 +1,4 @@
-// Waypoint app, part 2 of 12: Navigation, the sidebar, the dashboard and the projects list.
+// Wayrise app, part 2 of 12: Navigation, the sidebar, the dashboard and the projects list.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 
@@ -440,7 +440,7 @@ async function updateSidebar() {
     ]);
     APP.profile = profile; // kept fresh here since this runs on nearly every navigation — the cheapest reliable place for celebrationsEnabled() to read from
 
-    document.getElementById('sidebar-name').textContent    = profileName(profile) || 'Welcome to Waypoint';
+    document.getElementById('sidebar-name').textContent    = profileName(profile) || 'Welcome to Wayrise';
     document.getElementById('sidebar-tagline').textContent = profile.tagline;
 
     // Rebuild project nav

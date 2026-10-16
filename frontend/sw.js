@@ -12,14 +12,14 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'Waypoint', body: 'You have a reminder.' };
+  let data = { title: 'Wayrise', body: 'You have a reminder.' };
   try { data = { ...data, ...event.data.json() }; } catch {}
   // "urgent" (overdue alerts, focus nudges) stays on screen until actually
   // dismissed instead of auto-disappearing after a few seconds, and
   // vibrates — the whole point of these two is to interrupt a scrolling
   // session, not blend into the notification shade unnoticed. The
   // due-today ping and test notification stay soft/informational.
-  // A task alarm also tells any open Waypoint tab, which shows its own
+  // A task alarm also tells any open Wayrise tab, which shows its own
   // full-screen alarm with sound on top of the system notification.
   const extra = data.data || {};
   event.waitUntil(Promise.all([
@@ -39,7 +39,7 @@ self.addEventListener('push', (event) => {
 });
 
 // Opens (or focuses) the app at `url`, so a tap always lands somewhere
-// useful even when Waypoint wasn't open.
+// useful even when Wayrise wasn't open.
 function openApp(url) {
   return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
     for (const client of clients) {

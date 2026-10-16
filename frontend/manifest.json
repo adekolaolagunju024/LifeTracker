@@ -1,6 +1,6 @@
 {
-  "name": "Waypoint",
-  "short_name": "Waypoint",
+  "name": "Wayrise",
+  "short_name": "Wayrise",
   "description": "A general-purpose personal goal tracker",
   "start_url": "/app",
   "display": "standalone",

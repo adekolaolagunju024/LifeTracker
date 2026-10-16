@@ -1,4 +1,4 @@
-// Waypoint app, part 3 of 12: The project page and its bulk task actions.
+// Wayrise app, part 3 of 12: The project page and its bulk task actions.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 

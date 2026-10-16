@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "Waypoint is now Wayrise",
+      "text": "Same app, same goals, same you: just a new name. Wayrise is about rising along your way, one step at a time. Your plans, teams, streaks and settings are all exactly where you left them."
+    },
+    {
+      "date": "2026-10-16",
       "title": "Your day comes first",
       "text": "The dashboard now opens on My day, so you see what's planned for today straight away: morning, afternoon and evening. Focus, for what needs attention first, is one tap away, and the app remembers which you prefer."
     },
@@ -274,7 +279,7 @@
     {
       "date": "2026-10-14",
       "title": "Rewards: held gifts, release and messages",
-      "text": "Whoever pledges a reward can now hold the gift in Waypoint (a ticket, voucher or booking code, a link and a note), hidden until you've earned it. When you finish, they check your steps and release it, and the gift appears on your goal. For cash, tell them how you'd like it sent (only they see it); Waypoint never handles the money. You and they also get your own message thread."
+      "text": "Whoever pledges a reward can now hold the gift in Wayrise (a ticket, voucher or booking code, a link and a note), hidden until you've earned it. When you finish, they check your steps and release it, and the gift appears on your goal. For cash, tell them how you'd like it sent (only they see it); Wayrise never handles the money. You and they also get your own message thread."
     },
     {
       "date": "2026-10-14",
@@ -294,7 +299,7 @@
     {
       "date": "2026-10-14",
       "title": "Chat and cheers for races and groups",
-      "text": "Every race and group now has its own chat, in the Chats inbox and on the race strip. Waypoint posts when someone joins, gets halfway or finishes, and a coach's reminder lands there too. Tap someone's name to cheer them on: the emoji floats up over their Journey."
+      "text": "Every race and group now has its own chat, in the Chats inbox and on the race strip. Wayrise posts when someone joins, gets halfway or finishes, and a coach's reminder lands there too. Tap someone's name to cheer them on: the emoji floats up over their Journey."
     },
     {
       "date": "2026-10-14",
@@ -369,17 +374,17 @@
     {
       "date": "2026-10-13",
       "title": "Opens faster on your phone",
-      "text": "Waypoint now loads about half as much on your first visit and far less after that, so it opens quicker on mobile data."
+      "text": "Wayrise now loads about half as much on your first visit and far less after that, so it opens quicker on mobile data."
     },
     {
       "date": "2026-10-13",
       "title": "Plan your first day in three steps",
-      "text": "New to Waypoint? Name your goal, write the first three things to do, and see today laid out with times. You land on your own day, ready to start the first task."
+      "text": "New to Wayrise? Name your goal, write the first three things to do, and see today laid out with times. You land on your own day, ready to start the first task."
     },
     {
       "date": "2026-10-13",
       "title": "Confirm your email",
-      "text": "New accounts made with an email address now get a link to confirm it, so password resets and invites always reach the right person. You can use Waypoint straight away while you wait."
+      "text": "New accounts made with an email address now get a link to confirm it, so password resets and invites always reach the right person. You can use Wayrise straight away while you wait."
     },
     {
       "date": "2026-10-13",
@@ -399,7 +404,7 @@
     {
       "date": "2026-10-13",
       "title": "Pick how long to keep working",
-      "text": "When today's plan is done, keep working for 15, 25, 45 or 60 minutes instead of a fixed 25. Waypoint remembers the length you picked last time."
+      "text": "When today's plan is done, keep working for 15, 25, 45 or 60 minutes instead of a fixed 25. Wayrise remembers the length you picked last time."
     },
     {
       "date": "2026-10-13",
@@ -454,7 +459,7 @@
     {
       "date": "2026-10-13",
       "title": "One project picker that follows you",
-      "text": "Pick a project on the Planner and the Calendar shows the same one, and Waypoint remembers it next time. The Journey always opens on a real project instead of an empty scene, and the picker itself is new: each project with its icon and colour, its sub-folders indented beneath it, and projects shared with you in their own section. The planner keys are laid out more cleanly too."
+      "text": "Pick a project on the Planner and the Calendar shows the same one, and Wayrise remembers it next time. The Journey always opens on a real project instead of an empty scene, and the picker itself is new: each project with its icon and colour, its sub-folders indented beneath it, and projects shared with you in their own section. The planner keys are laid out more cleanly too."
     },
     {
       "date": "2026-10-13",
@@ -469,12 +474,12 @@
     {
       "date": "2026-10-13",
       "title": "Clear the last blocker, start the task",
-      "text": "Blockers can be ticked off whenever they clear, even before you've started the task. Tick the last one on a task you haven't begun and Waypoint asks if you'd like to start it now: one tap and it's In Progress."
+      "text": "Blockers can be ticked off whenever they clear, even before you've started the task. Tick the last one on a task you haven't begun and Wayrise asks if you'd like to start it now: one tap and it's In Progress."
     },
     {
       "date": "2026-10-13",
       "title": "Play today's road as a game",
-      "text": "Full view on today's road now has a Game mode. Your day becomes a Journey world, one stop per task, with you and the Pacer racing along it. Pick the world and switch between 2D and 3D right there; the list of today's stops sits underneath. Prefer it plain? Road mode is one tap away, and Waypoint remembers which you chose."
+      "text": "Full view on today's road now has a Game mode. Your day becomes a Journey world, one stop per task, with you and the Pacer racing along it. Pick the world and switch between 2D and 3D right there; the list of today's stops sits underneath. Prefer it plain? Road mode is one tap away, and Wayrise remembers which you chose."
     },
     {
       "date": "2026-10-13",
@@ -484,7 +489,7 @@
     {
       "date": "2026-10-12",
       "title": "A key for the planner, and a proper sign-in page",
-      "text": "Tap Key on the Gantt chart, the board or the calendar to see what every colour, line and badge means. Signing in now has its own page, with what Waypoint does beside the form."
+      "text": "Tap Key on the Gantt chart, the board or the calendar to see what every colour, line and badge means. Signing in now has its own page, with what Wayrise does beside the form."
     },
     {
       "date": "2026-10-12",
@@ -494,7 +499,7 @@
     {
       "date": "2026-10-12",
       "title": "A guided start for new accounts",
-      "text": "Until you finish your first task, the This week card on your dashboard plays short slides of what Waypoint can do, each with a button to try it. The same slides now play on the home page."
+      "text": "Until you finish your first task, the This week card on your dashboard plays short slides of what Wayrise can do, each with a button to try it. The same slides now play on the home page."
     },
     {
       "date": "2026-10-12",
@@ -548,13 +553,13 @@
     },
     {
       "date": "2026-10-11",
-      "title": "Your music, playing inside Waypoint",
-      "text": "Save your playlists like in a music app (focus, workout, worship) from Spotify, YouTube, Apple Music, SoundCloud or Deezer. They play right inside Waypoint and keep going while you work and play your Journey, until you stop them. Skip between playlists, minimise the player, or just ask the assistant: play my workout playlist."
+      "title": "Your music, playing inside Wayrise",
+      "text": "Save your playlists like in a music app (focus, workout, worship) from Spotify, YouTube, Apple Music, SoundCloud or Deezer. They play right inside Wayrise and keep going while you work and play your Journey, until you stop them. Skip between playlists, minimise the player, or just ask the assistant: play my workout playlist."
     },
     {
       "date": "2026-10-11",
       "title": "Your why: what keeps you going",
-      "text": "Tell Waypoint why your goal matters, who you are becoming, who you look up to and their routine, the words that move you (your own, or a starter shelf of Bible, Quran and book quotes, each with its source) and your focus playlist. It brings them back when you are most likely to give up: when an alarm rings, when a task is stuck, on your dashboard each morning, in phone nudges and in the assistant's coaching."
+      "text": "Tell Wayrise why your goal matters, who you are becoming, who you look up to and their routine, the words that move you (your own, or a starter shelf of Bible, Quran and book quotes, each with its source) and your focus playlist. It brings them back when you are most likely to give up: when an alarm rings, when a task is stuck, on your dashboard each morning, in phone nudges and in the assistant's coaching."
     },
     {
       "date": "2026-10-11",
@@ -599,7 +604,7 @@
     {
       "date": "2026-10-11",
       "title": "Task alarms and a Blocked list",
-      "text": "Set a reminder on any task and Waypoint rings like an alarm at that time: a full-screen alarm with sound in the app, and an alert that stays on your phone screen with Start and Snooze buttons, ringing again every few minutes until you respond. Actions now has a Blocked section showing exactly what is in each task's way."
+      "text": "Set a reminder on any task and Wayrise rings like an alarm at that time: a full-screen alarm with sound in the app, and an alert that stays on your phone screen with Start and Snooze buttons, ringing again every few minutes until you respond. Actions now has a Blocked section showing exactly what is in each task's way."
     },
     {
       "date": "2026-10-11",

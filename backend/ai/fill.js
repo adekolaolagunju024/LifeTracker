@@ -49,7 +49,7 @@ function validate(fields, input, today) {
 }
 
 function systemPrompt(today, name) {
-  return `You fill in a form in Waypoint, a goal and task planner, for ${name || 'someone'} who is busy and wants it done for them. Today is ${today}.
+  return `You fill in a form in Wayrise, a goal and task planner, for ${name || 'someone'} who is busy and wants it done for them. Today is ${today}.
 Fill in the fields that are empty, so the whole form makes sense together with what is already filled in and the context. Be specific and practical, and keep it short.
 Write in plain, warm British English, like a helpful friend. No emojis, no hashtags, no dashes used as punctuation, no bullet points, and do not repeat the field's label.
 Never make up people's names, email addresses, phone numbers, bank or payment details, or amounts of money. Leave those fields out unless the context gives them.

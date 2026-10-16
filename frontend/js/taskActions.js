@@ -5,7 +5,7 @@
 // booking or a link. When its turn comes, one tap opens the app that does
 // it with the details filled in (Gmail or Outlook, WhatsApp, the phone,
 // Google or Outlook Calendar, Google Maps, a booking site), and the person
-// presses the final button there. Back in Waypoint, it asks "Did that
+// presses the final button there. Back in Wayrise, it asks "Did that
 // go?" and Done ticks the task off. Nothing is sent or booked for them.
 // The assistant-free guess from the title ("Email the recruiter")
 // suggests the kind.
@@ -94,7 +94,7 @@ const TaskActions = (() => {
   // A calendar invite for this device's own calendar app.
   function icsFor(subject, start, end, a) {
     const esc2 = s => String(s || '').replace(/[\\;,]/g, m => `\\${m}`).replace(/\n/g, '\\n');
-    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Waypoint//EN', 'BEGIN:VEVENT', `UID:${Date.now()}@waypointapp.com`, `DTSTAMP:${gcal(new Date())}`,
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Wayrise//EN', 'BEGIN:VEVENT', `UID:${Date.now()}@${location.host}`, `DTSTAMP:${gcal(new Date())}`,
       `DTSTART:${gcal(start)}`, `DTEND:${gcal(end)}`, `SUMMARY:${esc2(subject)}`, a.body ? `DESCRIPTION:${esc2(a.body)}` : '', a.place ? `LOCATION:${esc2(a.place)}` : '',
       ...String(a.people || '').split(/[,;\s]+/).filter(x => /@/.test(x)).map(e => `ATTENDEE:mailto:${e}`), 'END:VEVENT', 'END:VCALENDAR'].filter(Boolean);
     return new Blob([lines.join('\r\n')], { type: 'text/calendar' });

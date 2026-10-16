@@ -50,7 +50,7 @@ function sections(product) {
   // "This week" card. Every slide is in the page, so it reads without JS.
   const tour = product.tour || [];
   const tourHtml = `
-        <div class="tour-player" id="tour-player" role="region" aria-roledescription="carousel" aria-label="What Waypoint does">
+        <div class="tour-player" id="tour-player" role="region" aria-roledescription="carousel" aria-label="What Wayrise does">
           <div class="tour-progress" aria-hidden="true">${tour.map(() => '<span></span>').join('')}</div>${tour.map((t, i) => `
           <article class="tour-slide" id="tour-${esc(t.id)}" style="background:${esc(t.bg)}" aria-roledescription="slide" aria-label="${i + 1} of ${tour.length}: ${esc(t.name)}">
             ${t.shot ? '' : `<span class="tour-bg" aria-hidden="true">${icon(t.icon)}</span>`}
