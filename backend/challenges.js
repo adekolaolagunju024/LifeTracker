@@ -813,7 +813,7 @@ function proofWantedFor(userId, task) {
 // unclaimed), and each person's share adds up to the finish.
 function splitBoard(c, members, viewerId, organiser) {
   const byUser = new Map(members.map(m => [m.userId, m]));
-  const rows = conn.prepare(`SELECT t.id, t.title, t.status, t.endDate, t.assigneeId, t.sortOrder FROM tasks t JOIN projects p ON p.id = t.projectId
+  const rows = conn.prepare(`SELECT t.id, t.title, t.status, t.startDate, t.endDate, t.assigneeId, t.sortOrder FROM tasks t JOIN projects p ON p.id = t.projectId
     WHERE (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL
     ORDER BY COALESCE(t.endDate, '9999'), t.sortOrder LIMIT 300`).all(c.goalId, c.goalId);
   const who = id => {
@@ -821,12 +821,16 @@ function splitBoard(c, members, viewerId, organiser) {
     if (!m) return null;
     return { color: m.color, name: id === viewerId ? 'You' : organiser ? m.displayName : shownName(c, m), you: id === viewerId };
   };
-  const steps = rows.map(t => ({ taskId: t.id, title: t.title, status: t.status, endDate: t.endDate || null, who: who(t.assigneeId), outside: !!t.assigneeId && !byUser.has(t.assigneeId) }));
+  const steps = rows.map(t => ({ taskId: t.id, title: t.title, status: t.status, startDate: t.startDate || null, endDate: t.endDate || null, who: who(t.assigneeId), outside: !!t.assigneeId && !byUser.has(t.assigneeId) }));
+  // Which step waits on which, for the timeline's handoff arrows.
+  const ids = new Set(rows.map(t => t.id));
+  const links = rows.length ? conn.prepare(`SELECT taskId, predecessorId FROM task_dependencies WHERE taskId IN (${rows.map(() => '?').join(',')})`).all(...rows.map(t => t.id))
+    .filter(d => ids.has(d.predecessorId)).map(d => ({ from: d.predecessorId, to: d.taskId })) : [];
   const contrib = members.map(m => ({ color: m.color, name: m.userId === viewerId ? 'You' : organiser ? m.displayName : shownName(c, m), done: rows.filter(t => t.assigneeId === m.userId && t.status === 'Completed').length, total: rows.filter(t => t.assigneeId === m.userId).length }));
   return {
     total: rows.length, done: rows.filter(t => t.status === 'Completed').length,
     unclaimed: rows.filter(t => !t.assigneeId && t.status !== 'Completed').length,
-    steps, contrib,
+    steps, contrib, links,
   };
 }
 const splitOf = (id, userId) => {
