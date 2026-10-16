@@ -74,6 +74,13 @@ const Race = (() => {
   // names show) or race friends (first to finish wins).
   async function openCreate(projectId) {
     if (!projectId) return;
+    // A goal already in a running team: that team, not a second one (which
+    // would read as a duplicate in Teams, Chats and your goals).
+    try {
+      const top = (await API.getProject(projectId)).parentId || projectId;
+      const existing = await API.getRaceForProject(top);
+      if (existing && !existing.over) { showToast(`Opening the team “${existing.title}”`); openTeam(existing.id); return; }
+    } catch { /* no team yet */ }
     let name = '';
     try { name = (await API.getProfile()).name || ''; } catch { /* a blank name is fine */ }
     // You take part on this goal as it is (no duplicate), unless it's a
@@ -168,6 +175,7 @@ const Race = (() => {
         showShare(race, true);
       } catch (err) {
         btn.disabled = false;
+        if (err.code === 'TEAM_EXISTS' && err.teamId) { close(); showActionToast('This goal already has a team', [{ label: 'Open it', run: () => openTeam(err.teamId) }], 'users'); return; }
         showToast(err.message || 'Could not make it', 'error');
       }
     });

@@ -9,7 +9,7 @@ const { UPLOAD_DIR } = require('../storage');
 // preview of a join link, which is public so a link opened before signing
 // up can say what it is (backend/server.js mounts that one before the
 // sign-in gate).
-const fail = (res, e) => res.status(e.status || 400).json({ error: e.message || 'Something went wrong' });
+const fail = (res, e) => res.status(e.status || 400).json({ error: e.message || 'Something went wrong', ...(e.code ? { code: e.code } : {}), ...(e.teamId ? { teamId: e.teamId } : {}) });
 
 // GET /api/challenges : the races you're in
 router.get('/', (req, res) => res.json(challenges.listMine(req.session.userId)));

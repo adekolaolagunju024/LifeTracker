@@ -171,6 +171,13 @@ function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, 
   if (!Number.isFinite(end) || end < now + DAY / 2) throw Object.assign(new Error('Pick a finish date at least a day from now'), { status: 400 });
   if (end > now + 366 * DAY) throw Object.assign(new Error('Pick a finish date within a year'), { status: 400 });
 
+  // One running team per goal: a second Team up on it would make another
+  // team (and, for a race, another copy of the goal), which reads as a
+  // duplicate everywhere. The existing one is the place to invite people.
+  const running = conn.prepare(`SELECT c.id, c.title FROM challenge_members m JOIN challenges c ON c.id = m.challengeId
+    WHERE m.projectId = ? AND c.endsAt > ? ORDER BY c.createdAt DESC LIMIT 1`).get(top, new Date(now).toISOString())
+    || conn.prepare('SELECT id, title FROM challenges WHERE goalId = ? AND endsAt > ? ORDER BY createdAt DESC LIMIT 1').get(top, new Date(now).toISOString());
+  if (running) throw Object.assign(new Error('This goal already has a team. Open it to invite people'), { status: 409, code: 'TEAM_EXISTS', teamId: running.id });
   const template = { title: project.title, icon: project.icon || '🏁', color: project.color || '#0A7E8C', type: project.type || 'personal', tasks: tasks.map(t => ({ title: t.title, priority: t.priority || 'Medium', notes: t.notes || '' })) };
   const c = {
     id: crypto.randomUUID(), ownerId: userId, title: clean(project.title, 120), icon: template.icon,
@@ -185,17 +192,18 @@ function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, 
     joinCode: newCode(),
     checks: checksFor(mode, checks),
   };
-  conn.prepare(`INSERT INTO challenges (id, ownerId, title, icon, template, taskCount, stake, startsAt, endsAt, joinToken, createdAt, mode, organiserOnly, nameMode, leaderRole, joinCode, checks, goalId)
-    VALUES (@id, @ownerId, @title, @icon, @template, @taskCount, @stake, @startsAt, @endsAt, @joinToken, @createdAt, @mode, @organiserOnly, @nameMode, @leaderRole, @joinCode, @checks, @goalId)`).run(c);
   // The maker takes part on the goal they already have, not a duplicate of
   // it. Only a race where they've already ticked steps gets them a fresh
   // copy, so everyone starts level; and a goal already in another race or
-  // group keeps its place there.
+  // group keeps its place there. (Checked before anything is saved, so a
+  // refused team never lingers on anyone's list.)
   const started = tasks.some(t => t.status === 'Completed');
   const elsewhere = conn.prepare('SELECT 1 FROM challenge_members WHERE projectId = ?').get(top);
+  // the whole team works on this goal itself; it can't already be someone's race
+  if (c.mode === 'split' && elsewhere) throw Object.assign(new Error('That goal is already in a race or group. Pick another, or leave that one first'), { status: 400 });
+  conn.prepare(`INSERT INTO challenges (id, ownerId, title, icon, template, taskCount, stake, startsAt, endsAt, joinToken, createdAt, mode, organiserOnly, nameMode, leaderRole, joinCode, checks, goalId)
+    VALUES (@id, @ownerId, @title, @icon, @template, @taskCount, @stake, @startsAt, @endsAt, @joinToken, @createdAt, @mode, @organiserOnly, @nameMode, @leaderRole, @joinCode, @checks, @goalId)`).run(c);
   if (c.mode === 'split') {
-    // the whole team works on this goal itself; it can't already be someone's race
-    if (elsewhere) throw Object.assign(new Error('That goal is already in a race or group. Pick another, or leave that one first'), { status: 400 });
     addMember(c, userId, displayName, top);
   } else if (!c.organiserOnly) addMember(c, userId, displayName, (c.mode === 'together' || !started) && !elsewhere ? top : null);
   return c;
@@ -410,6 +418,7 @@ function listMine(userId) {
   return conn.prepare(`SELECT DISTINCT c.* FROM challenges c LEFT JOIN challenge_members m ON m.challengeId = c.id
     WHERE (m.userId = ? OR c.ownerId = ?)
       AND NOT EXISTS (SELECT 1 FROM challenge_cleared x WHERE x.challengeId = c.id AND x.userId = ?)
+      AND NOT (c.mode = 'split' AND NOT EXISTS (SELECT 1 FROM challenge_members e WHERE e.challengeId = c.id))
     ORDER BY c.createdAt DESC`)
     .all(userId, userId, userId).map(c => standings(c, userId)).filter(s => s.owner || s.players.some(p => p.you));
 }
