@@ -249,6 +249,7 @@ const API = {
   updateObstacle:     (obstacleId, changes) => request('PUT', `/tasks/obstacles/${obstacleId}`, changes),
   deleteObstacle:     (obstacleId)   => request('DELETE', `/tasks/obstacles/${obstacleId}`),
   setPredecessors:    (taskId, predecessorIds) => request('PUT', `/tasks/${taskId}/predecessors`, { predecessorIds }),
+  nudgePredecessor:   (taskId, predecessorId) => request('POST', `/tasks/${taskId}/nudge`, { predecessorId }),
 
   // ── PROJECT CHAT (project-wide) ──
   getProjectMessages:   (projectId)       => request('GET',    `/projects/${projectId}/messages`),

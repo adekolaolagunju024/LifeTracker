@@ -1422,13 +1422,38 @@ function assertCanChangeStatus(task, nextStatus) {
 function attachDependenciesToTasks(tasks) {
   if (!tasks.length) return tasks;
   const placeholders = tasks.map(() => '?').join(',');
-  const rows = db.prepare(`SELECT d.taskId, p.id, p.title, p.status FROM task_dependencies d JOIN tasks p ON p.id = d.predecessorId
+  // with who has each one, so "waiting on" can say who (and offer a nudge)
+  const rows = db.prepare(`SELECT d.taskId, p.id, p.title, p.status, p.assigneeId, pr.name AS assigneeName FROM task_dependencies d JOIN tasks p ON p.id = d.predecessorId
+    LEFT JOIN profile pr ON pr.userId = p.assigneeId
     WHERE d.taskId IN (${placeholders}) AND p.deletedAt IS NULL ORDER BY d.createdAt ASC`).all(...tasks.map(t => t.id));
   const byTask = {};
-  rows.forEach(r => { (byTask[r.taskId] = byTask[r.taskId] || []).push({ id: r.id, title: r.title, status: r.status }); });
+  rows.forEach(r => { (byTask[r.taskId] = byTask[r.taskId] || []).push({ id: r.id, title: r.title, status: r.status, assigneeId: r.assigneeId || null, assigneeName: r.assigneeId ? (r.assigneeName && r.assigneeName !== 'Your Name' ? r.assigneeName : 'A teammate') : null }); });
   tasks.forEach(t => { t.predecessors = byTask[t.id] || []; });
   return tasks;
 }
+// Waiting on someone else's step: a nudge to whoever has it. It's a comment
+// on their step (so it's in their bell and on the step itself), at most one
+// every six hours from you per step. Works for a teammate too, who can't
+// otherwise open someone else's step: the link from their own step is what
+// lets them. Returns who was nudged, for the push.
+const NUDGE_GAP_MS = 6 * 3600000;
+function nudgePredecessor(userId, taskId, predecessorId) {
+  const task = getTaskById(userId, taskId);
+  if (!task) return null;
+  const pred = db.prepare(`SELECT p.* FROM task_dependencies d JOIN tasks p ON p.id = d.predecessorId
+    WHERE d.taskId = ? AND d.predecessorId = ? AND p.deletedAt IS NULL`).get(taskId, predecessorId);
+  if (!pred) throw Object.assign(new Error("That isn't a step this one waits on"), { status: 404 });
+  if (pred.status === 'Completed') throw Object.assign(new Error("It's already done, so you can go ahead"), { status: 400 });
+  if (!pred.assigneeId || pred.assigneeId === userId) throw Object.assign(new Error('No one else has that step to nudge'), { status: 400 });
+  const recent = db.prepare("SELECT createdAt FROM task_comments WHERE taskId = ? AND userId = ? AND text LIKE 'Nudge:%' ORDER BY createdAt DESC LIMIT 1").get(pred.id, userId);
+  if (recent && Date.now() - Date.parse(recent.createdAt) < NUDGE_GAP_MS) throw Object.assign(new Error('You nudged them a little while ago. Give them a chance, or send a message'), { status: 429 });
+  const text = `Nudge: I'm waiting on this so I can start “${task.title}”.`;
+  db.prepare('INSERT INTO task_comments (id, taskId, userId, text, attachmentId, replyToId, createdAt) VALUES (?,?,?,?,?,?,?)')
+    .run(uuid(), pred.id, userId, text, null, null, new Date().toISOString());
+  const name = getProfile(pred.assigneeId).name;
+  return { assigneeId: pred.assigneeId, assigneeName: name && name !== 'Your Name' ? name : 'them', predecessorTitle: pred.title, taskTitle: task.title };
+}
+
 // Would making `predecessorId` a predecessor of `taskId` close a loop?
 // (It would if taskId is already, directly or not, a predecessor of it.)
 function createsCycle(taskId, predecessorId) {
@@ -2062,7 +2087,7 @@ function removeReportMedia(userId, mediaId) {
   return true;
 }
 
-module.exports = { splitTeamOf, lockedGoalFor, goalsWaitingOn, goalFinished, topLevelProjectId, setVerifyToken, getUserByVerifyToken, markEmailVerified, isEmailVerified,
+module.exports = { nudgePredecessor, splitTeamOf, lockedGoalFor, goalsWaitingOn, goalFinished, topLevelProjectId, setVerifyToken, getUserByVerifyToken, markEmailVerified, isEmailVerified,
   liveStreak,
   getPledgeLinkTarget,
   listReportMedia, listProjectAttachments, addReportMedia, removeReportMedia,

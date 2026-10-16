@@ -6,6 +6,7 @@ const db = require('../db/db');
 const { notifyAssigned, notifyMentioned, notifyTaskComment, notifyStatusUpdate } = require('../email/activity');
 const journey = require('../journey');
 const challenges = require('../challenges');
+const { sendPushToUser } = require('../push/webpush');
 
 // GET /api/tasks?projectId=&status=&priority=&category=&search=
 router.get('/', (req, res) => {
@@ -141,6 +142,21 @@ router.get('/:id/comments', (req, res) => {
 });
 
 // POST /api/tasks/:id/comments — { text, attachmentId, replyToId }
+// POST /api/tasks/:id/nudge — { predecessorId }: this task waits on a step
+// someone else has; nudge them (a comment on their step, and a push).
+router.post('/:id/nudge', (req, res) => {
+  try {
+    const n = db.nudgePredecessor(req.session.userId, req.params.id, (req.body || {}).predecessorId);
+    if (!n) return res.status(404).json({ error: 'Task not found' });
+    const me = db.getProfile(req.session.userId).name;
+    const who = me && me !== 'Your Name' ? me : 'A teammate';
+    sendPushToUser(n.assigneeId, { title: `${who} is waiting on you`, body: `“${n.predecessorTitle}” is the step before their “${n.taskTitle}”`, url: '/app', tag: `nudge-${req.params.id}` }).catch(() => {});
+    res.json({ nudged: n.assigneeName });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
 router.post('/:id/comments', (req, res) => {
   try {
     const comment = db.addComment(req.session.userId, req.params.id, req.body.text, req.body.attachmentId, req.body.replyToId);
