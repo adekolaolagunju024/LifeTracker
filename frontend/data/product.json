@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "Your day comes first",
+      "text": "The dashboard now opens on My day, so you see what's planned for today straight away: morning, afternoon and evening. Focus, for what needs attention first, is one tap away, and the app remembers which you prefer."
+    },
+    {
+      "date": "2026-10-16",
       "title": "Know who leads, and jump to the task",
       "text": "In a team, everyone can see who runs it: \"led by\" on the Teams list, and a crown badge with their role on the team page and on their chat messages. Messages about a step (someone stuck, proof, a step handed to you) now show it as a chip you can tap to open. And Chat on a step you're waiting on sends a message linked to that step, with its owner @mentioned."
     },

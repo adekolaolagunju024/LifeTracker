@@ -259,7 +259,8 @@ function dayPartPicks(todayKey) {
   } catch { return {}; }
 }
 function setDashFocusGoal(id) { focusPref('dashFocusGoal', id); paintDashFocus(); }
-function setDashFocusView(v) { focusPref('dashFocusView', v === 'day' ? 'day' : ''); paintDashFocus(); }
+// My day is where it opens: what's planned for today. Focus is a tap away.
+function setDashFocusView(v) { focusPref('dashFocusView', v === 'focus' ? 'focus' : ''); paintDashFocus(); }
 function setTaskDayPart(taskId, part) {
   const todayKey = localDateKey(new Date());
   const parts = { ...dayPartPicks(todayKey) };
@@ -269,7 +270,7 @@ function setTaskDayPart(taskId, part) {
 }
 // Today's plan loads after the dashboard draws; My day places its tasks
 // once it's in.
-document.addEventListener('dayroad:refresh', () => { if (focusPref('dashFocusView') === 'day') paintDashFocus(); });
+document.addEventListener('dayroad:refresh', () => { if (focusPref('dashFocusView') !== 'focus') paintDashFocus(); });
 function paintDashFocus() {
   if (!dashFocusData) return;
   const { tasks: allTasks, allProjects, todayKey } = dashFocusData;
@@ -282,7 +283,8 @@ function paintDashFocus() {
     .sort((a, b) => a.title.localeCompare(b.title));
   let goal = focusPref('dashFocusGoal');
   if (goal && !goals.some(g => g.id === goal)) goal = '';
-  const view = focusPref('dashFocusView') === 'day' ? 'day' : 'focus';
+  // With nothing open there's no day to lay out: the "what's next" card.
+  const view = focusPref('dashFocusView') === 'focus' || !openAll.length ? 'focus' : 'day';
   const inGoal = t => !goal || rootOf(t.projectId) === goal;
   const tasks = allTasks.filter(inGoal);
   const open = openAll.filter(inGoal);
@@ -305,8 +307,8 @@ function paintDashFocus() {
   if (tools) {
     tools.classList.toggle('hidden', firstRun || !openAll.length);
     tools.innerHTML = firstRun || !openAll.length ? '' : `<div class="focus-views" role="group" aria-label="How to show your tasks">
-        <button type="button" aria-pressed="${view === 'focus'}" onclick="setDashFocusView('focus')">${icon('target', 'tiny')}Focus</button>
         <button type="button" aria-pressed="${view === 'day'}" onclick="setDashFocusView('day')">${icon('sun', 'tiny')}My day</button>
+        <button type="button" aria-pressed="${view === 'focus'}" onclick="setDashFocusView('focus')">${icon('target', 'tiny')}Focus</button>
       </div>
       ${goals.length > 1 ? `<label class="focus-goal ${goal ? 'on' : ''}">${icon('filter', 'tiny')}<select onchange="setDashFocusGoal(this.value)" aria-label="Show tasks from">
         <option value="">All goals</option>${goals.map(g => `<option value="${g.id}" ${g.id === goal ? 'selected' : ''}>${esc(g.title)}</option>`).join('')}</select></label>` : ''}`;
