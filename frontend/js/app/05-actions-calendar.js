@@ -81,9 +81,9 @@ async function renderActions() {
         </div>`;
     };
 
-    // A section with nothing in it shrinks to a single quiet line, so the
-    // lists that do need attention aren't pushed down the page.
-    const section = (title, ic, items, reasonFn, emptyMsg) => items.length ? `
+    // A section with nothing in it isn't shown at all (the counts at the
+    // top already say 0), so only the lists that need attention are there.
+    const section = (title, ic, items, reasonFn) => (items.length ? `
       <div class="mb-6">
         <div class="flex items-center gap-2 mb-3">
           <div class="w-1 h-4 bg-teal rounded-full"></div>
@@ -92,10 +92,7 @@ async function renderActions() {
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
           ${items.map(t => row(t, reasonFn(t))).join('')}
         </div>
-      </div>` : `
-      <div class="mb-2 flex items-center gap-2 px-4 py-2.5 bg-white/60 rounded-lg border border-dashed border-gray-200 text-xs text-gray-400">
-        <span class="flex">${ic}</span><span class="font-semibold text-gray-500">${title}</span><span class="ml-auto">${emptyMsg}</span>
-      </div>`;
+      </div>` : '');
 
     // Both sides parsed the same way (UTC midnight for the calendar date,
     // ignoring the local offset entirely) so the day count itself can't

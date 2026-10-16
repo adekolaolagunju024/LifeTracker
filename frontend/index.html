@@ -1079,6 +1079,13 @@
     .split-plan-on .detail-work, .split-plan-on #bulk-actions-bar { display: none !important; }
     .dark .split-switch .seg { background: #1E293B; }
     .dark .split-switch .seg button[aria-pressed="true"] { background: #0B1220; color: #E6EDF3; }
+    /* Actions: the counts on one line */
+    .act-counts { display: flex; flex-wrap: wrap; gap: 6px; }
+    .act-count { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600; color: #475569; background: #fff; border: 1px solid #E3E6EA; border-radius: 999px; padding: 5px 11px; }
+    .act-count b { font-weight: 900; font-family: ui-monospace, Menlo, monospace; }
+    .act-count.late b { color: #DC2626; } .act-count.blocked b { color: #B91C1C; } .act-count.week b { color: #D97706; } .act-count.start b { color: #2563EB; } .act-count.high b { color: #0A7E8C; }
+    .act-count [data-icon] .ic, .act-count > span[data-icon] { width: 14px; height: 14px; }
+    .dark .act-count { background: #111B2B; border-color: #24324A; color: #CBD5E1; }
     .gm-overlay { position: fixed; inset: 0; z-index: 990; background: rgba(13,27,42,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
     .gm-card { position: relative; width: min(460px, 100%); max-height: 94vh; display: flex; flex-direction: column; background: #fff; border-radius: 24px; overflow: hidden; box-shadow: 0 30px 80px rgba(5,10,20,.4); }
     .gm-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
@@ -3540,10 +3547,11 @@
     </div>
 
     <!-- Daily digest — overdue/due-today tasks, shown once per day, dismissible -->
-    <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-[#E6F4F5] border border-[#B9E1E4] rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap" id="verify-banner" role="status">
-      <span class="text-teal flex" data-icon="mail"></span>
-      <p class="flex-1 min-w-[12rem] text-sm text-navy">Confirm <b id="verify-banner-email" class="break-all"></b> using the link we sent, so password resets and invites reach you.</p>
-      <button type="button" onclick="resendVerification(this)" class="text-xs font-bold text-teal bg-white border border-[#B9E1E4] hover:bg-[#F2FAFA] rounded-lg px-3 py-1.5 flex-shrink-0 disabled:opacity-60">Send it again</button>
+    <!-- One line: confirm your email (the address itself on wider screens) -->
+    <div class="hidden mx-4 md:mx-6 mt-3 md:mt-6 bg-[#E6F4F5] border border-[#B9E1E4] rounded-xl px-3 py-2 flex items-center gap-2" id="verify-banner" role="status">
+      <span class="text-teal flex flex-shrink-0" data-icon="mail"></span>
+      <p class="flex-1 min-w-0 text-[13px] text-navy truncate">Confirm your email<span class="hidden sm:inline"> <b id="verify-banner-email"></b></span> from the link we sent</p>
+      <button type="button" onclick="resendVerification(this)" class="text-xs font-bold text-teal bg-white border border-[#B9E1E4] hover:bg-[#F2FAFA] rounded-lg px-2.5 py-1 flex-shrink-0 disabled:opacity-60">Resend</button>
       <button type="button" onclick="dismissVerifyBanner()" class="text-teal hover:text-navy text-lg leading-none px-1 flex-shrink-0" aria-label="Hide for now" data-icon="close"></button>
     </div>
     <div class="hidden mx-4 md:mx-6 mt-4 md:mt-6 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3" id="digest-banner">
@@ -3622,9 +3630,10 @@
           <p class="text-gray-500 text-sm mt-1">Each project is a collection of related goals and tasks.</p>
         </div>
         <div class="flex gap-2 flex-wrap">
-          <button onclick="openAssistant()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all"><span class="ei" data-icon="mic"></span> Assistant</button>
-          <button onclick="Reports.openPortfolioPicker()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg transition-all" title="A report on all your projects at once, for a board or team meeting"><span class="ei" data-icon="chart-column"></span> Portfolio report</button>
+          <!-- one row on a phone: the main action, then two icon buttons -->
           <button onclick="openAddProject()" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all">+ New Project</button>
+          <button onclick="openAssistant()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg transition-all" aria-label="Assistant" title="Plan with the assistant"><span class="ei" data-icon="mic"></span><span class="hidden sm:inline"> Assistant</span></button>
+          <button onclick="Reports.openPortfolioPicker()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg transition-all" aria-label="Portfolio report" title="A report on all your projects at once, for a board or team meeting"><span class="ei" data-icon="chart-column"></span><span class="hidden sm:inline"> Portfolio report</span></button>
         </div>
       </div>
       <!-- Ownership filter — so it's obvious at a glance which projects are yours, shared with you, or shared by you -->
@@ -3697,7 +3706,6 @@
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-5" id="detail-stats"></div>
       <!-- Rewards people have pledged for finishing this goal (js/pledges.js), owner only -->
       <div class="hidden mb-5" id="detail-lock"></div>
-      <div class="hidden mb-5" id="detail-rewards"></div>
       <!-- Split the work, for a teammate: My steps (the list below) or the
            team's Whole plan (js/race.js planInto) -->
       <div class="hidden mb-4" id="detail-split"></div>
@@ -3769,6 +3777,8 @@
         </table>
         </div>
       </div>
+      <!-- Rewards people have pledged for finishing this goal (js/pledges.js), owner only; after the tasks, which come first -->
+      <div class="hidden mt-5" id="detail-rewards"></div>
     </div>
 
     <!-- ─── GANTT ─── -->
@@ -3930,9 +3940,9 @@
             <p class="text-xs text-gray-500" id="mountain-status">Loading…</p>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
-            <button onclick="openJourneyTrophyCase()" id="journey-quest-badge" class="hidden items-center gap-1 bg-teal/10 hover:bg-teal/20 border border-teal/20 text-teal text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap"><span class="ei" data-icon="goal"></span> 0/3</button>
-            <button onclick="Why.playMusic()" id="journey-music-btn" class="bg-white hover:bg-gray-50 border border-gray-200 text-xs font-semibold px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5" title="Play your music while you play" aria-label="Play your music" data-icon="music">Music</button>
-            <button onclick="toggleGameSounds()" id="journey-sound-btn" class="bg-white hover:bg-gray-50 border border-gray-200 text-sm px-2.5 py-1 rounded-lg" aria-label="Turn game sounds off" aria-pressed="true" title="Game sounds"><span class="ei" data-icon="volume"></span></button>
+            <!-- Fewer controls over the game: music plays from the focus panel and
+                 Your why, game sounds switch in Settings, and today's quests are in
+                 the Trophy Case this badge opens. -->
             <button onclick="openJourneyTrophyCase()" id="journey-level-badge" class="hidden items-center gap-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap"><span class="ei" data-icon="star"></span> Lv.1</button>
             <button type="button" onclick="Race.openCreate(mountainState && mountainState.projectId)" id="journey-race-btn" class="bg-white hover:bg-gray-50 border border-gray-200 text-xs font-semibold px-2.5 py-1.5 rounded-lg inline-flex items-center gap-1.5" title="Lead a squad, class, team or clients through this goal, or race friends"><span class="ei" data-icon="users"></span>Team up</button>
             <select id="journey-competitor-select" onchange="setJourneyCompetitor(this.value)" class="hidden border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
@@ -3971,27 +3981,13 @@
         <h2 class="text-2xl font-black text-navy">Actions</h2>
         <p class="text-gray-500 text-sm mt-1">A live view of what needs attention right now, across every project — nothing to maintain by hand.</p>
       </div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white rounded-xl p-5 border border-gray-200">
-          <p class="text-xs font-semibold text-gray-400 kpi-label"><span data-icon="overdue" class="text-red-600"></span>Overdue</p>
-          <p class="text-3xl font-black font-mono text-red-600 mt-1" id="act-overdue">0</p>
-        </div>
-        <div class="bg-white rounded-xl p-5 border border-gray-200">
-          <p class="text-xs font-semibold text-gray-400 kpi-label"><span data-icon="clock" class="text-amber-600"></span>Due This Week</p>
-          <p class="text-3xl font-black font-mono text-brand-orange mt-1" id="act-week">0</p>
-        </div>
-        <div class="bg-white rounded-xl p-5 border border-gray-200">
-          <p class="text-xs font-semibold text-gray-400 kpi-label"><span data-icon="start" class="text-blue-600"></span>Starting This Week</p>
-          <p class="text-3xl font-black font-mono text-blue-600 mt-1" id="act-starting">0</p>
-        </div>
-        <div class="bg-white rounded-xl p-5 border border-gray-200">
-          <p class="text-xs font-semibold text-gray-400 kpi-label"><span data-icon="star" class="text-teal"></span>High Priority</p>
-          <p class="text-3xl font-black font-mono text-teal mt-1" id="act-high">0</p>
-        </div>
-        <div class="bg-white rounded-xl p-5 border border-gray-200 col-span-2 sm:col-span-1">
-          <p class="text-xs font-semibold text-gray-400 kpi-label"><span data-icon="blocker" class="text-red-700"></span>Blocked</p>
-          <p class="text-3xl font-black font-mono text-red-700 mt-1" id="act-blocked">0</p>
-        </div>
+      <!-- The counts, on one line (the lists below have the tasks) -->
+      <div class="act-counts mb-5" role="list">
+        <span class="act-count late" role="listitem"><span data-icon="overdue"></span><b id="act-overdue">0</b> overdue</span>
+        <span class="act-count blocked" role="listitem"><span data-icon="blocker"></span><b id="act-blocked">0</b> blocked</span>
+        <span class="act-count week" role="listitem"><span data-icon="clock"></span><b id="act-week">0</b> due this week</span>
+        <span class="act-count start" role="listitem"><span data-icon="start"></span><b id="act-starting">0</b> starting this week</span>
+        <span class="act-count high" role="listitem"><span data-icon="star"></span><b id="act-high">0</b> high priority</span>
       </div>
 
       <!-- Plan it for me: hands the list to the assistant -->
@@ -4954,6 +4950,8 @@
       </details>
     </div>
     <div class="flex justify-end gap-3 px-6 py-4 border-t border-gray-100">
+      <!-- Editing a task: delete it from here (Kanban cards and table rows keep only the everyday actions) -->
+      <button type="button" id="task-delete-btn" onclick="const id = document.getElementById('task-id').value; if (id) { closeModal('modal-task'); deleteTaskConfirm(id, APP.currentProjectId); }" class="hidden mr-auto text-red-600 hover:bg-red-50 text-sm font-semibold px-3 py-2.5 rounded-xl"><span class="ei" data-icon="trash"></span> Delete</button>
       <button onclick="closeModal('modal-task')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold px-4 py-2.5 rounded-xl">Cancel</button>
       <button onclick="saveTask()" class="bg-teal hover:bg-teal/90 text-white text-sm font-bold px-5 py-2.5 rounded-xl">Save task</button>
     </div>

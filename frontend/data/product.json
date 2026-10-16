@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "A tidier app",
+      "text": "We went through every page and cleared out the clutter. A goal now lists all its tasks, phases included. Actions shows its counts on one line and only the lists that need you. Project cards open with a tap, Kanban cards and task rows keep just the everyday buttons, the Journey has fewer controls over the game, and the confirm-your-email banner takes one line."
+    },
+    {
+      "date": "2026-10-16",
       "title": "A proper team chat",
       "text": "Team chats now work like any chat app: share photos and files, add emojis, and type @ to mention someone, who gets a notification. And a team splitting a goal now has one conversation: the goal's Chat button opens the team chat."
     },

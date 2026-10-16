@@ -426,11 +426,12 @@ async function renderProjects() {
       const tagsHTML = `<span class="bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pts.length} tasks</span>
         <span class="bg-green-50 text-green-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pdone} done</span>
         <span class="bg-orange-50 text-orange-700 rounded-full px-2.5 py-0.5 text-xs font-semibold">${pinp} active</span>`;
-      const costLine = `<span>Est. ${money(cost)}</span>`;
+      const costLine = cost > 0 ? `<span>Est. ${money(cost)}</span>` : '';
 
       return `
-        <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-5 project-card"
-          style="border-top: 4px solid ${proj.color}">
+        <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 p-5 project-card cursor-pointer"
+          style="border-top: 4px solid ${proj.color}" role="link" tabindex="0" aria-label="Open ${esc(proj.title)}"
+          onclick="showPage('project-detail','${proj.id}')" onkeydown="if(event.key==='Enter')showPage('project-detail','${proj.id}')">
           <div class="flex justify-between items-start mb-3">
             <span class="w-11 h-11 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style="background:${proj.color}1A">${emojiIcon(proj.icon)}</span>
             <div class="project-card-actions flex gap-1 opacity-0 transition-opacity">
@@ -454,13 +455,10 @@ async function renderProjects() {
             <div class="h-full rounded-full transition-all duration-500"
               style="width:${pp}%;background:${proj.color}"></div>
           </div>
-          <div class="flex justify-between text-xs text-gray-400 mb-4">
+          <div class="flex justify-between text-xs text-gray-400">
             <span>${pp}% complete</span>
             ${costLine}
           </div>
-          <button onclick="showPage('project-detail','${proj.id}')"
-            class="w-full py-2 rounded-lg text-white text-xs font-semibold transition-all hover:opacity-90"
-            style="background:${proj.color}">Open Project →</button>
         </div>`;
     }).join('');
 
