@@ -31,6 +31,8 @@ test('split the work: teammates join the goal itself, steps are assigned, claime
   assert.equal(team.checks, 'none');
   assert.equal(team.split.total, 4);
   assert.equal(team.split.unclaimed, 4);
+  // The timeline's handover arrows: fitting waits on ordering.
+  assert.deepEqual(team.split.links, [{ from: ids[1], to: ids[2] }]);
 
   // Joining gives no copy: the goal itself, shared with them.
   const joined = await json(ana, 'POST', `/api/challenges/join/${team.joinToken}`, { displayName: 'Ana' });

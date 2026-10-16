@@ -1010,6 +1010,32 @@
     .dark .sp-steps li { border-color: #2A3648; }
     .dark .sp-steps li.open { background: linear-gradient(90deg, #2A1A0B, transparent 60%); }
     .dark .sp-assign { background: #0B1220; border-color: #2A3648; color: #E6EDF3; }
+    /* The team timeline (js/race.js timelineHtml) */
+    .sp-tabs { display: inline-flex; background: #F1F5F9; border-radius: 999px; padding: 3px; gap: 2px; }
+    .sp-tabs button { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; color: #556270; border-radius: 999px; padding: 6px 12px; min-height: 32px; }
+    .sp-tabs button[aria-selected="true"] { background: #fff; color: #0D1B2A; box-shadow: 0 1px 3px rgba(13,27,42,.12); }
+    .tl-wrap { overflow-x: auto; margin: 4px -4px 0; padding: 0 4px 6px; }
+    .tl-inner { min-width: 620px; }
+    .tl-head, .tl-row, .tl-todaywrap { display: grid; grid-template-columns: 110px 1fr; }
+    .tl-head { height: 24px; border-bottom: 1px solid #E3E6EA; }
+    .tl-head .tl-track span { position: absolute; top: 4px; transform: translateX(-50%); font-size: 10px; font-weight: 700; color: #8A94A3; white-space: nowrap; }
+    .tl-body { position: relative; }
+    .tl-row { border-bottom: 1px solid #F1F3F5; }
+    .tl-name { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: #0D1B2A; padding-right: 8px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .tl-name i { width: 9px; height: 9px; border-radius: 999px; flex-shrink: 0; }
+    .tl-track { position: relative; }
+    .tl-bar { position: absolute; height: 22px; display: flex; align-items: center; gap: 3px; padding: 0 7px; border-radius: 7px; background: var(--c); color: #fff; font-size: 11px; font-weight: 800; overflow: hidden; white-space: nowrap; box-shadow: 0 1px 2px rgba(13,27,42,.18); z-index: 1; }
+    .tl-bar span { overflow: hidden; text-overflow: ellipsis; }
+    .tl-bar.done { opacity: .55; }
+    .tl-bar.open { background: repeating-linear-gradient(135deg, #E2E8F0 0 6px, #F1F5F9 6px 12px); color: #475569; border: 1px dashed #94A3B8; }
+    .tl-todaywrap { position: absolute; inset: 0; pointer-events: none; }
+    .tl-today { position: absolute; top: 0; bottom: 0; width: 2px; background: #EF4444; }
+    .tl-links { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 2; overflow: visible; }
+    .tl-key { display: flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 11px; color: #64748B; }
+    .dark .sp-tabs { background: #0B1220; }
+    .dark .sp-tabs button[aria-selected="true"] { background: #1E293B; color: #E6EDF3; }
+    .dark .tl-head, .dark .tl-row { border-color: #2A3648; }
+    .dark .tl-name { color: #E6EDF3; }
     /* Asking for help on a blocker */
     .help-btn, .help-asked { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 3px 8px; white-space: nowrap; }
     [data-help-slot]:not(:empty) { flex-basis: 100%; order: 10; padding-left: 24px; }

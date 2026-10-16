@@ -126,6 +126,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "Team timeline",
+      "text": "A team splitting a goal now has a Timeline beside Who's doing what: one row per person, their steps as bars on the dates, unclaimed steps in their own row, today marked, and an arrow wherever one person's step hands over to the next. You can see at a glance who's busy, who's free and where the handovers are."
+    },
+    {
+      "date": "2026-10-16",
       "title": "A calm full-screen focus, and a gentler alarm",
       "text": "Tap Full screen on the focus timer for a calm screen of its own: a big dial with the time running round it, pause in the middle, a line from your own why in handwriting, your music at the bottom and the stage you play on underneath. It stays full screen for your next sessions until you shrink it. Reminders now ring on the same calm screen, with a big clock and the stage behind."
     },

@@ -646,10 +646,75 @@ const Race = (() => {
     return `<div class="ch-group sp-group"><div class="ch-group-top"><b>${sp.done} of ${sp.total} steps done</b><span>${c.group.stepsPct}% of the goal${sp.unclaimed ? ` · ${sp.unclaimed} unclaimed` : ''}</span></div>
         <div class="sp-bar" role="img" aria-label="${c.group.stepsPct}% of the goal done">${seg}${others > 0 ? `<i style="width:${(others / sp.total) * 100}%;background:#94A3B8"></i>` : ''}</div>
         <div class="sp-legend">${sp.contrib.filter(m => m.total).map(m => `<span><i style="background:${esc(m.color)}"></i>${esc(m.name)} <b>${m.done}/${m.total}</b></span>`).join('')}</div></div>
-      <section class="sp-steps"><div class="sp-head"><h4>${icon('list-checks', 'tiny')}Who's doing what</h4>
+      <section class="sp-steps"><div class="sp-head">
+        <div class="sp-tabs" role="tablist" aria-label="Show the steps as">
+          <button type="button" role="tab" aria-selected="${spTab !== 'timeline'}" onclick="Race.spTab('${c.id}', 'list')">${icon('list-checks', 'tiny')}Who's doing what</button>
+          <button type="button" role="tab" aria-selected="${spTab === 'timeline'}" onclick="Race.spTab('${c.id}', 'timeline')">${icon('chart', 'tiny')}Timeline</button>
+        </div>
         ${c.owner && sp.unclaimed ? `<button type="button" class="sp-even" onclick="Race.splitEvenly('${c.id}', this)">${icon('users', 'tiny')}Share out ${sp.unclaimed} unclaimed</button>` : ''}</div>
-        ${sp.steps.length ? `<ul>${sp.steps.map(step).join('')}</ul>` : '<p class="fb-note">This goal has no steps yet. Add some on the goal, then hand them out.</p>'}</section>`;
+        ${spTab === 'timeline' ? timelineHtml(c) : sp.steps.length ? `<ul>${sp.steps.map(step).join('')}</ul>` : '<p class="fb-note">This goal has no steps yet. Add some on the goal, then hand them out.</p>'}</section>`;
   }
+  // The team timeline: one row per person, their steps as bars on the
+  // dates, today marked, and an arrow wherever one step hands over to the
+  // next (a step that waits on another). Bars that overlap stack.
+  let spTab = 'list';
+  const DAY_MS = 86400000;
+  const dayOf = d => Date.parse(String(d).slice(0, 10) + 'T00:00:00');
+  function timelineHtml(c) {
+    const sp = c.split;
+    const dated = sp.steps.filter(st => st.startDate || st.endDate).map(st => {
+      const end = dayOf(st.endDate || st.startDate), start = Math.min(end, dayOf(st.startDate || st.endDate));
+      return { ...st, s: start, e: end + DAY_MS };
+    });
+    if (!dated.length) return '<p class="fb-note">Give the steps dates on the goal (start and due) and they appear here, one row per person.</p>';
+    const from = Math.min(...dated.map(d => d.s)), to = Math.max(...dated.map(d => d.e));
+    const span = Math.max(DAY_MS, to - from);
+    const pct = t => ((t - from) / span) * 100;
+    const rows = sp.contrib.filter(m => dated.some(d => d.who && d.who.color === m.color)).map(m => ({ key: m.color, name: m.name, color: m.color }));
+    if (dated.some(d => !d.who)) rows.push({ key: '', name: 'Unclaimed', color: '#CBD5E1' });
+    const rowHtml = r => {
+      const mine = dated.filter(d => (d.who ? d.who.color : '') === r.key).sort((a, b) => a.s - b.s);
+      const lanes = [];
+      mine.forEach(d => { let l = lanes.findIndex(end => end <= d.s); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = d.e; d.lane = l; });
+      const h = Math.max(1, lanes.length) * 30 + 10;
+      return `<div class="tl-row" style="height:${h}px"><div class="tl-name"><i style="background:${esc(r.color)}"></i>${esc(r.name)}</div>
+        <div class="tl-track">${mine.map(d => `<div class="tl-bar${d.status === 'Completed' ? ' done' : ''}${r.key ? '' : ' open'}" data-task="${esc(d.taskId)}" title="${esc(d.title)}: ${esc(new Date(d.s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))} to ${esc(new Date(d.e - DAY_MS).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}${d.who ? ` · ${esc(d.who.name)}` : ' · unclaimed'}"
+          style="left:${pct(d.s).toFixed(2)}%;width:${Math.max(2, pct(d.e) - pct(d.s)).toFixed(2)}%;top:${5 + d.lane * 30}px;--c:${esc(r.color)}">${d.status === 'Completed' ? icon('check', 'tiny') : ''}<span>${esc(d.title)}</span></div>`).join('')}</div></div>`;
+    };
+    const days = Math.round(span / DAY_MS);
+    const every = Math.max(1, Math.ceil(days / 8));
+    const ticks = [];
+    for (let i = 0; i <= days; i += every) ticks.push(from + i * DAY_MS);
+    const now = Date.now();
+    const today = now >= from && now <= to ? `<div class="tl-today" style="left:${pct(now).toFixed(2)}%" title="Today"></div>` : '';
+    lastTimeline = { id: c.id, links: sp.links || [] };
+    setTimeout(() => drawHandoffs(c.id, sp.links || []), 0);
+    return `<div class="tl-wrap" id="tl-${esc(c.id)}"><div class="tl-inner">
+      <div class="tl-head"><div class="tl-name"></div><div class="tl-track">${ticks.map(t => `<span style="left:${pct(t).toFixed(2)}%">${esc(new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</span>`).join('')}</div></div>
+      <div class="tl-body">${rows.map(rowHtml).join('')}<div class="tl-todaywrap"><div></div><div class="tl-track">${today}</div></div><svg class="tl-links" aria-hidden="true"></svg></div>
+    </div></div>
+    ${sp.links && sp.links.length ? `<p class="tl-key">${icon('link', 'tiny')}An arrow is a handover: the next step can start once the one before it is done.</p>` : ''}`;
+  }
+  // The handover arrows, drawn once the bars are on screen: from the end
+  // of a step to the start of the one waiting on it.
+  function drawHandoffs(id, links) {
+    const wrap = document.getElementById(`tl-${id}`);
+    if (!wrap) return;
+    const body = wrap.querySelector('.tl-body'), svg = wrap.querySelector('.tl-links');
+    const box = body.getBoundingClientRect();
+    svg.setAttribute('width', box.width); svg.setAttribute('height', box.height);
+    svg.innerHTML = `<defs><marker id="tl-arrow-${esc(id)}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#475569"/></marker></defs>` + links.map(l => {
+      const a = wrap.querySelector(`.tl-bar[data-task="${CSS.escape(l.from)}"]`), b = wrap.querySelector(`.tl-bar[data-task="${CSS.escape(l.to)}"]`);
+      if (!a || !b) return '';
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      const x1 = ra.right - box.left, y1 = ra.top + ra.height / 2 - box.top, x2 = rb.left - box.left - 2, y2 = rb.top + rb.height / 2 - box.top;
+      const mx = Math.max(x1 + 10, (x1 + x2) / 2);
+      return `<path d="M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${mx.toFixed(1)} ${y1.toFixed(1)}, ${(mx - 0).toFixed(1)} ${y2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="#475569" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#tl-arrow-${esc(id)})"/>`;
+    }).join('');
+  }
+  function spTabSet(id, tab) { spTab = tab; openDetail(id); }
+  let lastTimeline = null;
+  window.addEventListener('resize', () => { if (lastTimeline && document.getElementById(`tl-${lastTimeline.id}`)) drawHandoffs(lastTimeline.id, lastTimeline.links); });
   async function assign(id, sel) {
     sel.disabled = true;
     try { await API.assignRaceStep(id, sel.dataset.task, sel.value); showToast(sel.value ? 'Handed over. They’ve been told' : 'Back to unclaimed'); } catch (err) { showToast(err.message || 'Could not do that', 'error'); }
@@ -915,6 +980,6 @@ const Race = (() => {
     });
   }
 
-  return { assign, claim, splitEvenly, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { spTab: spTabSet, assign, claim, splitEvenly, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;
