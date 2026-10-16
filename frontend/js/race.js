@@ -173,6 +173,11 @@ const Race = (() => {
     });
   }
 
+  // A join code onto the clipboard, as typed in Teams › Join with a code.
+  async function copyCode(code) {
+    try { await navigator.clipboard.writeText(code); showToast(`📋 Code ${code} copied`); } catch { showToast(`Join code: ${code}`); }
+  }
+
   // The link and the code to send, with Copy and (on a phone) Share.
   function showShare(race, isNew) {
     const url = linkFor(race.joinToken);
@@ -181,10 +186,12 @@ const Race = (() => {
     const code = race.joinCode ? race.joinCode.replace(/(...)(...)/, '$1 $2') : '';
     const form = dialog(`${head(isNew ? (together ? `Your ${roleOf(race).group} is ready` : 'Your race is ready') : 'Invite people', together ? 'users' : 'flag')}
       <p class="fb-note">Send the link${code ? ', or read out the code' : ''}. They'll see <b>${esc(race.title)}</b>${race.stake ? `, the stake (${esc(race.stake)})` : ''} and the finish date, ${esc(when(race.endsAt))}.</p>
-      ${code ? `<div class="race-code" aria-label="Join code ${esc(race.joinCode.split('').join(' '))}"><small>Join code</small><b>${esc(code)}</b><span>Teams › Join with a code</span></div>` : ''}
+      ${code ? `<div class="race-code"><small>Join code</small><b aria-label="Join code ${esc(race.joinCode.split('').join(' '))}">${esc(code)}</b><span>Teams › Join with a code</span><button type="button" id="race-code-copy">${icon('copy', 'tiny')}Copy code</button></div>` : ''}
       <div class="race-link"><input type="text" id="race-link" readonly value="${esc(url)}" aria-label="Join link"><button type="button" class="fb-cancel" id="race-copy">${icon('copy', 'tiny')}Copy</button></div>
       <div class="fb-foot">${navigator.share ? `<button type="button" class="fb-cancel" id="race-share">${icon('send', 'tiny')}Share</button>` : ''}
         <button type="submit" class="fb-send">${icon('play', 'tiny')}${me ? (together ? 'Go to my goal' : 'Go to my race') : 'See who has joined'}</button></div>`);
+    const codeBtn = form.querySelector('#race-code-copy');
+    if (codeBtn) codeBtn.onclick = () => copyCode(race.joinCode);
     form.querySelector('#race-copy').onclick = async () => {
       try { await navigator.clipboard.writeText(url); showToast('🔗 Link copied'); } catch { form.querySelector('#race-link').select(); }
     };
@@ -331,7 +338,7 @@ const Race = (() => {
           <td><span class="ch-steps"><i style="width:${Math.round(p.frac * 100)}%"></i></span><span class="num">${p.done}/${p.total}</span>${p.pending ? `<span class="ch-pending" title="${p.pending} ticked, waiting to count">+${p.pending}</span>` : ''}</td>
           <td><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></td>
           ${c.owner ? `<td class="ago">${esc(ago(p.lastStepAt))}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
-        : `<div class="ch-empty"><p><b>No one has joined yet.</b></p><p>Share the link or read out the code <b>${esc(c.joinCode)}</b>. People join from <b>Teams › Join with a code</b>.</p></div>`}`;
+        : `<div class="ch-empty"><p><b>No one has joined yet.</b></p><p>Share the link or the code <button type="button" class="ch-code" onclick="Race.copyCode('${esc(c.joinCode)}')" title="Copy the code">${esc(c.joinCode)} ${icon('copy', 'tiny')}</button>. People join from <b>Teams › Join with a code</b>.</p></div>`}`;
   }
   function backToList() { detailId = null; renderPage(); }
   // Finished ones off your list (only yours: everyone else's scoreboard
@@ -980,6 +987,6 @@ const Race = (() => {
     });
   }
 
-  return { spTab: spTabSet, assign, claim, splitEvenly, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { copyCode, spTab: spTabSet, assign, claim, splitEvenly, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;
