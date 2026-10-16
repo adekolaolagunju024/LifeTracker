@@ -1,5 +1,5 @@
 {
-  "_comment": "One source for what the public pages say about the app. The landing page is rendered from it on the server and the app's 'new version' notice reads it, so a change here (made in the same pull request as the feature) shows up everywhere. Add a whatsNew entry, newest first, for every change users will notice. The stages must match the Journey's stage picker (a test checks). The tour is the feature slides: the landing page plays all of them, and a new account's dashboard plays the ones with an action, with a button for each. Each stage card opens in its `view` (2d or 3d), with a switch for the other.",
+  "_comment": "One source for what the public pages say about the app. The landing page is rendered from it on the server and the app's 'new version' notice reads it, so a change here (made in the same pull request as the feature) shows up everywhere. Add a whatsNew entry, newest first, for every change users will notice. The stages must match the Journey's stage picker (a test checks). The tour is the feature slides: the landing page plays all of them, and a new account's dashboard plays the ones with an action, with a button for each. Each stage card opens in its `view` (2d or 3d), with a switch for the other; a stage with `only2d` has no 3D world and no switch.",
   "stages": [
     {
       "id": "football",
@@ -35,6 +35,14 @@
       "name": "Sprint Track",
       "line": "Run your lane in an Olympic stadium, clear the hurdles and break the tape. Racing friends? Everyone gets a lane.",
       "view": "3d"
+    },
+    {
+      "id": "mountain",
+      "emoji": "⛰️",
+      "name": "Mountain",
+      "line": "Hike a winding trail up to the summit flag, seen from just behind your climber, past rockfalls and storm clouds.",
+      "view": "2d",
+      "only2d": true
     }
   ],
   "tour": [
@@ -124,6 +132,11 @@
     }
   ],
   "whatsNew": [
+    {
+      "date": "2026-10-16",
+      "title": "A new stage: Mountain",
+      "text": "Pick Mountain in the Journey and your goal becomes a hike up a winding trail to a snowy summit, seen from just behind your climber. The trail narrows and everything gets smaller as it climbs, so the top really feels a long way off. Tasks are pennants along the way, blockers are rockfalls and storm clouds, and finishing plants your flag on the summit."
+    },
     {
       "date": "2026-10-16",
       "title": "Goal map and locked goals",

@@ -405,7 +405,7 @@ test('the landing page is filled in from product data: every stage, the latest n
 
 test('every landing page screenshot is served, and nothing else under /showcase', async () => {
   const product = require('../frontend/data/product.json');
-  const names = ['journey', 'phone', 'planner', 'project', 'assistant', ...product.stages.flatMap(s => [`stage-${s.id}`, `stage-${s.id}-3d`])];
+  const names = ['journey', 'phone', 'planner', 'project', 'assistant', ...product.stages.flatMap(s => (s.only2d ? [`stage-${s.id}`] : [`stage-${s.id}`, `stage-${s.id}-3d`]))];
   for (const name of names) {
     const res = await fetch(`${server.base}/showcase/${name}.webp`);
     assert.equal(res.status, 200, name);

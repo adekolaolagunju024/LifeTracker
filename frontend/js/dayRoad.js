@@ -1,4 +1,4 @@
-/* global Reminders, API, DayPace, showToast, clockText, taskErrorToast, taskGateMessage, showGateCard, refreshAfterStart, announceJourneyReward, Sfx, DayReport, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
+/* global Reminders, API, DayPace, showToast, clockText, taskErrorToast, taskGateMessage, showGateCard, refreshAfterStart, announceJourneyReward, Sfx, DayReport, blockerChecklist, celebrationsEnabled, closeTaskDetail, icon, esc, localDateKey, focusModeOn, getJourneyStage, getJourneyTheme, getJourneyView, stageHas3D, setJourneyTheme, setJourneyView, journeyCanDo3D, JourneyGame, openTaskDetail, Jarvis */
 // ── TODAY'S ROAD ────────────────────────────────────────────────
 // Today's plan as a road: a stop for each task, You moving as you finish
 // them, and the Pacer keeping to the timetable by the clock (the maths is
@@ -9,7 +9,7 @@
 // Journey world. It moves on its own every minute.
 const DayRoad = (() => {
   let plan = null; let tasks = []; let loadedAt = 0; let loading = null;
-  const CHAR = { football: 'volleyball', space: 'rocket', castle: 'castle', construction: 'construction' };
+  const CHAR = { football: 'volleyball', space: 'rocket', castle: 'castle', construction: 'construction', mountain: 'mountain' };
   const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
   const game = () => !(typeof focusModeOn === 'function' && focusModeOn());
   const world = () => { try { return getJourneyStage(); } catch { return 'football'; } };
@@ -90,7 +90,7 @@ const DayRoad = (() => {
   const MODE_KEY = 'dayroadMode';
   let modeOverride = null; // 'game' while replaying a knockout, without changing the saved choice
   const fullMode = () => { if (modeOverride) return modeOverride; try { return localStorage.getItem(MODE_KEY) || (game() ? 'game' : 'road'); } catch { return 'road'; } };
-  const STAGES = [['football', 'Football'], ['space', 'Space'], ['castle', 'Castle'], ['construction', 'Construction'], ['sprint', 'Sprint Track']];
+  const STAGES = [['football', 'Football'], ['space', 'Space'], ['castle', 'Castle'], ['construction', 'Construction'], ['sprint', 'Sprint Track'], ['mountain', 'Mountain']];
   function openFull(mode = null) {
     API.trackFeature && API.trackFeature('journey');
     closeFull();
@@ -129,7 +129,7 @@ const DayRoad = (() => {
     const el = document.getElementById('dayroad-full');
     if (el) paintFull(el, state());
   }
-  const can3d = () => typeof journeyCanDo3D === 'function' && journeyCanDo3D();
+  const can3d = () => typeof journeyCanDo3D === 'function' && journeyCanDo3D() && (typeof stageHas3D !== 'function' || stageHas3D(world()));
   const theme = () => { try { return getJourneyTheme(); } catch { return 'football'; } };
   const view3d = () => { try { return getJourneyView() === '3d' && can3d(); } catch { return false; } };
 

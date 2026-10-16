@@ -22,6 +22,7 @@ const { spawn } = require('child_process');
 const GENERATED_DIR = process.env.SHOWCASE_DIR || path.join(os.tmpdir(), 'waypoint-showcase');
 const FALLBACK_DIR = path.join(__dirname, '../frontend/media/showcase');
 const STAGES = require('../frontend/data/product.json').stages.map(s => s.id);
+const STAGES_3D = require('../frontend/data/product.json').stages.filter(s => !s.only2d).map(s => s.id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // Where a showcase picture is served from: this deploy's fresh capture if
@@ -192,7 +193,7 @@ async function capture({ base, cookie, projectId, ids }, outDir) {
         return true;
       } catch { return false; }
     };
-    for (const stage of STAGES) {
+    for (const stage of STAGES_3D) {
       await page.evaluate(s => { setJourneyTheme(s); setJourneyView('3d', 'overview'); }, stage);
       if (!(await ready3d())) continue;
       await hideChrome();

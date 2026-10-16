@@ -1688,29 +1688,31 @@ const JourneyGame = (() => {
     }
     // the mountain: a lit face and a shadowed face, the snow cap, a few ridges
     const lx = tall ? -220 : -360, rx = tall ? 230 : 390;
-    svg.appendChild(el('path', { d: `M ${peak.x + lx} ${base} L ${peak.x - 40} ${peak.y + 70} L ${peak.x} ${peak.y} L ${peak.x + 18} ${base} Z`, fill: '#7b86c9' }));
-    svg.appendChild(el('path', { d: `M ${peak.x} ${peak.y} L ${peak.x + 46} ${peak.y + 60} L ${peak.x + 90} ${peak.y + 74} L ${peak.x + rx} ${base} L ${peak.x + 18} ${base} Z`, fill: '#5a64a8' }));
+    // (its foot runs on below the meadow line so no edge shows at the sides)
+    svg.appendChild(el('path', { d: `M ${peak.x + lx} ${base} L ${peak.x - 40} ${peak.y + 70} L ${peak.x} ${peak.y} L ${peak.x + 18} ${base} L ${peak.x + 18} ${base + 14} L ${peak.x + lx} ${base + 14} Z`, fill: '#7b86c9' }));
+    svg.appendChild(el('path', { d: `M ${peak.x} ${peak.y} L ${peak.x + 46} ${peak.y + 60} L ${peak.x + 90} ${peak.y + 74} L ${peak.x + rx} ${base} L ${peak.x + rx} ${base + 14} L ${peak.x + 18} ${base + 14} Z`, fill: '#5a64a8' }));
     svg.appendChild(el('path', { d: `M ${peak.x - 34} ${peak.y + 60} L ${peak.x} ${peak.y} L ${peak.x + 44} ${peak.y + 58} L ${peak.x + 26} ${peak.y + 50} L ${peak.x + 12} ${peak.y + 66} L ${peak.x - 4} ${peak.y + 48} L ${peak.x - 18} ${peak.y + 64} Z`, fill: '#ffffff' }));
     svg.appendChild(el('path', { d: `M ${peak.x + 44} ${peak.y + 58} L ${peak.x + 70} ${peak.y + 96} L ${peak.x + 58} ${peak.y + 92} L ${peak.x + 50} ${peak.y + 104} Z`, fill: '#eef2ff', opacity: 0.85 }));
-    [[-90, 60, -150, 140], [60, 90, 120, 170], [-20, 120, -60, 190]].forEach(([x1, y1, x2, y2]) => svg.appendChild(el('path', { d: `M ${peak.x + x1} ${peak.y + y1} L ${peak.x + x2} ${peak.y + y2}`, stroke: '#4a5394', 'stroke-width': 2, opacity: 0.45, 'stroke-linecap': 'round' })));
     // the meadow: rolling slopes in two greens, then the foreground
-    svg.appendChild(el('path', { d: `M 0 ${base + 10} Q ${w * 0.25} ${base - 30} ${w * 0.5} ${base + 4} T ${w} ${base - 10} L ${w} ${h} L 0 ${h} Z`, fill: '#9ccd5c' }));
+    svg.appendChild(el('path', { d: `M 0 ${base - 6} Q ${w * 0.25} ${base - 30} ${w * 0.5} ${base + 4} T ${w} ${base - 10} L ${w} ${h} L 0 ${h} Z`, fill: '#9ccd5c' }));
     svg.appendChild(el('path', { d: `M 0 ${base + 70} Q ${w * 0.3} ${base + 30} ${w * 0.62} ${base + 64} T ${w} ${base + 50} L ${w} ${h} L 0 ${h} Z`, fill: '#86c04a' }));
     svg.appendChild(el('path', { d: `M 0 ${h - (tall ? 120 : 70)} Q ${w * 0.4} ${h - (tall ? 170 : 110)} ${w} ${h - (tall ? 110 : 60)} L ${w} ${h} L 0 ${h} Z`, fill: '#74b042' }));
-    // the trail itself: wide at your feet, a thread near the top
+    // the trail itself: wide at your feet, a thread near the top. Drawn
+    // as short round-capped strokes, each as wide as the trail is there, so
+    // the tight switchbacks never fold over themselves.
     const pts = mountainPoints(layout);
     const key = mountainKey(layout);
-    const left = [], right = [];
-    pts.forEach((p, i) => {
-      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
-      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1;
-      const hw = 23 * mountainDepthAt(key, p.y);
-      left.push([p.x - (dy / d) * hw, p.y + (dx / d) * hw]);
-      right.push([p.x + (dy / d) * hw, p.y - (dx / d) * hw]);
-    });
-    const ribbon = `M ${left.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L ')} L ${right.reverse().map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join(' L ')} Z`;
-    svg.appendChild(el('path', { d: ribbon, fill: '#5d7a35', opacity: 0.35, transform: 'translate(0,3)' }));
-    svg.appendChild(el('path', { d: ribbon, fill: '#efe3c8', stroke: '#c9b48a', 'stroke-width': 1.4, 'stroke-linejoin': 'round' }));
+    const trail = (extra, attrs) => {
+      const g = el('g', { 'stroke-linecap': 'round', ...attrs });
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        g.appendChild(el('line', { x1: a.x.toFixed(1), y1: a.y.toFixed(1), x2: b.x.toFixed(1), y2: b.y.toFixed(1), 'stroke-width': (46 * mountainDepthAt(key, (a.y + b.y) / 2) + extra).toFixed(2) }));
+      }
+      svg.appendChild(g);
+    };
+    trail(0, { stroke: '#5d7a35', opacity: 0.3, transform: 'translate(0,3)' });
+    trail(2.8, { stroke: '#c9b48a' });
+    trail(0, { stroke: '#efe3c8' });
     // a signpost, a tent and a log pile beside the trail, low on the slope
     const camp = tall ? { x: 340, y: 690 } : { x: 690, y: 420 };
     const tent = el('g', { transform: `translate(${camp.x},${camp.y})` });
@@ -2131,7 +2133,7 @@ const JourneyGame = (() => {
       let p = pointAtFrac(entry.roadBase, progressToPathFrac(r.frac, n, finishFrac));
       if (lanes) p = theme.lanePoint(entry.layoutKey, p, lanes.get(r));
       const dx = lanes ? 0 : (here % 2 ? 1 : -1) * Math.ceil(here / 2) * 16 * scale - (here ? 0 : 12 * scale);
-      const s = scale * (tagged.has(r) ? 0.92 : 0.7);
+      const s = scale * (tagged.has(r) ? 0.92 : 0.7) * depthAt(entry, p);
       const g = theme.buildAvatar(r.color);
       g.setAttribute('transform', `translate(${(p.x + dx).toFixed(1)},${p.y.toFixed(1)}) scale(${s})`);
       g.setAttribute('opacity', tagged.has(r) ? '0.92' : '0.6');
@@ -2147,6 +2149,7 @@ const JourneyGame = (() => {
     if (!entry.youTag || !entry.youTag.isConnected) return;
     const p = pointAtFrac(entry.roadBase, entry.curFrac == null ? 0 : entry.curFrac);
     const k = entry.tagK || 1;
+    scale *= depthAt(entry, p);
     entry.youTag.setAttribute('transform', `translate(${p.x.toFixed(1)},${(p.y - 40 * scale - 12 * k).toFixed(1)}) scale(${k.toFixed(3)})`);
   }
 
@@ -2183,8 +2186,16 @@ const JourneyGame = (() => {
     return finishFrac;
   }
 
+  // How big things stand at a point on the road: 1, or less further up a
+  // stage drawn in perspective (theme.depth, the Mountain).
+  function depthAt(entry, p) {
+    const t = getTheme(entry.themeKey);
+    return t.depth ? t.depth(entry.layoutKey, p) : 1;
+  }
+
   function placeAvatar(entry, frac, scale) {
     const p = pointAtFrac(entry.roadBase, frac);
+    scale *= depthAt(entry, p);
     entry.avatarLayer.setAttribute('transform', `translate(${p.x.toFixed(2)},${p.y.toFixed(2)}) scale(${scale})`);
     if (entry.youTag && entry.youTag.isConnected) { const k = entry.tagK || 1; entry.youTag.setAttribute('transform', `translate(${p.x.toFixed(1)},${(p.y - 40 * scale - 12 * k).toFixed(1)}) scale(${k.toFixed(3)})`); }
     // The "ground covered" glow trail is revealed up to exactly where the
@@ -2406,7 +2417,8 @@ const JourneyGame = (() => {
           if (celebrate) setTimeout(() => spawnTaskPopup(current(), pt.x - 34 * scale, pt.y - 62 * scale - j * 30, o.name, 'foe', theme.clearedWord), j * 450);
         });
       }
-      const pos = el('g', { transform: `translate(${pt.x},${pt.y})` });
+      const d = depthAt(entry, pt);
+      const pos = el('g', { transform: `translate(${pt.x},${pt.y})${d !== 1 ? ` scale(${d.toFixed(3)})` : ''}` });
       pos.appendChild(g);
       flagsLayer.appendChild(pos);
       entry.flagEls.push(g);
@@ -2466,7 +2478,7 @@ const JourneyGame = (() => {
     if (state.ghost) {
       const gp = pointAtFrac(roadBase, progressToPathFrac(state.ghost.frac, n, finishFrac));
       const g = theme.buildAvatar('#94a3b8');
-      g.setAttribute('transform', `translate(${gp.x},${gp.y}) scale(${scale})`);
+      g.setAttribute('transform', `translate(${gp.x},${gp.y}) scale(${scale * depthAt(entry, gp)})`);
       g.setAttribute('opacity', '0.55');
       ghostLayer.appendChild(g);
     }
