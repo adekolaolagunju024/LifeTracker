@@ -98,7 +98,9 @@ try { conn.exec('ALTER TABLE challenge_messages ADD COLUMN attachmentId TEXT'); 
 // Asking for help on a blocker: a 'help' message points at the blocker
 // (refId) and is closed when it's cleared; offers ('offer') point at the
 // help message.
-for (const col of ['refId TEXT', 'closedAt TEXT']) {
+// A message about one task (a blocker, proof, a step handed over, or a
+// message sent from a task) carries its taskId, so the chat can open it.
+for (const col of ['refId TEXT', 'closedAt TEXT', 'taskId TEXT']) {
   try { conn.exec(`ALTER TABLE challenge_messages ADD COLUMN ${col}`); } catch { /* already there */ }
 }
 conn.exec(`
@@ -346,7 +348,7 @@ function standings(c, viewerId) {
     const you = m.userId === viewerId;
     return {
       // The organiser (a teacher) always sees real names; everyone else as the organiser chose.
-      userId: m.userId, name: you || organiser ? m.displayName : shownName(c, m), color: m.color, you,
+      userId: m.userId, name: you || organiser ? m.displayName : shownName(c, m), color: m.color, you, lead: m.userId === c.ownerId,
       done: p.done, total: p.total, frac: p.frac, finished: p.finished, finishedAt: p.finishedAt, joinedAt: m.joinedAt, left: p.left,
       pace: p.finished ? 'finished' : c.mode === 'split' && !p.total ? 'no steps yet' : gap >= 0.05 ? 'ahead' : gap >= -0.05 ? 'on pace' : 'behind',
       // steps ticked that don't count yet: waiting for proof or sign-off
@@ -397,6 +399,8 @@ function standings(c, viewerId) {
       : { finished: players.filter(p => p.finished).length, players: players.length, stepsPct: players.length ? Math.round((steps / (players.length * c.taskCount)) * 100) : 0, behind: players.filter(p => p.pace === 'behind').length },
     split,
     owner: organiser, joinToken: c.joinToken, joinCode: c.joinCode,
+    // Who runs it, as you see them: everyone can tell who to ask.
+    leaderName: organiser ? 'You' : authorOf(c, c.ownerId, viewerId).name.replace(/^(Coach|Trainer|Teacher|Manager|Team leader|Organiser|Leader) /, ''),
     lastNudgeAt: organiser ? c.lastNudgeAt : undefined,
     chat: chatSummary(c.id, viewerId),
     checks, yourSteps, reviews,
@@ -468,9 +472,9 @@ function nudgesSince(userId, since) {
 }
 // ── The race or group's chat ──────────────────────────────────────────
 const ord = n => `${n}${(n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'}`;
-function postMessage(cid, userId, text, kind = 'msg', toUserId = null, attachmentId = null, refId = null) {
-  const m = { id: crypto.randomUUID(), challengeId: cid, userId, kind, text, toUserId, attachmentId, refId, createdAt: new Date().toISOString() };
-  conn.prepare('INSERT INTO challenge_messages (id, challengeId, userId, kind, text, toUserId, attachmentId, refId, createdAt) VALUES (@id, @challengeId, @userId, @kind, @text, @toUserId, @attachmentId, @refId, @createdAt)').run(m);
+function postMessage(cid, userId, text, kind = 'msg', toUserId = null, attachmentId = null, refId = null, taskId = null) {
+  const m = { id: crypto.randomUUID(), challengeId: cid, userId, kind, text, toUserId, attachmentId, refId, taskId, createdAt: new Date().toISOString() };
+  conn.prepare('INSERT INTO challenge_messages (id, challengeId, userId, kind, text, toUserId, attachmentId, refId, taskId, createdAt) VALUES (@id, @challengeId, @userId, @kind, @text, @toUserId, @attachmentId, @refId, @taskId, @createdAt)').run(m);
   return m;
 }
 const postEvent = (cid, text, userId = null) => postMessage(cid, userId, text, 'event');
@@ -503,7 +507,7 @@ function announce(c, members, players, progress) {
 function authorOf(c, userId, viewerId) {
   if (!userId) return { name: 'Waypoint', color: '#64748B' };
   const m = memberRow(c.id, userId);
-  if (m) return { name: userId === viewerId ? 'You' : c.ownerId === viewerId ? m.displayName : shownName(c, m), color: m.color };
+  if (m) return { name: userId === viewerId ? 'You' : c.ownerId === viewerId ? m.displayName : shownName(c, m), color: m.color, leader: userId === c.ownerId && isGroup(c) };
   const prof = (db.getProfile(userId) || {}).name || 'The organiser';
   const ROLE = { coach: 'Coach', trainer: 'Trainer', teacher: 'Teacher', manager: 'Manager', leader: 'Team leader', organiser: 'Organiser' };
   return { name: userId === viewerId ? 'You' : isGroup(c) ? `${ROLE[c.leaderRole] || 'Leader'} ${prof}` : prof, color: '#0D1B2A', leader: true };
@@ -540,10 +544,15 @@ function messages(id, userId) {
   conn.prepare('INSERT INTO challenge_reads (challengeId, userId, readAt) VALUES (?,?,?) ON CONFLICT(challengeId, userId) DO UPDATE SET readAt = excluded.readAt').run(c.id, userId, now);
   return rows.map(m => {
     const a = authorOf(c, m.userId, userId);
+    // The task it's about: a link for whoever can open it (their own step),
+    // else its name, which the team's plan shows anyway.
+    const row = m.taskId ? conn.prepare('SELECT id, title, status FROM tasks WHERE id = ? AND deletedAt IS NULL').get(m.taskId) : null;
+    const task = row ? { id: db.getTaskById(userId, row.id) ? row.id : null, title: row.title, done: row.status === 'Completed' } : null;
     const offered = m.kind === 'help' ? conn.prepare("SELECT COUNT(*) AS n FROM challenge_messages WHERE kind = 'offer' AND refId = ?").get(m.id).n : 0;
     const youOffered = m.kind === 'help' && !!conn.prepare("SELECT 1 FROM challenge_messages WHERE kind = 'offer' AND refId = ? AND userId = ?").get(m.id, userId);
     return {
       id: m.id, kind: m.kind, text: m.kind === 'cheer' ? describe(c, m, userId) : m.text, author: a.name, color: a.color, leader: !!a.leader, you: m.userId === userId, toYou: m.toUserId === userId, file: fileInfo(fileOf(m.attachmentId)), createdAt: m.createdAt,
+      ...(task ? { task } : {}),
       ...(m.kind === 'help' ? { open: !m.closedAt, offers: offered, youOffered } : {}),
     };
   });
@@ -551,7 +560,13 @@ function messages(id, userId) {
 // A message: text and/or a photo or file you uploaded (to your own copy of
 // the goal, as a proof photo is). Anyone @mentioned by name hears about it:
 // a push now, and it's in their bell (activitySince).
-function say(id, userId, text, attachmentId = null) {
+function taskInReach(c, userId, taskId) {
+  const own = db.getTaskById(userId, taskId);
+  if (own) return own;
+  const row = conn.prepare('SELECT id, projectId FROM tasks WHERE id = ? AND deletedAt IS NULL').get(taskId);
+  return row && c.goalId && db.topLevelProjectId(row.projectId) === c.goalId ? row : null;
+}
+function say(id, userId, text, attachmentId = null, taskId = null) {
   const c = byId(id);
   if (!canChat(c, userId)) return null;
   const t = clean(text, 1000);
@@ -562,7 +577,11 @@ function say(id, userId, text, attachmentId = null) {
     fileId = a.id;
   }
   if (!t && !fileId) throw Object.assign(new Error('Write something first'), { status: 400 });
-  const m = postMessage(c.id, userId, t, 'msg', null, fileId);
+  // Sent from a task: one you can open, or a step of this team's goal
+  // (the one you're waiting on, someone else's).
+  const about = taskId ? taskInReach(c, userId, String(taskId)) : null;
+  if (taskId && !about) throw Object.assign(new Error('That task was not found'), { status: 404 });
+  const m = postMessage(c.id, userId, t, 'msg', null, fileId, null, about ? about.id : null);
   if (t.includes('@')) {
     const from = authorOf(c, userId, null).name;
     mentionedIn(c, t).filter(uid => uid !== userId).forEach(uid => pushTo(uid, { title: c.title, body: `${from} mentioned you: ${clean(t, 120)}`, url: '/app', tag: `mention-${c.id}` }));
@@ -697,7 +716,7 @@ function askHelp(id, userId, { obstacleId, note }) {
     throw Object.assign(new Error("You've already asked about this one. It's in the chat"), { status: 409 });
   }
   const why = clean(note, 300);
-  const msg = postMessage(c.id, userId, `Stuck on “${clean(o.name, 120)}” in “${clean(o.taskTitle, 120)}”${why ? `: ${why}` : ''}`, 'help', null, null, o.id);
+  const msg = postMessage(c.id, userId, `Stuck on “${clean(o.name, 120)}” in “${clean(o.taskTitle, 120)}”${why ? `: ${why}` : ''}`, 'help', null, null, o.id, o.taskId);
   // The leader hears about it straight away, where they've turned push on.
   if (c.ownerId !== userId) {
     try {
@@ -796,7 +815,7 @@ function submitProof(id, userId, { taskId, text, attachmentId }) {
     ON CONFLICT(challengeId, userId, taskId) DO UPDATE SET proofText = excluded.proofText, attachmentId = excluded.attachmentId, status = 'submitted', note = NULL, createdAt = excluded.createdAt, decidedAt = NULL`)
     .run(c.id, userId, t.id, note || null, file ? file.id : null, now);
   if (c.checks === 'leader' && c.ownerId !== userId) pushTo(c.ownerId, { title: c.title, body: `${m.displayName} sent proof for “${clean(t.title, 80)}”. It's waiting for your sign-off`, url: '/app', tag: `proof-${c.id}` });
-  return postMessage(c.id, userId, `Proof for “${clean(t.title, 120)}”${note ? `: ${note}` : ''}`, 'proof', null, file ? file.id : null);
+  return postMessage(c.id, userId, `Proof for “${clean(t.title, 120)}”${note ? `: ${note}` : ''}`, 'proof', null, file ? file.id : null, null, t.id);
 }
 // The leader approves a step (or every waiting step of one player, with
 // taskId 'all') or sends it back with a note. Sending back goes in the
@@ -823,7 +842,7 @@ function review(id, userId, { color, taskId, decision, note }) {
       .run(c.id, m.userId, t.id, decision === 'approve' ? 'approved' : 'rejected', decision === 'reject' ? why || null : null, now, now);
     n++;
     if (decision === 'reject') {
-      postMessage(c.id, userId, `Sent back “${clean(t.title, 120)}” for ${shownName(c, m)}${why ? `: ${why}` : ''}`, 'review', m.userId);
+      postMessage(c.id, userId, `Sent back “${clean(t.title, 120)}” for ${shownName(c, m)}${why ? `: ${why}` : ''}`, 'review', m.userId, null, null, t.id);
       pushTo(m.userId, { title: c.title, body: `Sent back: “${clean(t.title, 80)}”${why ? `. ${why}` : ''}`, url: '/app', tag: `review-${c.id}-${t.id}` });
     }
   });
@@ -898,7 +917,7 @@ function assignStep(id, userId, { taskId, color }) {
   }
   setAssignee(c, t, m ? m.userId : null);
   if (m && m.userId !== userId) {
-    postMessage(c.id, userId, `“${clean(t.title, 120)}” is yours, ${shownName(c, m)}`, 'event', m.userId);
+    postMessage(c.id, userId, `“${clean(t.title, 120)}” is yours, ${shownName(c, m)}`, 'event', m.userId, null, null, t.id);
     pushTo(m.userId, { title: c.title, body: `You've been given “${clean(t.title, 80)}”`, url: '/app', tag: `assign-${t.id}` });
   }
   return true;
@@ -956,7 +975,7 @@ function splitHandoff(userId, task) {
       WHERE d.taskId = ? AND p.deletedAt IS NULL AND p.status != 'Completed'`).get(t.id).n;
     const m = memberRow(c.id, t.assigneeId);
     if (waiting || !m) return;
-    postMessage(c.id, userId, `Your turn, ${shownName(c, m)}: “${clean(task.title, 100)}” is done, so “${clean(t.title, 100)}” can start`, 'event', m.userId);
+    postMessage(c.id, userId, `Your turn, ${shownName(c, m)}: “${clean(task.title, 100)}” is done, so “${clean(t.title, 100)}” can start`, 'event', m.userId, null, null, t.id);
     pushTo(m.userId, { title: c.title, body: `Your turn: ${doneBy ? shownName(c, doneBy) : 'someone'} finished “${clean(task.title, 60)}”, so “${clean(t.title, 60)}” can start`, url: '/app', tag: `turn-${t.id}` });
     n++;
   });

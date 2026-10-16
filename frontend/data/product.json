@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "Know who leads, and jump to the task",
+      "text": "In a team, everyone can see who runs it: \"led by\" on the Teams list, and a crown badge with their role on the team page and on their chat messages. Messages about a step (someone stuck, proof, a step handed to you) now show it as a chip you can tap to open. And Chat on a step you're waiting on sends a message linked to that step, with its owner @mentioned."
+    },
+    {
+      "date": "2026-10-16",
       "title": "Your day, by morning, afternoon and evening",
       "text": "Your focus on the dashboard now has My day: today's tasks laid out as Morning, Afternoon and Evening & night, with the part you're in marked Now. Planned and reminded tasks find their place by time; anything else you can put where it fits. And pick one goal to see only its tasks for today."
     },

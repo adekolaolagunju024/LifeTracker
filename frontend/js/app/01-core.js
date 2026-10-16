@@ -521,12 +521,14 @@ async function nudgeWaitingOn(taskId, predecessorId, btn) {
     showToast(e.message || 'Could not nudge them', 'warn');
   }
 }
-async function chatAboutTask(projectId) {
+// From a task: the team chat, with the message linked to the task (the
+// step you're waiting on) and its owner @named.
+async function chatAboutTask(projectId, about = null) {
   let top = projectId;
   try { const p = await API.getProject(projectId); top = p.parentId || p.id; } catch { /* use what we have */ }
   let team = null;
   try { team = await API.getRaceForProject(top); } catch { /* no team */ }
-  if (team && window.Race) Race.openChat(team.id); else openProjectChat(top);
+  if (team && window.Race) Race.openChat(team.id, about); else openProjectChat(top);
 }
 function closeGateCard() {
   const el = document.getElementById('gate-card');
@@ -554,7 +556,7 @@ function paintGateCard() {
       const theirs = p.assigneeId && p.assigneeId !== APP.currentUserId;
       const state = esc({ 'Not Started': 'To do', 'In Progress': 'Doing' }[p.status] || p.status || '');
       return `<li><span class="gate-li-ic">${icon('link')}</span><span class="gate-li-name">${esc(p.title)}<small>${theirs ? `${esc(p.assigneeName)} has it · ${state}` : p.assigneeId ? `Yours · ${state}` : `No one has it yet · ${state}`}</small></span>
-      ${theirs ? `<span class="gate-li-acts"><button type="button" class="gate-mini" onclick="nudgeWaitingOn('${t.id}','${p.id}', this)">${icon('bell', 'tiny')}Nudge</button><button type="button" class="gate-mini" onclick="closeGateCard(); chatAboutTask('${t.projectId}')">${icon('chat', 'tiny')}Chat</button></span>`
+      ${theirs ? `<span class="gate-li-acts"><button type="button" class="gate-mini" onclick="nudgeWaitingOn('${t.id}','${p.id}', this)">${icon('bell', 'tiny')}Nudge</button><button type="button" class="gate-mini" data-about="${esc(JSON.stringify({ taskId: p.id, title: p.title, to: p.assigneeName || '' }))}" onclick="closeGateCard(); chatAboutTask('${t.projectId}', JSON.parse(this.dataset.about))">${icon('chat', 'tiny')}Chat</button></span>`
         : `<button type="button" class="gate-mini" onclick="closeGateCard(); openTaskDetail('${p.id}')">Open</button>`}</li>`;
     }).join('');
     actions = `<button type="button" class="gate-secondary" onclick="closeGateCard()">Got it</button>`;

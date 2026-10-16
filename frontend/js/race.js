@@ -297,7 +297,7 @@ const Race = (() => {
       // a finished one has its own clear button beside the card
       return `<div class="ch-card-row${c.doneForYou ? ' done' : ''}"><button type="button" class="ch-card" onclick="Race.openDetail('${c.id}')">
         <span class="ch-ic">${esc(c.icon || '🏁')}</span>
-        <span class="ch-main"><b>${esc(c.title)}</b><small>${kindOf(c)}${isGrp(c) && c.owner ? ' · you lead' : ''} · ${c.over ? 'ended' : c.doneForYou ? 'finished' : `finish by ${esc(when(c.endsAt))}`}</small></span>
+        <span class="ch-main"><b>${esc(c.title)}</b><small>${kindOf(c)}${isGrp(c) ? (c.owner ? ' · you lead' : c.leaderName ? ` · led by ${esc(c.leaderName)}` : '') : ''} · ${c.over ? 'ended' : c.doneForYou ? 'finished' : `finish by ${esc(when(c.endsAt))}`}</small></span>
         <span class="ch-line">${line}</span>${unreadBadge(c)}${icon('chevron_right', 'tiny')}</button>
         ${c.doneForYou ? `<button type="button" class="ch-clear" onclick="Race.clearFromList(['${c.id}'])" aria-label="Clear ${esc(c.title)} from your list" title="Clear from your list">${icon('close', 'tiny')}</button>` : ''}</div>`;
     };
@@ -327,7 +327,7 @@ const Race = (() => {
     const pct = c.group.players ? Math.round((c.group.finished / c.group.players) * 100) : 0;
     box.innerHTML = `<button type="button" class="ch-back" onclick="Race.backToList()">${icon('back', 'tiny')}All teams</button>
       <div class="ch-head"><span class="ch-ic big">${esc(c.icon || '🏁')}</span><div class="min-w-0"><h3>${esc(c.title)}</h3>
-        <p>${kindOf(c)}${together && c.owner ? ` · you're the ${roleOf(c).label.toLowerCase()}` : ''}${c.checks && c.checks !== 'none' ? ` · ${esc(checksLabel(c))}` : ''} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}${c.stake ? ` · <span class="race-strip-stake">${esc(c.stake)}</span>` : ''}</p></div></div>
+        <p>${kindOf(c)}${together ? (c.owner ? ` · you're the ${roleOf(c).label.toLowerCase()}` : c.leaderName ? ` · ${leadBadge(c)} ${esc(c.leaderName)}` : '') : ''}${c.checks && c.checks !== 'none' ? ` · ${esc(checksLabel(c))}` : ''} · ${c.over ? 'ended' : `finish by ${esc(when(c.endsAt))}`}${c.stake ? ` · <span class="race-strip-stake">${esc(c.stake)}</span>` : ''}</p></div></div>
       <div class="ch-actions">
         <button type="button" onclick="Race.openChat('${c.id}')">${icon('message-circle', 'tiny')}Chat${unreadBadge(c)}</button>
         <button type="button" onclick="Race.inviteFor('${c.id}')">${icon('user-plus', 'tiny')}Invite · <b>${esc(c.joinCode.replace(/(...)(...)/, '$1 $2'))}</b></button>
@@ -342,7 +342,7 @@ const Race = (() => {
       ${c.mode === 'split' ? splitHtml(c) : ''}${reviewsHtml(c)}${yourStepsHtml(c)}
       ${c.players.length ? `<div class="ch-table-wrap"><table class="ch-table"><thead><tr><th>${together ? '' : '#'}</th><th>Name</th><th>Steps</th><th>Pace</th>${c.owner ? '<th>Last step</th>' : ''}</tr></thead>
         <tbody>${c.players.map((p, i) => `<tr class="${p.you ? 'you' : ''}"><td class="pos">${together ? '' : p.place ? placeHtml(p.place) : i + 1}</td>
-          <td><span class="dot" style="background:${esc(p.color)}"></span>${p.you ? 'You' : `<button type="button" class="rc-cheer" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.cheerIn('${c.id}', this)" title="Cheer ${esc(p.name)} on" aria-label="Cheer ${esc(p.name)} on">${esc(p.name)}</button>`}${p.stuck ? ` <button type="button" class="stuck-chip" onclick="Race.openChat('${c.id}')" title="${p.you ? 'You asked' : `${esc(p.name)} asked`} for help on a blocker. Open the chat">${icon('hand', 'tiny')}stuck</button>` : ''}</td>
+          <td><span class="dot" style="background:${esc(p.color)}"></span>${p.you ? 'You' : `<button type="button" class="rc-cheer" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.cheerIn('${c.id}', this)" title="Cheer ${esc(p.name)} on" aria-label="Cheer ${esc(p.name)} on">${esc(p.name)}</button>`}${p.lead && together ? ` ${leadBadge(c)}` : ''}${p.stuck ? ` <button type="button" class="stuck-chip" onclick="Race.openChat('${c.id}')" title="${p.you ? 'You asked' : `${esc(p.name)} asked`} for help on a blocker. Open the chat">${icon('hand', 'tiny')}stuck</button>` : ''}</td>
           <td><span class="ch-steps"><i style="width:${Math.round(p.frac * 100)}%"></i></span><span class="num">${p.done}/${p.total}</span>${p.pending ? `<span class="ch-pending" title="${p.pending} ticked, waiting to count">+${p.pending}</span>` : ''}</td>
           <td><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></td>
           ${c.owner ? `<td class="ago">${esc(ago(p.lastStepAt))}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
@@ -447,13 +447,27 @@ const Race = (() => {
   let chatPoll = null;
   const unreadBadge = c => (c && c.chat && c.chat.unread ? `<span class="rc-unread" aria-label="${c.chat.unread} unread">${c.chat.unread > 9 ? '9+' : c.chat.unread}</span>` : '');
   const chatTime = iso => { const d = new Date(iso); return d.toDateString() === new Date().toDateString() ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
-  async function openChat(id) {
+  // The leader's role as a small badge, wherever their name shows.
+  const leadBadge = c => `<span class="rc-lead" title="Runs this ${esc(kindOf(c).toLowerCase())}">${icon('crown', 'tiny')}${esc(roleOf(c).label)}</span>`;
+  // A message about a task: tap to open it (your own step), or the team
+  // page to see who has it.
+  const taskChip = (cid, tk) => `<button type="button" class="rc-task${tk.done ? ' done' : ''}" onclick="Race.openFromChat('${cid}', ${tk.id ? `'${tk.id}'` : 'null'})" title="${tk.id ? 'Open this task' : 'See who has it on the team page'}">${icon(tk.done ? 'check' : 'list-checks', 'tiny')}<span>${esc(tk.title)}</span>${icon('chevron_right', 'tiny')}</button>`;
+  function openFromChat(cid, taskId) {
+    clearInterval(chatPoll);
+    close();
+    if (taskId) openTaskDetail(taskId);
+    else openTeam(cid);
+  }
+  // about: { taskId, title, to } when opened from a task (Chat on a step
+  // you're waiting on): the message carries the task, and @names its owner.
+  async function openChat(id, about = null) {
     let r;
     try { r = await API.getRace(id); } catch (err) { showToast(err.message || 'Could not open the chat', 'error'); return; }
     const me = r.players.find(p => p.you);
     const form = dialog(`${head(r.title, 'message-circle')}
-      <p class="fb-note rc-sub">${esc(kindOf(r))} · ${r.players.length} ${r.players.length === 1 ? 'person' : 'people'}${!isGrp(r) ? ' · tap a name on the scoreboard to cheer them on' : ''}</p>
+      <p class="fb-note rc-sub">${esc(kindOf(r))} · ${r.players.length} ${r.players.length === 1 ? 'person' : 'people'}${isGrp(r) && r.leaderName ? ` · ${leadBadge(r)} ${esc(r.leaderName)}` : ''}${!isGrp(r) ? ' · tap a name on the scoreboard to cheer them on' : ''}</p>
       <div class="rc-list" id="rc-list" role="log" aria-live="polite" aria-label="Messages"><p class="rc-empty">Loading…</p></div>
+      ${about ? `<div class="rc-about" id="rc-about"><span>${icon('link', 'tiny')}About <b>${esc(about.title)}</b></span><button type="button" id="rc-about-x" aria-label="Don't link the task">${icon('close', 'tiny')}</button></div>` : ''}
       <div class="rc-file hidden" id="rc-file"><span>${icon('paperclip', 'tiny')}<b id="rc-file-name"></b></span><button type="button" id="rc-file-x" aria-label="Remove the file">${icon('close', 'tiny')}</button></div>
       <div class="rc-picks hidden" id="rc-picks" role="listbox" aria-label="Mention someone"></div>
       <div class="rc-emojis hidden" id="rc-emojis" role="group" aria-label="Emojis">${EMOJIS.map(e => `<button type="button" aria-label="${e}">${e}</button>`).join('')}</div>
@@ -462,7 +476,10 @@ const Race = (() => {
     const list = form.querySelector('#rc-list');
     const input = form.querySelector('#rc-text');
     // @mentions: the names people see in this team (not yourself).
-    const people = r.players.filter(p => !p.you).map(p => p.name).concat(r.owner || !r.leaderName ? [] : [r.leaderName]);
+    const people = r.players.filter(p => !p.you).map(p => p.name).concat(r.owner || !r.leaderName || r.players.some(p => p.lead) ? [] : [r.leaderName]);
+    let aboutId = about ? about.taskId : null;
+    form.querySelector('#rc-about-x')?.addEventListener('click', () => { aboutId = null; form.querySelector('#rc-about').remove(); });
+    if (about && about.to) input.value = `@${about.to} `;
     const picks = form.querySelector('#rc-picks');
     const showPicks = () => {
       const m = input.value.slice(0, input.selectionStart).match(/@([^@\s][^@]{0,30})?$/);
@@ -513,11 +530,11 @@ const Race = (() => {
       lastKey = key;
       const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
       list.innerHTML = msgs.length ? msgs.map(m => m.kind === 'help'
-        ? `<div class="rc-help${m.open ? '' : ' done'}${m.you ? ' you' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${icon('hand', 'tiny')} ${esc(m.author)} ${m.open ? 'asks for help' : 'asked for help'}</span><p>${esc(m.text)}</p>
+        ? `<div class="rc-help${m.open ? '' : ' done'}${m.you ? ' you' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${icon('hand', 'tiny')} ${esc(m.author)} ${m.open ? 'asks for help' : 'asked for help'}</span><p>${esc(m.text)}</p>${m.task ? taskChip(id, m.task) : ''}
             <div class="rc-help-foot">${!m.open ? `<span class="rc-help-ok">${icon('check', 'tiny')}Sorted</span>` : m.you ? `<span>${m.offers ? `${m.offers} offered to help` : 'Waiting for a reply'}</span>` : m.youOffered ? `<span>${icon('check', 'tiny')}You offered</span>` : `<button type="button" onclick="Race.offerHelp('${id}', '${m.id}', this)">${icon('hand', 'tiny')}I can help</button>${m.offers ? `<span>${m.offers} offered</span>` : ''}`}<time>${esc(chatTime(m.createdAt))}</time></div></div>`
         : ['msg', 'nudge', 'proof', 'review', 'offer'].includes(m.kind)
-        ? `<div class="rc-msg${m.you ? ' you' : ''}${m.kind === 'msg' ? '' : ` ${m.kind}`}${m.toYou ? ' to-you' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${m.kind === 'nudge' ? `${icon('bell', 'tiny')} ` : m.kind === 'proof' ? `${icon('camera', 'tiny')} ` : m.kind === 'review' ? `${icon('undo', 'tiny')} ` : ''}${esc(m.author)}</span>${m.text ? `<p>${withMentions(m.text, people)}</p>` : ''}${proofThumb(id, m.file)}<time>${esc(chatTime(m.createdAt))}</time></div>`
-        : `<div class="rc-event${m.kind === 'cheer' ? ' cheer' : ''}"><span>${esc(m.text)}</span><time>${esc(chatTime(m.createdAt))}</time></div>`).join('')
+        ? `<div class="rc-msg${m.you ? ' you' : ''}${m.kind === 'msg' ? '' : ` ${m.kind}`}${m.toYou ? ' to-you' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${m.kind === 'nudge' ? `${icon('bell', 'tiny')} ` : m.kind === 'proof' ? `${icon('camera', 'tiny')} ` : m.kind === 'review' ? `${icon('undo', 'tiny')} ` : ''}${esc(m.author)}${m.leader && isGrp(r) ? ` ${leadBadge(r)}` : ''}</span>${m.text ? `<p>${withMentions(m.text, people)}</p>` : ''}${proofThumb(id, m.file)}${m.task ? taskChip(id, m.task) : ''}<time>${esc(chatTime(m.createdAt))}</time></div>`
+        : `<div class="rc-event${m.kind === 'cheer' ? ' cheer' : ''}"><span>${esc(m.text)}</span>${m.task && m.task.id ? taskChip(id, m.task) : ''}<time>${esc(chatTime(m.createdAt))}</time></div>`).join('')
         : '<p class="rc-empty">No messages yet. Say hello, or wish everyone luck.</p>';
       if (atBottom || !lastKey.includes(',')) list.scrollTop = list.scrollHeight;
     };
@@ -535,10 +552,11 @@ const Race = (() => {
       let attachmentId = null;
       try {
         if (file) attachmentId = (await API.uploadAttachment(me.projectId, file)).id;
-        await API.sayInRace(id, text, attachmentId);
+        await API.sayInRace(id, text, attachmentId, aboutId);
       } catch (err) { send.disabled = false; showToast(err.message || 'Could not send it', 'error'); return; }
       send.disabled = false;
       input.value = '';
+      aboutId = null; form.querySelector('#rc-about')?.remove();
       file = null; if (upload) upload.value = ''; fileBox.classList.add('hidden');
       emojis.classList.add('hidden'); picks.classList.add('hidden');
       await draw();
@@ -1079,6 +1097,6 @@ const Race = (() => {
     });
   }
 
-  return { planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;

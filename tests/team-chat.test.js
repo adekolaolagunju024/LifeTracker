@@ -52,3 +52,47 @@ test('team chat: share a photo, @mention someone (it lands in their bell), and e
   // An empty message still isn't one.
   assert.equal((await call(sam, 'POST', `/api/challenges/${team.id}/messages`, { text: '   ' })).status, 400);
 });
+
+test('team chat: everyone can see who leads, and a message about a task links to it for whoever can open it', async () => {
+  const sam = await signUp();
+  const ana = await signUp();
+  const outsider = await signUp();
+  const goal = await json(sam, 'POST', '/api/projects', { title: 'Wedding', isGoal: true });
+  const venue = await json(sam, 'POST', '/api/tasks', { projectId: goal.id, title: 'Book the venue', status: 'Not Started', priority: 'Medium' });
+  const invites = await json(sam, 'POST', '/api/tasks', { projectId: goal.id, title: 'Send invitations', status: 'Not Started', priority: 'Medium' });
+  const team = await json(sam, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(14), mode: 'split', leaderRole: 'manager', displayName: 'Sam' });
+  await json(ana, 'POST', `/api/challenges/join/${team.joinToken}`, { displayName: 'Ana' });
+
+  // Ana sees who runs it, on the team and in the list.
+  const seen = await json(ana, 'GET', `/api/challenges/${team.id}`);
+  assert.equal(seen.leaderName, 'Sam');
+  assert.ok(seen.players.some(p => p.lead && p.name === 'Sam'), 'the leader is marked among the players');
+  assert.ok(!seen.players.find(p => p.you).lead);
+  assert.equal((await json(sam, 'GET', `/api/challenges/${team.id}`)).leaderName, 'You');
+
+  // Sam hands Ana a step: the line in the chat opens it for Ana.
+  const anaColor = seen.players.find(p => p.you).color;
+  assert.equal((await call(sam, 'POST', `/api/challenges/${team.id}/assign`, { taskId: invites.id, color: anaColor })).status, 200);
+  let msgs = await json(ana, 'GET', `/api/challenges/${team.id}/messages`);
+  const handed = msgs.find(m => m.task && m.task.title === 'Send invitations');
+  assert.ok(handed, JSON.stringify(msgs));
+  assert.equal(handed.task.id, invites.id, 'Ana can open her own step from the chat');
+  // Sam's messages carry the leader mark.
+  await call(sam, 'POST', `/api/challenges/${team.id}/messages`, { text: 'Thanks all' });
+  msgs = await json(ana, 'GET', `/api/challenges/${team.id}/messages`);
+  assert.ok(msgs.find(m => m.text === 'Thanks all').leader);
+
+  // Ana asks about Sam's step (the one she waits on): it's linked, Sam can
+  // open it, Ana sees its name only.
+  await call(sam, 'POST', `/api/challenges/${team.id}/claim`, { taskId: venue.id });
+  assert.equal((await call(ana, 'POST', `/api/challenges/${team.id}/messages`, { text: '@Sam how is the venue going?', taskId: venue.id })).status, 201);
+  const forSam = (await json(sam, 'GET', `/api/challenges/${team.id}/messages`)).find(m => m.text === '@Sam how is the venue going?');
+  assert.deepEqual(forSam.task, { id: venue.id, title: 'Book the venue', done: false });
+  const forAna = (await json(ana, 'GET', `/api/challenges/${team.id}/messages`)).find(m => m.text === '@Sam how is the venue going?');
+  assert.equal(forAna.task.id, null);
+  assert.equal(forAna.task.title, 'Book the venue');
+  // A task from outside the team can't be attached.
+  const other = await json(outsider, 'POST', '/api/projects', { title: 'Mine', isGoal: true });
+  const theirs = await json(outsider, 'POST', '/api/tasks', { projectId: other.id, title: 'Secret', status: 'Not Started', priority: 'Medium' });
+  assert.equal((await call(ana, 'POST', `/api/challenges/${team.id}/messages`, { text: 'hi', taskId: theirs.id })).status, 404);
+});
