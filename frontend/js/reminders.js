@@ -88,6 +88,17 @@ const Reminders = (() => {
     soundHandle = null;
   }
 
+  // The calm screen's picture: the stage they play on, unless the game
+  // layer is off (Focus mode).
+  function calmArt() {
+    if (document.documentElement.classList.contains('focus-mode') || typeof getJourneyStage !== 'function') return '';
+    return `<div class="calm-art" aria-hidden="true" style="background-image:url('/showcase/stage-${esc(getJourneyStage())}.webp')"></div>`;
+  }
+  function encouragement() {
+    const name = ((typeof APP !== 'undefined' && APP.profile && APP.profile.name) || '').trim();
+    const first = name && name !== 'Your Name' ? name.split(' ')[0] : '';
+    return `You can do it${first ? `, ${first}` : ''}`;
+  }
   async function ring(r) {
     shown.add(`${r.id}:${r.remindAt}:${r.fireCount}`);
     current = r;
@@ -103,9 +114,11 @@ const Reminders = (() => {
     el.setAttribute('aria-modal', 'true');
     el.setAttribute('aria-labelledby', 'alarm-title');
     el.innerHTML = `
+      ${calmArt()}
       <div class="alarm-card">
-        <div class="alarm-bell" aria-hidden="true">${icon('alarm')}</div>
-        <p class="alarm-kicker">${r.fireCount > 0 ? 'Still waiting on you' : "It's time"} · ${esc(fmt(r.remindAt))}</p>
+        <p class="alarm-kicker"><span class="alarm-bell" aria-hidden="true">${icon('alarm')}</span>${r.fireCount > 0 ? 'Still waiting on you' : "It's time"}</p>
+        <p class="alarm-clock">${esc(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</p>
+        <p class="calm-script">${esc(encouragement())}</p>
         <h2 class="alarm-title" id="alarm-title">${esc(r.taskTitle || (task && task.title) || 'Your task')}</h2>
         <p class="alarm-sub">Put the scrolling down for two minutes. Starting is the hard part.</p>
         ${blockers.length ? `<div class="alarm-blockers"><p>${icon('blocker')} Blocked by ${blockers.length === 1 ? 'this' : 'these'}. Clear ${blockers.length === 1 ? 'it' : 'them'} first:</p><ul>${blockers.map(b => `<li>${esc(b.name)}${(b.count || 1) > 1 ? ` ×${b.count}` : ''}</li>`).join('')}</ul></div>` : ''}

@@ -1,4 +1,4 @@
-/* global API, APP, esc, icon, DayRoad, showToast, showPage, openTaskDetail, Why, Music, localDateKey, openAssistant, toggleAssistantListening, Reminders, taskGateMessage, taskErrorToast, showGateCard, Sfx, clockText, clockIs24, setClock24 */
+/* global getJourneyStage, API, APP, esc, icon, DayRoad, showToast, showPage, openTaskDetail, Why, Music, localDateKey, openAssistant, toggleAssistantListening, Reminders, taskGateMessage, taskErrorToast, showGateCard, Sfx, clockText, clockIs24, setClock24 */
 // ── YOUR PERSONAL ASSISTANT ─────────────────────────────────────
 // The assistant as a personal assistant, not only a chat window: it briefs
 // you each morning, acts around the app when you ask (backend/ai/day.js),
@@ -179,7 +179,7 @@ const Jarvis = (() => {
     const total = Math.min(240, Math.max(5, minutes)) * 60000;
     // A new session keeps the size they last chose for the timer.
     const prev = store.get('wp-focus-view') || {};
-    focus = { taskId, title, total, ends: Date.now() + total, paused: null, isBreak, min: !!prev.min };
+    focus = { taskId, title, total, ends: Date.now() + total, paused: null, isBreak, min: !!prev.min, full: !!store.get('wp-focus-full') };
     store.set('wp-focus', focus);
     if (music && window.Why && !(window.Music && Music.isPlaying() && !Music.isPaused())) Why.playMusic().catch?.(() => {});
     paintFocus();
@@ -192,6 +192,7 @@ const Jarvis = (() => {
     focus = null;
     store.set('wp-focus', null);
     document.getElementById('focus-hud')?.remove();
+    document.getElementById('focus-full')?.remove();
     if (window.TopDock) TopDock.set('focus', null);
     if (window.Music && Music.tuck) Music.tuck(false); // the player comes back as it was
     if (!silent) showToast('Focus session ended');
@@ -287,6 +288,15 @@ const Jarvis = (() => {
       if (ring) ring.style.strokeDashoffset = String(113.1 * (1 - pct));
       const t = hud.querySelector('.focus-time');
       if (t) t.textContent = fmt(left);
+      const full = document.getElementById('focus-full');
+      if (full) {
+        const arc = full.querySelector('.ff-arc');
+        if (arc) arc.style.strokeDashoffset = String(FF_LEN * (1 - pct));
+        const knob = full.querySelector('.ff-knob');
+        if (knob) { const a = -Math.PI / 2 + pct * 2 * Math.PI; knob.setAttribute('cx', (110 + 100 * Math.cos(a)).toFixed(1)); knob.setAttribute('cy', (110 + 100 * Math.sin(a)).toFixed(1)); }
+        const ft = full.querySelector('.ff-time');
+        if (ft) ft.textContent = fmt(left);
+      }
       if (focus.hidden && window.TopDock) TopDock.set('focus', `<button type="button" onclick="Jarvis.showTimer()" title="${esc(focus.title || 'Focus')}. Show the timer" aria-label="Show the focus timer, ${fmt(left)} left">${icon(focus.paused != null ? 'pause' : 'timer')}${fmt(left)}</button>`);
     };
     // Today's road in full view, a tap away from the timer. The panel only
@@ -312,12 +322,14 @@ const Jarvis = (() => {
       <span class="focus-time">${fmt(focus.paused != null ? focus.paused : focus.ends - Date.now())}</span>
       ${min ? `${roadBtn}<button type="button" class="focus-btn" onclick="Jarvis.toggleMin()" aria-label="Show the focus timer" title="Show">${icon('maximize-2')}</button>
       <button type="button" class="focus-btn" onclick="Jarvis.hideTimer()" aria-label="Hide the timer. It keeps counting and comes back when time is up" title="Hide (keeps counting)">${icon('eye-off')}</button>` : `
-      ${roadBtn}<button type="button" class="focus-btn" onclick="Jarvis.togglePause()" aria-label="${focus.paused != null ? 'Resume' : 'Pause'}">${icon(focus.paused != null ? 'play' : 'pause')}</button>
+      ${roadBtn}<button type="button" class="focus-btn" onclick="Jarvis.fullOpen()" aria-label="Full screen focus" title="Full screen">${icon('expand')}</button>
+      <button type="button" class="focus-btn" onclick="Jarvis.togglePause()" aria-label="${focus.paused != null ? 'Resume' : 'Pause'}">${icon(focus.paused != null ? 'play' : 'pause')}</button>
       <button type="button" class="focus-btn" onclick="Jarvis.toggleMin()" aria-label="Minimise the focus timer" title="Minimise (keeps counting)">${icon('minimize-2')}</button>
       <button type="button" class="focus-btn focus-hide-btn" onclick="Jarvis.hideTimer()" aria-label="Hide the timer. It keeps counting" title="Hide (keeps counting)">${icon('eye-off')}</button>
       <button type="button" class="focus-btn" onclick="Jarvis.stopFocus()" aria-label="End focus session">${icon('close')}</button>`}</div>
       ${extra ? `<div class="focus-extra"><div data-dayroad="panel" class="hidden"></div><div class="focus-music" id="focus-music">${musicHTML()}</div></div>` : ''}`;
     if (window.DayRoad) DayRoad.render();
+    paintFull();
     // The task's action (js/taskActions.js), e.g. "Send email", right here.
     if (focus.taskId && !min && window.TaskActions) {
       const id = focus.taskId;
@@ -330,6 +342,74 @@ const Jarvis = (() => {
     }
   }
 
+  // ── Full-screen focus ──
+  // The timer as a calm screen of its own: a big dial with the time, a line
+  // from their own why in handwriting, their music, and the stage they play
+  // on at the bottom (none in Focus mode). Chosen once, it opens like this
+  // for every session until they shrink it again.
+  const FF_LEN = 2 * Math.PI * 100;
+  function fullOpen() {
+    if (!focus) return;
+    focus.full = true; focus.hidden = false; focus.min = false;
+    store.set('wp-focus-full', true); save(); paintFocus();
+  }
+  function fullClose() {
+    if (!focus) return;
+    focus.full = false; store.set('wp-focus-full', false); save();
+    document.getElementById('focus-full')?.remove();
+    paintFocus();
+  }
+  function paintFull() {
+    const hud = document.getElementById('focus-hud');
+    const on = focus && focus.full && !focus.hidden;
+    if (hud) hud.classList.toggle('under-full', !!on);
+    if (!on) { document.getElementById('focus-full')?.remove(); return; }
+    let el = document.getElementById('focus-full');
+    const fresh = !el;
+    if (fresh) {
+      el = document.createElement('div');
+      el.id = 'focus-full';
+      el.setAttribute('role', 'timer');
+      el.addEventListener('keydown', e => { if (e.key === 'Escape') fullClose(); if (e.key === ' ' && e.target === el) { e.preventDefault(); togglePause(); } });
+      el.tabIndex = -1;
+      document.body.appendChild(el);
+    }
+    const game = !document.documentElement.classList.contains('focus-mode');
+    const stage = typeof getJourneyStage === 'function' ? getJourneyStage() : 'football';
+    const name = ((APP.profile && APP.profile.name) || '').trim();
+    const first = name && name !== 'Your Name' ? name.split(' ')[0] : '';
+    const line = (window.Why && Why.scriptLine && Why.scriptLine()) || (focus.isBreak ? 'Breathe. You earned this.' : `You can do it${first ? `, ${first}` : ''}`);
+    const left = focus.paused != null ? focus.paused : focus.ends - Date.now();
+    const pct = 1 - Math.max(0, left) / focus.total;
+    const a = -Math.PI / 2 + pct * 2 * Math.PI;
+    const ticks = Array.from({ length: 60 }, (_, i) => {
+      const t = (i / 60) * 2 * Math.PI, r1 = i % 5 ? 88 : 84, r2 = 92;
+      return `<line x1="${(110 + r1 * Math.sin(t)).toFixed(1)}" y1="${(110 - r1 * Math.cos(t)).toFixed(1)}" x2="${(110 + r2 * Math.sin(t)).toFixed(1)}" y2="${(110 - r2 * Math.cos(t)).toFixed(1)}"${i % 5 ? '' : ' class="maj"'}/>`;
+    }).join('');
+    el.className = `focus-full${game ? ' has-art' : ''}${focus.isBreak ? ' is-break' : ''}${focus.done ? ' is-done' : ''}${focus.paused != null ? ' is-paused' : ''}`;
+    el.innerHTML = `${game ? `<div class="ff-art" style="background-image:url('/showcase/stage-${esc(stage)}.webp')" aria-hidden="true"></div>` : ''}
+      <div class="ff-top"><span class="ff-kicker">${focus.isBreak ? 'Break' : focus.paused != null ? 'Paused' : 'Focusing'}</span>
+        <button type="button" class="ff-close" onclick="Jarvis.fullClose()" aria-label="Shrink the timer back to the bar" title="Shrink (keeps counting)">${icon('minimize-2')}</button></div>
+      <p class="ff-script">${esc(line)}</p>
+      ${focus.done ? `<div class="ff-done">${doneHTML()}</div>` : `
+      <div class="ff-dial">
+        <svg viewBox="0 0 220 220" aria-hidden="true"><circle class="ff-face" cx="110" cy="110" r="100"/><g class="ff-ticks">${ticks}</g>
+          <circle class="ff-arc" cx="110" cy="110" r="100" stroke-dasharray="${FF_LEN.toFixed(1)}" stroke-dashoffset="${(FF_LEN * (1 - pct)).toFixed(1)}" transform="rotate(-90 110 110)"/>
+          <circle class="ff-knob" r="6" cx="${(110 + 100 * Math.cos(a)).toFixed(1)}" cy="${(110 + 100 * Math.sin(a)).toFixed(1)}"/></svg>
+        <div class="ff-center">
+          <span class="ff-time" aria-live="off">${fmt(left)}</span>
+          <span class="ff-task" ${focus.taskId ? `role="button" tabindex="0" onclick="Jarvis.fullClose(); openTaskDetail('${focus.taskId}')"` : ''}>${esc(focus.title || (focus.isBreak ? 'Rest your eyes' : 'Deep work'))}</span>
+          <button type="button" class="ff-play" onclick="Jarvis.togglePause()" aria-label="${focus.paused != null ? 'Resume' : 'Pause'}">${icon(focus.paused != null ? 'play' : 'pause')}</button>
+        </div>
+      </div>
+      <div class="ff-actions">
+        ${focus.taskId && !focus.isBreak ? `<button type="button" class="ff-yes" onclick="Jarvis.focusDone()">${icon('check')}Done it</button>` : ''}
+        <button type="button" onclick="Jarvis.extend(10)">${icon('plus')}10 min</button>
+        <button type="button" onclick="Jarvis.stopFocus()">${icon('close')}End</button>
+      </div>`}
+      <div class="ff-music" id="ff-music">${musicHTML(true)}</div>`;
+    if (fresh) el.focus({ preventScroll: true });
+  }
   // A timer drawn before today's plan had loaded gets its road button
   // once the plan arrives (and loses it if the plan is cleared).
   document.addEventListener('dayroad:refresh', () => {
@@ -342,11 +422,13 @@ const Jarvis = (() => {
   // What's playing with pause and next, or play your music; and Add music,
   // a quick search that saves the pick to Your why and plays it.
   let musicSig = '';
-  function musicHTML() {
+  function musicHTML(compact) {
     const now = window.Music && Music.now ? Music.now() : null;
     const lists = (window.Why && Why.get && (Why.get() || {}).playlists) || [];
     musicSig = now ? `${now.label}|${now.paused}` : `none|${lists.length}`;
-    const add = `<button type="button" class="fm-btn" onclick="Jarvis.musicAdd()" title="Find a song or playlist and play it">${icon('plus')}<span>Add music</span></button>`;
+    const add = compact
+      ? (lists.length || now ? '' : `<button type="button" class="fm-btn" onclick="Jarvis.fullClose(); setTimeout(() => Jarvis.musicAdd(), 80)" title="Find a song or playlist and play it">${icon('plus')}<span>Add music</span></button>`)
+      : `<button type="button" class="fm-btn" onclick="Jarvis.musicAdd()" title="Find a song or playlist and play it">${icon('plus')}<span>Add music</span></button>`;
     if (now) {
       return `<span class="fm-ic">${icon('music')}</span><span class="fm-name" title="${esc(now.label)}">${esc(now.label)}</span>
         <button type="button" class="fm-icon" onclick="Music.togglePause(); setTimeout(() => Jarvis.syncMusic(true), 300)" aria-label="${now.paused ? 'Play' : 'Pause'} the music">${icon(now.paused ? 'play' : 'pause')}</button>
@@ -356,6 +438,9 @@ const Jarvis = (() => {
     return `<span class="fm-ic">${icon('music')}</span>${lists.length ? `<button type="button" class="fm-btn fm-play" onclick="Why.playMusic(); setTimeout(() => Jarvis.syncMusic(true), 500)">${icon('play')}<span>Play ${esc(lists[0].label || 'my music')}</span></button>` : '<span class="fm-name muted">No music yet</span>'}${add}`;
   }
   function syncMusic(force) {
+    const ff = document.getElementById('ff-music');
+    const before = musicSig;
+    if (ff) { const html = musicHTML(true); if (force || musicSig !== before) ff.innerHTML = html; musicSig = before; }
     const box = document.getElementById('focus-music');
     if (!box || box.classList.contains('adding')) return;
     const now = window.Music && Music.now ? Music.now() : null;
@@ -955,6 +1040,6 @@ const Jarvis = (() => {
     talk();
   });
 
-  return { startFocus, stopFocus, planMore, freeFocus, togglePause, toggleMin, makeRoom, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerShift, plannerNow, plannerClock, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
+  return { fullOpen, fullClose, startFocus, stopFocus, planMore, freeFocus, togglePause, toggleMin, makeRoom, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerShift, plannerNow, plannerClock, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
 })();
 window.Jarvis = Jarvis;

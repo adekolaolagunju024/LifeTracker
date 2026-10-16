@@ -574,7 +574,17 @@ const Why = (() => {
     changed();
   }
 
-  return { todaysQuote: (date) => todaysQuote(m(), date), toggleChat, setTab, addLinked, showAllLinked, disconnectMusic, handleMusicReturn, musicSearch, addResult, addPick, pasteLink, handleShare, load, renderDashboard, alarmHTML, fillStuck, renderPage, interviewSend, interviewListen, toggleSource, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
+  // One short line for the calm screens (full-screen focus, the alarm), in
+  // handwriting: today's quote if it's short, else their why, else ''.
+  function scriptLine() {
+    const x = m();
+    if (!x || isEmpty(x)) return '';
+    const q = todaysQuote(x);
+    if (q && q.text.length <= 90) return q.text;
+    if (x.becoming && x.becoming.length <= 70) return `You're becoming ${x.becoming.replace(/^(a|an|the)\s+/i, m0 => m0.toLowerCase())}`;
+    return x.why && x.why.length <= 90 ? x.why : '';
+  }
+  return { scriptLine, todaysQuote: (date) => todaysQuote(m(), date), toggleChat, setTab, addLinked, showAllLinked, disconnectMusic, handleMusicReturn, musicSearch, addResult, addPick, pasteLink, handleShare, load, renderDashboard, alarmHTML, fillStuck, renderPage, interviewSend, interviewListen, toggleSource, playMusic, addPlaylist, addPlaylistFromForm, makeDefault, removePlaylist, set, setMentor, setShow, pickMentor, addOwnQuote, addLibraryQuote, removeQuote, save, clearAll, get: m, all: () => data };
 })();
 window.Why = Why;
 
