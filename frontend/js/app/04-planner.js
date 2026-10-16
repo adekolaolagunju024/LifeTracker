@@ -577,12 +577,13 @@ async function renderGantt() {
         if (ts && te) {
           const barLeft  = Math.max(0, ((ts - start) / 86400000 / totalDays) * 100);
           const barWidth = Math.max(0.8, Math.min(100 - barLeft, ((te - ts) / 86400000 / totalDays) * 100 + 0.5));
+          const isDone = t.status === 'Completed';
           marker = `
-            <div class="gantt-bar ${canEditGroup ? 'can-drag' : ''}" data-start="${t.startDate}" data-end="${t.endDate}" style="left:${barLeft}%;width:${barWidth}%;background:${fillColor};border:2px solid ${borderColor}"
-              title="${esc(t.title)} [${t.priority} priority]: ${t.startDate} → ${t.endDate}${canEditGroup ? ' (drag to move, drag an end to change its date, click to open)' : ''}"
+            <div class="gantt-bar ${canEditGroup ? 'can-drag' : ''}${isDone ? ' done' : ''}" data-start="${t.startDate}" data-end="${t.endDate}" style="left:${barLeft}%;width:${barWidth}%;--c:${color};--pri:${borderColor}"
+              title="${esc(barTip(t, ts, te))}${canEditGroup ? ' (drag to move, drag an end to change its date, click to open)' : ''}"
               ${canEditGroup ? `onmousedown="ganttBarMouseDown(event,'${t.id}','move')" ontouchstart="ganttBarMouseDown(event,'${t.id}','move')"` : ''}>
               ${canEditGroup ? `<span class="gantt-resize-handle is-left" aria-hidden="true" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-left')" ontouchstart="ganttBarMouseDown(event,'${t.id}','resize-left')"></span>` : ''}
-              <span class="gantt-bar-label">${pendingFoes(t) && t.status !== 'Completed' ? `${icon('blocker', 'tiny')}${pendingFoes(t)} ` : ''}${esc(t.title)}</span>
+              <span class="gantt-bar-label">${isDone ? icon('check', 'tiny') : pendingFoes(t) ? `${icon('blocker', 'tiny')}${pendingFoes(t)} ` : ''}<span>${esc(t.title)}</span></span>
               ${canEditGroup ? `<span class="gantt-resize-handle is-right" aria-hidden="true" onmousedown="ganttBarMouseDown(event,'${t.id}','resize-right')" ontouchstart="ganttBarMouseDown(event,'${t.id}','resize-right')"></span>` : ''}
             </div>`;
         } else if (te) {
@@ -674,7 +675,7 @@ async function renderGantt() {
       || `<div class="p-10 text-center text-gray-400 text-sm">${APP.ganttProjectFilter ? 'No tasks in this project yet.' : 'No tasks yet.'}</div>`;
     document.getElementById('gantt-rows').dataset.totalDays = totalDays;
     APP.ganttTasks = tasks;
-    requestAnimationFrame(drawGanttDependencies);
+    requestAnimationFrame(() => { fitGanttLabels(); drawGanttDependencies(); });
     requestAnimationFrame(scrollGanttToToday);
 
     // The key's colour swatches: the goals and phases on screen.
@@ -1153,7 +1154,28 @@ function drawGanttDependencies() {
       <marker id="gantt-dep-arrow-waiting" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#f59e0b"/></marker>
     </defs>${paths.join('')}</svg>`);
 }
-window.addEventListener('resize', () => { if (APP.currentPage === 'gantt') requestAnimationFrame(drawGanttDependencies); });
+window.addEventListener('resize', () => { if (APP.currentPage === 'gantt') requestAnimationFrame(() => { fitGanttLabels(); drawGanttDependencies(); }); });
+
+// A bar's details on hover: what it is, its status and priority, and its
+// dates in words.
+function barTip(t, ts, te) {
+  const day = d => d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const days = Math.round((te - ts) / 86400000) + 1;
+  const status = ({ 'Not Started': 'To do', 'In Progress': 'Doing', Completed: 'Done' })[t.status] || t.status;
+  return `${t.title} · ${status} · ${t.priority} priority · ${days === 1 ? day(te) : `${day(ts)} to ${day(te)} (${days} days)`}`;
+}
+// Like the team timeline, every bar shows its task's name: inside the bar
+// when it fits, else just beside it (before it, near the right edge).
+function fitGanttLabels() {
+  document.querySelectorAll('#gantt-rows .gantt-bar').forEach(bar => {
+    bar.classList.remove('label-out', 'label-left');
+    const label = bar.querySelector('.gantt-bar-label');
+    if (!label || label.scrollWidth <= bar.clientWidth - 2) return;
+    bar.classList.add('label-out');
+    const area = bar.closest('.gantt-bar-area');
+    if (area && bar.offsetLeft + bar.offsetWidth + label.scrollWidth + 8 > area.clientWidth) bar.classList.add('label-left');
+  });
+}
 
 // ── GANTT DRAG-TO-MOVE / RESIZE ───────────────────────────────────
 // Drag a bar to move it, drag either end to change its start or due date,
