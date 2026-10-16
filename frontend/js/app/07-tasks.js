@@ -62,10 +62,8 @@ async function openTaskDetail(id) {
     syncDetailPrimary(t, canEdit);
     document.getElementById('td-comment-box').classList.toggle('hidden', !canComment);
     document.getElementById('td-comment-viewonly').classList.toggle('hidden', canComment);
-    document.getElementById('td-status-update-box').classList.toggle('hidden', !canComment);
     document.getElementById('td-obstacle-box').classList.toggle('hidden', !canComment);
     APP.taskObstaclesCanEdit = canComment;
-    document.getElementById('td-status-update-viewonly').classList.toggle('hidden', canComment);
     APP.taskCommentCanReply = canComment;
     cancelCommentReply();
     resetTinyStepUI(t, canEdit);
@@ -81,7 +79,6 @@ async function openTaskDetail(id) {
       }).catch(() => {});
     }
     renderTaskComments(id);
-    renderStatusUpdates(id);
     renderObstacles(id, t.obstacles || []);
     APP.taskPredecessorsCanEdit = canEdit;
     document.getElementById('td-predecessor-box').classList.toggle('hidden', !canEdit);
@@ -304,18 +301,28 @@ function removeObstacle(obstacleId) {
   });
 }
 
-// ── TASK STATUS UPDATES (side panel) ───────────────────────────────
-// A separate, scannable log of "why it's still at this status" notes —
-// distinct from the freeform Comments thread below it — rendered with the
-// task's status at post time so the trail reads like "Not Started" ->
-// "In Progress" -> ... even once the task itself has moved on.
-async function renderStatusUpdates(taskId) {
-  const wrap = document.getElementById('td-status-updates');
+// ── TASK STATUS UPDATES ─────────────────────────────────────────
+// The old "why it's still at this status" notes now live in the one
+// Updates and comments thread (renderTaskComments), each with the status it
+// was posted at. New ones are plain comments; these can still be deleted.
+function deleteStatusUpdateConfirm(updateId, taskId) {
+  confirmAction('Delete this status update?', async () => {
+    try {
+      await API.deleteStatusUpdate(updateId);
+      renderTaskComments(taskId);
+    } catch (e) { showToast('❌ ' + (e.message || 'Failed to delete'), 'error'); }
+  });
+}
+
+// ── TASK COMMENTS (side panel) ────────────────────────────────────
+async function renderTaskComments(taskId) {
+  const wrap = document.getElementById('td-comments');
   try {
-    const updates = await API.getStatusUpdates(taskId);
+    const [comments, updates] = await Promise.all([API.getComments(taskId), API.getStatusUpdates(taskId).catch(() => [])]);
     const names = APP.taskCommentPeopleNames || [];
-    wrap.innerHTML = updates.length
-      ? updates.map(u => `
+    const items = [...comments.map(c => ({ ...c, kind: 'comment' })), ...updates.map(u => ({ ...u, kind: 'update' }))]
+      .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+    const updateHTML = u => `
           <div class="group">
             <div class="flex items-center justify-between gap-2">
               <span class="flex items-center gap-1.5 flex-wrap">
@@ -329,41 +336,9 @@ async function renderStatusUpdates(taskId) {
               </div>
             </div>
             <p class="text-sm text-gray-700 whitespace-pre-wrap mt-0.5">${renderMentionText(u.text, names)}</p>
-          </div>`).join('')
-      : `<p class="text-xs text-gray-400">No status updates yet — post one to tell the team why this is still here.</p>`;
-  } catch (e) { console.error('Status updates error:', e); }
-}
-
-async function submitStatusUpdate() {
-  const input = document.getElementById('td-status-update-input');
-  const blockerCheckbox = document.getElementById('td-status-update-blocker');
-  const text = input.value.trim();
-  if (!text || !APP_currentDetailTaskId) return;
-  try {
-    await API.addStatusUpdate(APP_currentDetailTaskId, text, blockerCheckbox.checked);
-    input.value = '';
-    blockerCheckbox.checked = false;
-    renderStatusUpdates(APP_currentDetailTaskId);
-  } catch (e) { showToast('❌ ' + (e.message || 'Failed to post update'), 'error'); }
-}
-
-function deleteStatusUpdateConfirm(updateId, taskId) {
-  confirmAction('Delete this status update?', async () => {
-    try {
-      await API.deleteStatusUpdate(updateId);
-      renderStatusUpdates(taskId);
-    } catch (e) { showToast('❌ ' + (e.message || 'Failed to delete'), 'error'); }
-  });
-}
-
-// ── TASK COMMENTS (side panel) ────────────────────────────────────
-async function renderTaskComments(taskId) {
-  const wrap = document.getElementById('td-comments');
-  try {
-    const comments = await API.getComments(taskId);
-    const names = APP.taskCommentPeopleNames || [];
-    wrap.innerHTML = comments.length
-      ? comments.map(c => `
+          </div>`;
+    wrap.innerHTML = items.length
+      ? items.map(c => c.kind === 'update' ? updateHTML(c) : `
           <div class="group">
             <div class="flex items-center justify-between gap-2">
               <p class="text-xs font-semibold text-navy">${esc(c.authorName)}</p>
@@ -377,7 +352,7 @@ async function renderTaskComments(taskId) {
             <p class="text-sm text-gray-700 whitespace-pre-wrap">${renderMentionText(c.text, names)}</p>
             ${renderAttachmentHTML(c)}
           </div>`).join('')
-      : `<p class="text-xs text-gray-400">No comments yet.</p>`;
+      : `<p class="text-xs text-gray-400">Nothing yet. Say where it's at, or ask a question.</p>`;
   } catch (e) { console.error('Comments error:', e); }
 }
 
