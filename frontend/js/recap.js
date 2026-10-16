@@ -1,4 +1,4 @@
-/* global APP, API, esc, showToast, localDateKey, ProgressMath, icon, openAssistant, Jarvis, showPage, setGanttPageView */
+/* global Race, getJourneyStage, STAGE_NAMES, APP, API, esc, showToast, localDateKey, ProgressMath, icon, openAssistant, Jarvis, showPage, setGanttPageView */
 // ── MY WEEK IN REVIEW ───────────────────────────────────────────
 // A short full-screen story of the last seven days, in the spirit of
 // Spotify Wrapped or Strava's year in sport: tasks finished (against the
@@ -20,7 +20,8 @@ function recapTitleFor(done) {
 
 // Everything the story shows, worked out from data the app already has.
 async function buildWeeklyRecap() {
-  const [tasks, projects, gaming] = await Promise.all([API.getTasks(), API.getProjects(), API.getJourneyGaming().catch(() => null)]);
+  const [tasks, projects, gaming, team, rewards] = await Promise.all([API.getTasks(), API.getProjects(), API.getJourneyGaming().catch(() => null),
+    API.raceWeek().catch(() => null), API.getPledgeSummary().then(r => r.pledges || []).catch(() => [])]);
   const now = Date.now();
   const weekStart = now - 7 * RECAP_DAY_MS;
   const prevStart = now - 14 * RECAP_DAY_MS;
@@ -58,8 +59,60 @@ async function buildWeeklyRecap() {
     done: done.length, prev: donePrev.length, bestDay, foes: foes.reduce((n, o) => n + (o.count || 1), 0), foeNames: foes.slice(0, 3).map(o => o.name),
     streak: (APP.profile && APP.profile.currentStreak) || 0, longest: (APP.profile && APP.profile.longestStreak) || 0,
     level: gaming ? gaming.level : null, quests: gaming && gaming.daily ? gaming.daily : null, top, next, title, titleIcon,
+    // races and groups, cheers, rewards and the stage you play on
+    team, rewards, stage: typeof getJourneyStage === 'function' ? getJourneyStage() : null,
+    bestPlace: team && team.races.length ? team.races.reduce((b, r) => (r.place && (!b || r.place < b.place) ? r : b), null) : null,
     range: `${new Date(weekStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${new Date(now).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
   };
+}
+
+// The newer parts of the week: race results with their cups, the groups
+// you lead (with Remind) or are in, the stage you play on, rewards riding
+// on your goals or earned, and the cheers you got.
+const recapOrd = n => `${n}${(n % 100 >= 11 && n % 100 <= 13) ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' })[n % 10] || 'th'}`;
+function teamSlides(r) {
+  const out = [];
+  const t = r.team;
+  const cupOf = n => (window.Race && Race.cupHtml ? Race.cupHtml(n) : '');
+  if (t && t.races.length) {
+    const best = r.bestPlace;
+    out.push({ bg: 'linear-gradient(160deg,#78350F,#D97706)', html: `<p class="recap-kicker">Race results</p>
+      ${best && best.place <= 3 ? `<p class="recap-cup">${cupOf(best.place)}</p>` : ''}
+      <p class="recap-big">${best ? `${recapOrd(best.place)} in ${esc(best.title)}` : 'You raced'}</p>
+      <ul class="recap-list">${t.races.map(x => `<li><span>${x.place && x.place <= 3 ? cupOf(x.place) : ''}${esc(x.icon || '')} ${esc(x.title)}</span><b>${x.place ? `${recapOrd(x.place)} of ${x.players}` : x.finished ? 'finished' : `${x.done}/${x.total}`}</b></li>`).join('')}</ul>
+      ${t.races.some(x => x.stake) ? `<p class="recap-sub">${esc(t.races.find(x => x.stake).stake)}</p>` : ''}` });
+  }
+  (t ? t.groups : []).slice(0, 2).forEach(g => {
+    const role = { coach: 'squad', trainer: 'clients', teacher: 'class', manager: 'team', leader: 'team', organiser: 'group' }[g.leaderRole] || 'group';
+    if (g.leader) {
+      out.push({ bg: 'linear-gradient(160deg,#1E3A8A,#0A7E8C)', html: `<p class="recap-kicker">Your ${esc(role)} · ${esc(g.title)}</p>
+        <p class="recap-huge">${g.group.finished}<small>/${g.group.players}</small></p><p class="recap-sub">finished · ${g.group.stepsPct}% of all steps done${g.group.behind ? ` · ${g.group.behind} behind` : ''}</p>
+        <div class="recap-bar"><span style="width:${g.group.stepsPct}%"></span></div>
+        ${g.group.behind && !g.over ? `<div class="recap-actions"><button type="button" onclick="event.stopPropagation(); Race.remind('${g.id}')">${icon('bell', 'tiny')}Remind those behind</button></div>` : ''}` });
+    } else if (g.me) {
+      const pct = g.me.total ? Math.round((g.me.done / g.me.total) * 100) : 0;
+      out.push({ bg: 'linear-gradient(160deg,#1E3A8A,#0A7E8C)', html: `<p class="recap-kicker">Your ${esc(role)} · ${esc(g.title)}</p>
+        <p class="recap-big">You: ${g.me.done} of ${g.me.total} steps</p><p class="recap-sub">${g.me.pace === 'finished' ? 'Finished. Well done.' : `You're ${esc(g.me.pace)}.`} ${g.group.finished} of ${g.group.players} in the ${esc(role)} have finished.</p>
+        <div class="recap-bar"><span style="width:${pct}%"></span></div>` });
+    }
+  });
+  if (r.stage && !document.documentElement.classList.contains('focus-mode')) {
+    const name = (typeof STAGE_NAMES !== 'undefined' && STAGE_NAMES[r.stage]) || r.stage;
+    out.push({ bg: `linear-gradient(180deg,rgba(13,27,42,.15),rgba(13,27,42,.85)), url('/showcase/stage-${r.stage}.webp') center/cover`, html: `<p class="recap-kicker">Where you played</p><p class="recap-big">${esc(name)}</p><p class="recap-sub">${r.done ? `${r.done} step${r.done === 1 ? '' : 's'} down the road this week.` : 'Your road is waiting for you.'}</p>` });
+  }
+  const earned = (r.rewards || []).filter(p => p.status === 'earned');
+  const waiting = (r.rewards || []).filter(p => p.status === 'pledged');
+  if (earned.length || waiting.length) {
+    out.push({ bg: 'linear-gradient(160deg,#4C1D95,#9333EA)', html: `<p class="recap-kicker">${earned.length ? 'Rewards earned' : 'Rewards waiting for you'}</p>
+      <p class="recap-huge">${icon('gift', 'recap-ic')}${earned.length || waiting.length}</p>
+      <ul class="recap-list">${[...earned, ...waiting].slice(0, 3).map(p => `<li><span>${esc(p.text)}</span><b>${p.status === 'earned' ? 'earned' : esc(p.name.split(' ')[0])}</b></li>`).join('')}</ul>
+      <p class="recap-sub">${earned.length ? 'Whoever pledged it checks your progress and releases it.' : 'Finish the goal and they’re yours.'}</p>` });
+  }
+  if (t && t.cheers.count) {
+    out.push({ bg: 'linear-gradient(160deg,#9D174D,#F97316)', html: `<p class="recap-kicker">Cheers you got</p><p class="recap-huge">${t.cheers.count}</p>
+      <p class="recap-emojis">${t.cheers.emojis.map(esc).join(' ')}</p><p class="recap-sub">from ${t.cheers.from.map(esc).join(', ')}${t.cheers.more ? ` and ${t.cheers.more} more` : ''}</p>` });
+  }
+  return out;
 }
 
 function recapSlides(r) {
@@ -78,12 +131,13 @@ function recapSlides(r) {
       <ul class="recap-list">${q.quests.map(x => `<li><span>${x.done ? icon('check', 'recap-li-ic') : ''}${esc(x.text)}</span><b>${x.progress}/${x.target}</b></li>`).join('')}</ul>
       ${n === q.quests.length ? '' : `<p class="recap-sub">Finish all three today for +${q.bonusXp || 30} XP.</p>`}` });
   }
+  slides.push(...teamSlides(r));
   if (r.bestDay) slides.push({ bg: 'linear-gradient(160deg,#4C1D95,#BE185D)', html: `<p class="recap-kicker">Your best day</p><p class="recap-big">${esc(r.bestDay[0])}</p><p class="recap-sub">${r.bestDay[1]} task${r.bestDay[1] === 1 ? '' : 's'} done in one day.</p>` });
   if (r.foes) slides.push({ bg: 'linear-gradient(160deg,#7F1D1D,#C2410C)', html: `<p class="recap-kicker">Blockers beaten</p><p class="recap-huge">${icon('blocker', 'recap-ic')}${r.foes}</p><p class="recap-sub">${r.foeNames.map(n => `“${esc(n)}”`).join(', ')}${r.foeNames.length ? ' and more, cleared out of your way.' : ''}</p>` });
   slides.push({ bg: 'linear-gradient(160deg,#9A3412,#F59E0B)', html: `<p class="recap-kicker">Your streak</p><p class="recap-huge">${icon('flame', 'recap-ic')}${r.streak}</p><p class="recap-sub">${r.streak ? `day${r.streak === 1 ? '' : 's'} in a row${r.longest > r.streak ? `. Your best is ${r.longest}.` : '. Your best yet!'}` : 'Finish one task today to start a new one.'}</p>` });
   if (r.top) slides.push({ bg: 'linear-gradient(160deg,#064E3B,#0A7E8C)', html: `<p class="recap-kicker">Most progress</p><p class="recap-big">${emojiIcon(r.top.icon)} ${esc(r.top.title)}</p><p class="recap-sub">${r.top.count} task${r.top.count === 1 ? '' : 's'} this week. Now ${r.top.pct}% complete.</p><div class="recap-bar"><span style="width:${r.top.pct}%"></span></div>` });
   slides.push({ bg: 'linear-gradient(160deg,#0D1B2A,#1B3A5C)', html: `<p class="recap-kicker">Coming up</p>${r.next.length ? `<ul class="recap-list">${r.next.slice(0, 4).map(t => `<li><span>${esc(t.title)}</span><b>${esc(new Date(t.endDate + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' }))}</b></li>`).join('')}</ul>` : '<p class="recap-big">A clear week</p><p class="recap-sub">Nothing due in the next seven days. A good time to plan the next goal.</p>'}` });
-  slides.push({ bg: 'linear-gradient(160deg,#0A7E8C,#0D1B2A)', final: true, html: `<p class="recap-kicker">This week you were</p><p class="recap-big">${icon(r.titleIcon, 'recap-ic')}${esc(r.title)}</p><div class="recap-stats"><div><b>${r.done}</b><span>tasks</span></div><div><b>${r.foes}</b><span>blockers</span></div><div><b>${r.streak}</b><span>day streak</span></div>${r.level ? `<div><b>${r.level}</b><span>level</span></div>` : ''}</div><div class="recap-actions"><button type="button" data-recap="share">Share my week</button><button type="button" data-recap="close">Done</button></div>` });
+  slides.push({ bg: 'linear-gradient(160deg,#0A7E8C,#0D1B2A)', final: true, html: `<p class="recap-kicker">This week you were</p><p class="recap-big">${icon(r.titleIcon, 'recap-ic')}${esc(r.title)}</p><div class="recap-stats"><div><b>${r.done}</b><span>tasks</span></div><div><b>${r.foes}</b><span>blockers</span></div><div><b>${r.streak}</b><span>day streak</span></div>${r.level ? `<div><b>${r.level}</b><span>level</span></div>` : ''}${r.bestPlace && r.bestPlace.place ? `<div><b>${recapOrd(r.bestPlace.place)}</b><span>best race</span></div>` : ''}</div><div class="recap-actions"><button type="button" data-recap="share">Share my week</button><button type="button" data-recap="close">Done</button></div>` });
   return slides;
 }
 
@@ -171,6 +225,21 @@ function drawRecapImage(r) {
     g.fillStyle = 'rgba(255,255,255,.2)'; g.fillRect(80, 1160, 920, 18);
     g.fillStyle = '#5EEAD4'; g.fillRect(80, 1160, 920 * r.top.pct / 100, 18);
   }
+  // Your best race place this week, with its cup.
+  const best = r.bestPlace;
+  if (best && best.place) {
+    const metal = { 1: ['#F2C230', '#9A7209'], 2: ['#CDD3DA', '#6E7883'], 3: ['#D98C4A', '#8A4F1E'] }[best.place];
+    const cx = 160, cy = 905; // in the space under the stats
+    if (metal) {
+      g.fillStyle = metal[0]; g.strokeStyle = metal[1]; g.lineWidth = 8;
+      g.beginPath(); g.moveTo(cx - 70, cy - 90); g.lineTo(cx + 70, cy - 90); g.quadraticCurveTo(cx + 70, cy + 20, cx, cy + 30); g.quadraticCurveTo(cx - 70, cy + 20, cx - 70, cy - 90); g.closePath(); g.fill(); g.stroke();
+      g.beginPath(); g.arc(cx - 70, cy - 55, 30, Math.PI / 2, Math.PI * 1.5); g.stroke();
+      g.beginPath(); g.arc(cx + 70, cy - 55, 30, -Math.PI / 2, Math.PI / 2); g.stroke();
+      g.fillRect(cx - 12, cy + 30, 24, 40); g.fillRect(cx - 50, cy + 70, 100, 22);
+    }
+    g.fillStyle = '#fff'; g.font = font(900, 64); g.fillText(`${recapOrd(best.place)} in a race`, 280, cy - 10);
+    g.fillStyle = 'rgba(255,255,255,.75)'; g.font = font(600, 36); g.fillText(best.title.slice(0, 32), 280, cy + 45);
+  }
   g.fillStyle = 'rgba(255,255,255,.6)'; g.font = font(700, 34); g.fillText('waypointapp.com', 80, 1280);
   return new Promise(resolve => c.toBlob(resolve, 'image/png'));
 }
@@ -179,7 +248,8 @@ async function shareWeeklyRecap() {
   if (!recapState) return;
   const blob = await drawRecapImage(recapState.data);
   const file = new File([blob], 'my-week-in-waypoint.png', { type: 'image/png' });
-  const text = `My week in Waypoint: ${recapState.data.done} tasks done, ${recapState.data.foes} blockers beaten, ${recapState.data.streak}-day streak.`;
+  const best = recapState.data.bestPlace;
+  const text = `My week in Waypoint: ${recapState.data.done} tasks done, ${recapState.data.foes} blockers beaten, ${recapState.data.streak}-day streak${best && best.place ? `, and ${recapOrd(best.place)} in ${best.title}` : ''}.`;
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
   } catch (e) { if (e && e.name === 'AbortError') return; }

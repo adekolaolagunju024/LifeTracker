@@ -138,6 +138,7 @@ const API = {
   unclearRace:     (id)      => request('DELETE', `/challenges/${id}/clear`),
   previewRaceCode: (code)    => request('GET', `/race-code/${encodeURIComponent(code)}`),
   remindRace:      (id)      => request('POST', `/challenges/${id}/remind`),
+  raceWeek:        ()        => request('GET', '/challenges/week'),
   helpPlaces:      (taskId)  => request('GET', `/challenges/help-places/${taskId}`),
   askRaceHelp:     (id, obstacleId, note) => request('POST', `/challenges/${id}/help`, { obstacleId, note }),
   offerRaceHelp:   (id, messageId) => request('POST', `/challenges/${id}/help/${messageId}/offer`),
