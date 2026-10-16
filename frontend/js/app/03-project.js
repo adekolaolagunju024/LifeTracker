@@ -171,14 +171,17 @@ async function renderProjectDetail(projectId) {
 async function renderTaskTable(projectId) {
   try {
     const project = await API.getProject(projectId);
-    // A teammate's My steps (Split the work) is every step of theirs in the
-    // goal, its phases included; anywhere else, this folder's own tasks.
-    const wholeGoal = !!project.splitTeamId && !project.parentId;
+    // A goal lists every task in it, its phases included, each with its
+    // phase's name (a teammate's My steps is the same, just their steps); a
+    // phase lists its own tasks.
+    const wholeGoal = !project.parentId;
     const filters = { status: APP.filters.status || undefined, priority: APP.filters.priority || undefined, search: APP.filters.search || undefined };
+    const phaseName = new Map();
     const [allTags, rawTasks] = await Promise.all([
       API.getTags(),
       wholeGoal
         ? Promise.all([API.getTasks(filters), API.getProjects({ parentId: projectId })]).then(([ts, phases]) => {
+          phases.forEach(ph => phaseName.set(ph.id, ph.title));
           const tree = new Set([projectId, ...phases.map(ph => ph.id)]);
           return ts.filter(t => tree.has(t.projectId));
         })
@@ -198,6 +201,7 @@ async function renderTaskTable(projectId) {
     const done = tasks.filter(t => t.status === 'Completed').length;
     const inp  = tasks.filter(t => t.status === 'In Progress').length;
     const cost = tasks.reduce((s, t) => s + (t.cost || 0), 0);
+    const blocked = tasks.filter(t => t.status !== 'Completed' && (t.obstacles || []).some(o => !o.resolved)).length;
 
     document.getElementById('detail-stats').innerHTML = `
       <div class="bg-white rounded-xl border border-gray-200 p-4 flex-1">
@@ -212,10 +216,13 @@ async function renderTaskTable(projectId) {
         <p class="text-xs text-gray-400 font-semibold">Active</p>
         <p class="text-2xl font-black font-mono text-orange-500 mt-1">${inp}</p>
       </div>
-      <div class="bg-white rounded-xl border border-gray-200 p-4 flex-1">
+      ${cost > 0 ? `<div class="bg-white rounded-xl border border-gray-200 p-4 flex-1">
         <p class="text-xs text-gray-400 font-semibold">Est. Cost</p>
         <p class="text-2xl font-black font-mono text-yellow-600 mt-1">${money(cost)}</p>
-      </div>`;
+      </div>` : `<div class="bg-white rounded-xl border border-gray-200 p-4 flex-1">
+        <p class="text-xs text-gray-400 font-semibold">Blocked</p>
+        <p class="text-2xl font-black font-mono ${blocked ? 'text-red-600' : 'text-gray-300'} mt-1">${blocked}</p>
+      </div>`}`;
 
     document.getElementById('bulk-select-all').checked = false;
     clearBulkSelection();
@@ -231,6 +238,7 @@ async function renderTaskTable(projectId) {
             ${canEdit ? `<td class="tt-sel px-4 py-3"><input type="checkbox" class="bulk-task-checkbox" data-task-id="${t.id}" onchange="updateBulkActionsBar()" aria-label="Select ${esc(t.title)}"></td>` : ''}
             <td class="tt-title px-4 py-3 text-sm font-semibold max-w-xs cursor-pointer hover:text-teal border-l-4" style="border-left-color:${priorityBorderColor(t.priority)}" onclick="openTaskDetail('${t.id}')">
               <div>${esc(t.title)}${t.recurrence && t.recurrence !== 'none' ? ` <span class="text-gray-400 font-normal text-xs" title="Repeats ${t.recurrence}">${icon('repeat')}</span>` : ''}${t.checklistTotal ? ` <span class="text-gray-400 font-normal text-xs" title="Checklist">${icon('square-check')} ${t.checklistDone}/${t.checklistTotal}</span>` : ''}${t.commentCount ? ` <span class="text-gray-400 font-normal text-xs" title="${t.commentCount} comment${t.commentCount === 1 ? '' : 's'}">${icon('chat')} ${t.commentCount}</span>` : ''}${statusUpdateBadge(t)} ${obstacleBadge(t)} ${waitingBadge(t)}${watchSlot(t.id)}</div>
+              ${phaseName.has(t.projectId) ? `<div class="text-[11px] font-semibold text-gray-400 mt-0.5 flex items-center gap-1">${icon('folder', 'tiny')}${esc(phaseName.get(t.projectId))}</div>` : ''}
               ${blockerChecklist(t, canEdit, 'board')}
               ${(t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1">${t.tags.map(tag => `<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style="background:${tag.color}22;color:${tag.color}">${esc(tag.label)}</span>`).join('')}</div>` : ''}
               ${taskProgressBarHTML(t)}
@@ -252,13 +260,9 @@ async function renderTaskTable(projectId) {
             </td>
             <td class="tt-actions px-4 py-3">
               <div class="flex gap-1">
-                <button onclick="addTaskToGoogleCalendar('${t.id}')" title="Add to Google Calendar" aria-label="Add ${esc(t.title)} to Google Calendar"
-                  class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">${icon('calendar')}</button>
                 ${canEdit ? `
                 <button onclick="editTask('${t.id}')" title="Edit" aria-label="Edit ${esc(t.title)}"
                   class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">${icon('edit')}</button>
-                <button onclick="duplicateTaskAction('${t.id}','${projectId}')" title="Duplicate" aria-label="Duplicate ${esc(t.title)}"
-                  class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">⧉</button>
                 ${project.splitTeamId ? '' /* a teammate's steps are removed by the team's leader */ : `<button onclick="deleteTaskConfirm('${t.id}','${projectId}')" title="Delete" aria-label="Delete ${esc(t.title)}"
                   class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm opacity-60 hover:opacity-100">${icon('trash')}</button>`}` : ''}
               </div>

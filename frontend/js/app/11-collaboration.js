@@ -421,6 +421,7 @@ function deleteProjectChatMessageConfirm(messageId, projectId) {
 // TASK MODAL
 async function openAddTask(projectId) {
   document.getElementById('modal-task-title').textContent = 'New Task';
+  document.getElementById('task-delete-btn').classList.add('hidden');
   document.getElementById('task-ai-btn').classList.add('hidden');
   document.getElementById('task-id').value         = '';
   document.getElementById('task-title-in').value   = '';
@@ -445,6 +446,7 @@ async function openAddTask(projectId) {
 async function editTask(id) {
   const t = await API.getTask(id);
   document.getElementById('modal-task-title').textContent = 'Edit Task';
+  document.getElementById('task-delete-btn').classList.remove('hidden');
   document.getElementById('task-ai-btn').classList.remove('hidden');
   document.getElementById('task-id').value         = id;
   document.getElementById('task-title-in').value   = t.title;

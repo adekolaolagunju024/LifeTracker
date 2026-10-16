@@ -845,9 +845,6 @@ function renderKanbanBoard(tasks, projectById) {
   if (APP.kanbanPriorityFilter) tasks = tasks.filter(t => t.priority === APP.kanbanPriorityFilter);
 
   const ICON = {
-    cal: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
-    dup: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
-    del: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
     bell: '<svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
   };
   board.innerHTML = KANBAN_COLUMNS.map(status => {
@@ -880,10 +877,7 @@ function renderKanbanBoard(tasks, projectById) {
           ${taskProgressBarHTML(t)}
           <div class="kanban-actions">
             ${status !== 'Completed' ? `<button type="button" class="kanban-act" onclick="Reminders.openSheet('${t.id}')" title="Remind me (rings like an alarm)" aria-label="Set a reminder">${ICON.bell}</button>` : ''}
-            <button type="button" class="kanban-act" onclick="addTaskToGoogleCalendar('${t.id}')" title="Add to Google Calendar" aria-label="Add to Google Calendar">${ICON.cal}</button>
-            ${canEdit ? `<button type="button" class="kanban-act" onclick="duplicateTaskAction('${t.id}', '${t.projectId}')" title="Duplicate" aria-label="Duplicate task">${ICON.dup}</button>
-            <button type="button" class="kanban-act danger" onclick="deleteTaskConfirm('${t.id}', '${t.projectId}')" title="Delete task" aria-label="Delete task">${ICON.del}</button>
-            ${status !== 'Completed' && !(t.obstacles || []).length ? `<button type="button" class="kanban-act" onclick="openObstacles('${t.id}')" title="Add a blocker (something in the way)" aria-label="Add a blocker">${icon('blocker')}</button>` : ''}` : ''}
+            ${canEdit ? `${status !== 'Completed' && !(t.obstacles || []).length ? `<button type="button" class="kanban-act" onclick="openObstacles('${t.id}')" title="Add a blocker (something in the way)" aria-label="Add a blocker">${icon('blocker')}</button>` : ''}` : ''}
             ${move}
           </div>
         </div>`;
