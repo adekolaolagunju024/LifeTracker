@@ -30,15 +30,15 @@ function buildCalendar(userId, baseUrl) {
   const projects = new Map(db.listProjects(userId).map(p => [p.id, p]));
   const tasks = db.listTasks(userId).filter(t => /^\d{4}-\d{2}-\d{2}/.test(t.endDate || ''));
   const now = stamp();
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Waypoint//Tasks//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-    'X-WR-CALNAME:Waypoint tasks', 'X-PUBLISHED-TTL:PT1H', 'REFRESH-INTERVAL;VALUE=DURATION:PT1H'];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//StartLine//Tasks//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'X-WR-CALNAME:StartLine tasks', 'X-PUBLISHED-TTL:PT1H', 'REFRESH-INTERVAL;VALUE=DURATION:PT1H'];
   for (const t of tasks) {
     const project = projects.get(t.projectId);
     const parent = project && project.parentId ? projects.get(project.parentId) : null;
     const where = [parent && parent.title, project && project.title].filter(Boolean).join(' › ');
     const done = t.status === 'Completed';
-    const details = [`${where}`, `Status: ${t.status}`, `Priority: ${t.priority}`, t.notes ? `\n${t.notes}` : '', baseUrl ? `\nOpen in Waypoint: ${baseUrl}/app` : ''].filter(Boolean).join('\n');
-    lines.push('BEGIN:VEVENT', `UID:${t.id}@waypoint`, `DTSTAMP:${now}`,
+    const details = [`${where}`, `Status: ${t.status}`, `Priority: ${t.priority}`, t.notes ? `\n${t.notes}` : '', baseUrl ? `\nOpen in StartLine: ${baseUrl}/app` : ''].filter(Boolean).join('\n');
+    lines.push('BEGIN:VEVENT', `UID:${t.id}@startline`, `DTSTAMP:${now}`,
       `DTSTART;VALUE=DATE:${ymd(t.endDate)}`, `DTEND;VALUE=DATE:${ymd(nextDay(t.endDate))}`,
       fold(`SUMMARY:${icsText(`${done ? '✓ ' : ''}${t.title}`)}`),
       fold(`DESCRIPTION:${icsText(details)}`),

@@ -1,4 +1,4 @@
-// Waypoint app, part 9 of 12: The Journey game view, celebrations, achievements, project complete.
+// StartLine app, part 9 of 12: The Journey game view, celebrations, achievements, project complete.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 
@@ -928,10 +928,10 @@ async function shareProjectComplete() {
     g.fillStyle = x.good ? '#5EEAD4' : '#fff'; g.font = font(900, 80); g.fillText(String(x.n), cx, 985);
     g.fillStyle = '#9FB3C8'; g.font = font(600, 30); g.fillText(x.label, cx, 1040);
   });
-  g.fillStyle = 'rgba(255,255,255,.6)'; g.font = font(700, 32); g.fillText('waypointapp.com', 540, 1270);
+  g.fillStyle = 'rgba(255,255,255,.6)'; g.font = font(700, 32); g.fillText(location.host, 540, 1270);
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
   const file = new File([blob], 'goal-complete.png', { type: 'image/png' });
-  const text = `I just finished "${_pcData.title}" with Waypoint.`;
+  const text = `I just finished "${_pcData.title}" with StartLine.`;
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = file.name;

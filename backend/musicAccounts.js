@@ -3,7 +3,7 @@ const db = require('./db/connection');
 // ── LINKED MUSIC ACCOUNTS ───────────────────────────────────────
 // Connect Spotify or YouTube (read-only) so your own playlists show up
 // in Your why, one tap to add. Both use the standard OAuth sign-in on the
-// service's own page; Waypoint keeps a refresh token to list playlists
+// service's own page; StartLine keeps a refresh token to list playlists
 // again later, never a password, and can't change anything on them.
 //
 // Settings:

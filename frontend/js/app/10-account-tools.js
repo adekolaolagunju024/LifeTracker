@@ -1,4 +1,4 @@
-// Waypoint app, part 10 of 12: Two-step sign-in, calendar feed, templates and project forms.
+// StartLine app, part 10 of 12: Two-step sign-in, calendar feed, templates and project forms.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 
@@ -47,9 +47,9 @@ function copyRecoveryCodes() {
   navigator.clipboard.writeText(twoFactorCodes.join('\n')).then(() => showToast('📋 Recovery codes copied'), () => showToast('Select the codes and copy them'));
 }
 function downloadRecoveryCodes() {
-  const blob = new Blob([`Waypoint recovery codes (each works once)\n\n${twoFactorCodes.join('\n')}\n`], { type: 'text/plain' });
+  const blob = new Blob([`StartLine recovery codes (each works once)\n\n${twoFactorCodes.join('\n')}\n`], { type: 'text/plain' });
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = 'waypoint-recovery-codes.txt';
+  a.href = URL.createObjectURL(blob); a.download = 'startline-recovery-codes.txt';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }

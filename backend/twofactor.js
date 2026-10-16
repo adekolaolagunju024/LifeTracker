@@ -60,8 +60,8 @@ function verifyCode(secret, code, lastStep = null, now = Date.now()) {
 }
 
 function otpauthUrl(secret, accountEmail) {
-  const label = encodeURIComponent(`Waypoint:${accountEmail}`);
-  return `otpauth://totp/${label}?secret=${secret}&issuer=Waypoint&algorithm=SHA1&digits=${DIGITS}&period=${STEP_SECONDS}`;
+  const label = encodeURIComponent(`StartLine:${accountEmail}`);
+  return `otpauth://totp/${label}?secret=${secret}&issuer=StartLine&algorithm=SHA1&digits=${DIGITS}&period=${STEP_SECONDS}`;
 }
 
 // Ten codes like "k7m2-9qpx", shown once; only their hashes are kept.

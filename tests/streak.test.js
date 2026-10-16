@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const dbPath = path.join(os.tmpdir(), `waypoint-streak-${Date.now()}.sqlite`);
+const dbPath = path.join(os.tmpdir(), `startline-streak-${Date.now()}.sqlite`);
 process.env.DB_PATH = dbPath;
 const db = require('../backend/db/db');
 const conn = require('../backend/db/connection');

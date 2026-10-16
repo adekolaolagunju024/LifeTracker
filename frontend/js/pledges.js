@@ -4,7 +4,7 @@
 // (cash or anything else), a private link to invite more, and a way to
 // add one promised in person. Earned rewards show in the goal-complete
 // celebration and on the dashboard's Journey card. Only the goal's owner
-// sees any of this. Waypoint tracks the promise; money changes hands
+// sees any of this. StartLine tracks the promise; money changes hands
 // between the people themselves. See backend/pledges.js.
 const Rewards = (() => {
   const REL = { parent: 'Parent', family: 'Family', partner: 'Partner', friend: 'Friend', boss: 'Boss', coach: 'Coach', teacher: 'Teacher', mentor: 'Mentor', sponsor: 'Sponsor', other: 'Other' };
@@ -89,7 +89,7 @@ const Rewards = (() => {
       <button type="button" class="dayplan-x" onclick="Rewards.close()" aria-label="Close">${icon('close')}</button></div>
       <form class="rw-form" onsubmit="event.preventDefault(); Rewards.savePayTo('${p.id}')">
         <label>Payment link or details<textarea id="rw-payto" maxlength="300" rows="3" placeholder="e.g. https://monzo.me/ade or Sort code 00-00-00, account 12345678">${esc(p.payTo || '')}</textarea></label>
-        <p class="rw-note">${icon('lock', 'tiny')} Only share what you’re happy for them to see. Waypoint never moves the money: they send it, then release it.</p>
+        <p class="rw-note">${icon('lock', 'tiny')} Only share what you’re happy for them to see. StartLine never moves the money: they send it, then release it.</p>
         <div class="dayplan-foot"><span></span><button type="submit" class="dayplan-go" id="rw-save">${icon('check', 'tiny')}Save</button></div>
       </form>`);
     setTimeout(() => document.getElementById('rw-payto')?.focus(), 50);
@@ -143,7 +143,7 @@ const Rewards = (() => {
         <a href="mailto:?subject=${encodeURIComponent(`Back me on "${state.title}"?`)}&body=${encodeURIComponent(text)}">${icon('mail', 'tiny')}Email</a>
         <a href="sms:?&body=${encodeURIComponent(text)}">${icon('smartphone', 'tiny')}Text</a>
       </div>
-      <p class="rw-note">${icon('lock', 'tiny')} Only people you send it to can open it, and you can turn it off any time. Waypoint keeps track of the promise; any money changes hands between you.</p>
+      <p class="rw-note">${icon('lock', 'tiny')} Only people you send it to can open it, and you can turn it off any time. StartLine keeps track of the promise; any money changes hands between you.</p>
       <div class="dayplan-foot"><button type="button" class="dayplan-ai" style="color:#B91C1C" onclick="Rewards.turnOff()">Turn this link off</button>
       <button type="button" class="dayplan-go" onclick="Rewards.close()">Done</button></div>`);
     state.shareText = text;

@@ -15,7 +15,7 @@ const { Resend } = require('resend');
 function getTransporter() {
   if (!process.env.RESEND_API_KEY) return null;
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const from = process.env.RESEND_FROM_EMAIL || 'Waypoint <onboarding@resend.dev>';
+  const from = process.env.RESEND_FROM_EMAIL || 'StartLine <onboarding@resend.dev>';
   return {
     sendMail: async ({ to, subject, html, replyTo }) => {
       const { error } = await resend.emails.send({ from, to, subject, html, ...(replyTo ? { replyTo } : {}) });

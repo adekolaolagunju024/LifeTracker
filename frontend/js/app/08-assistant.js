@@ -1,4 +1,4 @@
-// Waypoint app, part 8 of 12: Planning with AI, the Waypoint assistant and referrals.
+// StartLine app, part 8 of 12: Planning with AI, the StartLine assistant and referrals.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 
@@ -363,7 +363,7 @@ async function applyOperations(projectId, ops) {
   }
 }
 
-// ── WAYPOINT ASSISTANT ─────────────────────────────────────────
+// ── STARTLINE ASSISTANT ─────────────────────────────────────────
 // One conversation that can propose a new goal or changes to the open project.
 // Every proposal is shown for approval; the assistant never writes on its own.
 const ASSISTANT_SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -923,7 +923,7 @@ async function copyReferralLink() {
 
 async function shareReferralLink() {
   try {
-    await navigator.share({ title: 'Waypoint', text: 'Join me on Waypoint', url: referralLink });
+    await navigator.share({ title: 'StartLine', text: 'Join me on StartLine', url: referralLink });
   } catch {
     // Cancelled by the user; nothing to report.
   }
@@ -953,5 +953,5 @@ async function sendReferralInvite() {
 // they sign up, so the signup can credit whoever invited them.
 try {
   const ref = new URLSearchParams(location.search).get('ref');
-  if (ref) localStorage.setItem('waypointRef', ref);
+  if (ref) localStorage.setItem('startlineRef', ref);
 } catch {}

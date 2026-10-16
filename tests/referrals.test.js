@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const { randomUUID } = require('crypto');
 
-const dbFile = path.join(os.tmpdir(), `waypoint-referrals-${Date.now()}.sqlite`);
+const dbFile = path.join(os.tmpdir(), `startline-referrals-${Date.now()}.sqlite`);
 process.env.DB_PATH = dbFile;
 const db = require('../backend/db/db');
 

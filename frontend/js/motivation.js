@@ -72,7 +72,7 @@ const Why = (() => {
       box.innerHTML = `<div class="why-card is-empty">
         <span class="why-card-ic">${icon('heart')}</span>
         <div class="min-w-0 flex-1"><p class="why-card-title">What keeps you going?</p>
-        <p class="why-card-sub">Add your reason, someone you look up to, a quote that moves you and your focus music. Waypoint shows them when you need them most.</p></div>
+        <p class="why-card-sub">Add your reason, someone you look up to, a quote that moves you and your focus music. StartLine shows them when you need them most.</p></div>
         <button type="button" class="why-card-cta" onclick="showPage('why')">Set up your why</button></div>`;
       return;
     }
@@ -298,7 +298,7 @@ const Why = (() => {
       </section>`,
       mentor: `<section class="why-sec">
         <h3>${icon('user')}Your mentor</h3>
-        <p class="why-help">Everyone has someone. A parent, a coach, a teacher, someone you've never met. When you're stuck, Waypoint asks what they would do.</p>
+        <p class="why-help">Everyone has someone. A parent, a coach, a teacher, someone you've never met. When you're stuck, StartLine asks what they would do.</p>
         <div class="why-chips">${data.mentors.map(p => `<button type="button" class="why-chip ${draft.mentor.preset === p.id ? 'on' : ''}" onclick="Why.pickMentor('${p.id}')">${esc(p.name)}</button>`).join('')}<button type="button" class="why-chip ${draft.mentor.name && !draft.mentor.preset ? 'on' : ''}" onclick="Why.pickMentor(null)">Someone I know</button></div>
         <div class="why-grid">
           <div><label class="why-label" for="why-mentor-name">Name</label>
@@ -330,7 +330,7 @@ const Why = (() => {
       </section>`,
       music: `<section class="why-sec">
         <h3>${icon('music')}Your music</h3>
-        <p class="why-help">The playlists and songs that get you going. They play right here in Waypoint and keep playing while you work and on your Journey.</p>
+        <p class="why-help">The playlists and songs that get you going. They play right here in StartLine and keep playing while you work and on your Journey.</p>
         <div class="music-lib">${draft.playlists.length ? draft.playlists.map((p, i) => `
           <div class="music-row ${i === 0 ? 'is-default' : ''}">
             <button type="button" class="music-row-play" onclick="Why.playMusic(${i})" aria-label="Play ${esc(p.label || 'this')}">${icon('play')}</button>
@@ -355,10 +355,10 @@ const Why = (() => {
             </div>
           </details>
         </div>
-        <p class="why-help mt-2">${icon('smartphone', 'tiny')} On your phone, with Waypoint added to your home screen: tap <b>Share</b> in Spotify or YouTube and pick Waypoint.</p>
+        <p class="why-help mt-2">${icon('smartphone', 'tiny')} On your phone, with StartLine added to your home screen: tap <b>Share</b> in Spotify or YouTube and pick StartLine.</p>
       </section>`,
       reminders: `<section class="why-sec">
-        <h3>${icon('eye')}Where Waypoint reminds you</h3>
+        <h3>${icon('eye')}Where StartLine reminds you</h3>
         ${[['dashboard', 'On the dashboard'], ['alarms', 'On the alarm screen when a task reminder rings'], ['nudges', 'In phone nudges'], ['assistant', 'In the assistant’s coaching']].map(([k, label]) => `
           <label class="why-toggle"><input type="checkbox" ${draft.show[k] ? 'checked' : ''} onchange="Why.setShow('${k}', this.checked)"> ${label}</label>`).join('')}
         <p class="why-help mt-2">Only you see this. Quotes from your faith stay private to you.</p>
@@ -515,7 +515,7 @@ const Why = (() => {
       return;
     }
     const e = Music.embedFor(url);
-    if (!e) { showToast('That link isn\'t from a music service Waypoint can play', 'error'); return; }
+    if (!e) { showToast('That link isn\'t from a music service StartLine can play', 'error'); return; }
     const title = await API.musicTitle(url).then(r => r.title).catch(() => null);
     quickAdd(url, title || `From ${e.service}`);
   }
@@ -589,7 +589,7 @@ const Why = (() => {
 window.Why = Why;
 
 // ── FOCUS MUSIC, IN THE APP ──
-// Their playlist plays in a small dock inside Waypoint (the services' own
+// Their playlist plays in a small dock inside StartLine (the services' own
 // embed players), so it keeps going while they move between pages and
 // play the Journey. Minimising tucks the player away without stopping it;
 // closing stops it. Links we can't embed open in a new tab instead.
@@ -626,7 +626,7 @@ const Music = (() => {
     const host = u.hostname.replace(/^www\.|^m\./, '');
     if (host === 'open.spotify.com') {
       const m = u.pathname.match(/^\/(?:intl-[a-z-]+\/)?(playlist|album|track|artist|episode|show)\/([A-Za-z0-9]+)/);
-      return m ? { src: `https://open.spotify.com/embed/${m[1]}/${m[2]}?utm_source=waypoint`, height: 152, service: 'Spotify', open: raw, control: 'spotify', uri: `spotify:${m[1]}:${m[2]}` } : null;
+      return m ? { src: `https://open.spotify.com/embed/${m[1]}/${m[2]}?utm_source=startline`, height: 152, service: 'Spotify', open: raw, control: 'spotify', uri: `spotify:${m[1]}:${m[2]}` } : null;
     }
     if (host === 'youtube.com' || host === 'music.youtube.com' || host === 'youtu.be') {
       const list = u.searchParams.get('list');
@@ -759,7 +759,7 @@ const Music = (() => {
     if (current && current.control === 'youtube') post({ event: 'command', func: 'setLoop', args: [repeat !== 'off'] });
     syncRepeat();
     const unsupported = current && !current.control;
-    showToast(unsupported && repeat !== 'off' ? `${REPEAT[repeat][1]}. ${current.service} can't tell Waypoint when it ends, so this works with Spotify, YouTube and SoundCloud` : REPEAT[repeat][1]);
+    showToast(unsupported && repeat !== 'off' ? `${REPEAT[repeat][1]}. ${current.service} can't tell StartLine when it ends, so this works with Spotify, YouTube and SoundCloud` : REPEAT[repeat][1]);
   }
   function syncRepeat() {
     const b = document.querySelector('#music-dock .music-rep');

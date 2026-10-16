@@ -683,7 +683,7 @@ const Jarvis = (() => {
     const at = planNext && plan.starts && plan.starts[planNext.id] ? ` at ${plan.starts[planNext.id]}` : '';
     const sum = plan ? (planNext ? `Today's plan: ${planDone} of ${plan.ids.length} done · Next${at}: ${taskLink(planNext)}` : `Today's plan is done: ${planDone} of ${plan.ids.length}. Great work.`)
       : open.length ? '' // Your focus, right under this, lists what's first
-        : tasks.length ? 'Everything is done. A good day to plan the next goal.' : 'Welcome to Waypoint. Start your first goal below.';
+        : tasks.length ? 'Everything is done. A good day to plan the next goal.' : 'Welcome to StartLine. Start your first goal below.';
     const running = focus && !focus.done && !focus.isBreak;
     const mainBtn = running ? (focus.hidden || focus.min ? `<button type="button" class="brief-go" onclick="Jarvis.showTimer()">${icon('timer')}Show timer</button>` : '')
       : plan && planNext ? `<button type="button" class="brief-go" onclick="Jarvis.startDay()">${icon('play')}${planDone ? 'Keep going' : 'Start the first task'}</button>`

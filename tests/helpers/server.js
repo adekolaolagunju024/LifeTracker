@@ -10,7 +10,7 @@ const BOOT_TIMEOUT_MS = 60000;
 // so a launch that doesn't answer in time is retried once on a fresh port.
 async function launch() {
   const port = 4100 + Math.floor(Math.random() * 800);
-  const dbPath = path.join(os.tmpdir(), `waypoint-test-${port}-${Date.now()}.sqlite`);
+  const dbPath = path.join(os.tmpdir(), `startline-test-${port}-${Date.now()}.sqlite`);
   const child = spawn(process.execPath, [path.join(__dirname, '../../backend/server.js')], {
     env: { ...process.env, PORT: String(port), DB_PATH: dbPath, NODE_ENV: 'test' },
     stdio: ['ignore', 'pipe', 'pipe'],

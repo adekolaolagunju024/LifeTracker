@@ -2,7 +2,7 @@
 // ── TASK ALARMS ─────────────────────────────────────────────────
 // "Ring me about this task at 18:30." The reminder lives on the server,
 // which rings it as an urgent push (stays on screen, vibrates, with Start
-// and Snooze buttons) even when Waypoint is closed. While the app is open
+// and Snooze buttons) even when StartLine is closed. While the app is open
 // it also takes over the screen like an alarm clock, with sound, so it
 // cuts through a scrolling session instead of hiding in the shade. In the
 // Android app it is also scheduled as a native alarm notification.
@@ -135,7 +135,7 @@ const Reminders = (() => {
     document.body.appendChild(el);
     el.querySelector('.alarm-start').focus();
     startSound();
-    // A Waypoint tab in the background still gets a system notification,
+    // A StartLine tab in the background still gets a system notification,
     // even without push turned on.
     if (document.hidden && 'Notification' in window && Notification.permission === 'granted' && navigator.serviceWorker) {
       navigator.serviceWorker.getRegistration().then(reg => reg && reg.showNotification(`Time for: ${r.taskTitle}`, {

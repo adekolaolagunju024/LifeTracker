@@ -591,7 +591,7 @@ test('two-step sign-in: set up, sign in with a code (no replays), recovery codes
   const email = uniqueEmail();
   const cookie = sessionCookie(await fetch(`${server.base}/api/auth/register`, json({ email, password: 'testpass123', acceptTerms: true })));
   const setup = await (await fetch(`${server.base}/api/auth/2fa/setup`, authed(cookie, 'POST'))).json();
-  assert.match(setup.otpauthUrl, /^otpauth:\/\/totp\/Waypoint/);
+  assert.match(setup.otpauthUrl, /^otpauth:\/\/totp\/StartLine/);
   assert.match(setup.qrSvg, /<svg/);
   assert.equal((await fetch(`${server.base}/api/auth/2fa/enable`, authed(cookie, 'POST', { code: '000000' }))).status, 400);
   const enabled = await (await fetch(`${server.base}/api/auth/2fa/enable`, authed(cookie, 'POST', { code: twofactor.codeForStep(setup.secret, twofactor.stepAt()) }))).json();

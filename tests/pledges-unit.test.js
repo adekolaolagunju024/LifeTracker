@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 
 // Its own throwaway database, shared with the pledge code in this process.
-const dbPath = path.join(os.tmpdir(), `waypoint-pledges-${Date.now()}.sqlite`);
+const dbPath = path.join(os.tmpdir(), `startline-pledges-${Date.now()}.sqlite`);
 process.env.DB_PATH = dbPath;
 const db = require('../backend/db/db');
 const conn = require('../backend/db/connection');

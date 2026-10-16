@@ -210,7 +210,7 @@ function drawRecapImage(r) {
   grad.addColorStop(0, '#0A7E8C'); grad.addColorStop(1, '#0D1B2A');
   g.fillStyle = grad; g.fillRect(0, 0, 1080, 1350);
   const font = (w, s) => `${w} ${s}px Inter, system-ui, -apple-system, Segoe UI, sans-serif`;
-  g.fillStyle = 'rgba(255,255,255,.7)'; g.font = font(700, 34); g.fillText(`MY WEEK IN WAYPOINT · ${r.range.toUpperCase()}`, 80, 140);
+  g.fillStyle = 'rgba(255,255,255,.7)'; g.font = font(700, 34); g.fillText(`MY WEEK IN STARTLINE · ${r.range.toUpperCase()}`, 80, 140);
   g.fillStyle = '#fff'; g.font = font(900, 96); g.fillText(r.title, 80, 290);
   const stats = [[r.done, 'tasks done'], [r.foes, 'blockers beaten'], [r.streak, 'day streak'], ...(r.level ? [[r.level, 'level']] : [])];
   stats.forEach(([n, label], i) => {
@@ -240,16 +240,16 @@ function drawRecapImage(r) {
     g.fillStyle = '#fff'; g.font = font(900, 64); g.fillText(`${recapOrd(best.place)} in a race`, 280, cy - 10);
     g.fillStyle = 'rgba(255,255,255,.75)'; g.font = font(600, 36); g.fillText(best.title.slice(0, 32), 280, cy + 45);
   }
-  g.fillStyle = 'rgba(255,255,255,.6)'; g.font = font(700, 34); g.fillText('waypointapp.com', 80, 1280);
+  g.fillStyle = 'rgba(255,255,255,.6)'; g.font = font(700, 34); g.fillText(location.host, 80, 1280);
   return new Promise(resolve => c.toBlob(resolve, 'image/png'));
 }
 
 async function shareWeeklyRecap() {
   if (!recapState) return;
   const blob = await drawRecapImage(recapState.data);
-  const file = new File([blob], 'my-week-in-waypoint.png', { type: 'image/png' });
+  const file = new File([blob], 'my-week-in-startline.png', { type: 'image/png' });
   const best = recapState.data.bestPlace;
-  const text = `My week in Waypoint: ${recapState.data.done} tasks done, ${recapState.data.foes} blockers beaten, ${recapState.data.streak}-day streak${best && best.place ? `, and ${recapOrd(best.place)} in ${best.title}` : ''}.`;
+  const text = `My week in StartLine: ${recapState.data.done} tasks done, ${recapState.data.foes} blockers beaten, ${recapState.data.streak}-day streak${best && best.place ? `, and ${recapOrd(best.place)} in ${best.title}` : ''}.`;
   try {
     if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; }
   } catch (e) { if (e && e.name === 'AbortError') return; }
@@ -275,7 +275,7 @@ async function renderDashboardRecap() {
   let data;
   try { data = await buildWeeklyRecap(); } catch { box.classList.add('hidden'); return; }
   // Nothing finished yet: a week in review would be all zeros, so the card
-  // shows what Waypoint can do instead, a button on each slide.
+  // shows what StartLine can do instead, a button on each slide.
   const tour = data.everDone ? [] : await gettingStartedSlides();
   const starting = tour.length > 0;
   // No title card (the box says what it is) and no share buttons.
@@ -284,7 +284,7 @@ async function renderDashboardRecap() {
   if (dashRecap) clearTimeout(dashRecap.timer);
   box.classList.remove('hidden');
   box.classList.toggle('is-tour', !!starting);
-  box.setAttribute('aria-label', starting ? 'Getting started with Waypoint, as slides' : 'Your week so far, as slides');
+  box.setAttribute('aria-label', starting ? 'Getting started with StartLine, as slides' : 'Your week so far, as slides');
   box.innerHTML = `<div class="recap-progress">${slides.map(() => '<span></span>').join('')}</div>
     ${starting ? '' : `<button type="button" class="recap-expand" onclick="openWeeklyRecap()" aria-label="Play my week full screen" title="Full screen">${icon('expand')}</button>`}
     <div class="recap-body"></div>
