@@ -960,6 +960,21 @@
     .rc-send input { flex: 1; min-width: 0; border: 1px solid #DDE3E8; border-radius: 12px; padding: 10px 12px; font-size: 16px; }
     .rc-send input:focus { outline: none; border-color: #0A7E8C; }
     .rc-send .fb-send { padding: 0 16px; }
+    /* The chat's tools: share a photo or file, emojis, @mentions */
+    .rc-tool { width: 40px; flex-shrink: 0; display: grid; place-items: center; border: 1px solid #DDE3E8; border-radius: 12px; color: #475569; background: #fff; }
+    .rc-tool:hover, .rc-tool[aria-expanded="true"] { color: #0A7E8C; border-color: #0A7E8C; }
+    .rc-file { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 12px; color: #334155; background: #F1F5F9; border-radius: 10px; padding: 6px 10px; }
+    .rc-file span { display: inline-flex; align-items: center; gap: 5px; min-width: 0; } .rc-file b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rc-emojis { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; margin-top: 8px; padding: 6px; border: 1px solid #E3E6EA; border-radius: 12px; background: #fff; }
+    .rc-emojis button { font-size: 20px; line-height: 1; padding: 6px 0; border-radius: 8px; } .rc-emojis button:hover { background: #F1F5F9; }
+    .rc-picks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .rc-picks button { font-size: 13px; font-weight: 800; color: #0A6A76; background: #E0F2F4; border-radius: 999px; padding: 4px 10px; }
+    .rc-at { color: #0A7E8C; font-weight: 800; }
+    .rc-file.hidden, .rc-picks.hidden, .rc-emojis.hidden { display: none; }
+    .rc-msg .proof-img img { max-height: 180px; width: auto; max-width: 100%; object-fit: cover; border-radius: 10px; }
+    .rc-msg.you .rc-at { color: inherit; text-decoration: underline; }
+    .dark .rc-tool, .dark .rc-emojis { background: #0B1424; border-color: #2A3648; color: #CBD5E1; }
+    .dark .rc-file { background: #1E293B; color: #E2E8F0; }
     .rc-unread { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; border-radius: 999px; background: #E4572E; color: #fff; font: 800 11px system-ui, sans-serif; }
     .rc-cheer { font: inherit; font-weight: 700; color: inherit; background: none; border: 0; padding: 0; text-decoration: underline dotted 1px; text-underline-offset: 3px; cursor: pointer; }
     .rc-cheer:hover { color: #0A7E8C; }

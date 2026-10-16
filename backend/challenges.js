@@ -548,12 +548,42 @@ function messages(id, userId) {
     };
   });
 }
-function say(id, userId, text) {
+// A message: text and/or a photo or file you uploaded (to your own copy of
+// the goal, as a proof photo is). Anyone @mentioned by name hears about it:
+// a push now, and it's in their bell (activitySince).
+function say(id, userId, text, attachmentId = null) {
   const c = byId(id);
   if (!canChat(c, userId)) return null;
   const t = clean(text, 1000);
-  if (!t) throw Object.assign(new Error('Write something first'), { status: 400 });
-  return postMessage(c.id, userId, t, 'msg');
+  let fileId = null;
+  if (attachmentId) {
+    const a = db.getAttachmentById(String(attachmentId));
+    if (!a || a.uploaderId !== userId) throw Object.assign(new Error("That file isn't yours to share"), { status: 400 });
+    fileId = a.id;
+  }
+  if (!t && !fileId) throw Object.assign(new Error('Write something first'), { status: 400 });
+  const m = postMessage(c.id, userId, t, 'msg', null, fileId);
+  if (t.includes('@')) {
+    const from = authorOf(c, userId, null).name;
+    mentionedIn(c, t).filter(uid => uid !== userId).forEach(uid => pushTo(uid, { title: c.title, body: `${from} mentioned you: ${clean(t, 120)}`, url: '/app', tag: `mention-${c.id}` }));
+  }
+  return m;
+}
+// Who a message @mentions, by the names people see in this team (and the
+// leader by name or by role).
+function mentionNames(c) {
+  const out = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ?').all(c.id)
+    .map(m => ({ userId: m.userId, names: [...new Set([shownName(c, m), m.displayName])] }));
+  if (!out.some(x => x.userId === c.ownerId)) {
+    const prof = (db.getProfile(c.ownerId) || {}).name || '';
+    const lead = authorOf(c, c.ownerId, null).name;
+    out.push({ userId: c.ownerId, names: [prof, lead].filter(Boolean) });
+  }
+  return out;
+}
+function mentionedIn(c, text) {
+  const low = String(text || '').toLowerCase();
+  return mentionNames(c).filter(x => x.names.some(n => n && low.includes(`@${n.toLowerCase()}`))).map(x => x.userId);
 }
 // A cheer for one player, picked by their colour (no ids leave the server).
 const CHEERS = ['👏', '🔥', '💪', '🚀', '🎉'];
@@ -618,13 +648,14 @@ function activitySince(userId, since) {
   mine.forEach(c => {
     const name = uid => authorOf(c, uid, userId).name;
     const rows = conn.prepare(`SELECT * FROM challenge_messages WHERE challengeId = ? AND createdAt > ? AND (userId IS NULL OR userId != ?)
-      AND kind IN ('help', 'offer', 'review', 'cheer', 'event', 'proof') ORDER BY createdAt`).all(c.id, since, userId);
+      AND kind IN ('help', 'offer', 'review', 'cheer', 'event', 'proof', 'msg') ORDER BY createdAt`).all(c.id, since, userId);
     const cheers = rows.filter(m => m.kind === 'cheer' && m.toUserId === userId);
     rows.forEach(m => {
       if (m.kind === 'help' && !m.closedAt) add(c, 'help', `${name(m.userId)} is stuck on “${(m.text.match(/“([^”]+)”/) || [])[1] || 'a blocker'}” and asked for help`, m.createdAt);
       else if (m.kind === 'offer' && m.toUserId === userId) add(c, 'offer', `${name(m.userId)} can help with “${(m.text.match(/“([^”]+)”/) || [])[1] || 'your blocker'}”`, m.createdAt);
       else if (m.kind === 'review' && m.toUserId === userId) add(c, 'sentback', `${name(m.userId)} ${m.text.replace(/ for [^:]+(?=:|$)/, '').replace(/^Sent/, 'sent')}`, m.createdAt);
       else if (m.kind === 'event' && /finished/.test(m.text) && m.userId) add(c, 'finish', m.text, m.createdAt);
+      else if (m.kind === 'msg' && m.text.includes('@') && mentionedIn(c, m.text).includes(userId)) add(c, 'mention', `${name(m.userId)} mentioned you: “${clean(m.text, 80)}”`, m.createdAt);
     });
     if (cheers.length) add(c, 'cheer', `${[...new Set(cheers.map(m => name(m.userId)))].slice(0, 2).join(' and ')} cheered you on ${cheers.map(m => m.text).slice(0, 5).join('')}`, cheers[cheers.length - 1].createdAt);
     // Your steps the leader signed off.

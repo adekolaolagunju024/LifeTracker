@@ -86,7 +86,7 @@ router.get('/:id/messages', (req, res) => {
 });
 router.post('/:id/messages', (req, res) => {
   try {
-    const m = challenges.say(req.params.id, req.session.userId, (req.body || {}).text);
+    const m = challenges.say(req.params.id, req.session.userId, (req.body || {}).text, (req.body || {}).attachmentId);
     if (!m) return res.status(404).json({ error: 'Race not found' });
     res.status(201).json({ id: m.id });
   } catch (e) { fail(res, e); }

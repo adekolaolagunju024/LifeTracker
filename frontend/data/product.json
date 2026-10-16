@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "A proper team chat",
+      "text": "Team chats now work like any chat app: share photos and files, add emojis, and type @ to mention someone, who gets a notification. And a team splitting a goal now has one conversation: the goal's Chat button opens the team chat."
+    },
+    {
+      "date": "2026-10-16",
       "title": "One conversation on each task",
       "text": "Status updates and comments on a task are now one thread: Updates and comments. Post where it's at, ask a question, share a photo or a file, or @mention someone, all in one place. Older status updates are still there, with the status they were posted at."
     },
