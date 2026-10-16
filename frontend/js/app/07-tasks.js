@@ -177,7 +177,8 @@ async function renderPredecessors(t) {
   wrap.innerHTML = preds.length ? preds.map(p => {
     const done = p.status === 'Completed';
     return `<span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2.5 py-1 ${done ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-amber-50 text-amber-800 border border-amber-100'}" title="${done ? 'Done' : 'Not done yet'}">
-      ${done ? '✓' : icon('waiting')} ${esc(p.title)}
+      ${done ? '✓' : icon('waiting')} ${esc(p.title)}${!done && p.assigneeId && p.assigneeId !== APP.currentUserId ? `<span class="font-normal opacity-80">· ${esc(p.assigneeName)}</span>
+      <button type="button" onclick="nudgeWaitingOn('${t.id}','${p.id}', this)" class="underline font-bold ml-0.5" title="Nudge ${esc(p.assigneeName)}">Nudge</button>` : ''}
       ${canEdit ? `<button onclick="removePredecessor('${p.id}')" class="ml-0.5 opacity-60 hover:opacity-100" aria-label="Remove ${esc(p.title)} as a predecessor">×</button>` : ''}
     </span>`;
   }).join('') : `<p class="text-xs text-gray-400">None. This task can start any time.</p>`;

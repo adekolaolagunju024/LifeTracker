@@ -507,6 +507,27 @@ async function showGateCard(taskOrId, status = 'Completed') {
   paintGateCard();
   el.querySelector('.gate-primary, .gate-secondary')?.focus();
 }
+// Nudging whoever has the step this one waits on (a comment on their step
+// and a push), and the chat to talk it through: the team's when the goal is
+// a team-up, else the goal's own.
+async function nudgeWaitingOn(taskId, predecessorId, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    const r = await API.nudgePredecessor(taskId, predecessorId);
+    showToast(`🔔 Nudged ${r.nudged}`);
+    if (btn) btn.innerHTML = `${icon('check', 'tiny')}Nudged`;
+  } catch (e) {
+    if (btn) btn.disabled = false;
+    showToast(e.message || 'Could not nudge them', 'warn');
+  }
+}
+async function chatAboutTask(projectId) {
+  let top = projectId;
+  try { const p = await API.getProject(projectId); top = p.parentId || p.id; } catch { /* use what we have */ }
+  let team = null;
+  try { team = await API.getRaceForProject(top); } catch { /* no team */ }
+  if (team && window.Race) Race.openChat(team.id); else openProjectChat(top);
+}
 function closeGateCard() {
   const el = document.getElementById('gate-card');
   if (!el) return;
@@ -527,8 +548,15 @@ function paintGateCard() {
     kind = 'wait';
     title = waiting.length === 1 ? 'Waiting on another task' : `Waiting on ${waiting.length} tasks`;
     text = `“${esc(t.title)}” can’t be ${verb} until ${waiting.length === 1 ? 'this is' : 'these are'} finished.`;
-    list = waiting.map(p => `<li><span class="gate-li-ic">${icon('link')}</span><span class="gate-li-name">${esc(p.title)}<small>${esc({ 'Not Started': 'To do', 'In Progress': 'Doing' }[p.status] || p.status || '')}</small></span>
-      <button type="button" class="gate-mini" onclick="closeGateCard(); openTaskDetail('${p.id}')">Open</button></li>`).join('');
+    // Whose step it is: someone else's gets Nudge and Chat (a teammate
+    // can't open another person's step, so no Open for those).
+    list = waiting.map(p => {
+      const theirs = p.assigneeId && p.assigneeId !== APP.currentUserId;
+      const state = esc({ 'Not Started': 'To do', 'In Progress': 'Doing' }[p.status] || p.status || '');
+      return `<li><span class="gate-li-ic">${icon('link')}</span><span class="gate-li-name">${esc(p.title)}<small>${theirs ? `${esc(p.assigneeName)} has it · ${state}` : p.assigneeId ? `Yours · ${state}` : `No one has it yet · ${state}`}</small></span>
+      ${theirs ? `<span class="gate-li-acts"><button type="button" class="gate-mini" onclick="nudgeWaitingOn('${t.id}','${p.id}', this)">${icon('bell', 'tiny')}Nudge</button><button type="button" class="gate-mini" onclick="closeGateCard(); chatAboutTask('${t.projectId}')">${icon('chat', 'tiny')}Chat</button></span>`
+        : `<button type="button" class="gate-mini" onclick="closeGateCard(); openTaskDetail('${p.id}')">Open</button>`}</li>`;
+    }).join('');
     actions = `<button type="button" class="gate-secondary" onclick="closeGateCard()">Got it</button>`;
   } else if (pending.length && status === 'Completed') {
     kind = 'block';

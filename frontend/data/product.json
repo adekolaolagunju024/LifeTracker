@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "See who you're waiting on, and nudge them",
+      "text": "When a task can't be finished yet because it's waiting on someone else's step, you now see who has that step. Tap Nudge and they get a gentle reminder in their notifications and on their phone, or tap Chat to talk it through with the team."
+    },
+    {
+      "date": "2026-10-16",
       "title": "My steps shows all your steps",
       "text": "On a team that splits a goal, My steps on the goal page now lists every step you've taken on, including the ones inside the goal's phases. Before, those only showed up in the Planner."
     },
