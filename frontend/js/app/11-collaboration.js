@@ -179,6 +179,12 @@ let chatPollTimer = null;
 async function openProjectChat(projectId) {
   try {
     const proj = await API.getProject(projectId);
+    // A "Split the work" team's goal: its chat is the team's (one place to
+    // talk, with the team's events and nudges in it too).
+    if (window.Race) {
+      const team = await API.getRaceForProject(proj.parentId || proj.id).catch(() => null);
+      if (team && team.mode === 'split') { Race.openChat(team.id); return; }
+    }
     document.getElementById('team-chat-project-title').textContent = proj.title;
     const canComment = proj.role === 'owner' || proj.role === 'editor' || proj.role === 'commenter';
     document.getElementById('team-chat-input-box').classList.toggle('hidden', !canComment);

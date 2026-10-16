@@ -710,9 +710,9 @@ function renderNotificationsList(data) {
 
   // Races and groups: someone stuck, help offered, a step sent back or
   // signed off, cheers, finishes, and steps waiting for your sign-off.
-  const TEAM_IC = { help: 'hand', offer: 'hand', sentback: 'undo', approved: 'badge-check', review: 'check', cheer: 'party', finish: 'trophy' };
+  const TEAM_IC = { help: 'hand', offer: 'hand', sentback: 'undo', approved: 'badge-check', review: 'check', cheer: 'party', finish: 'trophy', mention: 'at-sign' };
   (data.teamActivity || []).forEach(a => rows.push(`
-    <button onclick="closeNotifications(); ${['help', 'offer', 'sentback', 'cheer'].includes(a.kind) ? `Race.openChat('${a.challengeId}')` : `Race.openTeam('${a.challengeId}')`};" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
+    <button onclick="closeNotifications(); ${['help', 'offer', 'sentback', 'cheer', 'mention'].includes(a.kind) ? `Race.openChat('${a.challengeId}')` : `Race.openTeam('${a.challengeId}')`};" class="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-start gap-3">
       <span class="text-lg leading-none flex-shrink-0">${icon(TEAM_IC[a.kind] || 'users')}</span>
       <span class="text-sm text-navy min-w-0">${esc(a.text)}<span class="block text-xs text-gray-400 truncate">${esc(a.icon || '')} ${esc(a.title)}</span></span>
     </button>`));

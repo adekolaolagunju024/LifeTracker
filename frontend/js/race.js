@@ -450,12 +450,60 @@ const Race = (() => {
   async function openChat(id) {
     let r;
     try { r = await API.getRace(id); } catch (err) { showToast(err.message || 'Could not open the chat', 'error'); return; }
+    const me = r.players.find(p => p.you);
     const form = dialog(`${head(r.title, 'message-circle')}
       <p class="fb-note rc-sub">${esc(kindOf(r))} · ${r.players.length} ${r.players.length === 1 ? 'person' : 'people'}${!isGrp(r) ? ' · tap a name on the scoreboard to cheer them on' : ''}</p>
       <div class="rc-list" id="rc-list" role="log" aria-live="polite" aria-label="Messages"><p class="rc-empty">Loading…</p></div>
-      <div class="rc-send"><input type="text" id="rc-text" maxlength="1000" placeholder="Say something to everyone" aria-label="Message" autocomplete="off"><button type="submit" class="fb-send" aria-label="Send">${icon('send', 'tiny')}</button></div>`);
+      <div class="rc-file hidden" id="rc-file"><span>${icon('paperclip', 'tiny')}<b id="rc-file-name"></b></span><button type="button" id="rc-file-x" aria-label="Remove the file">${icon('close', 'tiny')}</button></div>
+      <div class="rc-picks hidden" id="rc-picks" role="listbox" aria-label="Mention someone"></div>
+      <div class="rc-emojis hidden" id="rc-emojis" role="group" aria-label="Emojis">${EMOJIS.map(e => `<button type="button" aria-label="${e}">${e}</button>`).join('')}</div>
+      <div class="rc-send">${me && me.projectId ? `<input type="file" id="rc-upload" class="hidden" accept="image/*,video/*,.pdf,.xlsx,.xls,.docx,.doc,.txt,.csv"><button type="button" class="rc-tool" id="rc-attach" aria-label="Share a photo or file" title="Share a photo or file">${icon('paperclip', 'tiny')}</button>` : ''}<button type="button" class="rc-tool" id="rc-emoji" aria-label="Emoji" title="Emoji" aria-expanded="false">${icon('smile', 'tiny')}</button><input type="text" id="rc-text" maxlength="1000" placeholder="Say something… (@ to mention)" aria-label="Message" autocomplete="off"><button type="submit" class="fb-send" aria-label="Send">${icon('send', 'tiny')}</button></div>`);
     form.classList.add('race-chat');
     const list = form.querySelector('#rc-list');
+    const input = form.querySelector('#rc-text');
+    // @mentions: the names people see in this team (not yourself).
+    const people = r.players.filter(p => !p.you).map(p => p.name).concat(r.owner || !r.leaderName ? [] : [r.leaderName]);
+    const picks = form.querySelector('#rc-picks');
+    const showPicks = () => {
+      const m = input.value.slice(0, input.selectionStart).match(/@([^@\s][^@]{0,30})?$/);
+      const q = m ? (m[1] || '').toLowerCase() : null;
+      const hits = q === null ? [] : people.filter(n => n.toLowerCase().startsWith(q)).slice(0, 6);
+      picks.classList.toggle('hidden', !hits.length);
+      picks.innerHTML = hits.map(n => `<button type="button" role="option" data-name="${esc(n)}">@${esc(n)}</button>`).join('');
+    };
+    input.addEventListener('input', showPicks);
+    picks.addEventListener('mousedown', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      e.preventDefault();
+      const pos = input.selectionStart, before = input.value.slice(0, pos).replace(/@[^@]*$/, `@${b.dataset.name} `);
+      input.value = before + input.value.slice(pos);
+      input.setSelectionRange(before.length, before.length);
+      picks.classList.add('hidden');
+      input.focus();
+    });
+    // Emojis into the message, where the cursor is.
+    const emojis = form.querySelector('#rc-emojis'), emojiBtn = form.querySelector('#rc-emoji');
+    emojiBtn.addEventListener('click', () => { const open = emojis.classList.toggle('hidden'); emojiBtn.setAttribute('aria-expanded', String(!open)); });
+    emojis.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      const pos = input.selectionStart ?? input.value.length;
+      input.value = input.value.slice(0, pos) + b.textContent + input.value.slice(pos);
+      input.setSelectionRange(pos + b.textContent.length, pos + b.textContent.length);
+      input.focus();
+    });
+    // A photo or file: uploaded to your own copy of the goal, then sent.
+    let file = null;
+    const fileBox = form.querySelector('#rc-file');
+    const upload = form.querySelector('#rc-upload');
+    if (upload) {
+      form.querySelector('#rc-attach').addEventListener('click', () => upload.click());
+      upload.addEventListener('change', () => {
+        file = upload.files[0] || null;
+        fileBox.classList.toggle('hidden', !file);
+        if (file) form.querySelector('#rc-file-name').textContent = file.name;
+      });
+      form.querySelector('#rc-file-x').addEventListener('click', () => { file = null; upload.value = ''; fileBox.classList.add('hidden'); });
+    }
     let lastKey = '';
     const draw = async () => {
       let msgs;
@@ -468,7 +516,7 @@ const Race = (() => {
         ? `<div class="rc-help${m.open ? '' : ' done'}${m.you ? ' you' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${icon('hand', 'tiny')} ${esc(m.author)} ${m.open ? 'asks for help' : 'asked for help'}</span><p>${esc(m.text)}</p>
             <div class="rc-help-foot">${!m.open ? `<span class="rc-help-ok">${icon('check', 'tiny')}Sorted</span>` : m.you ? `<span>${m.offers ? `${m.offers} offered to help` : 'Waiting for a reply'}</span>` : m.youOffered ? `<span>${icon('check', 'tiny')}You offered</span>` : `<button type="button" onclick="Race.offerHelp('${id}', '${m.id}', this)">${icon('hand', 'tiny')}I can help</button>${m.offers ? `<span>${m.offers} offered</span>` : ''}`}<time>${esc(chatTime(m.createdAt))}</time></div></div>`
         : ['msg', 'nudge', 'proof', 'review', 'offer'].includes(m.kind)
-        ? `<div class="rc-msg${m.you ? ' you' : ''}${m.kind === 'msg' ? '' : ` ${m.kind}`}${m.toYou ? ' to-you' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${m.kind === 'nudge' ? `${icon('bell', 'tiny')} ` : m.kind === 'proof' ? `${icon('camera', 'tiny')} ` : m.kind === 'review' ? `${icon('undo', 'tiny')} ` : ''}${esc(m.author)}</span><p>${esc(m.text)}</p>${proofThumb(id, m.file)}<time>${esc(chatTime(m.createdAt))}</time></div>`
+        ? `<div class="rc-msg${m.you ? ' you' : ''}${m.kind === 'msg' ? '' : ` ${m.kind}`}${m.toYou ? ' to-you' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${m.kind === 'nudge' ? `${icon('bell', 'tiny')} ` : m.kind === 'proof' ? `${icon('camera', 'tiny')} ` : m.kind === 'review' ? `${icon('undo', 'tiny')} ` : ''}${esc(m.author)}</span>${m.text ? `<p>${withMentions(m.text, people)}</p>` : ''}${proofThumb(id, m.file)}<time>${esc(chatTime(m.createdAt))}</time></div>`
         : `<div class="rc-event${m.kind === 'cheer' ? ' cheer' : ''}"><span>${esc(m.text)}</span><time>${esc(chatTime(m.createdAt))}</time></div>`).join('')
         : '<p class="rc-empty">No messages yet. Say hello, or wish everyone luck.</p>';
       if (atBottom || !lastKey.includes(',')) list.scrollTop = list.scrollHeight;
@@ -477,17 +525,34 @@ const Race = (() => {
     list.scrollTop = list.scrollHeight;
     clearInterval(chatPoll);
     chatPoll = setInterval(() => { if (!form.isConnected) { clearInterval(chatPoll); return; } draw(); }, 4000);
-    form.querySelector('#rc-text').focus();
+    input.focus();
     form.addEventListener('submit', async e => {
       e.preventDefault();
-      const input = form.querySelector('#rc-text');
       const text = input.value.trim();
-      if (!text) return;
+      if (!text && !file) return;
+      const send = form.querySelector('.fb-send');
+      send.disabled = true;
+      let attachmentId = null;
+      try {
+        if (file) attachmentId = (await API.uploadAttachment(me.projectId, file)).id;
+        await API.sayInRace(id, text, attachmentId);
+      } catch (err) { send.disabled = false; showToast(err.message || 'Could not send it', 'error'); return; }
+      send.disabled = false;
       input.value = '';
-      try { await API.sayInRace(id, text); } catch (err) { input.value = text; showToast(err.message || 'Could not send it', 'error'); return; }
+      file = null; if (upload) upload.value = ''; fileBox.classList.add('hidden');
+      emojis.classList.add('hidden'); picks.classList.add('hidden');
       await draw();
       list.scrollTop = list.scrollHeight;
     });
+  }
+  // The emoji picker's set, and @names in a message picked out.
+  const EMOJIS = ['😀', '😂', '😊', '😍', '🙌', '👍', '👏', '🙏', '💪', '🔥', '🎉', '🚀', '⭐', '✅', '❤️', '😅', '🤔', '😮', '😢', '😴', '☕', '🏁', '🏆', '👀'];
+  function withMentions(text, names) {
+    let html = esc(text);
+    [...new Set(names)].filter(Boolean).sort((a, b) => b.length - a.length).forEach(n => {
+      html = html.split(`@${esc(n)}`).join(`<b class="rc-at">@${esc(n)}</b>`);
+    });
+    return html;
   }
   // A cheer for one player: pick an emoji, it goes in the chat and pops
   // over them on their own Journey.
