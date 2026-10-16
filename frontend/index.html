@@ -1036,6 +1036,33 @@
     .dark .sp-tabs button[aria-selected="true"] { background: #1E293B; color: #E6EDF3; }
     .dark .tl-head, .dark .tl-row { border-color: #2A3648; }
     .dark .tl-name { color: #E6EDF3; }
+    /* Locked goals and the goal map (js/goalMap.js) */
+    .goal-lock { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; border-radius: 16px; padding: 12px 16px; background: linear-gradient(90deg, #EEF2FF, #F5F3FF); border: 1px solid #C7D2FE; color: #312E81; font-size: 14px; }
+    .goal-lock .gl-ic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: #fff; color: #4F46E5; flex-shrink: 0; }
+    .goal-lock b { color: #1E1B4B; }
+    .goal-lock .gl-text { flex: 1 1 220px; min-width: 0; }
+    .goal-lock button { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 800; border-radius: 999px; padding: 7px 13px; background: #fff; border: 1px solid #C7D2FE; color: #3730A3; }
+    .goal-lock button.primary { background: #4F46E5; border-color: #4F46E5; color: #fff; }
+    .goal-lock.is-open { background: #F0FDF4; border-color: #BBF7D0; color: #14532D; }
+    .goal-lock.is-open .gl-ic { color: #16A34A; }
+    .nav-lock .ic { width: 12px; height: 12px; opacity: .7; }
+    .dark .goal-lock { background: #1E1B3A; border-color: #3730A3; color: #C7D2FE; }
+    .dark .goal-lock b { color: #E0E7FF; }
+    .dark .goal-lock .gl-ic, .dark .goal-lock button:not(.primary) { background: #0B1220; border-color: #3730A3; color: #C7D2FE; }
+    .gm-overlay { position: fixed; inset: 0; z-index: 990; background: rgba(13,27,42,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .gm-card { position: relative; width: min(460px, 100%); max-height: 94vh; display: flex; flex-direction: column; background: #fff; border-radius: 24px; overflow: hidden; box-shadow: 0 30px 80px rgba(5,10,20,.4); }
+    .gm-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; }
+    .gm-head h2 { flex: 1; min-width: 0; font-size: 17px; font-weight: 800; color: #0D1B2A; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gm-head small { display: block; font-size: 12px; font-weight: 600; color: #64748B; }
+    .gm-head button { width: 36px; height: 36px; border-radius: 999px; display: grid; place-items: center; color: #475569; background: #F1F5F9; flex-shrink: 0; }
+    .gm-svg { display: block; width: 100%; height: auto; min-height: 0; flex: 1; overflow: auto; }
+    .gm-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid #EEF1F4; }
+    .gm-foot button { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; border-radius: 999px; padding: 8px 14px; background: #F1F5F9; color: #0D1B2A; }
+    .gm-foot button.primary { background: #0A7E8C; color: #fff; }
+    .gm-head .gl-ic { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: #FFF7ED; color: #EA580C; flex-shrink: 0; }
+    .dark .gm-card { background: #141D2B; }
+    .dark .gm-head h2 { color: #E6EDF3; }
+    .dark .gm-foot { border-color: #2A3648; }
     /* Asking for help on a blocker */
     .help-btn, .help-asked { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 3px 8px; white-space: nowrap; }
     [data-help-slot]:not(:empty) { flex-basis: 100%; order: 10; padding-left: 24px; }
@@ -3574,6 +3601,7 @@
           <button onclick="openPlannerFromProject(APP.currentProjectId)" id="btn-planner-view" title="Open this project in the Planner (Gantt, Kanban or Journey)" class="flex-1 sm:flex-none whitespace-nowrap bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-200 text-xs font-semibold px-2 sm:px-4 py-2 rounded-lg"><span class="ei" data-icon="chart-column"></span> Planner</button>
           <button onclick="openAssistantFor({ projectId: APP.currentProjectId })" id="btn-assistant-project" title="Ask the assistant about this project" aria-label="Assistant" class="hidden flex-shrink-0 bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap"><span class="ei" data-icon="sparkles"></span><span class="hidden sm:inline"> Assistant</span></button>
           <button onclick="openProgressReport(APP.currentProjectId)" class="ui-desktop-only bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg" title="A progress report you can download, print or share"><span class="ei" data-icon="file"></span> Report</button>
+          <button onclick="GoalMap.open(APP.currentProjectId)" id="btn-goal-map" class="ui-desktop-only bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg" title="One picture of the whole goal, and the goals it unlocks"><span class="ei" data-icon="map"></span> Map</button>
           <button onclick="openShareProject(APP.currentProjectId)" id="btn-share-project" class="ui-desktop-only bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="users"></span> <span id="btn-share-label">Share</span></button>
           <div class="relative">
             <button onclick="toggleProjectDetailMenu(event)" id="detail-more-btn" class="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg">⋯</button>
@@ -3582,6 +3610,7 @@
               <div class="sm:hidden border-t border-gray-100 my-1"></div>
               <button onclick="closeProjectDetailMenu();openAddSubfolder(APP.currentProjectId)" id="btn-new-subfolder" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="folder"></span> New Sub-folder</button>
               <button onclick="closeProjectDetailMenu();openProjectChat(APP.currentProjectId)" id="btn-project-chat" class="hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="chat"></span> Chat</button>
+              <button onclick="closeProjectDetailMenu();GoalMap.open(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="map"></span> Goal map</button>
               <button onclick="closeProjectDetailMenu();openProgressReport(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="file"></span> Progress report</button>
               <button onclick="closeProjectDetailMenu();editProject(APP.currentProjectId)" id="btn-edit-project" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="edit"></span> Edit</button>
               <button onclick="closeProjectDetailMenu();Race.openCreate(APP.currentProjectId)" id="btn-race-friend" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="users"></span> Team up</button>
@@ -3609,6 +3638,7 @@
       <!-- Mini KPIs -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-5" id="detail-stats"></div>
       <!-- Rewards people have pledged for finishing this goal (js/pledges.js), owner only -->
+      <div class="hidden mb-5" id="detail-lock"></div>
       <div class="hidden mb-5" id="detail-rewards"></div>
 
       <!-- Filters -->
@@ -4404,6 +4434,11 @@
           <label for="proj-start" class="block text-sm font-semibold text-navy mb-1.5">Starts <span class="font-normal text-gray-400">(optional)</span></label>
           <input type="date" id="proj-start" class="w-full sm:w-56 border border-gray-200 rounded-xl px-3.5 h-11 text-sm focus:outline-none focus:border-teal">
           <p class="text-xs text-gray-400 mt-1">Tasks in this project can't start before this date.</p>
+        </div>
+        <div class="mt-4 hidden" id="proj-unlock-wrap">
+          <label for="proj-unlock" class="block text-sm font-semibold text-navy mb-1.5">Unlocks after <span class="font-normal text-gray-400">(optional)</span></label>
+          <select id="proj-unlock" class="w-full sm:w-80 border border-gray-200 rounded-xl px-3 h-11 text-sm focus:outline-none focus:border-teal bg-white"><option value="">Open now</option></select>
+          <p class="text-xs text-gray-400 mt-1">Lock this goal behind another: its steps can't be ticked off until that goal is finished.</p>
         </div>
         <!-- New top-level projects: invite people straight away (also used
              when starting from a template). -->
@@ -5213,6 +5248,7 @@
 <script src="js/taskActions.js"></script>
 <script src="js/feedback.js"></script>
 <script src="js/race.js"></script>
+<script src="js/goalMap.js"></script>
 <script src="js/aiFill.js"></script>
 
 </body>

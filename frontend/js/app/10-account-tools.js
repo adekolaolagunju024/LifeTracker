@@ -104,6 +104,21 @@ function fillProjectForm(p, kind) {
   document.getElementById('proj-look-btn').setAttribute('aria-expanded', 'false');
   if (kind !== 'new') setProjectStartMode('blank');
   syncProjectLook();
+  fillUnlockChoice(p, kind);
+}
+// "Unlocks after": the owner's other goals (never itself). Only for a
+// top-level goal, and only its owner chooses.
+async function fillUnlockChoice(p, kind) {
+  const wrap = document.getElementById('proj-unlock-wrap');
+  const sel = document.getElementById('proj-unlock');
+  const top = kind === 'new' || kind === 'edit';
+  wrap.classList.add('hidden');
+  if (!top || (kind === 'edit' && p.role !== 'owner')) return;
+  let goals = [];
+  try { goals = (await API.getProjects({ parentId: 'null' })).filter(g => g.role === 'owner' && g.id !== p.id); } catch { return; }
+  if (!goals.length) return;
+  sel.innerHTML = `<option value="">Open now</option>${goals.map(g => `<option value="${g.id}"${p.unlockAfter === g.id ? ' selected' : ''}>${esc(g.title)}</option>`).join('')}`;
+  wrap.classList.remove('hidden');
 }
 
 function setProjectStartMode(mode) {
@@ -224,6 +239,7 @@ async function saveProject() {
     parentId:    document.getElementById('proj-parent').value || null,
     type:        document.getElementById('proj-parent').value ? undefined : document.getElementById('proj-type').value,
   };
+  if (!document.getElementById('proj-unlock-wrap').classList.contains('hidden')) data.unlockAfter = document.getElementById('proj-unlock').value || null;
   if (!data.title) { showToast('Give it a name first', 'error'); document.getElementById('proj-title').focus(); return; }
   const btn = document.getElementById('proj-save-btn');
   btn.disabled = true;
