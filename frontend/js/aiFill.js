@@ -123,9 +123,9 @@ AIFill.attach(document.getElementById('proj-ai-fill'), {
   ],
   projectId: () => document.getElementById('proj-id').value || document.getElementById('proj-parent').value || null,
 });
-// A status update on a task: why it's where it is.
+// An update on a task (in its Updates and comments thread): where it's at.
 AIFill.attach(document.getElementById('td-status-ai-fill'), {
-  form: 'A short status update on a task: why it is still at its status, for the people working with them',
-  fields: [{ key: 'update', label: 'Status update', type: 'text', el: '#td-status-update-input', hint: 'One sentence in the first person, e.g. what it is waiting on or what happens next' }],
+  form: 'A short update on a task: where it is at and why, for the people working with them',
+  fields: [{ key: 'update', label: 'Update', type: 'text', el: '#td-comment-input', hint: 'One sentence in the first person, e.g. what it is waiting on or what happens next' }],
   taskId: () => (typeof APP_currentDetailTaskId !== 'undefined' ? APP_currentDetailTaskId : null),
 });
