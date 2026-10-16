@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "My steps shows all your steps",
+      "text": "On a team that splits a goal, My steps on the goal page now lists every step you've taken on, including the ones inside the goal's phases. Before, those only showed up in the Planner."
+    },
+    {
+      "date": "2026-10-16",
       "title": "No more doubled-up teams",
       "text": "A goal can now have one team at a time: choosing Team up on a goal that already has one takes you to that team instead of quietly starting another (and another copy of the goal). Chats lists a team's goal once, and leftover empty teams are gone from your list."
     },

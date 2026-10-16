@@ -170,15 +170,19 @@ async function renderProjectDetail(projectId) {
 
 async function renderTaskTable(projectId) {
   try {
-    const [allTags, rawTasks, project] = await Promise.all([
+    const project = await API.getProject(projectId);
+    // A teammate's My steps (Split the work) is every step of theirs in the
+    // goal, its phases included; anywhere else, this folder's own tasks.
+    const wholeGoal = !!project.splitTeamId && !project.parentId;
+    const filters = { status: APP.filters.status || undefined, priority: APP.filters.priority || undefined, search: APP.filters.search || undefined };
+    const [allTags, rawTasks] = await Promise.all([
       API.getTags(),
-      API.getTasks({
-        projectId,
-        status:   APP.filters.status   || undefined,
-        priority: APP.filters.priority || undefined,
-        search:   APP.filters.search   || undefined,
-      }),
-      API.getProject(projectId),
+      wholeGoal
+        ? Promise.all([API.getTasks(filters), API.getProjects({ parentId: projectId })]).then(([ts, phases]) => {
+          const tree = new Set([projectId, ...phases.map(ph => ph.id)]);
+          return ts.filter(t => tree.has(t.projectId));
+        })
+        : API.getTasks({ projectId, ...filters }),
     ]);
     const minStart = project.startDate || '';
 
@@ -255,8 +259,8 @@ async function renderTaskTable(projectId) {
                   class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">${icon('edit')}</button>
                 <button onclick="duplicateTaskAction('${t.id}','${projectId}')" title="Duplicate" aria-label="Duplicate ${esc(t.title)}"
                   class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100 text-sm opacity-60 hover:opacity-100">⧉</button>
-                <button onclick="deleteTaskConfirm('${t.id}','${projectId}')" title="Delete" aria-label="Delete ${esc(t.title)}"
-                  class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm opacity-60 hover:opacity-100">${icon('trash')}</button>` : ''}
+                ${project.splitTeamId ? '' /* a teammate's steps are removed by the team's leader */ : `<button onclick="deleteTaskConfirm('${t.id}','${projectId}')" title="Delete" aria-label="Delete ${esc(t.title)}"
+                  class="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 text-sm opacity-60 hover:opacity-100">${icon('trash')}</button>`}` : ''}
               </div>
             </td>
           </tr>`).join('')
