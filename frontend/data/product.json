@@ -125,6 +125,11 @@
   ],
   "whatsNew": [
     {
+      "date": "2026-10-16",
+      "title": "Your week, with your team in it",
+      "text": "My week in review now shows your race results with their gold, silver or bronze cup, how the groups you lead are doing (with Remind those behind) or how you're doing in yours, the stage you played on, the rewards waiting for you or earned, and the cheers you got. Your best race place and its cup go on the share image too."
+    },
+    {
       "date": "2026-10-14",
       "title": "A title on printed charts",
       "text": "Printing the Gantt chart or the Kanban board now puts a title at the top: the goal's name (or All projects), which view, the date and how many tasks are done. Untick Print a title under More to leave it off. Printouts also drop the toolbar and buttons."

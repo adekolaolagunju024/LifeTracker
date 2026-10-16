@@ -538,6 +538,37 @@ function cheersSeen(id, userId) {
   return true;
 }
 
+// ── For the week in review ──────────────────────────────────────────
+// Races you finished (or that ended) in the last week with your place,
+// the groups you lead or are in with how they're doing, and the cheers
+// that came your way.
+function weekFor(userId) {
+  const since = new Date(Date.now() - 7 * DAY).toISOString();
+  const rows = conn.prepare(`SELECT DISTINCT c.* FROM challenges c LEFT JOIN challenge_members m ON m.challengeId = c.id
+    WHERE (m.userId = ? OR c.ownerId = ?) AND c.endsAt > ?`).all(userId, userId, since);
+  const races = [], groups = [];
+  rows.forEach(c => {
+    const s = standings(c, userId);
+    const me = s.players.find(p => p.you);
+    if (c.mode !== 'together') {
+      if (me && ((me.finished && me.finishedAt > since) || (s.over && Date.parse(c.endsAt) > Date.parse(since)))) {
+        races.push({ id: c.id, title: c.title, icon: c.icon, place: me.place || null, players: s.players.length, finished: me.finished, done: me.done, total: me.total, stake: c.stake, winner: s.winner && !s.winner.you ? s.winner.name : null });
+      }
+    } else if (s.owner || me) {
+      groups.push({ id: c.id, title: c.title, icon: c.icon, leader: s.owner, leaderRole: s.leaderRole, group: s.group,
+        me: me ? { done: me.done, total: me.total, pace: me.finished ? 'finished' : me.pace } : null, over: s.over });
+    }
+  });
+  const cheers = conn.prepare(`SELECT m.*, c.title FROM challenge_messages m JOIN challenges c ON c.id = m.challengeId
+    WHERE m.kind = 'cheer' AND m.toUserId = ? AND m.createdAt > ? ORDER BY m.createdAt`).all(userId, since);
+  const from = [...new Set(cheers.map(m => authorOf(byId(m.challengeId), m.userId, userId).name))];
+  return {
+    races: races.sort((a, b) => (a.place || 99) - (b.place || 99)).slice(0, 4),
+    groups: groups.slice(0, 3),
+    cheers: { count: cheers.length, emojis: cheers.map(m => m.text).slice(-8), from: from.slice(0, 3), more: Math.max(0, from.length - 3) },
+  };
+}
+
 // ── For the notification bell ───────────────────────────────────────
 // What's happened in your races and groups since you last looked, meant
 // for you: someone stuck, an offer of help or a step sent back to you,
@@ -755,4 +786,4 @@ function leave(id, userId) {
   return conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId).changes > 0;
 }
 
-module.exports = { activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+module.exports = { weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };

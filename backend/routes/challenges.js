@@ -22,6 +22,9 @@ router.post('/', (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// GET /api/challenges/week : races, groups and cheers for the week in review
+router.get('/week', (req, res) => res.json(challenges.weekFor(req.session.userId)));
+
 // GET /api/challenges/help-places/:taskId : where this step's blockers can be taken for help
 router.get('/help-places/:taskId', (req, res) => res.json(challenges.helpPlaces(req.session.userId, req.params.taskId)));
 
