@@ -2972,6 +2972,10 @@
 
     /* Sidebar: a light rail with the brand, like the web mockup. */
     #sidebar { background: #FFFFFF !important; border-right: 1px solid #E3E6EA; }
+    /* The sidebar is exactly the window's height: the nav scrolls, and the
+       Settings / Report a problem footer stays in view (never cut off). */
+    #sidebar { height: 100vh; height: 100dvh; }
+    #sidebar .sidebar-foot { position: sticky; bottom: 0; background: inherit; z-index: 2; }
     #sidebar .text-white { color: #0D1B2A !important; }
     #sidebar .text-white\/70 { color: #3F4A57 !important; }
     #sidebar .text-white\/55 { color: #3F4A57 !important; }
@@ -3377,7 +3381,7 @@
   <div class="hidden fixed inset-0 bg-black/50 z-40 md:hidden" id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
 
   <!-- ═══ SIDEBAR ═══ -->
-  <nav class="w-64 min-h-screen bg-navy fixed top-0 left-0 flex flex-col z-50 overflow-y-auto" id="sidebar">
+  <nav class="w-64 bg-navy fixed top-0 left-0 flex flex-col z-50 overflow-y-auto" id="sidebar">
 
     <!-- App brand — a wordmark, distinct from the user identity block
          below it. This spot used to only show sidebar-name/-tagline,
@@ -3442,8 +3446,9 @@
       </button>
     </div>
 
-    <!-- pinned to the bottom of the sidebar -->
-    <div class="mt-auto px-3 pt-2 pb-4 space-y-1 relative border-t border-white/10">
+    <!-- pinned to the bottom of the sidebar (sticky, so a long project list
+         scrolls under it instead of pushing it off the screen) -->
+    <div class="sidebar-foot mt-auto px-3 pt-2 pb-4 space-y-1 relative border-t border-white/10">
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="toggleFileMenu(event)" id="file-menu-btn" aria-haspopup="menu">
         <span class="icon-badge nav-ic" data-icon="settings"></span> Settings &amp; data
@@ -3500,7 +3505,7 @@
         <!-- The music player and focus timer, when hidden, wait here -->
         <div class="topdock" id="topdock"></div>
         <span class="text-gray-400 text-xs font-mono hidden lg:inline" id="topbar-date"></span>
-        <button onclick="openPalette()" aria-label="Command palette (Ctrl+K)" title="Command palette (⌘K / Ctrl+K)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="palette-btn">⌘</button>
+        <button onclick="openPalette()" aria-label="Command palette (Ctrl+K)" title="Command palette (⌘K / Ctrl+K)" class="hidden md:flex bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold w-8 h-8 items-center justify-center rounded-lg transition-all" id="palette-btn">⌘</button>
         <div class="relative">
           <button onclick="toggleNotifications(event)" aria-label="Notifications" class="relative bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="notif-bell-btn" data-icon="bell">
             <span class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center leading-none" id="notif-badge-count">0</span>
@@ -3512,6 +3517,7 @@
             <div id="notif-list" class="divide-y divide-gray-50"></div>
           </div>
         </div>
+        <button onclick="showPage('settings')" aria-label="Settings" title="Settings" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="settings-btn" data-icon="settings"></button>
         <button onclick="toggleTheme()" aria-label="Toggle dark mode" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="theme-toggle-btn"><span id="theme-toggle-icon"><span class="ei" data-icon="moon"></span></span></button>
       </div>
     </div>
