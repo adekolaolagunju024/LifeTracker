@@ -956,6 +956,23 @@
     .rc-event { align-self: center; text-align: center; font-size: 12px; font-weight: 700; color: #475569; background: #E8EDF2; border-radius: 999px; padding: 4px 12px; }
     .rc-event.cheer { background: #FEF3C7; color: #92400E; }
     .rc-event time { display: inline; margin: 0 0 0 6px; }
+    /* Who leads it, and a message's task */
+    .rc-lead { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 800; color: #7A4B00; background: #FDF0D5; border-radius: 999px; padding: 1px 7px 1px 5px; vertical-align: middle; white-space: nowrap; }
+    .rc-lead .ic { width: 11px; height: 11px; color: #B7791F; }
+    .dark .rc-lead { background: rgba(245,158,11,.16); color: #FCD34D; }
+    .dark .rc-lead .ic { color: #FCD34D; }
+    .rc-task { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 6px; padding: 6px 8px; border-radius: 10px; background: #F0FAF9; border: 1px solid #CDEBE8; color: #0A6570; font-size: 12.5px; font-weight: 700; text-align: left; }
+    .rc-task span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rc-task .ic { width: 14px; height: 14px; flex-shrink: 0; }
+    .rc-task:hover { border-color: #0A7E8C; }
+    .rc-task.done { color: #5B6472; background: #F4F6F8; border-color: #E3E6EA; }
+    .rc-msg.you .rc-task { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.3); color: #fff; }
+    .rc-event .rc-task { display: inline-flex; width: auto; max-width: 100%; margin: 4px auto 0; }
+    .rc-help .rc-task { margin-bottom: 4px; }
+    .rc-about { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding: 6px 8px 6px 10px; border-radius: 10px; background: #F0FAF9; color: #0A6570; font-size: 12.5px; }
+    .rc-about span { display: inline-flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rc-about button { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 7px; color: #5B6472; flex-shrink: 0; }
+    .dark .rc-task, .dark .rc-about { background: rgba(94,234,212,.08); border-color: rgba(94,234,212,.25); color: #5EEAD4; }
     .rc-send { display: flex; gap: 8px; margin-top: 10px; }
     .rc-send input { flex: 1; min-width: 0; border: 1px solid #DDE3E8; border-radius: 12px; padding: 10px 12px; font-size: 16px; }
     .rc-send input:focus { outline: none; border-color: #0A7E8C; }
