@@ -1162,6 +1162,8 @@
     .race-code small { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #9FB3C8; }
     .race-code b { font: 800 30px/1.1 ui-monospace, Menlo, monospace; letter-spacing: .12em; color: #5EEAD4; }
     .race-code span { font-size: 11px; color: #9FB3C8; }
+    .race-code button { margin-top: 6px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; color: #0D1B2A; background: #5EEAD4; border-radius: 999px; padding: 5px 12px; }
+    .ch-code { display: inline-flex; align-items: center; gap: 4px; font: 800 13px ui-monospace, Menlo, monospace; letter-spacing: .06em; background: #F1F5F9; border: 1px solid #E2E8F0; border-radius: 8px; padding: 1px 7px; color: #0D1B2A; }
     /* The Teams page (js/race.js) */
     .ch-join { background: #fff; border: 1px solid #E3E6EA; border-radius: 16px; padding: 14px 16px; margin-bottom: 14px; display: grid; gap: 6px; max-width: 520px; }
     .ch-join label { font-size: 13px; font-weight: 700; color: #0D1B2A; }
@@ -4477,7 +4479,7 @@
          one merged flow (like Claude's own chat) instead of a separate
          "upload a file" tab that skipped the conversation entirely. -->
     <div id="import-step-upload" class="p-6 overflow-y-auto flex-1">
-      <p class="text-sm text-gray-500 mb-3">Describe your goal, or attach a plan/checklist/spreadsheet/image (<span class="ei" data-icon="paperclip"></span>) and ask about it. Claude asks a question or two if it needs to, then proposes a project with tasks — nothing is created until you review and confirm.</p>
+      <p class="text-sm text-gray-500 mb-3">Describe your goal, or attach a plan/checklist/spreadsheet/image with <strong>+</strong> and ask about it. Claude asks a question or two if it needs to, then proposes a project with tasks — nothing is created until you review and confirm.</p>
       <div id="chat-messages" class="border border-gray-200 rounded-lg p-3 mb-3 space-y-2 overflow-y-auto flex flex-col" style="max-height:320px; min-height:200px;"></div>
       <div class="hidden items-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2" id="chat-attachment-chip">
         <span class="text-base flex-shrink-0"><span class="ei" data-icon="paperclip"></span></span>
@@ -4486,8 +4488,8 @@
       </div>
       <div class="flex gap-2 items-center">
         <input type="file" id="chat-file-input" accept=".xlsx,.xls,.pdf,.png,.jpg,.jpeg" class="hidden" onchange="onChatFileSelected(this.files[0])">
-        <button onclick="document.getElementById('chat-file-input').click()" title="Attach a file"
-          class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-9 h-9 flex-shrink-0 rounded-lg flex items-center justify-center text-base"><span class="ei" data-icon="paperclip"></span></button>
+        <button onclick="document.getElementById('chat-file-input').click()" title="Attach a file" aria-label="Attach a file"
+          class="bg-gray-100 hover:bg-gray-200 text-gray-600 w-9 h-9 flex-shrink-0 rounded-lg flex items-center justify-center"><span class="ei" data-icon="plus"></span></button>
         <input type="text" id="chat-input" placeholder="Type a message…" onkeydown="if(event.key==='Enter'){event.preventDefault(); sendProjectChatMessage();}"
           class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-teal">
         <button onclick="sendProjectChatMessage()" id="chat-send-btn" class="bg-teal hover:bg-teal/90 text-white text-xs font-semibold px-4 py-2 rounded-lg whitespace-nowrap flex-shrink-0">Send</button>

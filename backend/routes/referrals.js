@@ -4,7 +4,7 @@ const { requireVerifiedEmail } = require('../middleware/verifiedEmail');
 const db = require('../db/db');
 const { sendReferralInvite } = require('../email/referral');
 
-const APP_URL = process.env.APP_URL || 'http://localhost:3000';
+const { APP_URL } = require('../email/appUrl');
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // GET /api/referrals/me — this account's invite link and what it has earned

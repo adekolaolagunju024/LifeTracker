@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "Copy a team's join code",
+      "text": "When you invite people to a race, group or team, the join code now has its own Copy code button, just like the link, so you can paste it into a message. Tap the code on a team that nobody has joined yet to copy it too. The AI chat's attach button is now a simple +, and email links now open the live app even on a server that hasn't set its address."
+    },
+    {
+      "date": "2026-10-16",
       "title": "Mountain in 3D",
       "text": "The Mountain stage now has a 3D view too. Your hiker climbs a switchback trail cut into a real mountain, through pine woods and past rock up to the snow, with the camera just behind them. Boulders block the trail until you clear them, then roll away down the slope, and finishing your goal raises your flag on the summit."
     },
