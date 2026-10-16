@@ -2006,6 +2006,16 @@
     .gantt-bar { position: absolute; height: 22px; border-radius: 7px; min-width: 6px; display: flex; align-items: center; overflow: visible; box-sizing: border-box; z-index: 3; cursor: grab;
       background: var(--c); box-shadow: inset 3px 0 0 var(--pri), 0 1px 2px rgba(13,27,42,.18); }
     .gantt-bar.done { opacity: .55; }
+    /* Drag this dot onto another task to make it wait on this one (ganttLinkStart) */
+    .gantt-link-handle { position: absolute; right: -6px; bottom: -6px; width: 12px; height: 12px; border-radius: 999px; background: #fff; border: 2px solid #0A7E8C; z-index: 5; cursor: crosshair; opacity: 0; transition: opacity .15s, transform .15s; touch-action: none; }
+    .gantt-bar.can-drag:hover .gantt-link-handle, .gantt-link-handle:focus-visible { opacity: 1; }
+    .gantt-link-handle:hover { transform: scale(1.25); }
+    @media (pointer: coarse) { .gantt-link-handle { opacity: .9; width: 14px; height: 14px; right: -7px; bottom: -7px; } }
+    .pkey-linkdot { display: inline-block; width: 12px; height: 12px; border-radius: 999px; background: #fff; border: 2px solid #0A7E8C; }
+    .gantt-link-drag { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1005; overflow: visible; }
+    .gantt-link-drag > path { fill: none; stroke: #0A7E8C; stroke-width: 2; stroke-dasharray: 4 3; }
+    .gantt-grid-row.gantt-link-target { background: #E0F2F4 !important; box-shadow: inset 3px 0 0 #0A7E8C; }
+    @media print { .gantt-link-handle { display: none !important; } }
     .gantt-bar.label-out .gantt-bar-label { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); color: #0D1B2A; padding: 0 0 0 6px; overflow: visible; }
     .gantt-bar.label-out.label-left .gantt-bar-label { left: auto; right: 100%; padding: 0 6px 0 0; }
     .dark .gantt-bar.label-out .gantt-bar-label { color: #E6EDF3; }
