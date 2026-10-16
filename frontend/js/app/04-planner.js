@@ -842,6 +842,11 @@ function renderKanbanBoard(tasks, projectById) {
   const prioritySel = document.getElementById('kanban-priority-filter');
   if (prioritySel) prioritySel.value = APP.kanbanPriorityFilter;
 
+  // Who waits on whom, from every task (a filter can hide one end).
+  const unlocks = {};
+  tasks.forEach(t => { if (t.status !== 'Completed') (t.predecessors || []).forEach(p => { (unlocks[p.id] = unlocks[p.id] || []).push(t); }); });
+  APP.kanbanUnlocks = unlocks;
+  APP.kanbanTaskById = Object.fromEntries(tasks.map(t => [t.id, t]));
   if (APP.kanbanPriorityFilter) tasks = tasks.filter(t => t.priority === APP.kanbanPriorityFilter);
 
   const ICON = {
@@ -857,7 +862,7 @@ function renderKanbanBoard(tasks, projectById) {
       // across columns that sit off screen on a phone.
       const move = canEdit ? `<button type="button" class="kanban-move" aria-haspopup="menu" aria-label="Move ${esc(t.title)} to another column" onclick="event.stopPropagation(); openChipMenu(this, 'status', '${t.id}', '${status}', 'kanban')">Move to… ▾</button>` : '';
       return `
-        <div class="kanban-card group" data-task-id="${t.id}" data-status="${status}"
+        <div class="kanban-card group" data-task-id="${t.id}" data-status="${status}"${kanbanHasLinks(t) ? ' data-links="1"' : ''}
           ${canEdit ? `onmousedown="kanbanCardMouseDown(event, '${t.id}', '${status}')" ontouchstart="kanbanCardMouseDown(event, '${t.id}', '${status}')"` : ''}>
           <div class="flex items-start justify-between gap-2">
             <span class="kanban-card-title" role="button" tabindex="0" onclick="openTaskDetail('${t.id}')" onkeydown="if(event.key==='Enter')this.click()">${esc(t.title)}</span>
@@ -867,10 +872,11 @@ function renderKanbanBoard(tasks, projectById) {
               ${cardFields.assignee ? assigneeInitialBadge(t.assigneeName) : ''}
             </div>
           </div>
+          ${kanbanLinkRow(t)}
           ${cardFields.tags && (t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1.5">${miniTagBadges(t.tags)}</div>` : ''}
           ${teamRow(t, proj, projectById)}
           <div class="kanban-card-foot">
-            <span class="truncate flex items-center gap-1.5 min-w-0">${proj ? `<span class="truncate">${emojiIcon(proj.icon)} ${esc(proj.title)}</span>` : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}${statusUpdateBadge(t)}${obstacleBadge(t)}${waitingBadge(t)}<span data-reminder-slot="${t.id}">${window.Reminders ? Reminders.chip(t.id) : ''}</span></span>
+            <span class="truncate flex items-center gap-1.5 min-w-0">${proj ? `<span class="truncate">${emojiIcon(proj.icon)} ${esc(proj.title)}</span>` : ''}${cardFields.checklist ? miniChecklistBadge(t) : ''}${cardFields.cost ? miniCostBadge(t.cost) : ''}${cardFields.schedule ? miniScheduleBadge(t) : ''}${commentCountBadge(t)}${statusUpdateBadge(t)}${obstacleBadge(t)}<span data-reminder-slot="${t.id}">${window.Reminders ? Reminders.chip(t.id) : ''}</span></span>
             ${t.endDate ? `<span class="kanban-due ${isOverdue ? 'is-overdue' : ''}" title="${isOverdue ? 'Overdue' : 'Due'}">${formatDateShort(t.endDate)}</span>` : ''}
           </div>
           ${blockerChecklist(t, canEdit, 'board')}
@@ -894,6 +900,138 @@ function renderKanbanBoard(tasks, projectById) {
         <div class="kanban-column-body" data-status="${status}">${cards}</div>
       </section>`;
   }).join('');
+  kanbanFocusId = null;
+  wireKanbanLinks(board);
+}
+
+// ── KANBAN LINKS ───────────────────────────────────────────────
+// No standing arrows on the board: columns are statuses, not time, so
+// lines across them would only tangle. Instead each card says what it
+// waits on (and whose step that is) and how many it unlocks, and the
+// links show on demand: hover a card (or tap one of those chips) and the
+// tasks it waits on and unlocks light up, the rest fade, and arrows join
+// them for as long as you look.
+let kanbanFocusId = null;
+let kanbanHoverTimer = null;
+const kanbanHasLinks = t => !!((t.predecessors || []).length || (APP.kanbanUnlocks[t.id] || []).length);
+function kanbanLinkRow(t) {
+  if (t.status === 'Completed') return '';
+  const waiting = waitingOn(t);
+  const next = APP.kanbanUnlocks[t.id] || [];
+  if (!waiting.length && !next.length) return '';
+  const first = waiting[0];
+  const theirs = first && first.assigneeId && first.assigneeId !== APP.currentUserId && first.assigneeName;
+  const waitChip = first ? `<button type="button" class="kanban-link wait" onclick="event.stopPropagation(); kanbanFocus('${t.id}', true)"
+      title="Waiting on: ${esc(waiting.map(p => p.title + (p.assigneeName ? ` (${p.assigneeName})` : '')).join(', '))}. Tap to show them"
+      aria-label="Waiting on ${esc(waiting.map(p => p.title).join(', '))}. Show the links">${icon('lock', 'tiny')}<span>Waiting on <b>${esc(first.title)}</b>${theirs ? ` · ${esc(theirs)}` : ''}</span>${waiting.length > 1 ? `<em>+${waiting.length - 1}</em>` : ''}</button>` : '';
+  const nextChip = next.length ? `<button type="button" class="kanban-link next" onclick="event.stopPropagation(); kanbanFocus('${t.id}', true)"
+      title="Finishing this unlocks: ${esc(next.map(x => x.title).join(', '))}. Tap to show them"
+      aria-label="Unlocks ${next.length} ${next.length === 1 ? 'task' : 'tasks'}: ${esc(next.map(x => x.title).join(', '))}. Show the links">${icon('unlock', 'tiny')}<span>Unlocks ${next.length}</span></button>` : '';
+  return `<div class="kanban-links">${waitChip}${nextChip}</div>`;
+}
+function kanbanFocus(id, sticky = false) {
+  const board = document.getElementById('kanban-board');
+  if (!board) return;
+  if (sticky && kanbanFocusId === id && board.classList.contains('links-sticky')) { kanbanUnfocus(true); return; }
+  kanbanUnfocus(true);
+  const t = (APP.kanbanTaskById || {})[id];
+  if (!t) return;
+  const preds = (t.predecessors || []).map(p => p.id);
+  const succs = (APP.kanbanUnlocks[id] || []).map(x => x.id);
+  if (!preds.length && !succs.length) return;
+  kanbanFocusId = id;
+  board.classList.add('links-on');
+  board.classList.toggle('links-sticky', sticky);
+  board.querySelectorAll('.kanban-card').forEach(c => {
+    const cid = c.dataset.taskId;
+    c.classList.toggle('link-focus', cid === id);
+    c.classList.toggle('link-pred', preds.includes(cid));
+    c.classList.toggle('link-succ', succs.includes(cid));
+  });
+  board.querySelectorAll(`.kanban-card[data-task-id="${id}"] .kanban-link`).forEach(b => b.setAttribute('aria-pressed', String(sticky)));
+  drawKanbanArrows(board, id, preds, succs);
+}
+function kanbanUnfocus(force = false) {
+  const board = document.getElementById('kanban-board');
+  if (!board || (!force && board.classList.contains('links-sticky'))) return;
+  clearTimeout(kanbanHoverTimer);
+  kanbanFocusId = null;
+  board.classList.remove('links-on', 'links-sticky');
+  board.querySelectorAll('.link-focus, .link-pred, .link-succ').forEach(c => c.classList.remove('link-focus', 'link-pred', 'link-succ'));
+  board.querySelectorAll('.kanban-link[aria-pressed]').forEach(b => b.removeAttribute('aria-pressed'));
+  board.querySelector('.kanban-link-layer')?.remove();
+}
+// Arrows from each task it waits on to it, and from it to each task it
+// unlocks, drawn over the board; only between cards on screen (on a
+// phone the other columns sit off to the side, and the chips say it).
+function drawKanbanArrows(board, id, preds, succs) {
+  board.querySelector('.kanban-link-layer')?.remove();
+  const cardOf = x => board.querySelector(`.kanban-card[data-task-id="${x}"]`);
+  const focus = cardOf(id);
+  if (!focus) return;
+  const b = board.getBoundingClientRect();
+  const seen = r => r.right > b.left + 8 && r.left < b.right - 8;
+  const pairs = preds.map(p => [cardOf(p), focus, 'pred']).concat(succs.map(s => [focus, cardOf(s), 'succ'])).filter(([a, c]) => a && c);
+  if (!pairs.length) return;
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('class', 'kanban-link-layer');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('width', board.scrollWidth);
+  svg.setAttribute('height', board.scrollHeight);
+  svg.innerHTML = '<defs><marker id="kl-head-pred" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#D97706"/></marker><marker id="kl-head-succ" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#0A7E8C"/></marker></defs>';
+  const ox = board.scrollLeft - b.left, oy = board.scrollTop - b.top;
+  pairs.forEach(([a, c, kind]) => {
+    const ra = a.getBoundingClientRect(), rc = c.getBoundingClientRect();
+    if (!seen(ra) || !seen(rc)) return;
+    let d;
+    if (Math.abs(ra.left - rc.left) < 24) {
+      // Same column: a bracket out to the right and back in.
+      const x = Math.max(ra.right, rc.right) + ox, y1 = ra.top + ra.height / 2 + oy, y2 = rc.top + rc.height / 2 + oy;
+      d = `M${x - 6} ${y1} C ${x + 26} ${y1}, ${x + 26} ${y2}, ${x - 4} ${y2}`;
+    } else {
+      const ltr = ra.left < rc.left;
+      const x1 = (ltr ? ra.right : ra.left) + ox, y1 = ra.top + ra.height / 2 + oy;
+      const x2 = (ltr ? rc.left : rc.right) + ox, y2 = rc.top + rc.height / 2 + oy;
+      const dx = (x2 - x1) / 2;
+      d = `M${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+    }
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', kind);
+    path.setAttribute('marker-end', `url(#kl-head-${kind})`);
+    svg.appendChild(path);
+  });
+  if (svg.querySelector('path')) board.appendChild(svg);
+}
+// Once per board element: hover (after a moment, so sweeping across the
+// board doesn't flash), keyboard focus, Escape, a tap elsewhere, scroll.
+function wireKanbanLinks(board) {
+  if (board.dataset.linksWired) return;
+  board.dataset.linksWired = '1';
+  const fine = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  if (fine) {
+    board.addEventListener('mouseover', e => {
+      const card = e.target.closest('.kanban-card[data-links]');
+      if (!card || board.classList.contains('links-sticky') || kanbanFocusId === card.dataset.taskId) return;
+      clearTimeout(kanbanHoverTimer);
+      kanbanHoverTimer = setTimeout(() => kanbanFocus(card.dataset.taskId), 250);
+    });
+    board.addEventListener('mouseout', e => {
+      const card = e.target.closest('.kanban-card');
+      if (!card || (e.relatedTarget && card.contains(e.relatedTarget))) return;
+      clearTimeout(kanbanHoverTimer);
+      kanbanUnfocus();
+    });
+  }
+  board.addEventListener('focusin', e => {
+    const card = e.target.closest('.kanban-card[data-links]');
+    if (card && !board.classList.contains('links-sticky')) kanbanFocus(card.dataset.taskId);
+  });
+  board.addEventListener('scroll', () => { if (kanbanFocusId) kanbanFocus(kanbanFocusId, board.classList.contains('links-sticky')); }, { passive: true });
+  document.addEventListener('click', e => { if (kanbanFocusId && !e.target.closest('.kanban-link')) kanbanUnfocus(true); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && kanbanFocusId) kanbanUnfocus(true); });
+  window.addEventListener('resize', () => kanbanUnfocus(true));
 }
 
 async function openAddTaskWithStatus(status) {
@@ -956,6 +1094,7 @@ function kanbanCardMouseDown(e, taskId, currentStatus) {
 
 function startKanbanDrag(e, cardEl, taskId, currentStatus) {
   e.preventDefault();
+  kanbanUnfocus(true);
   const rect = cardEl.getBoundingClientRect();
   const { x, y } = pointerXY(e);
 

@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "See what's linked on the Kanban",
+      "text": "Kanban cards now say what they're waiting on, and whose step that is, and how many tasks they unlock. Hover a card, or tap one of those chips on your phone, and its links light up with arrows, while everything else fades back. It clears as soon as you look away."
+    },
+    {
+      "date": "2026-10-16",
       "title": "Your day comes first",
       "text": "The dashboard now opens on My day, so you see what's planned for today straight away: morning, afternoon and evening. Focus, for what needs attention first, is one tap away, and the app remembers which you prefer."
     },
