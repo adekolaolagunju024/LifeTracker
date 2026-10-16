@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "Your day, by morning, afternoon and evening",
+      "text": "Your focus on the dashboard now has My day: today's tasks laid out as Morning, Afternoon and Evening & night, with the part you're in marked Now. Planned and reminded tasks find their place by time; anything else you can put where it fits. And pick one goal to see only its tasks for today."
+    },
+    {
+      "date": "2026-10-16",
       "title": "A tidier app",
       "text": "We went through every page and cleared out the clutter. A goal now lists all its tasks, phases included. Actions shows its counts on one line and only the lists that need you. Project cards open with a tap, Kanban cards and task rows keep just the everyday buttons, the Journey has fewer controls over the game, and the confirm-your-email banner takes one line."
     },

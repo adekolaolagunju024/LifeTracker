@@ -219,54 +219,8 @@ function renderDashboardBento(tasks, allProjects) {
     if (window.Rewards) Rewards.paintDashLine(f.p.id);
   }
 
-  // Your focus: what needs attention first (late, due today, blocked,
-  // waiting), each with its reason, then what's due next; three at most,
-  // with the rest a tap away.
-  // The counts above it open Actions, which has the full list.
-  const byId = Object.fromEntries(allProjects.map(p => [p.id, p]));
-  const open = tasks.filter(t => t.status !== 'Completed');
-  const dueKey = t => (t.endDate || '').slice(0, 10);
-  const blockersOf = t => (t.obstacles || []).filter(o => !o.resolved).length;
-  const late = open.filter(t => dueKey(t) && dueKey(t) < todayKey);
-  const today = open.filter(t => dueKey(t) === todayKey);
-  const blocked = open.filter(t => blockersOf(t));
-  const waitingTasks = open.filter(t => waitingOn(t).length);
-  const countChips = [['late', late.length, 'overdue', 'overdue'], ['blocked', blocked.length, 'blocked', 'blocker'], ['today', today.length, 'due today', 'clock'], ['waiting', waitingTasks.length, 'waiting', 'waiting']]
-    .filter(([, n]) => n)
-    .map(([cls, n, label, ic]) => `<button type="button" class="focus-count ${cls}" onclick="showPage('actions')" aria-label="${n} ${label}. Open Actions">${icon(ic)}${n} ${label}</button>`);
-  // Before the first goal there's nothing to focus on: three ways to start
-  // one, and a look at the stages every goal becomes.
-  const firstRun = !tasks.length && !allProjects.length;
-  document.getElementById('dash-upnext-title').textContent = firstRun ? 'Start your first goal' : 'Your focus';
-  document.getElementById('dash-upnext-all').classList.toggle('hidden', firstRun || !tasks.length);
-  document.getElementById('dash-attention-counts').innerHTML = !open.length ? ''
-    : countChips.length ? countChips.join('') : `<span class="focus-count clear">${icon('done')}Nothing late or blocked</span>`;
-  const rank = t => (dueKey(t) && dueKey(t) < todayKey ? 0 : dueKey(t) === todayKey ? 1 : blockersOf(t) ? 2 : waitingOn(t).length ? 3 : 4);
-  const focusList = [...open].sort((a, b) => rank(a) - rank(b) || (dueKey(a) || '9999').localeCompare(dueKey(b) || '9999') || (a.priority === 'High' ? -1 : b.priority === 'High' ? 1 : 0));
-  const SHOW = 3;
-  const more = focusList.length - SHOW;
-  focusList.length = Math.min(focusList.length, SHOW);
-  document.getElementById('dash-upnext').innerHTML = focusList.length ? focusList.map(t => {
-    const due = dueLabel(t.endDate, todayKey);
-    const n = blockersOf(t);
-    const waiting = waitingOn(t);
-    const stuck = n > 0 || waiting.length > 0;
-    const proj = byId[t.projectId] || {};
-    const canEdit = proj.role === 'owner' || proj.role === 'editor';
-    const why = [];
-    if (n) why.push(`<span class="attention-why blocked">${icon('blocker')}${n} blocker${n === 1 ? '' : 's'}</span>`);
-    if (waiting.length) why.push(`<span class="attention-why waiting" title="Waiting on ${esc(waiting.map(p => p.title).join(', '))}">${icon('link')}Waiting</span>`);
-    return `<div class="flex items-center gap-3 min-h-[52px] border-b border-gray-100 last:border-0">
-      <input type="checkbox" class="w-5 h-5 accent-teal flex-shrink-0" onchange="completeFromDashboard('${t.id}', this)" aria-label="${stuck ? 'Blocked: ' : 'Mark '}${esc(t.title)}${stuck ? '' : ' done'}" ${stuck || !canEdit ? `disabled title="${stuck ? 'Clear what is in the way first' : 'View-only'}"` : ''}>
-      <button type="button" onclick="openTaskDetail('${t.id}')" class="flex-1 min-w-0 text-left">
-        <span class="block text-sm font-semibold text-navy truncate hover:text-teal">${stuck ? icon('lock', 'mr-1 text-gray-400') : ''}${esc(t.title)}</span>
-        <span class="block text-[11px] text-gray-500 truncate">${why.join('')}${esc(proj.title || '')}</span>
-      </button>
-      <span class="flex-shrink-0 w-20 text-right text-xs font-semibold ${due.late ? 'text-red-600' : dueKey(t) === todayKey ? 'text-amber-700' : 'text-gray-500'}">${esc(due.text)}</span>
-      <button type="button" class="attention-act" onclick="Reminders.openSheet('${t.id}')" title="Remind me" aria-label="Set a reminder for ${esc(t.title)}">${icon('alarm')}</button>
-    </div>`;
-  }).join('') + (more > 0 ? `<button type="button" class="focus-more" onclick="showPage('actions')">${more} more in Actions →</button>` : '') : firstRun ? firstGoalHTML()
-    : `<p class="text-sm text-gray-500 pt-2 pb-3">Everything's done. What's next?</p>${firstGoalHTML(true)}`;
+  dashFocusData = { tasks, allProjects, todayKey };
+  paintDashFocus();
 
   // This week against last week.
   const DAY = 86400000;
@@ -279,6 +233,181 @@ function renderDashboardBento(tasks, allProjects) {
   trend.textContent = week > prev ? `Up ${week - prev} on last week` : week < prev ? `${prev - week} fewer than last week` : (week ? 'Level with last week' : 'A fresh week to start');
   trend.style.color = week >= prev ? '#1A7A4A' : '#9A4410';
 }
+// ── YOUR FOCUS ─────────────────────────────────────────────────
+// What needs attention first (late, due today, blocked, waiting), each
+// with its reason, then what's due next; three at most, with the rest a
+// tap away. The counts above it open Actions, which has the full list.
+// Two ways to narrow it: one goal at a time (Goal), and My day, today's
+// tasks by part of the day. A task's part comes from its time in today's
+// plan (Start my day), else a reminder set for today, else where you put
+// it; the rest wait under Any time. Both choices stay on this device.
+let dashFocusData = null;
+const DAY_PARTS = [['morning', 'Morning', 'sunrise', 0, 'Morning'], ['afternoon', 'Afternoon', 'sun', 12 * 60, 'Afternoon'], ['evening', 'Evening & night', 'moon', 17 * 60, 'Evening']];
+const partOfMinute = m => (m >= 17 * 60 ? 'evening' : m >= 12 * 60 ? 'afternoon' : 'morning');
+const focusPref = (k, v) => {
+  try {
+    if (v === undefined) return localStorage.getItem(k) || '';
+    if (v) localStorage.setItem(k, v); else localStorage.removeItem(k);
+  } catch { /* private mode */ }
+  return v;
+};
+// Where you put a task without a time: { date, parts: { taskId: part } }.
+function dayPartPicks(todayKey) {
+  try {
+    const p = JSON.parse(localStorage.getItem('wp-dayparts') || 'null');
+    return p && p.date === todayKey ? p.parts : {};
+  } catch { return {}; }
+}
+function setDashFocusGoal(id) { focusPref('dashFocusGoal', id); paintDashFocus(); }
+function setDashFocusView(v) { focusPref('dashFocusView', v === 'day' ? 'day' : ''); paintDashFocus(); }
+function setTaskDayPart(taskId, part) {
+  const todayKey = localDateKey(new Date());
+  const parts = { ...dayPartPicks(todayKey) };
+  if (part) parts[taskId] = part; else delete parts[taskId];
+  try { localStorage.setItem('wp-dayparts', JSON.stringify({ date: todayKey, parts })); } catch { /* private mode */ }
+  paintDashFocus();
+}
+// Today's plan loads after the dashboard draws; My day places its tasks
+// once it's in.
+document.addEventListener('dayroad:refresh', () => { if (focusPref('dashFocusView') === 'day') paintDashFocus(); });
+function paintDashFocus() {
+  if (!dashFocusData) return;
+  const { tasks: allTasks, allProjects, todayKey } = dashFocusData;
+  const byId = Object.fromEntries(allProjects.map(p => [p.id, p]));
+  const rootOf = id => { let p = byId[id]; const seen = new Set(); while (p && p.parentId && byId[p.parentId] && !seen.has(p.id)) { seen.add(p.id); p = byId[p.parentId]; } return p ? p.id : id; };
+  const openAll = allTasks.filter(t => t.status !== 'Completed');
+  // Goal: only goals with something still to do; a saved one that's gone
+  // (finished, deleted) falls back to all of them.
+  const goals = allProjects.filter(p => !p.parentId && openAll.some(t => rootOf(t.projectId) === p.id))
+    .sort((a, b) => a.title.localeCompare(b.title));
+  let goal = focusPref('dashFocusGoal');
+  if (goal && !goals.some(g => g.id === goal)) goal = '';
+  const view = focusPref('dashFocusView') === 'day' ? 'day' : 'focus';
+  const inGoal = t => !goal || rootOf(t.projectId) === goal;
+  const tasks = allTasks.filter(inGoal);
+  const open = openAll.filter(inGoal);
+
+  const dueKey = t => (t.endDate || '').slice(0, 10);
+  const blockersOf = t => (t.obstacles || []).filter(o => !o.resolved).length;
+  const late = open.filter(t => dueKey(t) && dueKey(t) < todayKey);
+  const today = open.filter(t => dueKey(t) === todayKey);
+  const blocked = open.filter(t => blockersOf(t));
+  const waitingTasks = open.filter(t => waitingOn(t).length);
+  const countChips = [['late', late.length, 'overdue', 'overdue'], ['blocked', blocked.length, 'blocked', 'blocker'], ['today', today.length, 'due today', 'clock'], ['waiting', waitingTasks.length, 'waiting', 'waiting']]
+    .filter(([, n]) => n)
+    .map(([cls, n, label, ic]) => `<button type="button" class="focus-count ${cls}" onclick="showPage('actions')" aria-label="${n} ${label}. Open Actions">${icon(ic)}${n} ${label}</button>`);
+  // Before the first goal there's nothing to focus on: three ways to start
+  // one, and a look at the stages every goal becomes.
+  const firstRun = !allTasks.length && !allProjects.length;
+  document.getElementById('dash-upnext-title').textContent = firstRun ? 'Start your first goal' : view === 'day' ? 'My day' : 'Your focus';
+  document.getElementById('dash-upnext-all').classList.toggle('hidden', firstRun || !allTasks.length);
+  const tools = document.getElementById('dash-focus-tools');
+  if (tools) {
+    tools.classList.toggle('hidden', firstRun || !openAll.length);
+    tools.innerHTML = firstRun || !openAll.length ? '' : `<div class="focus-views" role="group" aria-label="How to show your tasks">
+        <button type="button" aria-pressed="${view === 'focus'}" onclick="setDashFocusView('focus')">${icon('target', 'tiny')}Focus</button>
+        <button type="button" aria-pressed="${view === 'day'}" onclick="setDashFocusView('day')">${icon('sun', 'tiny')}My day</button>
+      </div>
+      ${goals.length > 1 ? `<label class="focus-goal ${goal ? 'on' : ''}">${icon('filter', 'tiny')}<select onchange="setDashFocusGoal(this.value)" aria-label="Show tasks from">
+        <option value="">All goals</option>${goals.map(g => `<option value="${g.id}" ${g.id === goal ? 'selected' : ''}>${esc(g.title)}</option>`).join('')}</select></label>` : ''}`;
+  }
+  document.getElementById('dash-attention-counts').innerHTML = !open.length || view === 'day' ? ''
+    : countChips.length ? countChips.join('') : `<span class="focus-count clear">${icon('done')}Nothing late or blocked</span>`;
+
+  const row = (t, time = null, partPick = null) => {
+    const done = t.status === 'Completed';
+    const due = dueLabel(t.endDate, todayKey);
+    const n = blockersOf(t);
+    const waiting = waitingOn(t);
+    const stuck = !done && (n > 0 || waiting.length > 0);
+    const proj = byId[t.projectId] || {};
+    const canEdit = proj.role === 'owner' || proj.role === 'editor';
+    const why = [];
+    if (!done && n) why.push(`<span class="attention-why blocked">${icon('blocker')}${n} blocker${n === 1 ? '' : 's'}</span>`);
+    if (!done && waiting.length) why.push(`<span class="attention-why waiting" title="Waiting on ${esc(waiting.map(p => p.title).join(', '))}">${icon('link')}Waiting</span>`);
+    // In My day everything is today: a time if it has one, else only
+    // lateness is worth saying.
+    const side = time ? `<span class="flex-shrink-0 w-14 text-right text-xs font-extrabold text-teal tabular-nums">${esc(clockText(time))}</span>`
+      : partPick !== null && !due.late ? ''
+        : `<span class="flex-shrink-0 w-20 text-right text-xs font-semibold ${due.late ? 'text-red-600' : dueKey(t) === todayKey ? 'text-amber-700' : 'text-gray-500'}">${esc(due.text)}</span>`;
+    const pick = partPick === null ? '' : `<select class="focus-part" onchange="setTaskDayPart('${t.id}', this.value)" aria-label="When today for ${esc(t.title)}" title="When today">
+        <option value="">Any time</option>${DAY_PARTS.map(([k, , , , short]) => `<option value="${k}" ${k === partPick ? 'selected' : ''}>${short}</option>`).join('')}</select>`;
+    return `<div class="flex items-center gap-3 min-h-[52px] border-b border-gray-100 last:border-0 ${done ? 'focus-done' : ''}">
+      <input type="checkbox" class="w-5 h-5 accent-teal flex-shrink-0" ${done ? 'checked disabled' : `onchange="completeFromDashboard('${t.id}', this)"`} aria-label="${done ? `${esc(t.title)} is done` : `${stuck ? 'Blocked: ' : 'Mark '}${esc(t.title)}${stuck ? '' : ' done'}`}" ${!done && (stuck || !canEdit) ? `disabled title="${stuck ? 'Clear what is in the way first' : 'View-only'}"` : ''}>
+      <button type="button" onclick="openTaskDetail('${t.id}')" class="flex-1 min-w-0 text-left">
+        <span class="block text-sm font-semibold text-navy truncate hover:text-teal">${stuck ? icon('lock', 'mr-1 text-gray-400') : ''}${esc(t.title)}</span>
+        <span class="block text-[11px] text-gray-500 truncate">${why.join('')}${esc(proj.title || '')}</span>
+      </button>
+      ${side}${pick}
+      ${done ? '' : `<button type="button" class="attention-act" onclick="Reminders.openSheet('${t.id}')" title="Remind me" aria-label="Set a reminder for ${esc(t.title)}">${icon('alarm')}</button>`}
+    </div>`;
+  };
+  const box = document.getElementById('dash-upnext');
+  if (view === 'day' && !firstRun) { box.innerHTML = dayPartsHTML(tasks, open, todayKey, row); return; }
+
+  const rank = t => (dueKey(t) && dueKey(t) < todayKey ? 0 : dueKey(t) === todayKey ? 1 : blockersOf(t) ? 2 : waitingOn(t).length ? 3 : 4);
+  const focusList = [...open].sort((a, b) => rank(a) - rank(b) || (dueKey(a) || '9999').localeCompare(dueKey(b) || '9999') || (a.priority === 'High' ? -1 : b.priority === 'High' ? 1 : 0));
+  const SHOW = 3;
+  const more = focusList.length - SHOW;
+  focusList.length = Math.min(focusList.length, SHOW);
+  box.innerHTML = focusList.length ? focusList.map(t => row(t)).join('') + (more > 0 ? `<button type="button" class="focus-more" onclick="showPage('actions')">${more} more in Actions →</button>` : '')
+    : firstRun ? firstGoalHTML()
+      : goal ? `<p class="text-sm text-gray-500 pt-2 pb-3">Nothing left on this goal. <button type="button" class="text-teal font-bold hover:underline" onclick="setDashFocusGoal('')">Show all goals</button></p>`
+        : `<p class="text-sm text-gray-500 pt-2 pb-3">Everything's done. What's next?</p>${firstGoalHTML(true)}`;
+}
+// My day: today's tasks (on today's plan, due today or late, in progress,
+// or with a reminder today, plus the ones finished today) under Morning,
+// Afternoon and Evening & night, the part you're in now marked and first
+// to the eye. Parts with nothing in them stay out of the way.
+function dayPartsHTML(tasks, open, todayKey, row) {
+  const road = window.DayRoad && DayRoad.state ? DayRoad.state() : null;
+  const planStart = Object.fromEntries(road ? road.items.map(i => [i.taskId, i.start]) : []);
+  const toMin = s => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5));
+  const hhmm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const reminderAt = id => {
+    const r = window.Reminders && Reminders.forTask ? Reminders.forTask(id) : null;
+    const d = r && new Date(r.remindAt);
+    return d && localDateKey(d) === todayKey ? hhmm(d) : null;
+  };
+  const picks = dayPartPicks(todayKey);
+  const dueKey = t => (t.endDate || '').slice(0, 10);
+  const doneToday = t => t.status === 'Completed' && t.completedAt && localDateKey(new Date(t.completedAt)) === todayKey;
+  const isToday = t => planStart[t.id] || reminderAt(t.id) || picks[t.id]
+    || (t.status !== 'Completed' && ((dueKey(t) && dueKey(t) <= todayKey) || t.status === 'In Progress'))
+    || (doneToday(t) && (dueKey(t) === todayKey || planStart[t.id]));
+  const list = tasks.filter(isToday).map(t => {
+    const time = planStart[t.id] || reminderAt(t.id) || null;
+    return { t, time, part: time ? partOfMinute(toMin(time)) : picks[t.id] || 'any' };
+  });
+  if (!list.length) {
+    return `<p class="text-sm text-gray-500 pt-2 pb-3">Nothing set for today${open.length ? '. Pick what to do and when with Start my day.' : '.'}</p>
+      ${open.length ? `<button type="button" class="focus-more" onclick="Jarvis.startDay()">${icon('play', 'tiny')} Start my day →</button>` : ''}`;
+  }
+  const now = new Date();
+  const nowPart = partOfMinute(now.getHours() * 60 + now.getMinutes());
+  const sort = arr => arr.sort((a, b) => (a.t.status === 'Completed') - (b.t.status === 'Completed') || (a.time || '99').localeCompare(b.time || '99'));
+  // Each part has the sky's colour at that time: a warm sunrise, a clear
+  // afternoon, an indigo evening. The one you're in is marked Now; one
+  // that's over with nothing left folds to a line.
+  const order = ['morning', 'afternoon', 'evening'];
+  const RANGE = { morning: 'Until 12 pm', afternoon: '12 to 5 pm', evening: 'From 5 pm', any: 'No set time' };
+  const section = (key, label, ic) => {
+    const items = sort(list.filter(x => x.part === key));
+    if (!items.length && key !== nowPart) return '';
+    const left = items.filter(x => x.t.status !== 'Completed').length;
+    const over = order.indexOf(key) > -1 && order.indexOf(key) < order.indexOf(nowPart);
+    const folded = over && !left;
+    return `<section class="day-part part-${key} ${key === nowPart ? 'is-now' : ''} ${over ? 'is-over' : ''}" aria-label="${esc(label)}">
+      <div class="day-part-head"><span class="day-part-ic">${icon(ic)}</span>
+        <span class="day-part-name"><b>${esc(label)}</b><small>${RANGE[key]}</small></span>
+        ${key === nowPart ? '<span class="day-part-now">Now</span>' : ''}
+        <span class="day-part-n">${items.length ? (left ? `${left} to do` : `${icon('check', 'tiny')}All done`) : ''}</span></div>
+      ${folded ? '' : items.length ? `<div class="day-part-list">${items.map(x => row(x.t, x.time, x.time ? null : (x.part === 'any' ? '' : x.part))).join('')}</div>` : '<p class="day-part-empty">Nothing here yet. Give a task a time with Start my day, or pick a part for it on its row.</p>'}
+    </section>`;
+  };
+  return DAY_PARTS.map(([k, label, ic]) => section(k, label, ic)).join('') + section('any', 'Any time today', 'clock');
+}
+
 async function completeFromDashboard(taskId, checkbox) {
   const task = await API.getTask(taskId).catch(() => null);
   const gate = taskGateMessage(task, 'Completed');

@@ -2188,6 +2188,54 @@
     .dark .first-way.primary b { color: #fff; }
     .dark .first-stage { border-color: #2A3648; }
     /* Dashboard: Your focus */
+    /* Your focus: Focus / My day, and one goal at a time */
+    .focus-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .focus-tools.hidden { display: none; }
+    .focus-views { display: inline-flex; background: #F1F3F5; border-radius: 11px; padding: 3px; }
+    .focus-views button { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: #5B6472; padding: 5px 10px; border-radius: 8px; }
+    .focus-views button[aria-pressed="true"] { background: #fff; color: #0D1B2A; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .focus-views .ic, .focus-goal .ic { width: 14px; height: 14px; }
+    .focus-goal { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; border: 1px solid #E3E6EA; border-radius: 11px; padding: 0 4px 0 9px; color: #5B6472; background: #fff; }
+    .focus-goal.on { border-color: #0A7E8C; color: #0A7E8C; background: #F0FAF9; }
+    .focus-goal select { min-width: 0; max-width: 220px; font-size: 12.5px; font-weight: 700; color: inherit; background: transparent; border: 0; padding: 6px 2px; text-overflow: ellipsis; }
+    .focus-goal select:focus { outline: none; }
+    .focus-goal:focus-within { outline: 2px solid #0A7E8C; outline-offset: 1px; }
+    .day-part { --pc: #9AA3AE; --pbg: #F6F7F9; --pic: #E9ECEF; --pink: #4B5563; position: relative; background: var(--pbg); border-radius: 16px; padding: 10px 12px 4px 16px; margin-top: 8px; overflow: hidden; }
+    .day-part::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--pc); }
+    .day-part.part-morning { --pc: #F59E0B; --pbg: linear-gradient(180deg, #FFF4E5 0%, #FFFAF3 100%); --pic: #FDE3BD; --pink: #9A4410; }
+    .day-part.part-afternoon { --pc: #0EA5E9; --pbg: linear-gradient(180deg, #E8F6FE 0%, #F5FBFF 100%); --pic: #CBEBFB; --pink: #075985; }
+    .day-part.part-evening { --pc: #6366F1; --pbg: linear-gradient(180deg, #ECEDFB 0%, #F6F6FE 100%); --pic: #D9DBF8; --pink: #3730A3; }
+    .day-part.is-now { box-shadow: 0 0 0 2px var(--pc), 0 8px 22px rgba(13,27,42,.08); }
+    .day-part.is-over { opacity: .72; }
+    .day-part-head { display: flex; align-items: center; gap: 10px; padding-bottom: 4px; }
+    .day-part-ic { width: 30px; height: 30px; border-radius: 10px; background: var(--pic); color: var(--pink); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .day-part-ic .ic { width: 16px; height: 16px; }
+    .day-part-name { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+    .day-part-name b { font-size: 14px; font-weight: 800; color: var(--pink); }
+    .day-part-name small { font-size: 11.5px; font-weight: 600; color: #6B7280; }
+    .day-part-now { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; background: var(--pc); color: #fff; border-radius: 999px; padding: 2px 8px; }
+    .day-part.part-morning .day-part-now { color: #3B1F04; }
+    .day-part.part-afternoon .day-part-now { background: #0369A1; }
+    .day-part.part-evening .day-part-now { background: #4F46E5; }
+    .day-part-n { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--pink); white-space: nowrap; }
+    .day-part-n .ic { width: 13px; height: 13px; }
+    .day-part-list > div { border-color: rgba(13,27,42,.07); }
+    .day-part-empty { font-size: 13px; color: #6B7280; padding: 4px 0 10px; }
+    .dark .day-part { --pbg: rgba(255,255,255,.04); --pic: rgba(255,255,255,.08); --pink: #C9D6E2; }
+    .dark .day-part.part-morning { --pbg: linear-gradient(180deg, rgba(245,158,11,.14), rgba(245,158,11,.05)); --pic: rgba(245,158,11,.22); --pink: #FCD34D; }
+    .dark .day-part.part-afternoon { --pbg: linear-gradient(180deg, rgba(14,165,233,.14), rgba(14,165,233,.05)); --pic: rgba(14,165,233,.22); --pink: #7DD3FC; }
+    .dark .day-part.part-evening { --pbg: linear-gradient(180deg, rgba(99,102,241,.2), rgba(99,102,241,.07)); --pic: rgba(99,102,241,.3); --pink: #C7D2FE; }
+    .dark .day-part-name small, .dark .day-part-empty { color: #9FB3C8; }
+    .dark .day-part-list > div { border-color: rgba(255,255,255,.08); }
+    .focus-part { flex-shrink: 0; max-width: 96px; font-size: 12px; font-weight: 700; color: #3B4552; border: 1px solid #E3E6EA; border-radius: 9px; padding: 5px 4px; background: #fff; }
+    .focus-done { opacity: .55; }
+    .focus-done .text-navy { text-decoration: line-through; }
+    .dark .focus-views { background: rgba(255,255,255,.08); }
+    .dark .focus-views button { color: #9FB3C8; }
+    .dark .focus-views button[aria-pressed="true"] { background: #1C2A40; color: #fff; }
+    .dark .focus-goal, .dark .focus-part { background: #111A2B; border-color: #24324A; color: #C9D6E2; }
+    .dark .focus-goal.on { border-color: #5EEAD4; color: #5EEAD4; background: rgba(94,234,212,.08); }
+    @media (max-width: 480px) { .focus-part { max-width: 92px; } .focus-goal select { max-width: 112px; } }
     .focus-counts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
     .focus-count { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; border-radius: 999px; padding: 4px 10px; border: 0; cursor: pointer; }
     .focus-count.late, .focus-count.blocked { background: #FDECEA; color: #B91C1C; }
@@ -3614,6 +3662,7 @@
               <p class="text-[15px] font-extrabold text-navy" id="dash-upnext-title">Your focus</p>
               <button onclick="showPage('actions')" class="text-xs font-bold text-teal hover:underline" id="dash-upnext-all">All actions →</button>
             </div>
+            <div class="focus-tools hidden" id="dash-focus-tools"></div>
             <div class="focus-counts" id="dash-attention-counts"></div>
             <div id="dash-upnext"><p class="text-sm text-gray-400 py-3">Loading…</p></div>
           </div>
