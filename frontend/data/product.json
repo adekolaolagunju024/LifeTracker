@@ -133,6 +133,11 @@
   "whatsNew": [
     {
       "date": "2026-10-16",
+      "title": "Your steps, and the whole plan",
+      "text": "When a team splits a goal, each teammate now sees just the steps that are theirs and works only on those, so nobody ticks off someone else's work by mistake. A My steps and Whole plan switch on the goal shows everyone's steps and who's doing what in one tap, and taking an unclaimed step there moves it straight into your list. The leader still sees and runs the whole goal."
+    },
+    {
+      "date": "2026-10-16",
       "title": "Copy a team's join code",
       "text": "When you invite people to a race, group or team, the join code now has its own Copy code button, just like the link, so you can paste it into a message. Tap the code on a team that nobody has joined yet to copy it too. The AI chat's attach button is now a simple +, and email links now open the live app even on a server that hasn't set its address."
     },

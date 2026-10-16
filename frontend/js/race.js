@@ -719,23 +719,42 @@ const Race = (() => {
       return `<path d="M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${mx.toFixed(1)} ${y1.toFixed(1)}, ${(mx - 0).toFixed(1)} ${y2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}" fill="none" stroke="#475569" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#tl-arrow-${esc(id)})"/>`;
     }).join('');
   }
-  function spTabSet(id, tab) { spTab = tab; openDetail(id); }
+  function spTabSet(id, tab) { spTab = tab; refreshSplit(id); }
+  // The whole plan on a teammate's goal page (its Whole plan switch): the
+  // same board as the team page, so they can see who's doing what and take
+  // an unclaimed step without leaving the goal.
+  let planTarget = null; // { id, el }
+  async function planInto(id, el) {
+    planTarget = { id, el };
+    if (!el.innerHTML.trim()) el.innerHTML = '<p class="fb-note">Loading the plan…</p>';
+    let c;
+    try { c = await API.getRace(id); } catch (err) { el.innerHTML = `<p class="fb-note">${esc(err.message || 'Could not load the plan')}</p>`; return; }
+    if (!planTarget || planTarget.el !== el || !el.isConnected) return;
+    el.innerHTML = `<div class="sp-inline">${splitHtml(c)}<p class="fb-note">${icon('users', 'tiny')}<button type="button" class="ch-link" onclick="showPage('challenges'); setTimeout(() => Race.openDetail('${c.id}'), 200)">Open the team page</button> for the chat and everyone's progress.</p></div>`;
+  }
+  // After taking or handing out a step: the goal page (when the plan is
+  // showing there, so the step moves into My steps) or the team page.
+  function refreshSplit(id) {
+    const onGoal = planTarget && planTarget.id === id && planTarget.el.isConnected && !planTarget.el.classList.contains('hidden');
+    if (onGoal && typeof renderProjectDetail === 'function' && APP.currentProjectId) { renderProjectDetail(APP.currentProjectId); return; }
+    openDetail(id);
+  }
   let lastTimeline = null;
   window.addEventListener('resize', () => { if (lastTimeline && document.getElementById(`tl-${lastTimeline.id}`)) drawHandoffs(lastTimeline.id, lastTimeline.links); });
   async function assign(id, sel) {
     sel.disabled = true;
     try { await API.assignRaceStep(id, sel.dataset.task, sel.value); showToast(sel.value ? 'Handed over. They’ve been told' : 'Back to unclaimed'); } catch (err) { showToast(err.message || 'Could not do that', 'error'); }
-    forgetPlan(); openDetail(id);
+    forgetPlan(); refreshSplit(id);
   }
   async function claim(id, btn) {
     btn.disabled = true;
-    try { await API.claimRaceStep(id, btn.dataset.task); showToast('🙌 It’s yours. It’s in your planner'); } catch (err) { btn.disabled = false; showToast(err.message || 'Could not take it', 'error'); return; }
-    forgetPlan(); openDetail(id);
+    try { await API.claimRaceStep(id, btn.dataset.task); showToast('🙌 It’s yours. It’s in My steps and your planner'); } catch (err) { btn.disabled = false; showToast(err.message || 'Could not take it', 'error'); return; }
+    forgetPlan(); refreshSplit(id);
   }
   async function splitEvenly(id, btn) {
     btn.disabled = true;
     try { const r = await API.splitRaceEvenly(id); showToast(`Shared out ${r.assigned} step${r.assigned === 1 ? '' : 's'}. Everyone’s been told`); } catch (err) { btn.disabled = false; showToast(err.message || 'Could not share them out', 'error'); return; }
-    forgetPlan(); openDetail(id);
+    forgetPlan(); refreshSplit(id);
   }
 
   // ── Asking for help on a blocker ──
@@ -987,6 +1006,6 @@ const Race = (() => {
     });
   }
 
-  return { copyCode, spTab: spTabSet, assign, claim, splitEvenly, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;
