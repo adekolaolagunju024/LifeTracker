@@ -3,6 +3,18 @@
 // there) and share one global scope, exactly as when they were one file.
 
 // ── PROJECT SHARING (Google-Sheets-style collaborators) ───────────
+// Team up is the one way to bring people onto a goal (js/race.js has the
+// sheet): working on it together, each doing their own copy, or a race,
+// with plain view or edit access by email one tap away inside it. Someone
+// the goal is shared with gets the list of who's on it instead.
+async function openTeamUp(projectId) {
+  if (!projectId) return;
+  let p;
+  try { p = await API.getProject(projectId); } catch { return; }
+  if (p.role !== 'owner') { openShareProject(projectId); return; }
+  Race.openCreate(projectId);
+}
+
 async function openShareProject(projectId) {
   const p = await API.getProject(projectId);
   // The modal can now be opened for a project other than whatever page is

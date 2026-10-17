@@ -97,7 +97,9 @@ async function renderProjectDetail(projectId) {
     // themselves from someone else's project — the owner can't leave
     // their own project, so these two are always mutually exclusive.
     document.getElementById('btn-leave-project').classList.toggle('hidden', proj.role === 'owner');
-    document.getElementById('btn-share-label').textContent = proj.role === 'owner' ? 'Share' : 'People';
+    document.getElementById('btn-share-label').textContent = proj.role === 'owner' ? 'Team up' : 'People';
+    // the ⋯ menu's Team up is the owner's; someone it's shared with sees People
+    document.getElementById('btn-race-friend').lastChild.textContent = proj.role === 'owner' ? ' Team up' : ' People';
     if (window.Rewards) Rewards.renderProject(proj);
 
     // "No way to know who sent it" — a shared project now says whose it is,

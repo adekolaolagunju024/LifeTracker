@@ -1261,6 +1261,12 @@
     .auth-race-note.hidden { display: none; }
     /* Making a challenge: race or class/team */
     .race-mode { display: flex; }
+    /* long choice names wrap inside their own button instead of pushing the sheet wider */
+    .seg.race-mode button { flex: 1 1 0; min-width: 0; white-space: normal; text-align: center; line-height: 1.15; }
+    .team-ask { font-weight: 700; color: #0D1B2A; margin: 0 0 6px; }
+    .team-access { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 10px; }
+    .team-access .ic { width: 14px; height: 14px; color: #6B7280; }
+    .dark .team-ask { color: #F3F4F6; }
     .race-mode button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
     .race-check { display: flex !important; align-items: center; gap: 8px; font-weight: 600; }
     .race-check input { width: 16px; height: 16px; accent-color: #0A7E8C; }
@@ -3818,19 +3824,17 @@
           <button onclick="openAssistantFor({ projectId: APP.currentProjectId })" id="btn-assistant-project" title="Ask the assistant about this project" aria-label="Assistant" class="hidden flex-shrink-0 bg-teal/10 hover:bg-teal/20 text-teal text-xs font-semibold px-3 sm:px-4 py-2 rounded-lg whitespace-nowrap"><span class="ei" data-icon="sparkles"></span><span class="hidden sm:inline"> Assistant</span></button>
           <button onclick="openProgressReport(APP.currentProjectId)" class="ui-desktop-only bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg" title="A progress report you can download, print or share"><span class="ei" data-icon="file"></span> Report</button>
           <button onclick="GoalMap.open(APP.currentProjectId)" id="btn-goal-map" class="ui-desktop-only bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg" title="One picture of the whole goal, and the goals it unlocks"><span class="ei" data-icon="map"></span> Map</button>
-          <button onclick="openShareProject(APP.currentProjectId)" id="btn-share-project" class="ui-desktop-only bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="users"></span> <span id="btn-share-label">Share</span></button>
+          <button onclick="openTeamUp(APP.currentProjectId)" id="btn-share-project" class="ui-desktop-only bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-4 py-2 rounded-lg"><span class="ei" data-icon="users"></span> <span id="btn-share-label">Team up</span></button>
           <div class="relative">
             <button onclick="toggleProjectDetailMenu(event)" id="detail-more-btn" class="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg">⋯</button>
             <div class="hidden absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50 whitespace-nowrap" id="detail-more-menu">
-              <button onclick="closeProjectDetailMenu();openShareProject(APP.currentProjectId)" class="sm:hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="users"></span> Share</button>
-              <div class="sm:hidden border-t border-gray-100 my-1"></div>
               <button onclick="closeProjectDetailMenu();openAddSubfolder(APP.currentProjectId)" id="btn-new-subfolder" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="folder"></span> New Sub-folder</button>
               <button onclick="closeProjectDetailMenu();openProjectChat(APP.currentProjectId)" id="btn-project-chat" class="hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="chat"></span> Chat</button>
               <button onclick="closeProjectDetailMenu();GoalMap.open(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="map"></span> Goal map</button>
               <button onclick="closeProjectDetailMenu();Replays.openGoalSheet(APP.currentProjectId)" id="btn-goal-replays" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="clapperboard"></span> Replays…</button>
               <button onclick="closeProjectDetailMenu();openProgressReport(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="file"></span> Progress report</button>
               <button onclick="closeProjectDetailMenu();editProject(APP.currentProjectId)" id="btn-edit-project" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="edit"></span> Edit</button>
-              <button onclick="closeProjectDetailMenu();Race.openCreate(APP.currentProjectId)" id="btn-race-friend" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="users"></span> Team up</button>
+              <button onclick="closeProjectDetailMenu();openTeamUp(APP.currentProjectId)" id="btn-race-friend" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="users"></span> Team up</button>
               <button onclick="duplicateProjectAction(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left">⧉ Duplicate Project</button>
               <div class="border-t border-gray-100 my-1"></div>
               <button onclick="exportProjectData(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="download"></span> Export This Project</button>
