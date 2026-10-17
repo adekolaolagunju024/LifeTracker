@@ -79,7 +79,8 @@ const Race = (() => {
     try {
       const top = (await API.getProject(projectId)).parentId || projectId;
       const existing = await API.getRaceForProject(top);
-      if (existing && !existing.over) { showToast(`Opening the team “${existing.title}”`); openTeam(existing.id); return; }
+      // (who can see or edit it by email stays a tap away)
+      if (existing && !existing.over) { showActionToast(`Opening the team “${existing.title}”`, [{ label: 'Who can see it', run: () => openShareProject(projectId) }], 'users'); openTeam(existing.id); return; }
     } catch { /* no team yet */ }
     let name = '';
     try { name = (await API.getProfile()).name || ''; } catch { /* a blank name is fine */ }
@@ -98,11 +99,17 @@ const Race = (() => {
         { key: 'stake', label: "What's riding on it", type: 'text', el: '#race-stake', when: () => mode === 'race', hint: 'A light-hearted promise between friends, like who buys dinner. Never money' },
       ],
     }) : '';
+    // Who it's already shared with by email, for the line under the choices.
+    let shared = 0;
+    try { shared = (await API.getCollaborators(projectId)).filter(c => c.role !== 'owner').length; } catch { /* none */ }
+    // One door for bringing people in: the three ways below, and plain view
+    // or edit access by email for someone who only needs to see it.
     const form = dialog(`${head('Team up', 'users')}
+      <p class="fb-note team-ask">How will you work on this?</p>
       <div class="seg race-mode" role="radiogroup" aria-label="How you team up">
-        <button type="button" role="radio" data-mode="together" aria-checked="true">${icon('users', 'tiny')}Lead a group</button>
-        <button type="button" role="radio" data-mode="split" aria-checked="false">${icon('list-checks', 'tiny')}Split the work</button>
-        <button type="button" role="radio" data-mode="race" aria-checked="false">${icon('flag', 'tiny')}Race friends</button>
+        <button type="button" role="radio" data-mode="split" aria-checked="true">${icon('users', 'tiny')}Collaborate</button>
+        <button type="button" role="radio" data-mode="together" aria-checked="false">${icon('layers', 'tiny')}Group</button>
+        <button type="button" role="radio" data-mode="race" aria-checked="false">${icon('flag', 'tiny')}Challenge</button>
       </div>
       <div class="together-only"><label for="race-role">You're the</label>
         <select id="race-role">${Object.entries(ROLES).map(([k, r]) => `<option value="${k}"${k === 'leader' ? ' selected' : ''}>${r.label}</option>`).join('')}</select></div>
@@ -123,8 +130,10 @@ const Race = (() => {
       <div id="race-name-wrap"><label for="race-name">Your name on the road</label>
       <input type="text" id="race-name" maxlength="24" value="${esc(name)}" placeholder="e.g. Ade"></div>
       <p class="fb-note race-only">A stake is a promise between you. KolaWay never takes or pays out money.</p>
+      <p class="fb-note team-access">${icon('lock', 'tiny')}Need to give someone view or edit access only? <button type="button" class="ch-link" id="team-email">Grant access by email</button>${shared ? ` · shared with ${shared} ${shared === 1 ? 'person' : 'people'}` : ''}</p>
       <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">${icon('users', 'tiny')}<span id="race-make-label">Set up the team</span></button></div>`);
-    let mode = 'together';
+    form.querySelector('#team-email').onclick = () => { close(); openShareProject(projectId); };
+    let mode = 'split';
     let organiseTouched = false;
     const checksSel = form.querySelector('#race-checks');
     const paintChecks = role => {
@@ -149,10 +158,10 @@ const Race = (() => {
       const organising = mode === 'together' && form.querySelector('#race-organise').checked;
       form.querySelector('#race-name-wrap').classList.toggle('hidden', organising);
       form.querySelector('#race-mode-note').textContent = mode === 'split'
-        ? `One goal for the whole ${role.group}: hand each step to someone, or let them claim it, and everyone's part adds up to the finish. They work on this goal itself, shared with them, not a copy. You see who has what and who is behind.`
+        ? `One shared goal for the whole ${role.group}. Assign each step, or let people claim one, and everyone's part adds up to the finish. They work on this goal itself, not a copy, and you see who owns what and who is behind.`
         : mode === 'race'
-        ? `Everyone who joins gets their own copy of this goal's steps. First to tick them all off wins. ${ticked ? `You've ticked ${ticked} already, so you'll race on a fresh copy and everyone starts level.` : 'You race on this goal as it is.'}`
-        : `Your ${role.people} each get their own copy of the steps and aim to finish by the date. You see who is on track and can nudge anyone behind. They join with a link or a code.${organising ? '' : ' You take part on this goal as it is.'}`;
+        ? `Each participant gets their own copy of this goal's steps. The first to complete them all wins. ${ticked ? `You've ticked ${ticked} already, so you'll race on a fresh copy and everyone starts level.` : 'You race on this goal as it is.'}`
+        : `Each of your ${role.people} works through their own copy of these steps towards the same date, as in a class or a coaching programme. You see who is on track and can nudge anyone behind. They join with a link or a code.${organising ? '' : ' You take part on this goal as it is.'}`;
       form.querySelector('#race-make-label').textContent = mode === 'race' ? 'Make the race' : `Set up the ${role.kind.toLowerCase()}`;
     };
     form.querySelectorAll('.race-mode button').forEach(b => { b.onclick = () => { mode = b.dataset.mode; paint(); }; });
