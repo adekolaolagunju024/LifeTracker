@@ -990,7 +990,8 @@ function deleteTaskById(userId, id) {
   const task = getTaskById(userId, id);
   if (!task) return;
   assertCanEditProject(userId, task.projectId);
-  if (splitTeamOf(userId, task.projectId)) throw Object.assign(new Error('Only the team leader removes steps from the plan'), { status: 403 });
+  // the leader removes steps; a phase lead, the steps in their phase
+  if (splitTeamOf(userId, task.projectId) && !ledPhasesOf(userId).has(task.projectId)) throw Object.assign(new Error('Only the team leader or the lead of its phase removes steps from the plan'), { status: 403 });
   db.prepare('UPDATE tasks SET deletedAt = ? WHERE id = ? AND deletedAt IS NULL').run(new Date().toISOString(), id);
 }
 
@@ -1661,12 +1662,17 @@ function restoreProject(userId, id) {
 // A task's own project might still be in the trash (it was deleted solo,
 // or its project was trashed after it) — restore that too, so the
 // restored task doesn't land on a project page that 404s.
+// Whoever made the task restores it; so can anyone who could delete it
+// from a shared goal (an editor, or a team's leader or phase lead), so
+// their Undo works.
 function restoreTask(userId, id) {
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND userId = ? AND deletedAt IS NOT NULL').get(id, userId);
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ? AND deletedAt IS NOT NULL').get(id);
   if (!task) return null;
+  const mine = task.userId === userId;
+  if (!mine && !(canEditProject(userId, task.projectId) && (!splitTeamOf(userId, task.projectId) || ledPhasesOf(userId).has(task.projectId)))) return null;
   const project = db.prepare('SELECT * FROM projects WHERE id = ? AND userId = ?').get(task.projectId, userId);
   if (project && project.deletedAt) restoreProject(userId, project.id);
-  db.prepare('UPDATE tasks SET deletedAt = NULL WHERE id = ? AND userId = ?').run(id, userId);
+  db.prepare('UPDATE tasks SET deletedAt = NULL WHERE id = ?').run(id);
   return getTaskById(userId, id);
 }
 

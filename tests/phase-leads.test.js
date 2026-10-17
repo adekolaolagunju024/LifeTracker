@@ -83,3 +83,31 @@ test('phase leads run their phase, and only milestones wait for sign-off', async
   assert.equal((await json(ceo, 'POST', `/api/challenges/${team.id}/checks`, { checks: 'none' })).checks, 'none');
   assert.equal((await json(yuki, 'GET', `/api/challenges/${team.id}`)).players.find(p => p.you).done, 1);
 });
+
+test('the leader and a phase lead delete steps from the team page, and can undo it', async () => {
+  const ceo = await signUp();
+  const lead = await signUp();
+  const member = await signUp();
+  const goal = await json(ceo, 'POST', '/api/projects', { title: 'Café', isGoal: true });
+  const design = await json(ceo, 'POST', '/api/projects', { title: 'Design', parentId: goal.id });
+  const build = await json(ceo, 'POST', '/api/projects', { title: 'Build', parentId: goal.id });
+  const add = async (projectId, title) => (await json(ceo, 'POST', '/api/tasks', { projectId, title, status: 'Not Started', priority: 'Medium' })).id;
+  const menu = await add(design.id, 'Menu');
+  const sign = await add(design.id, 'Sign');
+  const kitchen = await add(build.id, 'Kitchen');
+  const team = await json(ceo, 'POST', '/api/challenges', { projectId: goal.id, endsAt: inDays(30), mode: 'split', displayName: 'Ada' });
+  await call(lead, 'POST', `/api/challenges/join/${team.joinToken}`, { displayName: 'Chi' });
+  await call(member, 'POST', `/api/challenges/join/${team.joinToken}`, { displayName: 'Ben' });
+  const board = await json(ceo, 'GET', `/api/challenges/${team.id}`);
+  const color = name => board.players.find(p => p.name === name).color;
+  await call(ceo, 'POST', `/api/challenges/${team.id}/leads`, { projectId: design.id, color: color('Chi') });
+  await call(ceo, 'POST', `/api/challenges/${team.id}/assign`, { taskId: kitchen, color: color('Ben') });
+
+  assert.equal((await call(member, 'DELETE', `/api/tasks/${kitchen}`)).status, 400, 'a teammate cannot');
+  await call(lead, 'DELETE', `/api/tasks/${kitchen}`); // nor a lead outside their phase: Kitchen is still there below
+  assert.equal((await call(lead, 'DELETE', `/api/tasks/${menu}`)).status, 200, 'a lead in their phase can');
+  assert.equal((await call(lead, 'POST', `/api/trash/tasks/${menu}/restore`)).status, 200, 'and undo it');
+  assert.equal((await call(ceo, 'DELETE', `/api/tasks/${sign}`)).status, 200, 'the leader can');
+  const left = (await json(ceo, 'GET', `/api/challenges/${team.id}`)).split.steps.map(st => st.title).sort();
+  assert.deepEqual(left, ['Kitchen', 'Menu']);
+});

@@ -1,4 +1,4 @@
-/* global AIFill, openProjectChat, renderGantt, icon, esc, API, APP, showToast, showActionToast, fireBigScreenConfetti, showPage, playJourneyFor, renderMountainScene, mountainState */
+/* global AIFill, showUndoToast, openProjectChat, renderGantt, icon, esc, API, APP, showToast, showActionToast, fireBigScreenConfetti, showPage, playJourneyFor, renderMountainScene, mountainState */
 // ── RACE A FRIEND ───────────────────────────────────────────────
 // Make a race from one of your goals, share the link, and everyone who
 // joins races their own copy (backend/challenges.js). On the Journey every
@@ -757,7 +757,7 @@ const Race = (() => {
           : st.outside ? '<span class="sp-who">Someone else</span>'
             : done ? '' : `<button type="button" class="sp-claim" data-task="${esc(st.taskId)}" onclick="Race.claim('${c.id}', this)">${icon('hand', 'tiny')}I'll take it</button>`;
       return `<li class="${done ? 'done' : ''}${!st.who && !done ? ' open' : ''}"><span class="sp-dot">${done ? icon('check', 'tiny') : ''}</span>
-        <span class="sp-title">${esc(st.title)}${st.endDate ? `<small>due ${esc(new Date(st.endDate.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</small>` : ''}</span>${flag}${right}</li>`;
+        <span class="sp-title">${esc(st.title)}${st.endDate ? `<small>due ${esc(new Date(st.endDate.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</small>` : ''}</span>${flag}${right}${st.manage ? `<button type="button" class="sp-del" data-task="${esc(st.taskId)}" data-title="${esc(st.title)}" onclick="Race.removeStep('${c.id}', this)" title="Delete this step (it goes to Trash)" aria-label="Delete ${esc(st.title)}">${icon('trash', 'tiny')}</button>` : ''}</li>`;
     };
     // With phases (the goal's sub-folders), the steps sit under each one,
     // with its lead; the leader picks the lead.
@@ -883,6 +883,14 @@ const Race = (() => {
     forgetPlan(); refreshSplit(id);
   }
 
+  // The leader (or a phase lead) deletes a step: to Trash, with Undo.
+  async function removeStep(id, btn) {
+    btn.disabled = true;
+    const taskId = btn.dataset.task;
+    try { await API.deleteTask(taskId); } catch (err) { btn.disabled = false; showToast(err.message || 'Could not delete that step', 'error'); return; }
+    forgetPlan(); refreshSplit(id);
+    showUndoToast(`“${btn.dataset.title}” moved to Trash`, async () => { await API.restoreTask(taskId); forgetPlan(); refreshSplit(id); });
+  }
   async function setLead(id, sel) {
     sel.disabled = true;
     try { await API.setRaceLead(id, sel.dataset.phase, sel.value); showToast(sel.value ? 'They lead that phase now. They’ve been told' : 'No lead for that phase'); } catch (err) { showToast(err.message || 'Could not do that', 'error'); }
@@ -1150,6 +1158,6 @@ const Race = (() => {
     });
   }
 
-  return { planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, setLead, milestone, setChecks, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, setLead, milestone, setChecks, removeStep, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;
