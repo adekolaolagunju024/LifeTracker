@@ -1079,6 +1079,32 @@ function setChecks(id, userId, checks) {
   return checks;
 }
 
+// The person who set the team up ends it, for everyone: the team, its
+// chat, sign-offs, leads and milestones go, and so does each teammate's
+// access to a shared goal (their steps there go back to unassigned). The
+// goal and every task stay the organiser's; in a race or a group each
+// person keeps their own copy. Teammates hear it has ended.
+function endTeam(id, userId) {
+  const c = byId(id);
+  if (!c || !(c.ownerId === userId || isMember(c.id, userId))) return null;
+  if (c.ownerId !== userId) throw Object.assign(new Error('Only the person who set the team up can end it. You can leave it'), { status: 403 });
+  const others = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ? AND userId != ?').all(c.id, userId);
+  conn.transaction(() => {
+    if (c.mode === 'split' && c.goalId) {
+      others.forEach(m => {
+        conn.prepare(`UPDATE tasks SET assigneeId = NULL, assigneeAssignedAt = NULL WHERE assigneeId = ? AND deletedAt IS NULL
+          AND projectId IN (SELECT id FROM projects WHERE id = ? OR parentId = ?)`).run(m.userId, c.goalId, c.goalId);
+        conn.prepare('DELETE FROM project_collaborators WHERE projectId = ? AND userId = ?').run(c.goalId, m.userId);
+      });
+    }
+    ['challenge_members', 'challenge_messages', 'challenge_reads', 'challenge_cleared', 'challenge_steps', 'challenge_leads', 'challenge_milestones', 'challenge_nudges']
+      .forEach(table => conn.prepare(`DELETE FROM ${table} WHERE challengeId = ?`).run(c.id));
+    conn.prepare('DELETE FROM challenges WHERE id = ?').run(c.id);
+  })();
+  others.forEach(m => pushTo(m.userId, { title: c.title, body: c.mode === 'split' ? `The team on “${clean(c.title, 80)}” has ended` : `“${clean(c.title, 80)}” has ended. Your copy of the goal is still yours`, url: '/app', tag: `ended-${c.id}` }));
+  return { ended: true, people: others.length };
+}
+
 // Leaving takes you off the road; your copy of the goal stays yours. In a
 // split goal your open steps go back to unclaimed and the goal stops being
 // shared with you (the leader can't leave their own goal).
@@ -1099,4 +1125,4 @@ function leave(id, userId) {
   return conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId).changes > 0;
 }
 
-module.exports = { setLead, setMilestone, setChecks, assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+module.exports = { endTeam, setLead, setMilestone, setChecks, assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };

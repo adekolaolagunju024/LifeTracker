@@ -190,6 +190,15 @@ router.post('/:id/checks', (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// DELETE /api/challenges/:id : the person who set it up ends it for everyone
+router.delete('/:id', (req, res) => {
+  try {
+    const r = challenges.endTeam(req.params.id, req.session.userId);
+    if (!r) return res.status(404).json({ error: 'Team not found' });
+    res.json(r);
+  } catch (e) { fail(res, e); }
+});
+
 // POST /api/challenges/:id/leave
 router.post('/:id/leave', (req, res) => {
   try {
