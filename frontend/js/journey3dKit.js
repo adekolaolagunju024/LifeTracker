@@ -774,6 +774,21 @@ export function peekCamera(peek, from, camDesired, lookDesired, dt, dist = 9, he
   lookDesired.copy(peek.at).setY(peek.at.y + lookUp);
   return true;
 }
+// A rival's tag is sized in the world and drawn over everything, so the
+// follow cam overtaking them would blow it up to fill the screen.
+// Fade it out instead once it would stand taller than ~6% of the view,
+// gone by 10% (tags normally sit under 3%).
+const tagAt = new THREE.Vector3(), tagScale = new THREE.Vector3();
+function fadeWhenClose(sprite) {
+  sprite.onBeforeRender = (renderer, scene, camera) => {
+    if (!camera.isPerspectiveCamera) return;
+    sprite.getWorldPosition(tagAt); sprite.getWorldScale(tagScale);
+    const d = tagAt.distanceTo(camera.position);
+    const share = tagScale.y / (2 * Math.max(d, 1e-3) * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+    sprite.material.opacity = THREE.MathUtils.clamp((0.10 - share) / 0.04, 0, 1);
+  };
+  return sprite;
+}
 // The red tag over a wall reads the pending obstacles only.
 export const tagText = t => `${t.blocker}${t.foes > 1 ? ` ×${t.foes}` : ''}`;
 // A floating red name tag for an obstacle, as a sprite sized to its text.
@@ -833,7 +848,7 @@ export function playerTagSprite(text, color, height = 0.38, place = 0) {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, depthTest: false }));
   sprite.scale.set(height * (w / h), height, 1);
   sprite.renderOrder = 9;
-  return sprite;
+  return fadeWhenClose(sprite);
 }
 export function createRivals({ build, place, tagHeight = 2.3, tagSize = 0.38, max = 6 }) {
   const shown = new Map(); // key -> { body, tag }
