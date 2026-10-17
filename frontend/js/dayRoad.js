@@ -340,13 +340,17 @@ const DayRoad = (() => {
       if (!go || run.stopped || replaying !== run) return;
     }
     await wait(opts.gate ? 300 : 700); // let the opening settle first
-    const gap = box && box._j3d ? 3400 : 1700; // a 3D character takes longer to get there
     for (const s of steps) {
       if (run.stopped || !document.getElementById('dayroad-scene')) break;
       s.apply();
       caption(s.text);
       render();
-      await wait(gap);
+      // in 3D, wait for the character to get there and knock the blocker
+      // out before the next moment, rather than a fixed gap
+      if (!(box && box._j3d)) { await wait(1700); continue; }
+      await wait(1200);
+      for (let waited = 0; waited < 16000 && !run.stopped && JourneyGame.isBusy(box); waited += 250) await wait(250);
+      await wait(2200);
     }
     if (replaying !== run) return;
     replaying = null;

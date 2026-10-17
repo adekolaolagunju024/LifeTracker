@@ -133,6 +133,15 @@ const Replays = (() => {
   let current = null; // { stopped, close }
   function enqueuePlay(goal, events, opts) { chain = chain.then(() => play(goal, events, opts)).catch(() => {}); return chain; }
   const wait = ms => new Promise(res => setTimeout(res, ms));
+  // Long enough to see each moment through: in 3D the character may still
+  // have to walk up to the blocker before knocking it out, so wait until
+  // it has stopped, then hold while the enemies go down.
+  async function settle(box, run) {
+    if (!box._j3d) return wait(1800);
+    await wait(1200);
+    for (let waited = 0; waited < 16000 && !run.stopped && JourneyGame.isBusy(box); waited += 250) await wait(250);
+    if (!run.stopped) await wait(2200);
+  }
   const sceneReady = box => {
     const j = box && box._j3d;
     if (!j) return !!(box && box.querySelector('svg'));
@@ -196,13 +205,12 @@ const Replays = (() => {
     for (let waited = 0; waited < 20000 && !run.stopped && !sceneReady(box); waited += 250) await wait(250);
     if (run.stopped) return finishUp(goal, again);
     await wait(600);
-    const gap = box._j3d ? 3400 : 1800; // a 3D character takes longer to get there
     for (const s of steps) {
       if (run.stopped) break;
       s.apply();
       cap(s.e.text);
       sync();
-      await wait(gap);
+      await settle(box, run);
     }
     if (finish && !run.stopped) {
       cap('Heading for the finish…');

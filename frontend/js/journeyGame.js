@@ -2595,6 +2595,14 @@ const JourneyGame = (() => {
   }
 
   const JourneyGameApi = {
+    // Whether a 3D character is still on its way (walking up to a blocker,
+    // knocking it out, carrying on). Replays wait on this rather than a
+    // fixed gap, which cut away before the knockout on longer paths.
+    isBusy(container) {
+      const j = container && container._j3d;
+      const st = j && j._debug && j._debug.state;
+      return !!st && (st.mode === 'run' || st.mode === 'pause' || st.mode === 'finale' || st.stops > 0);
+    },
     buildPhaseLabel(frac) {
       if (frac >= 1) return 'Reached the target';
       let label = 'At the starting line';
