@@ -862,6 +862,8 @@ function assertAssigneeCanAccessProject(assigneeId, projectId) {
 
 // A task's action as stored: cleaned JSON, or null (backend/taskActions.js).
 const actionJson = action => { const a = taskActions.clean(action); return a ? JSON.stringify(a) : null; };
+// morning, afternoon or evening; anything else is no part (any time)
+const cleanDayPart = v => (['morning', 'afternoon', 'evening'].includes(v) ? v : null);
 function createTask(userId, task) {
   const project = getProjectById(userId, task.projectId);
   if (!project) throw new Error('Project not found');
@@ -878,11 +880,11 @@ function createTask(userId, task) {
   const targetCount = task.targetCount || null;
   const targetUnit = targetCount ? (task.targetUnit || '') : null;
   db.prepare(`
-    INSERT INTO tasks (id, userId, projectId, title, category, status, priority, startDate, endDate, cost, notes, recurrence, sortOrder, assigneeId, assigneeAssignedAt, createdAt, targetCount, targetUnit, progressCount, action)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    INSERT INTO tasks (id, userId, projectId, title, category, status, priority, startDate, endDate, cost, notes, recurrence, sortOrder, assigneeId, assigneeAssignedAt, createdAt, targetCount, targetUnit, progressCount, action, dayPart)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(task.id, userId, task.projectId, task.title, task.category || '', task.status || 'Not Started', task.priority || 'Medium',
          task.startDate || '', task.endDate || '', task.cost || 0, task.notes || '', task.recurrence || 'none', sortOrder, task.assigneeId || null, assigneeAssignedAt, task.createdAt,
-         targetCount, targetUnit, task.progressCount || 0, actionJson(task.action));
+         targetCount, targetUnit, task.progressCount || 0, actionJson(task.action), cleanDayPart(task.dayPart));
   return getTaskById(userId, task.id);
 }
 
@@ -952,9 +954,9 @@ function updateTaskById(userId, id, patch) {
   const justCompleted = current.status !== 'Completed' && next.status === 'Completed';
   const completedAt = justCompleted ? new Date().toISOString() : (next.status !== 'Completed' ? null : current.completedAt);
   db.prepare(`
-    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?, assigneeId=?, assigneeAssignedAt=?, targetCount=?, targetUnit=?, progressCount=?, overdueNotifiedAt=?, completedAt=?, action=?
+    UPDATE tasks SET projectId=?, title=?, category=?, status=?, priority=?, startDate=?, endDate=?, cost=?, notes=?, recurrence=?, assigneeId=?, assigneeAssignedAt=?, targetCount=?, targetUnit=?, progressCount=?, overdueNotifiedAt=?, completedAt=?, action=?, dayPart=?
     WHERE id = ?
-  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, assigneeAssignedAt, targetCount, targetUnit, progressCount, overdueNotifiedAt, completedAt, actionJson(next.action), id);
+  `).run(next.projectId, next.title, next.category, next.status, next.priority, next.startDate, next.endDate, next.cost, next.notes, next.recurrence || 'none', next.assigneeId || null, assigneeAssignedAt, targetCount, targetUnit, progressCount, overdueNotifiedAt, completedAt, actionJson(next.action), cleanDayPart(next.dayPart), id);
 
   if (justCompleted) {
     recordStreakProgress(userId);

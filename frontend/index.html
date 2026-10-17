@@ -2368,6 +2368,40 @@
     .dark .day-part.part-evening { --pbg: linear-gradient(180deg, rgba(99,102,241,.2), rgba(99,102,241,.07)); --pic: rgba(99,102,241,.3); --pink: #C7D2FE; }
     .dark .day-part-name small, .dark .day-part-empty { color: #9FB3C8; }
     .dark .day-part-list > div { border-color: rgba(255,255,255,.08); }
+    .day-part.part-any { --pc: #94A3B8; }
+    /* Actions: the week by part of the day (js/app/05-actions-calendar.js) */
+    .act-views { display: inline-flex; gap: 4px; padding: 4px; background: #EEF1F4; border-radius: 999px; }
+    .act-views button { font-size: 13px; font-weight: 700; color: #475569; padding: 7px 14px; border-radius: 999px; white-space: nowrap; }
+    @media (max-width: 420px) { .act-views button { font-size: 12.5px; padding: 7px 11px; } }
+    .act-views button[aria-selected="true"] { background: #fff; color: #0D1B2A; box-shadow: 0 1px 3px rgba(13,27,42,.12); }
+    .wk-note { font-size: 13px; color: #6B7280; margin-bottom: 12px; }
+    .wk-days { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .wk-day, .wk-day .day-part, .wk-row { min-width: 0; }
+    .wk-day { background: #fff; border: 1px solid #E3E6EA; border-radius: 18px; padding: 12px 14px 10px; }
+    .wk-day.is-today { border-color: #0A7E8C; box-shadow: 0 0 0 1px #0A7E8C; }
+    .wk-day.is-empty { padding-bottom: 12px; opacity: .8; }
+    .wk-day-head { display: flex; align-items: baseline; gap: 8px; }
+    .wk-day-head b { font-size: 16px; font-weight: 800; color: #0D1B2A; }
+    .wk-day-head span { font-size: 13px; font-weight: 600; color: #6B7280; }
+    .wk-day-head em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 700; color: #6B7280; }
+    .wk-row { display: flex; align-items: center; gap: 10px; min-height: 48px; border-bottom: 1px solid rgba(13,27,42,.07); }
+    .wk-row:last-child { border-bottom: 0; }
+    .wk-title { flex: 1; min-width: 0; text-align: left; display: flex; flex-direction: column; }
+    .wk-title b { font-size: 14px; font-weight: 700; color: #0D1B2A; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+    .wk-title b .ic { vertical-align: -2px; margin-right: 3px; }
+    .wk-title small { font-size: 11.5px; color: #6B7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wk-time { font-size: 12px; font-weight: 800; color: var(--pink, #0A7E8C); font-variant-numeric: tabular-nums; }
+    .dark .act-views { background: #1E293B; } .dark .act-views button { color: #CBD5E1; } .dark .act-views button[aria-selected="true"] { background: #0F172A; color: #F1F5F9; }
+    .dark .wk-day { background: #141D2B; border-color: #2A3648; } .dark .wk-day-head b, .dark .wk-title b { color: #E6EDF3; }
+    /* A task's part of the day on a Kanban card, and its group in a column */
+    .dp-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+    .dp-chip .ic { width: 12px; height: 12px; }
+    .dp-morning { background: #FFF1DC; color: #9A4410; } .dp-afternoon { background: #E0F2FE; color: #075985; } .dp-evening { background: #E8E9FC; color: #3730A3; }
+    .kanban-card.has-dp { border-left: 4px solid var(--dpc); } .kanban-card.dp-c-morning { --dpc: #F59E0B; } .kanban-card.dp-c-afternoon { --dpc: #0EA5E9; } .kanban-card.dp-c-evening { --dpc: #6366F1; }
+    .kanban-part { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; margin: 6px 2px 2px; color: #6B7280; }
+    .kanban-part .ic { width: 13px; height: 13px; }
+    .kanban-part.part-morning { color: #B45309; } .kanban-part.part-afternoon { color: #0369A1; } .kanban-part.part-evening { color: #4F46E5; }
+    .dark .dp-morning { background: rgba(245,158,11,.18); color: #FCD34D; } .dark .dp-afternoon { background: rgba(14,165,233,.18); color: #7DD3FC; } .dark .dp-evening { background: rgba(99,102,241,.25); color: #C7D2FE; }
     .focus-part { flex-shrink: 0; max-width: 96px; font-size: 12px; font-weight: 700; color: #3B4552; border: 1px solid #E3E6EA; border-radius: 9px; padding: 5px 4px; background: #fff; }
     .focus-done { opacity: .55; }
     .focus-done .text-navy { text-decoration: line-through; }
@@ -4129,6 +4163,7 @@
             <select id="kanban-sort" onchange="setKanbanSort(this.value)" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
               <option value="due">Due Soon</option>
               <option value="start">Starting Soon</option>
+              <option value="daypart">Time of day</option>
               <option value="priority">Priority</option>
               <option value="manual">Recently Added</option>
             </select>
@@ -4198,6 +4233,13 @@
         <h2 class="text-2xl font-black text-navy">Actions</h2>
         <p class="text-gray-500 text-sm mt-1">A live view of what needs attention right now, across every project — nothing to maintain by hand.</p>
       </div>
+      <!-- What needs attention, or the week ahead by part of the day -->
+      <div class="act-views mb-4" id="act-views" role="tablist" aria-label="Show">
+        <button type="button" role="tab" data-view="attention" onclick="setActionsView('attention')">Needs attention</button>
+        <button type="button" role="tab" data-view="week" onclick="setActionsView('week')">This week</button>
+        <button type="button" role="tab" data-view="next" onclick="setActionsView('next')">Next week</button>
+      </div>
+      <div id="act-attention-only">
       <!-- The counts, on one line (the lists below have the tasks) -->
       <div class="act-counts mb-5" role="list">
         <span class="act-count late" role="listitem"><span data-icon="overdue"></span><b id="act-overdue">0</b> overdue</span>
@@ -4216,6 +4258,7 @@
           </div>
           <button onclick="planActionsWithAssistant()" class="bg-teal/10 hover:bg-teal/20 text-teal text-xs font-bold px-4 py-2 rounded-lg whitespace-nowrap">Plan it for me</button>
         </div>
+      </div>
       </div>
 
       <div id="action-list"></div>
@@ -5113,6 +5156,12 @@
           <label class="block text-xs font-bold text-gray-600 mb-1.5" for="task-end">Due</label>
           <input type="date" id="task-end" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-teal bg-white">
         </div>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-gray-600 mb-1.5" for="task-daypart">Time of day</label>
+        <select id="task-daypart" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-teal bg-white">
+          <option value="">Any time</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option>
+        </select>
       </div>
       <div>
         <label class="block text-xs font-bold text-gray-600 mb-1.5" for="task-assignee">Who's doing it</label>
