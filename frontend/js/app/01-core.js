@@ -403,7 +403,10 @@ function syncPredecessorSnapshots(task) {
   const update = API.updateObstacle;
   API.updateObstacle = async (id, changes) => {
     const result = await update(id, changes);
-    if (changes && changes.resolved === true && result && result.taskId) afterBlockerCleared(result);
+    if (changes && changes.resolved === true && result && result.taskId) {
+      afterBlockerCleared(result);
+      if (window.Replays) Replays.blockerCleared({ ...result, id: result.id || id });
+    }
     return result;
   };
 }

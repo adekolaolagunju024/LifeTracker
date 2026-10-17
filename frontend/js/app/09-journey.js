@@ -845,6 +845,7 @@ async function showProjectCompleteOverlay(title, { projectId = null, message, he
   document.getElementById('project-complete-stats').innerHTML = '';
   document.getElementById('project-complete-why').classList.add('hidden');
   document.getElementById('project-complete-report').classList.toggle('hidden', !projectId);
+  document.getElementById('project-complete-watch').classList.toggle('hidden', !(projectId && window.Replays && Replays.offersWatch(projectId)));
   sheet.style.transition = 'none';
   sheet.style.transform = 'translateY(100%)';
   overlay.classList.remove('hidden');
@@ -1008,22 +1009,22 @@ async function celebrateTaskCompletion(task) {
   showToast(`🎉 "${task.title}" complete!`);
 
   // A task finishing off every task in its project gets a bigger moment.
+  // Ticked here, away from the Journey, it can also be watched on the
+  // goal's own world (js/replays.js): with replays set to play, that runs
+  // to the finish line first and the "You did it" page follows it.
   try {
-    const project = await API.getProject(task.projectId);
-    const topId = project.parentId || project.id;
-    const [allProjects, allTasks] = await Promise.all([API.getProjects(), API.getTasks()]);
-    const tree = tasksInProjectTree(topId, allProjects, allTasks);
-    if (tree.length && tree.every(t => t.status === 'Completed')) {
-      const top = project.parentId ? await API.getProject(topId) : project;
-      setTimeout(() => {
-        if (celebrationsEnabled()) {
-          fireBigScreenConfetti();
-          fireBalloons(14);
-          showProjectCompleteOverlay(top.title, { projectId: top.id });
-        }
-        showToast(`🏆 Project complete: "${top.title}"! Incredible work.`);
-      }, 400);
-    }
+    const goal = await Replays.goalOf(task.projectId);
+    if (!goal) return;
+    const bigMoment = () => {
+      if (celebrationsEnabled()) {
+        fireBigScreenConfetti();
+        fireBalloons(14);
+        showProjectCompleteOverlay(goal.title, { projectId: goal.id });
+      }
+      showToast(`🏆 Project complete: "${goal.title}"! Incredible work.`);
+    };
+    const replayFirst = Replays.taskDone(task, goal, bigMoment);
+    if (goal.finished && !replayFirst) setTimeout(bigMoment, 400);
   } catch {
     // Non-critical: the per-task celebration already happened either way.
   }

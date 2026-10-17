@@ -840,6 +840,58 @@
     .dark .gate-list li { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.3); } .dark .gate-list li.is-done { background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.3); }
     .dark .gate-ic { background: rgba(245,158,11,.15); color: #FBBF24; } .dark .gate-secondary { background: #1A2436; color: #E8EEF5; } .dark .gate-x:hover { background: #1A2436; }
     @media (prefers-reduced-motion: reduce) { .gate-overlay, .gate-card { animation: none; } }
+    /* Replays anywhere (js/replays.js): the corner player, the setting, the goal's choice */
+    .replay-mini { position: fixed; right: 16px; bottom: 16px; z-index: 1003; width: 340px; border-radius: 18px; overflow: hidden;
+      background: #0D1B2A; color: #fff; box-shadow: 0 18px 50px rgba(13,27,42,.35); transform: translateY(24px) scale(.97); opacity: 0;
+      transition: transform .25s cubic-bezier(.16,1,.3,1), opacity .25s; touch-action: pan-x; }
+    .replay-mini.in { transform: none; opacity: 1; }
+    .replay-mini-scene { position: relative; height: 210px; background: #0b1220; }
+    .replay-mini-scene > * { width: 100%; height: 100%; }
+    .replay-mini-bar { display: flex; align-items: center; gap: 6px; padding: 9px 10px 10px 14px; }
+    .replay-mini-bar > div { flex: 1; }
+    .replay-mini-kicker { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: #5EEAD4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .replay-mini-cap { font-size: 13px; font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 18px; }
+    .replay-mini-btn { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: rgba(255,255,255,.08); color: #fff; }
+    .replay-mini-btn:hover { background: rgba(255,255,255,.16); }
+    .replay-mini-btn svg { width: 16px; height: 16px; }
+    /* a glance, not a game to steer: the scene's own camera controls stay out */
+    .replay-mini [role="group"][aria-label="View"], .replay-mini .jk-zoom, .replay-mini .jk-hint { display: none !important; }
+    /* On a phone, a portrait card at the top right: the tall road fits it,
+       and toasts and the bottom bar stay clear of it. */
+    @media (max-width: 639px) {
+      .replay-mini { right: 10px; bottom: auto; top: calc(66px + env(safe-area-inset-top, 0px)); width: min(48vw, 200px); border-radius: 16px; }
+      .replay-mini-scene { height: min(62vw, 270px); }
+      .replay-mini-bar { flex-wrap: wrap; padding: 8px 8px 8px 10px; gap: 4px; }
+      .replay-mini-bar > div { flex-basis: 100%; }
+      .replay-mini-cap { white-space: normal; font-size: 12px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+      .replay-mini-btn { width: 30px; height: 30px; }
+      .replay-mini-bar .replay-mini-btn[data-act="open"] { margin-left: auto; }
+    }
+    @media (prefers-reduced-motion: reduce) { .replay-mini { transition: none; } }
+    .replay-modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    .replay-modes button { text-align: left; padding: 9px 11px; border-radius: 12px; border: 1.5px solid #E5E7EB; background: #fff; color: #0D1B2A; }
+    .replay-modes button b { display: block; font-size: 13px; }
+    .replay-modes button small { display: block; font-size: 11px; color: #6B7280; margin-top: 2px; line-height: 1.3; }
+    .replay-modes button[aria-pressed="true"] { border-color: #0A7E8C; background: #0A7E8C0F; box-shadow: 0 0 0 1px #0A7E8C inset; }
+    .dark .replay-modes button { background: #111827; border-color: #374151; color: #F3F4F6; }
+    .dark .replay-modes button[aria-pressed="true"] { border-color: #2DD4BF; background: #2DD4BF14; }
+    @media (max-width: 420px) { .replay-modes { grid-template-columns: 1fr; } }
+    .replay-sheet-overlay { position: fixed; inset: 0; z-index: 1005; background: rgba(13,27,42,.45); display: flex; align-items: flex-end; justify-content: center; }
+    @media (min-width: 640px) { .replay-sheet-overlay { align-items: center; } }
+    .replay-sheet { width: 100%; max-width: 420px; background: #fff; color: #0D1B2A; border-radius: 20px 20px 0 0; padding: 20px 20px calc(16px + env(safe-area-inset-bottom, 0px)); }
+    @media (min-width: 640px) { .replay-sheet { border-radius: 20px; } }
+    .replay-sheet h3 { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 800; }
+    .replay-sheet h3 svg { width: 18px; height: 18px; color: #0A7E8C; }
+    .replay-sheet-sub { font-size: 12px; color: #6B7280; margin: 4px 0 12px; }
+    .replay-opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1.5px solid #E5E7EB; border-radius: 12px; margin-bottom: 8px; cursor: pointer; }
+    .replay-opt:has(input:checked) { border-color: #0A7E8C; background: #0A7E8C0F; }
+    .replay-opt input { margin-top: 3px; accent-color: #0A7E8C; }
+    .replay-opt b { display: block; font-size: 13px; }
+    .replay-opt small { display: block; font-size: 12px; color: #6B7280; margin-top: 1px; }
+    .replay-sheet-foot { display: flex; justify-content: flex-end; margin-top: 6px; }
+    .replay-sheet-done { background: #0A7E8C; color: #fff; font-weight: 700; font-size: 13px; padding: 9px 18px; border-radius: 10px; }
+    .dark .replay-sheet { background: #111827; color: #F3F4F6; }
+    .dark .replay-opt { border-color: #374151; }
     /* Replays on today's road (js/dayRoad.js): the button and the caption */
     .dayroad-replay { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #0A7E8C; background: #F0FAF9; border-radius: 9px; padding: 6px 10px; }
     .dayroad-replay:hover { background: #E0F4F2; }
@@ -3774,6 +3826,7 @@
               <button onclick="closeProjectDetailMenu();openAddSubfolder(APP.currentProjectId)" id="btn-new-subfolder" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="folder"></span> New Sub-folder</button>
               <button onclick="closeProjectDetailMenu();openProjectChat(APP.currentProjectId)" id="btn-project-chat" class="hidden w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="chat"></span> Chat</button>
               <button onclick="closeProjectDetailMenu();GoalMap.open(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="map"></span> Goal map</button>
+              <button onclick="closeProjectDetailMenu();Replays.openGoalSheet(APP.currentProjectId)" id="btn-goal-replays" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="clapperboard"></span> Replays…</button>
               <button onclick="closeProjectDetailMenu();openProgressReport(APP.currentProjectId)" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="file"></span> Progress report</button>
               <button onclick="closeProjectDetailMenu();editProject(APP.currentProjectId)" id="btn-edit-project" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="edit"></span> Edit</button>
               <button onclick="closeProjectDetailMenu();Race.openCreate(APP.currentProjectId)" id="btn-race-friend" class="w-full flex items-center gap-2 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-100 text-left"><span class="ei" data-icon="users"></span> Team up</button>
@@ -4370,6 +4423,20 @@
             </div>
           </div>
           <button onclick="toggleGameSounds()" class="ios-switch" id="game-sounds-btn" role="switch" aria-label="Toggle game sounds"><span class="ios-switch-knob"></span></button>
+        </div>
+        <div class="pt-3.5 border-t border-gray-100 mt-3.5">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="icon-badge" style="background:#0A7E8C22;color:#0A7E8C" data-icon="clapperboard"></span>
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-navy">Replays</p>
+              <p class="text-xs text-gray-400 mt-0.5">When you tick off a step or a blocker away from the Journey (the list, the board, the task panel), watch it happen in your Journey world, 2D or 3D. Finish a whole goal and you can watch yourself cross the line. Each goal can change this from its ⋯ menu. Saved on this device.</p>
+            </div>
+          </div>
+          <div class="replay-modes" role="group" aria-label="Replays">
+            <button type="button" data-replay-mode="play" aria-pressed="false" onclick="Replays.setMode('play')"><b>Play it</b><small>A small player in the corner</small></button>
+            <button type="button" data-replay-mode="ask" aria-pressed="true" onclick="Replays.setMode('ask')"><b>Ask me</b><small>A Watch button, no pop-up</small></button>
+            <button type="button" data-replay-mode="off" aria-pressed="false" onclick="Replays.setMode('off')"><b>Off</b><small>No replays</small></button>
+          </div>
         </div>
         <div class="flex items-center justify-between pt-3.5 border-t border-gray-100 mt-3.5">
           <div class="flex items-center gap-3 min-w-0">
@@ -5347,6 +5414,7 @@
       <button type="button" class="pc-primary" onclick="planNextAfterComplete()"><span class="ei" data-icon="sparkles"></span>Plan what's next</button>
       <button type="button" onclick="shareProjectComplete()"><span class="ei" data-icon="share"></span>Share it</button>
       <button type="button" id="project-complete-report" onclick="reportFromComplete()"><span class="ei" data-icon="file"></span>Report</button>
+      <button type="button" id="project-complete-watch" class="hidden" onclick="Replays.watchFinish(_pcData && _pcData.projectId)"><span class="ei" data-icon="play"></span>Watch the finish</button>
     </div>
     <button type="button" class="pc-close" onclick="dismissProjectCompleteOverlay()">Close</button>
   </div>
@@ -5385,6 +5453,7 @@
 <script src="js/plannerKey.js"></script>
 <script src="js/dayPace.js"></script>
 <script src="js/dayRoad.js"></script>
+<script src="js/replays.js"></script>
 <script src="js/dayReport.js"></script>
 <script src="js/taskActions.js"></script>
 <script src="js/feedback.js"></script>
