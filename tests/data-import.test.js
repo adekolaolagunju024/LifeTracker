@@ -43,3 +43,39 @@ test('import keeps goals and blockers, and round-trips an export', async () => {
   const blockers = (await json(me, 'GET', '/api/tasks')).filter(t => t.title === 'Design sign-off').map(t => t.obstacles.length);
   assert.deepEqual(blockers, [2, 2]);
 });
+
+test('import brings tags, counted targets and what each task waits on', async () => {
+  const me = await signUp();
+  const res = await json(me, 'POST', '/api/data/import', {
+    projects: [{ id: 'g', title: 'UK driving licence', isGoal: true }],
+    tasks: [
+      { id: 'a', projectId: 'g', title: 'Road signs: 20 practice tests', status: 'In Progress', priority: 'High', targetCount: 20, targetUnit: 'practice tests', progressCount: 3, tags: [{ label: 'Road signs', color: '#DC2626' }, 'Theory'] },
+      { id: 'b', projectId: 'g', title: 'Read the Know your traffic signs book', status: 'Not Started', priority: 'Medium', tags: ['road signs'] },
+      { id: 'c', projectId: 'g', title: 'Sit the theory test', status: 'Not Started', priority: 'High', predecessors: [{ id: 'a' }, 'b', 'missing'] },
+    ],
+  });
+  assert.equal(res.tasks, 3);
+  const tasks = await json(me, 'GET', '/api/tasks');
+  const by = t => tasks.find(x => x.title.startsWith(t));
+  const signs = by('Road signs');
+  assert.deepEqual([signs.targetCount, signs.targetUnit, signs.progressCount], [20, 'practice tests', 3]);
+  assert.deepEqual(signs.tags.map(t => t.label), ['Road signs', 'Theory']);
+  assert.deepEqual(by('Read the').tags.map(t => t.label), ['Road signs'], 'same tag reused, whatever the case');
+  assert.deepEqual(by('Sit the').predecessors.map(p => p.title).sort(), ['Read the Know your traffic signs book', 'Road signs: 20 practice tests']);
+  // the counter works on an imported target
+  const bumped = await json(me, 'POST', `/api/tasks/${signs.id}/progress`, { delta: 1 });
+  assert.equal(bumped.progressCount, 4);
+});
+
+test('a counter reaching its target with a blocker still open keeps the count and waits', async () => {
+  const me = await signUp();
+  await json(me, 'POST', '/api/data/import', {
+    projects: [{ id: 'g', title: 'Theory', isGoal: true }],
+    tasks: [{ id: 'a', projectId: 'g', title: 'Road signs', status: 'In Progress', priority: 'High', targetCount: 2, targetUnit: 'tests', progressCount: 1, obstacles: [{ name: 'Mixing up signs' }] }],
+  });
+  const t = (await json(me, 'GET', '/api/tasks')).find(x => x.title === 'Road signs');
+  const r = await call(me, 'POST', `/api/tasks/${t.id}/progress`, { delta: 1 });
+  assert.equal(r.status, 200);
+  const after = await r.json();
+  assert.deepEqual([after.progressCount, after.status], [2, 'In Progress']);
+});

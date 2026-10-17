@@ -1046,7 +1046,10 @@ function bumpTaskProgress(userId, id, delta) {
   assertCanEditProject(userId, task.projectId);
   const nextCount = Math.max(0, Math.min(task.targetCount, task.progressCount + delta));
   const patch = { progressCount: nextCount };
-  if (nextCount >= task.targetCount && task.status !== 'Completed') patch.status = 'Completed';
+  // Reaching the target completes the task, unless a blocker or a task it
+  // waits on is still open: the count still goes up, the tick waits.
+  const gated = (task.obstacles || []).some(o => !o.resolved) || pendingPredecessors(task).length > 0;
+  if (nextCount >= task.targetCount && task.status !== 'Completed' && !gated) patch.status = 'Completed';
   else if (nextCount < task.targetCount && task.status === 'Completed') patch.status = 'In Progress';
   return updateTaskById(userId, id, patch);
 }
