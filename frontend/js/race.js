@@ -349,6 +349,7 @@ const Race = (() => {
         ${c.owner ? `<button type="button" id="ch-remind" onclick="Race.remind('${c.id}')" ${c.group.behind || c.players.some(p => !p.finished && p.done === 0) ? '' : 'disabled'}>${icon('bell', 'tiny')}Remind those behind</button>` : ''}
         ${c.doneForYou ? `<button type="button" class="quiet" onclick="Race.clearFromList(['${c.id}'])">${icon('trash', 'tiny')}Clear from my list</button>`
           : me && !(c.mode === 'split' && c.owner) ? `<button type="button" class="quiet" onclick="Race.leaveFrom('${c.id}')">Leave</button>` : ''}
+        ${c.owner ? `<button type="button" class="quiet ch-end" onclick="Race.endTeam('${c.id}')">${icon('trash', 'tiny')}End team</button>` : ''}
       </div>
       ${together && c.mode !== 'split' ? `<div class="ch-group"><div class="ch-group-top"><b>${c.group.finished} of ${c.group.players} finished</b><span>${c.group.stepsPct}% of all steps done${c.group.behind ? ` · ${c.group.behind} behind` : ''}</span></div>
         <div class="ch-bar" role="img" aria-label="${pct}% finished"><i style="width:${pct}%"></i></div></div>` : ''}
@@ -383,6 +384,25 @@ const Race = (() => {
       if (btn) btn.disabled = false;
       showToast(err.message || 'Could not send it', 'error');
     }
+  }
+  // The organiser ends the team for everyone, after saying what goes and what stays.
+  async function endTeam(id) {
+    let c = null;
+    try { c = await API.getRace(id); } catch (err) { showToast(err.message || 'Could not open it', 'error'); return; }
+    const keeps = c.mode === 'split'
+      ? 'The team, its chat and everyone’s access to this goal end. The goal and all its tasks stay yours; steps given to others go back to unassigned.'
+      : 'The team and its chat end. Everyone keeps their own copy of the goal.';
+    const form = dialog(`${head(`End “${c.title}”?`, 'trash')}
+      <p class="fb-note">${keeps}${c.players.length > 1 ? ' Your teammates are told.' : ''} This can’t be undone.</p>
+      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Keep the team</button><button type="submit" class="fb-send ch-end-go">End team</button></div>`);
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      try { await API.endRace(id); } catch (err) { showToast(err.message || 'Could not end it', 'error'); return; }
+      close();
+      forgetPlan();
+      showToast(c.mode === 'split' ? 'Team ended. The goal and its tasks are still yours' : 'Team ended');
+      backToList();
+    });
   }
   async function leaveFrom(id) {
     try { await API.leaveRace(id); } catch (err) { showToast(err.message || 'Could not leave', 'error'); return; }
@@ -1158,6 +1178,6 @@ const Race = (() => {
     });
   }
 
-  return { planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, setLead, milestone, setChecks, removeStep, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, setLead, milestone, setChecks, removeStep, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, endTeam, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;

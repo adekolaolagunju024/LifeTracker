@@ -136,6 +136,7 @@ const API = {
   getRace:         (id)      => request('GET', `/challenges/${id}`),
   getRaceForProject: (projectId) => request('GET', `/challenges/for-project/${projectId}`),
   leaveRace:       (id)      => request('POST', `/challenges/${id}/leave`),
+  endRace:         (id)      => request('DELETE', `/challenges/${id}`),
   listRaces:       ()        => request('GET', '/challenges'),
   raceMessages:    (id)      => request('GET', `/challenges/${id}/messages`),
   sayInRace:       (id, text, attachmentId, taskId) => request('POST', `/challenges/${id}/messages`, { text, attachmentId, taskId }),
