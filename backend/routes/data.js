@@ -17,6 +17,7 @@ router.get('/export/:projectId', (req, res) => {
 // and recreates it for the current user. Additive, not a wipe-and-replace:
 // safe to run against an account that already has data, though re-running
 // the same file twice will duplicate everything (no de-duplication).
+// A goal stays a goal, and each task keeps its named blockers.
 router.post('/import', (req, res) => {
   try {
     const userId = req.session.userId;
@@ -46,6 +47,7 @@ router.post('/import', (req, res) => {
         color: p.color,
         startDate: p.startDate,
         type: p.type,
+        isGoal: !!p.isGoal,
         createdAt: new Date().toISOString(),
       });
       idMap[p.id] = created.id;
@@ -70,7 +72,7 @@ router.post('/import', (req, res) => {
     for (const t of tasks) {
       const newProjectId = idMap[t.projectId];
       if (!newProjectId) continue;
-      db.createTask(userId, {
+      const created = db.createTask(userId, {
         id: uuid(),
         projectId: newProjectId,
         title: t.title,
@@ -82,6 +84,12 @@ router.post('/import', (req, res) => {
         notes: t.notes,
         createdAt: new Date().toISOString(),
       });
+      // its named blockers come across too, ticked off or not
+      for (const o of (Array.isArray(t.obstacles) ? t.obstacles : []).slice(0, 20)) {
+        if (!o || !String(o.name || '').trim()) continue;
+        const ob = db.addObstacle(userId, created.id, { name: o.name, count: o.count });
+        if (ob && o.resolved) db.updateObstacle(userId, ob.id, { resolved: true });
+      }
       taskCount++;
     }
 
