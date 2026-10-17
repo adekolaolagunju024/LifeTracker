@@ -118,6 +118,23 @@ conn.exec(`
   );
 `);
 conn.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_challenges_code ON challenges(joinCode) WHERE joinCode IS NOT NULL');
+// Split the work, for a company or a department: a phase (a sub-folder of
+// the goal) can have a lead, who sees every step in it, hands them out and
+// signs them off; and with 'milestones' sign-off only the steps marked as
+// milestones wait for approval, the rest count when ticked.
+conn.exec(`
+  CREATE TABLE IF NOT EXISTS challenge_leads (
+    challengeId TEXT NOT NULL,
+    projectId TEXT NOT NULL,
+    userId TEXT NOT NULL,
+    PRIMARY KEY (challengeId, projectId)
+  );
+  CREATE TABLE IF NOT EXISTS challenge_milestones (
+    challengeId TEXT NOT NULL,
+    taskId TEXT NOT NULL,
+    PRIMARY KEY (challengeId, taskId)
+  );
+`);
 
 // A group (no winner, a leader): a class or squad on copies ('together'),
 // or a team splitting one shared goal between them ('split').
@@ -156,9 +173,22 @@ const dateKey = ms => new Date(ms).toISOString().slice(0, 10);
 const LEADER_ROLES = ['coach', 'trainer', 'teacher', 'manager', 'leader', 'organiser'];
 // A race has no leader to sign steps off, so it's trust or proof; a group
 // can also have its leader approve each step (and does unless told not to).
+// A split team can also sign off only the steps marked as milestones.
 const checksFor = (mode, checks) => (mode === 'together' || mode === 'split'
-  ? (['none', 'proof', 'leader'].includes(checks) ? checks : mode === 'split' ? 'none' : 'leader')
+  ? (['none', 'proof', 'leader'].includes(checks) || (mode === 'split' && checks === 'milestones') ? checks : mode === 'split' ? 'none' : 'leader')
   : (checks === 'proof' ? 'proof' : 'none'));
+// Phase leads and milestones of a split team.
+const leadsOf = c => conn.prepare('SELECT * FROM challenge_leads WHERE challengeId = ?').all(c.id);
+const ledBy = (c, userId) => new Set(leadsOf(c).filter(l => l.userId === userId).map(l => l.projectId));
+const milestonesOf = c => new Set(conn.prepare('SELECT taskId FROM challenge_milestones WHERE challengeId = ?').all(c.id).map(r => r.taskId));
+// Whether this person runs this step: the leader, or the lead of its phase.
+const manages = (c, userId, t, led = ledBy(c, userId)) => c.ownerId === userId || (!!t && led.has(t.projectId));
+// Who signs a step off: the lead of its phase, unless it's the lead's own
+// step (or there's no lead), then the leader.
+function approverOf(c, t) {
+  const lead = t && leadsOf(c).find(l => l.projectId === t.projectId);
+  return lead && lead.userId !== t.assigneeId && memberRow(c.id, lead.userId) ? lead.userId : c.ownerId;
+}
 function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, organiserOnly, nameMode, leaderRole, checks }) {
   const top = db.topLevelProjectId(projectId);
   const project = db.getProjectById(userId, top);
@@ -289,25 +319,27 @@ function progressOf(m, c) {
   const taskCount = c.mode === 'split' ? 0 : c.taskCount;
   const split = c.mode === 'split';
   // In a split goal, your part is the steps assigned to you.
-  const rows = conn.prepare(`SELECT t.id, t.title, t.status, t.completedAt FROM tasks t JOIN projects p ON p.id = t.projectId
+  const rows = conn.prepare(`SELECT t.id, t.title, t.status, t.completedAt, t.projectId, t.assigneeId FROM tasks t JOIN projects p ON p.id = t.projectId
     WHERE (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL${split ? ' AND t.assigneeId = ?' : ''}`).all(...[m.projectId, m.projectId, ...(split ? [m.userId] : [])]);
   const alive = conn.prepare('SELECT 1 FROM projects WHERE id = ? AND deletedAt IS NULL').get(m.projectId);
   const checks = c.checks || 'none';
   const proofs = checks === 'none' ? new Map()
     : new Map(conn.prepare('SELECT * FROM challenge_steps WHERE challengeId = ? AND userId = ?').all(c.id, m.userId).map(s => [s.taskId, s]));
   // the leader's own steps need no sign-off
-  const selfLed = checks === 'leader' && m.userId === c.ownerId;
+  const selfLed = (checks === 'leader' || checks === 'milestones') && m.userId === c.ownerId;
+  // with milestone sign-off, only the marked steps wait for it
+  const marked = checks === 'milestones' ? milestonesOf(c) : null;
   const ticked = rows.filter(r => r.status === 'Completed');
   const done = [], needsProof = [], waiting = [], sentBack = [];
   ticked.forEach(r => {
     const s = proofs.get(r.id);
-    if (checks === 'none' || selfLed || (r.completedAt && r.completedAt < c.startsAt)) done.push({ ...r, at: r.completedAt });
+    if (checks === 'none' || selfLed || (marked && !marked.has(r.id)) || (r.completedAt && r.completedAt < c.startsAt)) done.push({ ...r, at: r.completedAt });
     else if (s && (s.status === 'approved' || (checks === 'proof' && s.status === 'submitted'))) {
       done.push({ ...r, at: checks === 'proof' ? [r.completedAt, s.createdAt].filter(Boolean).sort().pop() : r.completedAt });
     } else if (s && s.status === 'rejected') sentBack.push({ ...r, note: s.note || '' });
     // where the leader signs off, a ticked step waits for them (a proof is
     // a help, not a must); with proofs, it waits for one
-    else if (checks === 'leader') waiting.push({ ...r, proof: s || null });
+    else if (checks === 'leader' || checks === 'milestones') waiting.push({ ...r, proof: s || null });
     else needsProof.push(r);
   });
   const finished = !!alive && rows.length > 0 && done.length === rows.length && done.length >= taskCount;
@@ -380,7 +412,8 @@ function standings(c, viewerId) {
   const yourSteps = checks !== 'none' && mine ? { needsProof: mine.p.needsProof.map(step), waiting: mine.p.waiting.map(step), sentBack: mine.p.sentBack.map(step) } : null;
   // For the leader: every proof waiting for a decision (or, with proofs
   // only, the newest to look over and send back if need be).
-  const reviews = organiser && checks !== 'none' ? reviewList(c, progress) : undefined;
+  const leads = c.mode === 'split' ? ledBy(c, viewerId) : new Set();
+  const reviews = (organiser || leads.size) && checks !== 'none' ? reviewList(c, progress, viewerId) : undefined;
   const winner = !together && (players.find(p => p.finished) || null);
   const steps = players.reduce((a, p) => a + p.done, 0);
   const split = c.mode === 'split' ? splitBoard(c, members, viewerId, organiser) : null;
@@ -404,6 +437,8 @@ function standings(c, viewerId) {
     lastNudgeAt: organiser ? c.lastNudgeAt : undefined,
     chat: chatSummary(c.id, viewerId),
     checks, yourSteps, reviews,
+    // phases this person leads (a split team), so they can run them
+    leadOf: [...leads],
     players,
   };
 }
@@ -681,10 +716,10 @@ function activitySince(userId, since) {
     const ok = conn.prepare("SELECT COUNT(*) AS n, MAX(decidedAt) AS at FROM challenge_steps WHERE challengeId = ? AND userId = ? AND status = 'approved' AND decidedAt > ?").get(c.id, userId, since);
     if (ok.n && c.ownerId !== userId) add(c, 'approved', `${name(c.ownerId)} signed off ${ok.n} of your step${ok.n === 1 ? '' : 's'}`, ok.at);
     // For the leader: steps newly waiting for you.
-    if (c.ownerId === userId && (c.checks || 'none') !== 'none') {
+    if ((c.ownerId === userId || (c.mode === 'split' && ledBy(c, userId).size)) && (c.checks || 'none') !== 'none') {
       const board = standings(c, userId);
       const fresh = (board.reviews || []).filter(r => r.tickedAt && r.tickedAt > since);
-      if (fresh.length) add(c, 'review', c.checks === 'leader' ? `${fresh.length} step${fresh.length === 1 ? '' : 's'} waiting for your sign-off` : `${fresh.length} new proof${fresh.length === 1 ? '' : 's'} to look over`, fresh[fresh.length - 1].tickedAt);
+      if (fresh.length) add(c, 'review', c.checks !== 'proof' ? `${fresh.length} step${fresh.length === 1 ? '' : 's'} waiting for your sign-off` : `${fresh.length} new proof${fresh.length === 1 ? '' : 's'} to look over`, fresh[fresh.length - 1].tickedAt);
     }
   });
   return out.sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 15);
@@ -772,17 +807,21 @@ const fileOf = id => (id ? conn.prepare('SELECT id, mimetype, originalName FROM 
 const fileInfo = f => (f ? { id: f.id, mimetype: f.mimetype, name: f.originalName } : null);
 // What the leader has to look at: with sign-off, every ticked step that's
 // waiting; with proofs, the proofs from the last week (to send one back).
-function reviewList(c, progress) {
+// In a split team with phase leads, each waiting step goes to whoever
+// signs it off (approverOf): its phase lead, or the leader.
+function reviewList(c, progress, viewerId = c.ownerId) {
   const out = [];
   const weekAgo = new Date(Date.now() - 7 * DAY).toISOString();
+  const split = c.mode === 'split';
   progress.forEach(({ m, p }) => {
     if (p.left || m.userId === c.ownerId) return;
-    if (c.checks === 'leader') {
-      p.waiting.forEach(r => out.push({ color: m.color, name: m.displayName, taskId: r.id, title: r.title, tickedAt: r.completedAt,
+    if (c.checks === 'leader' || c.checks === 'milestones') {
+      p.waiting.filter(r => (split ? approverOf(c, r) : c.ownerId) === viewerId).forEach(r => out.push({ color: m.color, name: m.displayName, taskId: r.id, title: r.title, tickedAt: r.completedAt,
         proofText: r.proof ? r.proof.proofText || '' : '', file: fileInfo(fileOf(r.proof && r.proof.attachmentId)) }));
-    } else {
-      conn.prepare("SELECT s.*, t.title FROM challenge_steps s JOIN tasks t ON t.id = s.taskId WHERE s.challengeId = ? AND s.userId = ? AND s.status = 'submitted' AND s.createdAt > ? AND t.status = 'Completed' AND t.deletedAt IS NULL ORDER BY s.createdAt DESC")
-        .all(c.id, m.userId, weekAgo).forEach(s => out.push({ color: m.color, name: m.displayName, taskId: s.taskId, title: s.title, tickedAt: s.createdAt,
+    } else if (viewerId === c.ownerId || split) {
+      const led = viewerId === c.ownerId ? null : ledBy(c, viewerId);
+      conn.prepare("SELECT s.*, t.title, t.projectId FROM challenge_steps s JOIN tasks t ON t.id = s.taskId WHERE s.challengeId = ? AND s.userId = ? AND s.status = 'submitted' AND s.createdAt > ? AND t.status = 'Completed' AND t.deletedAt IS NULL ORDER BY s.createdAt DESC")
+        .all(c.id, m.userId, weekAgo).filter(s => !led || (led.has(s.projectId) && m.userId !== viewerId)).forEach(s => out.push({ color: m.color, name: m.displayName, taskId: s.taskId, title: s.title, tickedAt: s.createdAt,
           proofText: s.proofText || '', file: fileInfo(fileOf(s.attachmentId)) }));
     }
   });
@@ -814,7 +853,8 @@ function submitProof(id, userId, { taskId, text, attachmentId }) {
   conn.prepare(`INSERT INTO challenge_steps (challengeId, userId, taskId, proofText, attachmentId, status, note, createdAt, decidedAt) VALUES (?,?,?,?,?, 'submitted', NULL, ?, NULL)
     ON CONFLICT(challengeId, userId, taskId) DO UPDATE SET proofText = excluded.proofText, attachmentId = excluded.attachmentId, status = 'submitted', note = NULL, createdAt = excluded.createdAt, decidedAt = NULL`)
     .run(c.id, userId, t.id, note || null, file ? file.id : null, now);
-  if (c.checks === 'leader' && c.ownerId !== userId) pushTo(c.ownerId, { title: c.title, body: `${m.displayName} sent proof for “${clean(t.title, 80)}”. It's waiting for your sign-off`, url: '/app', tag: `proof-${c.id}` });
+  const signer = c.mode === 'split' ? approverOf(c, t) : c.ownerId;
+  if ((c.checks === 'leader' || c.checks === 'milestones') && signer !== userId) pushTo(signer, { title: c.title, body: `${m.displayName} sent proof for “${clean(t.title, 80)}”. It's waiting for your sign-off`, url: '/app', tag: `proof-${c.id}` });
   return postMessage(c.id, userId, `Proof for “${clean(t.title, 120)}”${note ? `: ${note}` : ''}`, 'proof', null, file ? file.id : null, null, t.id);
 }
 // The leader approves a step (or every waiting step of one player, with
@@ -823,13 +863,14 @@ function submitProof(id, userId, { taskId, text, attachmentId }) {
 function review(id, userId, { color, taskId, decision, note }) {
   const c = byId(id);
   if (!c) return null;
-  if (c.ownerId !== userId) throw Object.assign(new Error('Only the leader can sign steps off'), { status: 403 });
+  const led = c.mode === 'split' ? ledBy(c, userId) : new Set();
+  if (c.ownerId !== userId && !led.size) throw Object.assign(new Error('Only the leader can sign steps off'), { status: 403 });
   if ((c.checks || 'none') === 'none') throw Object.assign(new Error("This one doesn't ask for sign-off"), { status: 400 });
   const m = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ? AND color = ?').get(c.id, String(color || ''));
   if (!m) throw Object.assign(new Error('That person has left'), { status: 404 });
   if (!['approve', 'reject'].includes(decision)) throw Object.assign(new Error('Approve or send back'), { status: 400 });
   const p = progressOf(m, c);
-  const open = c.checks === 'leader' ? p.waiting : conn.prepare("SELECT taskId AS id FROM challenge_steps WHERE challengeId = ? AND userId = ? AND status = 'submitted'").all(c.id, m.userId);
+  const open = c.checks === 'leader' || c.checks === 'milestones' ? p.waiting : conn.prepare("SELECT taskId AS id FROM challenge_steps WHERE challengeId = ? AND userId = ? AND status = 'submitted'").all(c.id, m.userId);
   const ids = taskId === 'all' && decision === 'approve' ? open.map(r => r.id) : [String(taskId || '')];
   const now = new Date().toISOString();
   const why = clean(note, 300);
@@ -837,6 +878,8 @@ function review(id, userId, { color, taskId, decision, note }) {
   ids.forEach(tid => {
     const t = stepIn(m, tid);
     if (!t || t.status !== 'Completed') return;
+    // a phase lead decides on their phase's steps, never their own
+    if (c.ownerId !== userId && (!led.has(t.projectId) || m.userId === userId)) return;
     conn.prepare(`INSERT INTO challenge_steps (challengeId, userId, taskId, status, note, createdAt, decidedAt) VALUES (?,?,?,?,?,?,?)
       ON CONFLICT(challengeId, userId, taskId) DO UPDATE SET status = excluded.status, note = excluded.note, decidedAt = excluded.decidedAt`)
       .run(c.id, m.userId, t.id, decision === 'approve' ? 'approved' : 'rejected', decision === 'reject' ? why || null : null, now, now);
@@ -863,7 +906,8 @@ function proofWantedFor(userId, task) {
   if (!task || task.status !== 'Completed') return null;
   const m = conn.prepare('SELECT * FROM challenge_members WHERE projectId = ? AND userId = ?').get(db.topLevelProjectId(task.projectId), userId);
   const c = m && byId(m.challengeId);
-  if (!c || (c.checks || 'none') === 'none' || (c.checks === 'leader' && c.ownerId === userId)) return null;
+  if (!c || (c.checks || 'none') === 'none' || ((c.checks === 'leader' || c.checks === 'milestones') && c.ownerId === userId)) return null;
+  if (c.checks === 'milestones' && !milestonesOf(c).has(task.id)) return null;
   return { id: c.id, title: c.title, checks: c.checks, leaderRole: c.leaderRole || null, taskId: task.id, taskTitle: task.title };
 }
 
@@ -872,7 +916,7 @@ function proofWantedFor(userId, task) {
 // unclaimed), and each person's share adds up to the finish.
 function splitBoard(c, members, viewerId, organiser) {
   const byUser = new Map(members.map(m => [m.userId, m]));
-  const rows = conn.prepare(`SELECT t.id, t.title, t.status, t.startDate, t.endDate, t.assigneeId, t.sortOrder FROM tasks t JOIN projects p ON p.id = t.projectId
+  const rows = conn.prepare(`SELECT t.id, t.title, t.status, t.startDate, t.endDate, t.assigneeId, t.sortOrder, t.projectId FROM tasks t JOIN projects p ON p.id = t.projectId
     WHERE (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL
     ORDER BY COALESCE(t.endDate, '9999'), t.sortOrder LIMIT 300`).all(c.goalId, c.goalId);
   const who = id => {
@@ -880,7 +924,16 @@ function splitBoard(c, members, viewerId, organiser) {
     if (!m) return null;
     return { color: m.color, name: id === viewerId ? 'You' : organiser ? m.displayName : shownName(c, m), you: id === viewerId };
   };
-  const steps = rows.map(t => ({ taskId: t.id, title: t.title, status: t.status, startDate: t.startDate || null, endDate: t.endDate || null, who: who(t.assigneeId), outside: !!t.assigneeId && !byUser.has(t.assigneeId) }));
+  const led = ledBy(c, viewerId);
+  const marked = milestonesOf(c);
+  const steps = rows.map(t => ({ taskId: t.id, title: t.title, status: t.status, startDate: t.startDate || null, endDate: t.endDate || null, who: who(t.assigneeId), outside: !!t.assigneeId && !byUser.has(t.assigneeId),
+    phaseId: t.projectId === c.goalId ? null : t.projectId, milestone: marked.has(t.id), manage: manages(c, viewerId, t, led) }));
+  // The goal's phases (its sub-folders), each with its lead if it has one.
+  const leadRows = leadsOf(c);
+  const phases = conn.prepare('SELECT id, title FROM projects WHERE parentId = ? AND deletedAt IS NULL ORDER BY title').all(c.goalId).map(p => {
+    const l = leadRows.find(x => x.projectId === p.id);
+    return { projectId: p.id, title: p.title, lead: l ? who(l.userId) : null, yours: led.has(p.id) };
+  });
   // Which step waits on which, for the timeline's handoff arrows.
   const ids = new Set(rows.map(t => t.id));
   const links = rows.length ? conn.prepare(`SELECT taskId, predecessorId FROM task_dependencies WHERE taskId IN (${rows.map(() => '?').join(',')})`).all(...rows.map(t => t.id))
@@ -889,7 +942,7 @@ function splitBoard(c, members, viewerId, organiser) {
   return {
     total: rows.length, done: rows.filter(t => t.status === 'Completed').length,
     unclaimed: rows.filter(t => !t.assigneeId && t.status !== 'Completed').length,
-    steps, contrib, links,
+    steps, contrib, links, phases,
   };
 }
 const splitOf = (id, userId) => {
@@ -907,9 +960,9 @@ function setAssignee(c, t, userId) {
 function assignStep(id, userId, { taskId, color }) {
   const c = splitOf(id, userId);
   if (!c) return null;
-  if (c.ownerId !== userId) throw Object.assign(new Error('Only the leader hands out steps. You can claim an unclaimed one'), { status: 403 });
   const t = stepOfGoal(c, taskId);
   if (!t) throw Object.assign(new Error('That step is not in this goal'), { status: 404 });
+  if (!manages(c, userId, t)) throw Object.assign(new Error('Only the leader or the lead of its phase hands out steps. You can claim an unclaimed one'), { status: 403 });
   let m = null;
   if (color) {
     m = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ? AND color = ?').get(c.id, String(color));
@@ -940,7 +993,8 @@ function claimStep(id, userId, taskId) {
 function splitEvenly(id, userId) {
   const c = splitOf(id, userId);
   if (!c) return null;
-  if (c.ownerId !== userId) throw Object.assign(new Error('Only the leader can share the steps out'), { status: 403 });
+  const led = ledBy(c, userId);
+  if (c.ownerId !== userId && !led.size) throw Object.assign(new Error('Only the leader can share the steps out'), { status: 403 });
   const members = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ? ORDER BY joinedAt').all(c.id);
   const others = members.filter(m => m.userId !== userId);
   const pool = others.length ? others : members;
@@ -948,7 +1002,8 @@ function splitEvenly(id, userId) {
   const open = conn.prepare(`SELECT t.* FROM tasks t JOIN projects p ON p.id = t.projectId
     WHERE (p.id = ? OR p.parentId = ?) AND t.deletedAt IS NULL AND p.deletedAt IS NULL AND t.status != 'Completed'`).all(c.goalId, c.goalId);
   const load = new Map(pool.map(m => [m.userId, open.filter(t => t.assigneeId === m.userId).length]));
-  const todo = open.filter(t => !t.assigneeId).sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999') || (a.sortOrder || 0) - (b.sortOrder || 0));
+  // a phase lead shares out their own phases' steps
+  const todo = open.filter(t => !t.assigneeId && manages(c, userId, t, led)).sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999') || (a.sortOrder || 0) - (b.sortOrder || 0));
   todo.forEach(t => {
     const next = pool.reduce((best, m) => (load.get(m.userId) < load.get(best.userId) ? m : best), pool[0]);
     setAssignee(c, t, next.userId);
@@ -982,6 +1037,48 @@ function splitHandoff(userId, task) {
   return n;
 }
 
+// The leader makes someone (by colour) the lead of a phase, or clears it ('').
+function setLead(id, userId, { projectId, color }) {
+  const c = splitOf(id, userId);
+  if (!c) return null;
+  if (c.ownerId !== userId) throw Object.assign(new Error('Only the leader names phase leads'), { status: 403 });
+  const phase = conn.prepare('SELECT * FROM projects WHERE id = ? AND parentId = ? AND deletedAt IS NULL').get(String(projectId || ''), c.goalId);
+  if (!phase) throw Object.assign(new Error('That phase is not in this goal'), { status: 404 });
+  if (!color) {
+    conn.prepare('DELETE FROM challenge_leads WHERE challengeId = ? AND projectId = ?').run(c.id, phase.id);
+    return true;
+  }
+  const m = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ? AND color = ?').get(c.id, String(color));
+  if (!m) throw Object.assign(new Error('That person has left'), { status: 404 });
+  conn.prepare(`INSERT INTO challenge_leads (challengeId, projectId, userId) VALUES (?,?,?)
+    ON CONFLICT(challengeId, projectId) DO UPDATE SET userId = excluded.userId`).run(c.id, phase.id, m.userId);
+  if (m.userId !== userId) {
+    postMessage(c.id, userId, `${shownName(c, m)} leads “${clean(phase.title, 100)}”`, 'event', m.userId);
+    pushTo(m.userId, { title: c.title, body: `You lead “${clean(phase.title, 80)}”: you can see its steps, hand them out and sign them off`, url: '/app', tag: `lead-${phase.id}` });
+  }
+  return true;
+}
+// Mark a step as a milestone (or not): the leader, or the lead of its phase.
+function setMilestone(id, userId, { taskId, on }) {
+  const c = splitOf(id, userId);
+  if (!c) return null;
+  const t = stepOfGoal(c, taskId);
+  if (!t) throw Object.assign(new Error('That step is not in this goal'), { status: 404 });
+  if (!manages(c, userId, t)) throw Object.assign(new Error('Only the leader or the lead of its phase marks milestones'), { status: 403 });
+  if (on) conn.prepare('INSERT OR IGNORE INTO challenge_milestones (challengeId, taskId) VALUES (?,?)').run(c.id, t.id);
+  else conn.prepare('DELETE FROM challenge_milestones WHERE challengeId = ? AND taskId = ?').run(c.id, t.id);
+  return true;
+}
+// The leader changes how a split team's steps are checked.
+function setChecks(id, userId, checks) {
+  const c = splitOf(id, userId);
+  if (!c) return null;
+  if (c.ownerId !== userId) throw Object.assign(new Error('Only the leader changes how steps are signed off'), { status: 403 });
+  if (!['none', 'proof', 'leader', 'milestones'].includes(checks)) throw Object.assign(new Error('Pick how steps are checked'), { status: 400 });
+  conn.prepare('UPDATE challenges SET checks = ? WHERE id = ?').run(checks, c.id);
+  return checks;
+}
+
 // Leaving takes you off the road; your copy of the goal stays yours. In a
 // split goal your open steps go back to unclaimed and the goal stops being
 // shared with you (the leader can't leave their own goal).
@@ -994,6 +1091,7 @@ function leave(id, userId) {
     const freed = conn.prepare(`UPDATE tasks SET assigneeId = NULL, assigneeAssignedAt = NULL WHERE assigneeId = ? AND status != 'Completed' AND deletedAt IS NULL
       AND projectId IN (SELECT id FROM projects WHERE id = ? OR parentId = ?)`).run(userId, c.goalId, c.goalId).changes;
     conn.prepare('DELETE FROM project_collaborators WHERE projectId = ? AND userId = ?').run(c.goalId, userId);
+    conn.prepare('DELETE FROM challenge_leads WHERE challengeId = ? AND userId = ?').run(c.id, userId);
     conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId);
     postEvent(c.id, `${shownName(c, m)} left${freed ? `. ${freed} step${freed === 1 ? ' is' : 's are'} unclaimed again` : ''}`, null);
     return true;
@@ -1001,4 +1099,4 @@ function leave(id, userId) {
   return conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId).changes > 0;
 }
 
-module.exports = { assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+module.exports = { setLead, setMilestone, setChecks, assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };

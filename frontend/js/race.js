@@ -65,8 +65,12 @@ const Race = (() => {
     none: () => 'Every tick counts straight away. Best between friends. A burst of steps ticked in under a minute is pointed out in the chat.',
     proof: () => 'A tick counts once there is a photo or a few words to show it. Everyone sees the proof in the chat.',
     leader: role => `A tick counts once the ${role.label.toLowerCase()} approves it. A photo or a note helps them decide.`,
+    milestones: role => `Most steps count when ticked. The ones you mark as milestones wait for sign-off: by the lead of their phase, or the ${role.label.toLowerCase()}.`,
   };
-  const checksLabel = c => ({ proof: 'proof for each step', leader: `${roleOf(c).label.toLowerCase()} signs off` })[c.checks] || '';
+  const checksLabel = c => ({ proof: 'proof for each step', leader: `${roleOf(c).label.toLowerCase()} signs off`, milestones: 'milestones signed off' })[c.checks] || '';
+  // A split team's sign-off, as the leader can change it on the team page.
+  const SPLIT_CHECKS = [['none', 'No sign-off'], ['milestones', 'Sign off milestones'], ['leader', 'Sign off every step'], ['proof', 'Proof for every step']];
+  const signsOff = c => c.checks === 'leader' || c.checks === 'milestones';
 
   // ── Making one ──
   // Team up: lead a group (a squad, clients, a class, a team: everyone aims
@@ -140,7 +144,7 @@ const Race = (() => {
       const was = checksSel.value;
       const lead = [['leader', `The ${role.label.toLowerCase()} signs each step off`], ['proof', 'A photo or note for each step'], ['none', 'Trust everyone']];
       // a team splitting work trusts each other unless the leader says otherwise
-      const opts = mode === 'race' ? [['none', 'Trust everyone'], ['proof', 'A photo or note for each step']] : mode === 'split' ? [lead[2], lead[0], lead[1]] : lead;
+      const opts = mode === 'race' ? [['none', 'Trust everyone'], ['proof', 'A photo or note for each step']] : mode === 'split' ? [lead[2], ['milestones', 'Only the milestones are signed off'], lead[0], lead[1]] : lead;
       checksSel.innerHTML = opts.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
       checksSel.value = opts.some(o => o[0] === was) && checksSel.dataset.touched ? was : opts[0][0];
       form.querySelector('#race-checks-note').textContent = CHECKS_NOTE[checksSel.value](role);
@@ -740,16 +744,37 @@ const Race = (() => {
     const seg = sp.total ? sp.contrib.filter(m => m.done).map(m => `<i style="width:${(m.done / sp.total) * 100}%;background:${esc(m.color)}" title="${esc(m.name)}: ${m.done} done"></i>`).join('') : '';
     const others = sp.done - sp.contrib.reduce((a, m) => a + m.done, 0);
     const opts = cur => `<option value="">Unclaimed</option>${c.players.map(p => `<option value="${esc(p.color)}"${cur && cur.color === p.color ? ' selected' : ''}>${esc(p.you ? 'You' : p.name)}</option>`).join('')}`;
+    const ms = c.checks === 'milestones';
     const step = st => {
       const done = st.status === 'Completed';
-      const right = c.owner
+      // a milestone waits for sign-off; whoever runs the step can mark it
+      const flag = !ms ? '' : st.manage
+        ? `<button type="button" class="sp-ms${st.milestone ? ' on' : ''}" aria-pressed="${!!st.milestone}" data-task="${esc(st.taskId)}" onclick="Race.milestone('${c.id}', this)" title="${st.milestone ? 'A milestone: it waits for sign-off. Tap to make it an ordinary step' : 'Mark as a milestone that needs sign-off'}" aria-label="Milestone: ${esc(st.title)}">${icon('flag', 'tiny')}</button>`
+        : st.milestone ? `<span class="sp-ms on" title="A milestone: it waits for sign-off">${icon('flag', 'tiny')}</span>` : '';
+      const right = st.manage
         ? `<select class="sp-assign" aria-label="Who does ${esc(st.title)}" data-task="${esc(st.taskId)}" onchange="Race.assign('${c.id}', this)" ${done ? 'disabled' : ''}>${opts(st.who)}</select>`
         : st.who ? `<span class="sp-who"><i style="background:${esc(st.who.color)}"></i>${esc(st.who.name)}</span>`
           : st.outside ? '<span class="sp-who">Someone else</span>'
             : done ? '' : `<button type="button" class="sp-claim" data-task="${esc(st.taskId)}" onclick="Race.claim('${c.id}', this)">${icon('hand', 'tiny')}I'll take it</button>`;
       return `<li class="${done ? 'done' : ''}${!st.who && !done ? ' open' : ''}"><span class="sp-dot">${done ? icon('check', 'tiny') : ''}</span>
-        <span class="sp-title">${esc(st.title)}${st.endDate ? `<small>due ${esc(new Date(st.endDate.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</small>` : ''}</span>${right}</li>`;
+        <span class="sp-title">${esc(st.title)}${st.endDate ? `<small>due ${esc(new Date(st.endDate.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</small>` : ''}</span>${flag}${right}</li>`;
     };
+    // With phases (the goal's sub-folders), the steps sit under each one,
+    // with its lead; the leader picks the lead.
+    const phases = sp.phases || [];
+    const phaseHead = ph => {
+      const lead = c.owner
+        ? `<select class="sp-assign sp-lead" aria-label="Who leads ${esc(ph.title)}" data-phase="${esc(ph.projectId)}" onchange="Race.setLead('${c.id}', this)"><option value="">No lead</option>${c.players.map(p => `<option value="${esc(p.color)}"${ph.lead && ph.lead.color === p.color ? ' selected' : ''}>${esc(p.you ? 'You' : p.name)}</option>`).join('')}</select>`
+        : ph.lead ? `<span class="sp-who">${icon('crown', 'tiny')}${esc(ph.lead.name)} leads</span>` : '';
+      return `<li class="sp-phase"><span class="sp-title">${esc(ph.title)}${ph.yours ? '<small>You lead this phase: hand its steps out and sign them off</small>' : ''}</span>${c.owner ? `<span class="sp-lead-l">${icon('crown', 'tiny')}Lead</span>` : ''}${lead}</li>`;
+    };
+    const listHtml = () => {
+      if (!phases.length) return sp.steps.map(step).join('');
+      const loose = sp.steps.filter(st => !st.phaseId || !phases.some(ph => ph.projectId === st.phaseId));
+      return phases.map(ph => phaseHead(ph) + sp.steps.filter(st => st.phaseId === ph.projectId).map(step).join('')).join('') + (loose.length ? `<li class="sp-phase"><span class="sp-title">Other steps</span></li>${loose.map(step).join('')}` : '');
+    };
+    const canShare = sp.steps.filter(st => st.manage && !st.who && st.status !== 'Completed').length;
+    const checksPick = c.owner ? `<label class="sp-checks">${icon('badge-check', 'tiny')}<select aria-label="How steps are signed off" onchange="Race.setChecks('${c.id}', this)">${SPLIT_CHECKS.map(([v, l]) => `<option value="${v}"${(c.checks || 'none') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>` : '';
     return `<div class="ch-group sp-group"><div class="ch-group-top"><b>${sp.done} of ${sp.total} steps done</b><span>${c.group.stepsPct}% of the goal${sp.unclaimed ? ` · ${sp.unclaimed} unclaimed` : ''}</span></div>
         <div class="sp-bar" role="img" aria-label="${c.group.stepsPct}% of the goal done">${seg}${others > 0 ? `<i style="width:${(others / sp.total) * 100}%;background:#94A3B8"></i>` : ''}</div>
         <div class="sp-legend">${sp.contrib.filter(m => m.total).map(m => `<span><i style="background:${esc(m.color)}"></i>${esc(m.name)} <b>${m.done}/${m.total}</b></span>`).join('')}</div></div>
@@ -758,8 +783,9 @@ const Race = (() => {
           <button type="button" role="tab" aria-selected="${spTab !== 'timeline'}" onclick="Race.spTab('${c.id}', 'list')">${icon('list-checks', 'tiny')}Who's doing what</button>
           <button type="button" role="tab" aria-selected="${spTab === 'timeline'}" onclick="Race.spTab('${c.id}', 'timeline')">${icon('chart', 'tiny')}Timeline</button>
         </div>
-        ${c.owner && sp.unclaimed ? `<button type="button" class="sp-even" onclick="Race.splitEvenly('${c.id}', this)">${icon('users', 'tiny')}Share out ${sp.unclaimed} unclaimed</button>` : ''}</div>
-        ${spTab === 'timeline' ? timelineHtml(c) : sp.steps.length ? `<ul>${sp.steps.map(step).join('')}</ul>` : '<p class="fb-note">This goal has no steps yet. Add some on the goal, then hand them out.</p>'}</section>`;
+        ${checksPick}${canShare ? `<button type="button" class="sp-even" onclick="Race.splitEvenly('${c.id}', this)">${icon('users', 'tiny')}Share out ${canShare} unclaimed</button>` : ''}</div>
+        ${spTab === 'timeline' ? timelineHtml(c) : sp.steps.length ? `<ul>${listHtml()}</ul>` : '<p class="fb-note">This goal has no steps yet. Add some on the goal, then hand them out.</p>'}
+        ${ms && spTab !== 'timeline' && sp.steps.some(st => st.manage) && !sp.steps.some(st => st.milestone) ? `<p class="fb-note">${icon('flag', 'tiny')}Tap the flag on a step to make it a milestone. Only milestones wait for sign-off.</p>` : ''}</section>`;
   }
   // The team timeline: one row per person, their steps as bars on the
   // dates, today marked, and an arrow wherever one step hands over to the
@@ -855,6 +881,23 @@ const Race = (() => {
     btn.disabled = true;
     try { const r = await API.splitRaceEvenly(id); showToast(`Shared out ${r.assigned} step${r.assigned === 1 ? '' : 's'}. Everyone’s been told`); } catch (err) { btn.disabled = false; showToast(err.message || 'Could not share them out', 'error'); return; }
     forgetPlan(); refreshSplit(id);
+  }
+
+  async function setLead(id, sel) {
+    sel.disabled = true;
+    try { await API.setRaceLead(id, sel.dataset.phase, sel.value); showToast(sel.value ? 'They lead that phase now. They’ve been told' : 'No lead for that phase'); } catch (err) { showToast(err.message || 'Could not do that', 'error'); }
+    forgetPlan(); refreshSplit(id);
+  }
+  async function milestone(id, btn) {
+    const on = btn.getAttribute('aria-pressed') !== 'true';
+    btn.disabled = true;
+    try { await API.setRaceMilestone(id, btn.dataset.task, on); showToast(on ? 'A milestone: it waits for sign-off once ticked' : 'An ordinary step again'); } catch (err) { btn.disabled = false; showToast(err.message || 'Could not do that', 'error'); return; }
+    refreshSplit(id);
+  }
+  async function setChecks(id, sel) {
+    sel.disabled = true;
+    try { await API.setRaceChecks(id, sel.value); showToast(sel.value === 'milestones' ? 'Only milestones wait for sign-off now. Tap a step’s flag to mark one' : 'Changed how steps are signed off'); } catch (err) { showToast(err.message || 'Could not do that', 'error'); }
+    refreshSplit(id);
   }
 
   // ── Asking for help on a blocker ──
@@ -985,8 +1028,8 @@ const Race = (() => {
     if (!pw) return;
     forgetPlan();
     const lead = roleOf(pw).label.toLowerCase();
-    const msg = pw.checks === 'leader' ? `“${pw.taskTitle}” is waiting for the ${lead} to sign it off` : `“${pw.taskTitle}” counts once you add proof`;
-    showActionToast(msg, [{ label: pw.checks === 'leader' ? 'Add a photo' : 'Add proof', run: () => openProof(pw.id, pw.taskId, pw.taskTitle) }], 'camera');
+    const msg = pw.checks === 'leader' ? `“${pw.taskTitle}” is waiting for the ${lead} to sign it off` : pw.checks === 'milestones' ? `“${pw.taskTitle}” is a milestone: it counts once it's signed off` : `“${pw.taskTitle}” counts once you add proof`;
+    showActionToast(msg, [{ label: pw.checks !== 'proof' ? 'Add a photo' : 'Add proof', run: () => openProof(pw.id, pw.taskId, pw.taskTitle) }], 'camera');
   }
   // A photo (from the camera on a phone) and/or a few words for one step.
   async function openProof(id, taskId, title) {
@@ -1038,12 +1081,12 @@ const Race = (() => {
   function yourStepsHtml(c) {
     const y = c.yourSteps;
     if (!y || !(y.needsProof.length + y.sentBack.length + y.waiting.length)) return '';
-    const btn = s => `<button type="button" data-task="${esc(s.taskId)}" data-title="${esc(s.title)}" onclick="Race.proveFrom('${c.id}', this)">${icon('camera', 'tiny')}${c.checks === 'leader' && !s.note ? 'Add a photo' : 'Add proof'}</button>`;
+    const btn = s => `<button type="button" data-task="${esc(s.taskId)}" data-title="${esc(s.title)}" onclick="Race.proveFrom('${c.id}', this)">${icon('camera', 'tiny')}${signsOff(c) && !s.note ? 'Add a photo' : 'Add proof'}</button>`;
     const row = (s, tag) => `<li><span class="ps-title">${esc(s.title)}</span>${tag}${btn(s)}</li>`;
     return `<section class="proof-steps"><h4>${icon('camera', 'tiny')}Your steps waiting to count</h4><ul>
       ${y.sentBack.map(s => row(s, `<span class="ps-tag back">Sent back${s.note ? `: ${esc(s.note)}` : ''}</span>`)).join('')}
       ${y.needsProof.map(s => row(s, '<span class="ps-tag">Needs proof</span>')).join('')}
-      ${y.waiting.map(s => row(s, `<span class="ps-tag wait">Waiting for the ${esc(roleOf(c).label.toLowerCase())}</span>`)).join('')}
+      ${y.waiting.map(s => row(s, `<span class="ps-tag wait">${c.checks === 'milestones' ? 'Milestone waiting for sign-off' : `Waiting for the ${esc(roleOf(c).label.toLowerCase())}`}</span>`)).join('')}
     </ul></section>`;
   }
   // From the Journey strip: the first step waiting for proof.
@@ -1055,8 +1098,9 @@ const Race = (() => {
   function proveFrom(id, btn) { openProof(id, btn.dataset.task, btn.dataset.title); }
   // For the leader: the steps to approve (or proofs to look over).
   function reviewsHtml(c) {
-    if (!c.owner || !c.reviews || !c.reviews.length) return '';
-    const signOff = c.checks === 'leader';
+    // the leader, or a phase lead for their phase's steps
+    if (!c.reviews || !c.reviews.length) return '';
+    const signOff = signsOff(c);
     // "Approve all" once per person, on their first waiting step
     const per = {}, firstOf = new Set();
     c.reviews.forEach((rv, i) => { if (!per[rv.color]) firstOf.add(i); per[rv.color] = (per[rv.color] || 0) + 1; });
@@ -1106,6 +1150,6 @@ const Race = (() => {
     });
   }
 
-  return { planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, setLead, milestone, setChecks, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;

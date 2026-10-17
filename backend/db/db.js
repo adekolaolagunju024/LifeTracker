@@ -566,13 +566,23 @@ function splitTeamOf(userId, projectId) {
     return row ? row.id : null;
   } catch { return null; }
 }
-// Hides other people's (and unclaimed) steps on those goals.
+// The phases (sub-folders of a split goal) this person leads: they see
+// every step in those, not just their own.
+function ledPhasesOf(userId) {
+  try {
+    return new Set(db.prepare(`SELECT l.projectId FROM challenge_leads l JOIN challenges c ON c.id = l.challengeId
+      WHERE l.userId = ? AND c.mode = 'split'`).all(userId).map(r => r.projectId));
+  } catch { return new Set(); } // no team tables (a bare database)
+}
+// Hides other people's (and unclaimed) steps on those goals, except in
+// the phases they lead.
 function onlyOwnSplitSteps(userId, tasks) {
   const goals = splitGoalsOf(userId);
   if (!goals.length || !tasks.length) return tasks;
   const marks = goals.map(() => '?').join(',');
   const shut = new Set([...goals, ...db.prepare(`SELECT id FROM projects WHERE parentId IN (${marks})`).all(...goals).map(r => r.id)]);
-  return tasks.filter(t => !shut.has(t.projectId) || t.assigneeId === userId);
+  const led = ledPhasesOf(userId);
+  return tasks.filter(t => !shut.has(t.projectId) || t.assigneeId === userId || led.has(t.projectId));
 }
 
 // ── PROJECTS (a project may have a parentId, making it a sub-folder) ──
@@ -826,7 +836,7 @@ function listTasks(userId, filters = {}) {
 function getTaskById(userId, id) {
   const task = db.prepare(`SELECT t.*, ${CHECKLIST_COUNT_COLUMNS} FROM tasks t WHERE t.id = ? AND t.deletedAt IS NULL AND t.projectId IN ${accessibleProjectIdsSQL()}`).get(id, ...threeUserIds(userId));
   if (!task) return task;
-  if (task.assigneeId !== userId && splitTeamOf(userId, task.projectId)) return undefined;
+  if (task.assigneeId !== userId && splitTeamOf(userId, task.projectId) && !ledPhasesOf(userId).has(task.projectId)) return undefined;
   task.tags = getTaskTags(id);
   attachObstaclesToTasks([task]);
   attachDependenciesToTasks([task]);
@@ -910,7 +920,8 @@ function updateTaskById(userId, id, patch) {
   assertCanEditProject(userId, current.projectId);
   if (splitTeamOf(userId, current.projectId)) {
     // a teammate's step stays theirs, in this goal (the leader hands steps out)
-    if ('assigneeId' in patch && (patch.assigneeId || null) !== userId) throw Object.assign(new Error('Only the team leader hands steps to someone else'), { status: 403 });
+    // (the lead of a phase hands out that phase's steps)
+    if ('assigneeId' in patch && (patch.assigneeId || null) !== (current.assigneeId || null) && (patch.assigneeId || null) !== userId && !ledPhasesOf(userId).has(current.projectId)) throw Object.assign(new Error('Only the team leader hands steps to someone else'), { status: 403 });
     if (patch.projectId && topLevelProjectId(patch.projectId) !== topLevelProjectId(current.projectId)) throw Object.assign(new Error('A team step stays in the team goal'), { status: 403 });
   }
   const next = { ...current, ...patch };
