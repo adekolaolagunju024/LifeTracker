@@ -168,6 +168,28 @@ router.post('/:id/split-evenly', (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// Phase leads {projectId, color} (color '' to clear), milestones
+// {taskId, on} and how steps are signed off {checks}.
+router.post('/:id/leads', (req, res) => {
+  try {
+    if (!challenges.setLead(req.params.id, req.session.userId, req.body || {})) return res.status(404).json({ error: 'Team not found' });
+    res.json({ success: true });
+  } catch (e) { fail(res, e); }
+});
+router.post('/:id/milestone', (req, res) => {
+  try {
+    if (!challenges.setMilestone(req.params.id, req.session.userId, req.body || {})) return res.status(404).json({ error: 'Team not found' });
+    res.json({ success: true });
+  } catch (e) { fail(res, e); }
+});
+router.post('/:id/checks', (req, res) => {
+  try {
+    const checks = challenges.setChecks(req.params.id, req.session.userId, (req.body || {}).checks);
+    if (!checks) return res.status(404).json({ error: 'Team not found' });
+    res.json({ checks });
+  } catch (e) { fail(res, e); }
+});
+
 // POST /api/challenges/:id/leave
 router.post('/:id/leave', (req, res) => {
   try {
