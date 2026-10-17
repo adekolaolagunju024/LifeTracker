@@ -359,6 +359,40 @@ const Jarvis = (() => {
     document.getElementById('focus-full')?.remove();
     paintFocus();
   }
+  // ── Focus wallpapers ──
+  // The full-screen timer sits on a scene they pick: their Journey stage
+  // (while the game layer is on), or a calm, sunrise, forest, ocean, night
+  // or plain one. Drawn inline, so nothing extra downloads. Kept per device.
+  const WALLS = [
+    { id: 'journey', label: 'My stage', game: true },
+    { id: 'calm', label: 'Calm' },
+    { id: 'sunrise', label: 'Sunrise' },
+    { id: 'forest', label: 'Forest' },
+    { id: 'ocean', label: 'Ocean', dark: true },
+    { id: 'night', label: 'Night sky', dark: true },
+    { id: 'plain', label: 'Plain' },
+  ];
+  // Stars fill the whole night sky (its own layer, pinned to the top);
+  // the scenes sit along the bottom and keep what matters near the middle,
+  // so a phone's narrow crop still shows the sun, moon and trees.
+  const STARS = Array.from({ length: 90 }, (_, i) => {
+    const x = (i * 137.5) % 400, y = (i * 61.8) % 640, r = i % 7 ? 0.5 : 0.9;
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"${i % 3 ? '' : ' class="tw"'}/>`;
+  }).join('');
+  const SCENES = {
+    sunrise: '<circle cx="235" cy="122" r="30" fill="#FFD3A5"/><path d="M0 140 Q90 100 190 130 T400 118 V200 H0Z" fill="#F7B9A8"/><path d="M0 165 Q120 135 230 160 T400 150 V200 H0Z" fill="#E8907E"/>',
+    forest: `<path d="M0 130 Q100 95 210 125 T400 110 V200 H0Z" fill="#B9DDB9"/>${[8, 50, 112, 140, 248, 274, 330, 372].map((x, i) => `<path d="M${x} ${150 - (i % 3) * 8} l14 -${36 + (i % 2) * 10} l14 ${36 + (i % 2) * 10}Z" fill="#5E9C6B"/>`).join('')}<path d="M0 160 Q140 140 260 158 T400 150 V200 H0Z" fill="#7DB88A"/>`,
+    ocean: '<circle cx="240" cy="70" r="16" fill="#E0F2FE" opacity=".8"/><g class="ff-wave"><path d="M-400 130 q50 -14 100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 V200 H-400Z" fill="#1E6F8A" opacity=".75"/></g><g class="ff-wave slow"><path d="M-400 155 q50 -12 100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 t100 0 V200 H-400Z" fill="#0E4A63"/></g>',
+    night: `<path d="M0 160 Q110 130 220 155 T400 145 V200 H0Z" fill="#232B55"/>`,
+  };
+  let wallsOpen = false;
+  function wallFor(game) {
+    const id = store.get('wp-focus-wall');
+    const w = WALLS.find(x => x.id === id && (!x.game || game));
+    return w || WALLS.find(x => x.id === (game ? 'journey' : 'calm'));
+  }
+  function setWall(id) { store.set('wp-focus-wall', id); paintFull(); }
+  function toggleWalls() { wallsOpen = !wallsOpen; paintFull(); }
   function paintFull() {
     const hud = document.getElementById('focus-hud');
     const on = focus && focus.full && !focus.hidden;
@@ -386,10 +420,18 @@ const Jarvis = (() => {
       const t = (i / 60) * 2 * Math.PI, r1 = i % 5 ? 88 : 84, r2 = 92;
       return `<line x1="${(110 + r1 * Math.sin(t)).toFixed(1)}" y1="${(110 - r1 * Math.cos(t)).toFixed(1)}" x2="${(110 + r2 * Math.sin(t)).toFixed(1)}" y2="${(110 - r2 * Math.cos(t)).toFixed(1)}"${i % 5 ? '' : ' class="maj"'}/>`;
     }).join('');
-    el.className = `focus-full${game ? ' has-art' : ''}${focus.isBreak ? ' is-break' : ''}${focus.done ? ' is-done' : ''}${focus.paused != null ? ' is-paused' : ''}`;
-    el.innerHTML = `${game ? `<div class="ff-art" style="background-image:url('/showcase/stage-${esc(stage)}.webp')" aria-hidden="true"></div>` : ''}
+    const wall = wallFor(game);
+    const scene = wall.id === 'journey'
+      ? `<div class="ff-art" style="background-image:url('/showcase/stage-${esc(stage)}.webp')" aria-hidden="true"></div>`
+      : (wall.id === 'night' ? `<svg class="ff-sky" viewBox="0 0 400 800" preserveAspectRatio="xMidYMin slice" aria-hidden="true"><g class="ff-stars" fill="#fff">${STARS}</g><circle cx="290" cy="110" r="16" fill="#F8FAFC"/><circle cx="297" cy="105" r="14" fill="#0E1430"/></svg>` : '')
+        + (SCENES[wall.id] ? `<svg class="ff-scene" viewBox="0 0 400 200" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${SCENES[wall.id]}</svg>` : '');
+    const walls = wallsOpen ? `<div class="ff-walls" role="radiogroup" aria-label="Wallpaper">${WALLS.filter(w => !w.game || game).map(w => `<button type="button" role="radio" aria-checked="${w.id === wall.id}" class="ff-wall-${w.id}" onclick="Jarvis.setWall('${w.id}')"><span class="sw" aria-hidden="true"></span>${esc(w.label)}</button>`).join('')}</div>` : '';
+    el.className = `focus-full wall-${wall.id}${wall.dark ? ' ff-dark' : ['sunrise', 'forest', 'plain'].includes(wall.id) ? ' ff-light' : ''}${wall.id === 'journey' ? ' has-art' : ''}${focus.isBreak ? ' is-break' : ''}${focus.done ? ' is-done' : ''}${focus.paused != null ? ' is-paused' : ''}`;
+    el.innerHTML = `${scene}
       <div class="ff-top"><span class="ff-kicker">${focus.isBreak ? 'Break' : focus.paused != null ? 'Paused' : 'Focusing'}</span>
-        <button type="button" class="ff-close" onclick="Jarvis.fullClose()" aria-label="Shrink the timer back to the bar" title="Shrink (keeps counting)">${icon('minimize-2')}</button></div>
+        <span class="ff-top-btns"><button type="button" class="ff-close ff-wall-btn" onclick="Jarvis.toggleWalls()" aria-label="Change the wallpaper" aria-expanded="${wallsOpen}" title="Wallpaper">${icon('image')}</button>
+        <button type="button" class="ff-close" onclick="Jarvis.fullClose()" aria-label="Shrink the timer back to the bar" title="Shrink (keeps counting)">${icon('minimize-2')}</button></span></div>
+      ${walls}
       <p class="ff-script">${esc(line)}</p>
       ${focus.done ? `<div class="ff-done">${doneHTML()}</div>` : `
       <div class="ff-dial">
@@ -1041,6 +1083,6 @@ const Jarvis = (() => {
     talk();
   });
 
-  return { fullOpen, fullClose, startFocus, stopFocus, planMore, freeFocus, togglePause, toggleMin, makeRoom, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerShift, plannerNow, plannerClock, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
+  return { fullOpen, fullClose, setWall, toggleWalls, startFocus, stopFocus, planMore, freeFocus, togglePause, toggleMin, makeRoom, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerShift, plannerNow, plannerClock, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
 })();
 window.Jarvis = Jarvis;

@@ -242,8 +242,50 @@
     .ff-music .fm-icon { width: 38px; height: 38px; border-radius: 999px; display: grid; place-items: center; background: #F8D7CE; color: #B4533E; }
     .ff-music .fm-ic { color: #E07A5F; } .ff-music .fm-icon.fm-open { color: #B4533E; background: #F8D7CE; }
     .ff-music .fm-btn { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; color: #B4533E; background: #FDECE7; border-radius: 999px; padding: 8px 12px; }
+    /* Focus wallpapers (js/jarvis.js WALLS) */
+    .ff-top-btns { display: flex; gap: 8px; }
+    .focus-full .ff-scene { position: fixed; left: 0; right: 0; bottom: 0; width: 100%; height: 46vh; pointer-events: none; }
+    .focus-full.wall-calm { background: linear-gradient(180deg, #FFFDFB 0%, #F6F2FF 60%, #EEF5FF 100%); }
+    .focus-full.wall-sunrise { background: linear-gradient(180deg, #FFF4E6 0%, #FFE1D2 55%, #FBC9B8 100%); }
+    .focus-full.wall-forest { background: linear-gradient(180deg, #F3FAF1 0%, #E1F1DE 60%, #CFE6CB 100%); }
+    .focus-full.wall-forest .ff-arc, .focus-full.wall-forest .ff-knob { stroke: #3F8A55; } .focus-full.wall-forest .ff-kicker { color: #3F8A55; } .focus-full.wall-forest .ff-script { color: #2F6B42; }
+    .focus-full.wall-ocean { background: linear-gradient(180deg, #0B3954 0%, #0F5D7A 60%, #137A93 100%); }
+    .focus-full.wall-ocean .ff-arc, .focus-full.wall-ocean .ff-knob { stroke: #7DD3FC; } .focus-full.wall-ocean .ff-kicker { color: #7DD3FC; } .focus-full.wall-ocean .ff-script { color: #BAE6FD; }
+    .focus-full.wall-night { background: linear-gradient(180deg, #0B1026 0%, #141B3A 65%, #1D2550 100%); }
+    .focus-full.wall-night .ff-arc, .focus-full.wall-night .ff-knob { stroke: #C4B5FD; } .focus-full.wall-night .ff-kicker { color: #C4B5FD; } .focus-full.wall-night .ff-script { color: #DDD6FE; }
+    .focus-full .ff-sky { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    .focus-full.wall-night .ff-scene { height: 30vh; }
+    .focus-full.wall-plain { background: #FFFFFF; }
+    .focus-full.ff-dark { color: #F1F5F9; }
+    .focus-full.ff-dark .ff-face { fill: rgba(15,23,42,.55); stroke: rgba(255,255,255,.14); }
+    .focus-full.ff-dark .ff-task { color: #CBD5E1; }
+    .focus-full.ff-dark .ff-close, .focus-full.ff-dark .ff-actions button:not(.ff-yes), .focus-full.ff-dark .ff-music, .focus-full.ff-dark .ff-walls { background: rgba(15,23,42,.88); border-color: #334155; color: #E2E8F0; }
+    .focus-full.ff-dark .ff-ticks line { stroke: rgba(255,255,255,.25); }
+    .ff-wave { animation: ffwave 14s linear infinite; } .ff-wave.slow { animation-duration: 22s; }
+    @keyframes ffwave { from { transform: translateX(0); } to { transform: translateX(200px); } }
+    .ff-stars .tw { animation: fftw 3.5s ease-in-out infinite alternate; }
+    @keyframes fftw { from { opacity: .25; } to { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) { .ff-wave, .ff-stars .tw { animation: none; } }
+    .ff-walls { position: relative; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: min(560px, 100%); margin-top: 10px; padding: 8px; background: rgba(255,255,255,.92); border: 1px solid #ECE6F5; border-radius: 18px; box-shadow: 0 8px 24px rgba(13,27,42,.1); color: #0D1B2A; }
+    .ff-walls button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px 6px 6px; border-radius: 999px; font-size: 13px; font-weight: 700; border: 2px solid transparent; }
+    .ff-walls button[aria-checked="true"] { border-color: #E07A5F; }
+    .ff-walls .sw { width: 22px; height: 22px; border-radius: 999px; border: 1px solid rgba(13,27,42,.12); background: #F6F2FF; }
+    .ff-wall-journey .sw { background: linear-gradient(135deg, #8BD3E6, #7CC47F); }
+    .ff-wall-calm .sw { background: linear-gradient(135deg, #FFFDFB, #EEF5FF); }
+    .ff-wall-sunrise .sw { background: linear-gradient(135deg, #FFE1D2, #E8907E); }
+    .ff-wall-forest .sw { background: linear-gradient(135deg, #E1F1DE, #5E9C6B); }
+    .ff-wall-ocean .sw { background: linear-gradient(135deg, #137A93, #0B3954); }
+    .ff-wall-night .sw { background: radial-gradient(circle at 70% 30%, #F8FAFC 2px, transparent 3px), linear-gradient(135deg, #1D2550, #0B1026); }
+    .ff-wall-plain .sw { background: #fff; }
+    /* sunrise, forest and plain stay light in dark mode: keep their light ink */
+    .dark .focus-full.ff-light .ff-face { fill: rgba(255,255,255,.75); stroke: #EFE3E0; }
+    .dark .focus-full.ff-light .ff-task { color: #475569; }
+    .dark .focus-full.ff-light .ff-close, .dark .focus-full.ff-light .ff-actions button:not(.ff-yes), .dark .focus-full.ff-light .ff-music, .dark .focus-full.ff-light .ff-walls { background: rgba(255,255,255,.92); border-color: #ECE6F5; color: #0D1B2A; }
+    .dark .focus-full.ff-light .ff-script { color: #C0675A; }
+    .dark .focus-full.ff-light.wall-forest .ff-script { color: #2F6B42; }
+    .dark .ff-walls { background: rgba(15,23,42,.92); border-color: #334155; color: #E2E8F0; }
     @media (max-height: 640px) { .ff-dial { width: min(230px, 62vw); } .ff-script { margin: 4px 0; } }
-    .dark .focus-full { background: linear-gradient(180deg, #111827 0%, #1E1B3A 60%, #0F1E33 100%); color: #F1F5F9; }
+    .dark .focus-full.wall-calm, .dark .focus-full.wall-journey { background: linear-gradient(180deg, #111827 0%, #1E1B3A 60%, #0F1E33 100%); color: #F1F5F9; }
     .dark .ff-face { fill: rgba(15,23,42,.7); stroke: #334155; }
     .dark .ff-task { color: #CBD5E1; }
     .dark .ff-close, .dark .ff-actions button:not(.ff-yes), .dark .ff-music { background: rgba(15,23,42,.9); border-color: #334155; color: #E2E8F0; }
