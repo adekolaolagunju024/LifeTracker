@@ -444,6 +444,7 @@ async function openAddTask(projectId) {
   document.getElementById('task-cost').value       = '';
   document.getElementById('task-notes').value      = '';
   document.getElementById('task-recurrence').value = 'none';
+  document.getElementById('task-daypart').value = '';
   document.getElementById('task-target-count').value = '';
   document.getElementById('task-target-unit').value  = '';
   document.getElementById('task-progress-current-row').classList.add('hidden');
@@ -469,6 +470,7 @@ async function editTask(id) {
   document.getElementById('task-cost').value       = t.cost || '';
   document.getElementById('task-notes').value      = t.notes || '';
   document.getElementById('task-recurrence').value = t.recurrence || 'none';
+  document.getElementById('task-daypart').value = t.dayPart || '';
   document.getElementById('task-target-count').value = t.targetCount || '';
   document.getElementById('task-target-unit').value  = t.targetUnit || '';
   document.getElementById('task-progress-current').value = t.progressCount || 0;
@@ -627,6 +629,7 @@ async function saveTask() {
     cost:      parseFloat(document.getElementById('task-cost').value) || 0,
     notes:     document.getElementById('task-notes').value.trim(),
     recurrence: document.getElementById('task-recurrence').value,
+    dayPart: document.getElementById('task-daypart').value || null,
     assigneeId: document.getElementById('task-assignee').value || null,
     targetCount: parseInt(document.getElementById('task-target-count').value, 10) || null,
     targetUnit: document.getElementById('task-target-unit').value.trim(),

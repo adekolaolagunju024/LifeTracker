@@ -12,10 +12,20 @@ const PRI_BADGE = {
   Low:    'bg-green-100 text-green-700',
 };
 
+// Three ways to look: what needs attention, this week, and next week. The
+// two weeks lay each day out like My day: Morning, Afternoon, Evening.
+const actionsView = () => { try { return localStorage.getItem('actionsView') || 'attention'; } catch { return 'attention'; } };
+function setActionsView(v) {
+  try { localStorage.setItem('actionsView', v); } catch { /* private mode */ }
+  renderActions();
+}
 async function renderActions() {
   try {
     const [tasks, projects] = await Promise.all([API.getTasks(), API.getProjects()]);
     const projectById = Object.fromEntries(projects.map(p => [p.id, p]));
+    const view = actionsView();
+    document.querySelectorAll('#act-views [role="tab"]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.view === view)));
+    document.getElementById('act-attention-only').classList.toggle('hidden', view !== 'attention');
 
     // String-compared local date keys, not raw Date objects — endDate/
     // startDate are plain "YYYY-MM-DD" strings that new Date() parses as
@@ -100,6 +110,7 @@ async function renderActions() {
     // the same local-date keys used for bucketing above.
     const daysBetweenKeys = (fromKey, toKey) => Math.round((new Date(toKey + 'T00:00:00Z') - new Date(fromKey + 'T00:00:00Z')) / 86400000);
 
+    if (view !== 'attention') { document.getElementById('action-list').innerHTML = weekPlanHTML(tasks, projectById, view); return; }
     if (!overdue.length && !dueThisWeek.length && !startingThisWeek.length && !highPriority.length && !blocked.length) {
       document.getElementById('action-list').innerHTML = `
         <div class="bg-white rounded-xl border border-gray-200 px-6 py-10 text-center">
@@ -129,6 +140,54 @@ async function renderActions() {
       section('High Priority — In Progress', icon('star', 'text-amber-500'), highPriority, () => '', 'No high-priority tasks in progress');
 
   } catch (e) { console.error('Actions error:', e); }
+}
+
+// The days of this week from today, or all of next week (weeks start on
+// Monday). Each day holds the tasks due that day or with a reminder that
+// day, under its parts, coloured as in My day, with a picker to move one.
+function weekDays(view) {
+  const now = new Date();
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7) + (view === 'next' ? 7 : 0));
+  const todayKey = localDateKey(now);
+  return Array.from({ length: 7 }, (_, i) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i))
+    .filter(d => view === 'next' || localDateKey(d) >= todayKey);
+}
+function weekPlanHTML(tasks, projectById, view) {
+  const todayKey = localDateKey(new Date());
+  const tomorrowKey = localDateKey(new Date(Date.now() + 86400000));
+  const open = tasks.filter(t => t.status !== 'Completed');
+  const reminderDay = t => { const r = window.Reminders && Reminders.forTask ? Reminders.forTask(t.id) : null; return r ? localDateKey(new Date(r.remindAt)) : null; };
+  const RANGE = { morning: 'Until 12 pm', afternoon: '12 to 5 pm', evening: 'From 5 pm', any: 'No set time' };
+  const row = (t, time, part) => {
+    const proj = projectById[t.projectId] || {};
+    const stuck = pendingFoes(t) > 0 || waitingOn(t).length > 0;
+    return `<div class="wk-row">
+      <button type="button" class="wk-title" onclick="openTaskDetail('${t.id}')"><b>${stuck ? icon('lock', 'tiny') : ''}${esc(t.title)}</b><small>${esc(proj.title || '')}${stuck ? ' · blocked' : ''}</small></button>
+      ${time ? `<span class="wk-time">${esc(clockText(time))}</span>` : ''}
+      <select class="focus-part" onchange="setTaskDayPart('${t.id}', this.value)" aria-label="Time of day for ${esc(t.title)}" title="Time of day">
+        <option value="">Any time</option>${DAY_PARTS.map(([k, , , , short]) => `<option value="${k}" ${k === (t.dayPart || (time ? '' : part)) ? 'selected' : ''}>${short}</option>`).join('')}</select>
+    </div>`;
+  };
+  const day = d => {
+    const key = localDateKey(d);
+    const items = open.filter(t => (t.endDate || '').slice(0, 10) === key || reminderDay(t) === key)
+      .map(t => ({ t, ...taskDayPart(t, key) }));
+    const name = key === todayKey ? 'Today' : key === tomorrowKey ? 'Tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'long' });
+    const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    const parts = [...DAY_PARTS.map(([k, label, ic]) => [k, label, ic]), ['any', 'Any time', 'clock']].map(([k, label, ic]) => {
+      const here = items.filter(x => x.part === k).sort((a, b) => (a.time || '99').localeCompare(b.time || '99'));
+      return here.length ? `<section class="day-part part-${k} wk-part" aria-label="${esc(name)}, ${esc(label)}">
+        <div class="day-part-head"><span class="day-part-ic">${icon(ic)}</span><span class="day-part-name"><b>${esc(label)}</b><small>${RANGE[k]}</small></span><span class="day-part-n">${here.length}</span></div>
+        <div class="day-part-list">${here.map(x => row(x.t, x.time, x.part)).join('')}</div></section>` : '';
+    }).join('');
+    return `<div class="wk-day${key === todayKey ? ' is-today' : ''}${items.length ? '' : ' is-empty'}">
+      <div class="wk-day-head"><b>${esc(name)}</b><span>${esc(date)}</span><em>${items.length ? `${items.length} task${items.length === 1 ? '' : 's'}` : 'Nothing due'}</em></div>
+      ${parts}</div>`;
+  };
+  const days = weekDays(view);
+  const total = days.reduce((n, d) => n + open.filter(t => (t.endDate || '').slice(0, 10) === localDateKey(d) || reminderDay(t) === localDateKey(d)).length, 0);
+  return `<p class="wk-note">${total ? `${total} task${total === 1 ? '' : 's'} due ${view === 'next' ? 'next week' : 'for the rest of this week'}, by the part of the day. Pick a part for a task with its menu; a reminder or today's plan gives it a time.` : `Nothing due ${view === 'next' ? 'next week' : 'for the rest of this week'}.`}</p>
+    <div class="wk-days">${days.map(day).join('')}</div>`;
 }
 
 async function markActionDone(taskId) {
