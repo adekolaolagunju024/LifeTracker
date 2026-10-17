@@ -92,6 +92,7 @@ router.post('/import', (req, res) => {
         endDate: t.endDate,
         cost: t.cost,
         notes: t.notes,
+        dayPart: t.dayPart,
         // a counted target (e.g. 20 practice tests) and how far along it is
         targetCount: Number.isInteger(t.targetCount) && t.targetCount > 0 ? Math.min(t.targetCount, 10000) : null,
         targetUnit: t.targetUnit ? String(t.targetUnit).slice(0, 40) : null,

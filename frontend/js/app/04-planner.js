@@ -799,7 +799,10 @@ const KANBAN_SORTS = {
   priority: { label: 'Priority',       fn: (a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] },
   due:      { label: 'Due Soon',       fn: soonCompare('endDate') },
   start:    { label: 'Starting Soon',  fn: soonCompare('startDate') },
+  // grouped under Morning, Afternoon, Evening and Any time (see below)
+  daypart:  { label: 'Time of day',    fn: soonCompare('endDate') },
 };
+const KANBAN_PART_ORDER = { morning: 0, afternoon: 1, evening: 2, any: 3 };
 
 function setKanbanSort(sort) {
   APP.kanbanSort = sort;
@@ -853,16 +856,23 @@ function renderKanbanBoard(tasks, projectById) {
     bell: '<svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
   };
   board.innerHTML = KANBAN_COLUMNS.map(status => {
-    const colTasks = tasks.filter(t => t.status === status).sort(KANBAN_SORTS[APP.kanbanSort].fn);
+    const byPart = APP.kanbanSort === 'daypart';
+    const partOf = Object.fromEntries(tasks.map(t => [t.id, taskDayPart(t)]));
+    let colTasks = tasks.filter(t => t.status === status).sort((KANBAN_SORTS[APP.kanbanSort] || KANBAN_SORTS.due).fn);
+    if (byPart) colTasks = colTasks.sort((a, b) => KANBAN_PART_ORDER[partOf[a.id].part] - KANBAN_PART_ORDER[partOf[b.id].part] || (partOf[a.id].time || '99').localeCompare(partOf[b.id].time || '99'));
+    let lastPart = null;
     const cards = colTasks.map(t => {
+      const dp = partOf[t.id];
+      // grouped by time of day: a small heading where each part starts
+      const partHead = byPart && dp.part !== lastPart ? (() => { lastPart = dp.part; const p = DAY_PARTS.find(([k]) => k === dp.part); return `<div class="kanban-part part-${dp.part}">${icon(p ? p[2] : 'clock')}${p ? esc(p[1]) : 'Any time'}</div>`; })() : '';
       const proj = projectById[t.projectId];
       const canEdit = proj && (proj.role === 'owner' || proj.role === 'editor');
       const isOverdue = status !== 'Completed' && t.endDate && t.endDate.slice(0, 10) < localDateKey(new Date());
       // Moving a card by touch: a plain menu, so no long-press-and-drag
       // across columns that sit off screen on a phone.
       const move = canEdit ? `<button type="button" class="kanban-move" aria-haspopup="menu" aria-label="Move ${esc(t.title)} to another column" onclick="event.stopPropagation(); openChipMenu(this, 'status', '${t.id}', '${status}', 'kanban')">Move to… ▾</button>` : '';
-      return `
-        <div class="kanban-card group" data-task-id="${t.id}" data-status="${status}"${kanbanHasLinks(t) ? ' data-links="1"' : ''}
+      return `${partHead}
+        <div class="kanban-card group${dp.part !== 'any' ? ` has-dp dp-c-${dp.part}` : ''}" data-task-id="${t.id}" data-status="${status}"${kanbanHasLinks(t) ? ' data-links="1"' : ''}
           ${canEdit ? `onmousedown="kanbanCardMouseDown(event, '${t.id}', '${status}')" ontouchstart="kanbanCardMouseDown(event, '${t.id}', '${status}')"` : ''}>
           <div class="flex items-start justify-between gap-2">
             <span class="kanban-card-title" role="button" tabindex="0" onclick="openTaskDetail('${t.id}')" onkeydown="if(event.key==='Enter')this.click()">${esc(t.title)}</span>
@@ -872,6 +882,7 @@ function renderKanbanBoard(tasks, projectById) {
               ${cardFields.assignee ? assigneeInitialBadge(t.assigneeName) : ''}
             </div>
           </div>
+          ${dp.part !== 'any' ? `<div class="mt-1.5">${dayPartChip(dp.part, dp.time)}</div>` : ''}
           ${kanbanLinkRow(t)}
           ${cardFields.tags && (t.tags || []).length ? `<div class="flex flex-wrap gap-1 mt-1.5">${miniTagBadges(t.tags)}</div>` : ''}
           ${teamRow(t, proj, projectById)}

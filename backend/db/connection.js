@@ -200,6 +200,9 @@ addColumnIfMissing('users', "lastActiveAt TEXT");
 // by this timestamp; they stay in the list until accepted/declined.
 addColumnIfMissing('users', "notificationsCheckedAt TEXT");
 addColumnIfMissing('tasks', "assigneeAssignedAt TEXT");
+// The part of the day a task is for (morning, afternoon or evening), when
+// it has no time from a plan or a reminder.
+addColumnIfMissing('tasks', "dayPart TEXT");
 
 // Collaborator roles used to be a single "member" (full edit access, same
 // as the owner short of deleting the project). Replaced with Google-Drive

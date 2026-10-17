@@ -244,6 +244,29 @@ function renderDashboardBento(tasks, allProjects) {
 let dashFocusData = null;
 const DAY_PARTS = [['morning', 'Morning', 'sunrise', 0, 'Morning'], ['afternoon', 'Afternoon', 'sun', 12 * 60, 'Afternoon'], ['evening', 'Evening & night', 'moon', 17 * 60, 'Evening']];
 const partOfMinute = m => (m >= 17 * 60 ? 'evening' : m >= 12 * 60 ? 'afternoon' : 'morning');
+// A task's part of the day, wherever it's shown: its time in today's plan
+// (when the day is today), else its reminder's time (on that day, or any
+// day when no day is given), else the part saved on the task. { part, time }
+// with part 'any' when it has none.
+function taskDayPart(t, dateKey) {
+  const todayKey = localDateKey(new Date());
+  const hhmm = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const toMin = s => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5));
+  const road = (!dateKey || dateKey === todayKey) && window.DayRoad && DayRoad.state ? DayRoad.state() : null;
+  const planned = road && road.items.find(i => i.taskId === t.id && i.start);
+  if (planned) return { part: partOfMinute(toMin(planned.start)), time: planned.start };
+  const r = window.Reminders && Reminders.forTask ? Reminders.forTask(t.id) : null;
+  const at = r && new Date(r.remindAt);
+  if (at && (!dateKey || localDateKey(at) === dateKey)) return { part: partOfMinute(at.getHours() * 60 + at.getMinutes()), time: hhmm(at) };
+  if (t.dayPart) return { part: t.dayPart, time: null };
+  const legacy = dateKey === todayKey ? dayPartPicks(todayKey)[t.id] : null; // picked on this device before it was saved on the task
+  return { part: legacy || 'any', time: null };
+}
+// A small coloured chip for a task's part of the day ('' for any time).
+function dayPartChip(part, time) {
+  const p = DAY_PARTS.find(([k]) => k === part);
+  return p ? `<span class="dp-chip dp-${part}" title="${esc(p[1])}${time ? ` · ${esc(clockText(time))}` : ''}">${icon(p[2], 'tiny')}${time ? esc(clockText(time)) : esc(p[4])}</span>` : '';
+}
 const focusPref = (k, v) => {
   try {
     if (v === undefined) return localStorage.getItem(k) || '';
@@ -261,12 +284,18 @@ function dayPartPicks(todayKey) {
 function setDashFocusGoal(id) { focusPref('dashFocusGoal', id); paintDashFocus(); }
 // My day is where it opens: what's planned for today. Focus is a tap away.
 function setDashFocusView(v) { focusPref('dashFocusView', v === 'focus' ? 'focus' : ''); paintDashFocus(); }
-function setTaskDayPart(taskId, part) {
+// Saved on the task, so it holds on every day and every device (My day,
+// the week in Actions, the Kanban board).
+async function setTaskDayPart(taskId, part) {
   const todayKey = localDateKey(new Date());
   const parts = { ...dayPartPicks(todayKey) };
-  if (part) parts[taskId] = part; else delete parts[taskId];
+  delete parts[taskId];
   try { localStorage.setItem('wp-dayparts', JSON.stringify({ date: todayKey, parts })); } catch { /* private mode */ }
-  paintDashFocus();
+  try { await API.updateTask(taskId, { dayPart: part || null }); } catch (e) { showToast(e.message || 'Could not save that', 'error'); return; }
+  if (dashFocusData) dashFocusData.tasks.forEach(t => { if (t.id === taskId) t.dayPart = part || null; });
+  if (APP.currentPage === 'actions') renderActions();
+  else if (APP.currentPage === 'gantt') renderGantt();
+  else paintDashFocus();
 }
 // Today's plan loads after the dashboard draws; My day places its tasks
 // once it's in.
@@ -379,7 +408,7 @@ function dayPartsHTML(tasks, open, todayKey, row) {
     || (doneToday(t) && (dueKey(t) === todayKey || planStart[t.id]));
   const list = tasks.filter(isToday).map(t => {
     const time = planStart[t.id] || reminderAt(t.id) || null;
-    return { t, time, part: time ? partOfMinute(toMin(time)) : picks[t.id] || 'any' };
+    return { t, time, part: time ? partOfMinute(toMin(time)) : t.dayPart || picks[t.id] || 'any' };
   });
   if (!list.length) {
     return `<p class="text-sm text-gray-500 pt-2 pb-3">Nothing set for today${open.length ? '. Pick what to do and when with Start my day.' : '.'}</p>
