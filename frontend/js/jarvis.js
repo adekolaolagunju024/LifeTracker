@@ -430,10 +430,11 @@ const Jarvis = (() => {
       ? (lists.length || now ? '' : `<button type="button" class="fm-btn" onclick="Jarvis.fullClose(); setTimeout(() => Jarvis.musicAdd(), 80)" title="Find a song or playlist and play it">${icon('plus')}<span>Add music</span></button>`)
       : `<button type="button" class="fm-btn" onclick="Jarvis.musicAdd()" title="Find a song or playlist and play it">${icon('plus')}<span>Add music</span></button>`;
     if (now) {
-      return `<span class="fm-ic">${icon('music')}</span><span class="fm-name" title="${esc(now.label)}">${esc(now.label)}</span>
+      // The music note is the way to the player: one music icon, not a
+      // decorative note plus a second, look-alike button to open it.
+      return `<button type="button" class="fm-icon fm-open" onclick="Music.show()" aria-label="Show the music player" title="Show the player (the timer shrinks)">${icon('music')}</button><span class="fm-name" title="${esc(now.label)}">${esc(now.label)}</span>
         <button type="button" class="fm-icon" onclick="Music.togglePause(); setTimeout(() => Jarvis.syncMusic(true), 300)" aria-label="${now.paused ? 'Play' : 'Pause'} the music">${icon(now.paused ? 'play' : 'pause')}</button>
-        ${now.many ? `<button type="button" class="fm-icon" onclick="Music.next(); setTimeout(() => Jarvis.syncMusic(true), 400)" aria-label="Next">${icon('skip-forward')}</button>` : ''}
-        <button type="button" class="fm-icon" onclick="Music.show()" aria-label="Show the music player" title="Show the player (the timer shrinks)">${icon('video')}</button>${add}`;
+        ${now.many ? `<button type="button" class="fm-icon" onclick="Music.next(); setTimeout(() => Jarvis.syncMusic(true), 400)" aria-label="Next">${icon('skip-forward')}</button>` : ''}${add}`;
     }
     return `<span class="fm-ic">${icon('music')}</span>${lists.length ? `<button type="button" class="fm-btn fm-play" onclick="Why.playMusic(); setTimeout(() => Jarvis.syncMusic(true), 500)">${icon('play')}<span>Play ${esc(lists[0].label || 'my music')}</span></button>` : '<span class="fm-name muted">No music yet</span>'}${add}`;
   }
