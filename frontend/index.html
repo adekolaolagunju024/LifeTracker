@@ -240,7 +240,7 @@
     .ff-music .fm-name { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ff-music .fm-name.muted { color: #94A3B8; font-weight: 600; }
     .ff-music .fm-icon { width: 38px; height: 38px; border-radius: 999px; display: grid; place-items: center; background: #F8D7CE; color: #B4533E; }
-    .ff-music .fm-ic { color: #E07A5F; }
+    .ff-music .fm-ic { color: #E07A5F; } .ff-music .fm-icon.fm-open { color: #B4533E; background: #F8D7CE; }
     .ff-music .fm-btn { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; color: #B4533E; background: #FDECE7; border-radius: 999px; padding: 8px 12px; }
     @media (max-height: 640px) { .ff-dial { width: min(230px, 62vw); } .ff-script { margin: 4px 0; } }
     .dark .focus-full { background: linear-gradient(180deg, #111827 0%, #1E1B3A 60%, #0F1E33 100%); color: #F1F5F9; }
@@ -734,6 +734,7 @@
     .fm-btn .ic { width: 13px; height: 13px; }
     .fm-icon { width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: rgba(255,255,255,.1); }
     .fm-icon:hover { background: rgba(255,255,255,.18); } .fm-icon .ic { width: 15px; height: 15px; }
+    .fm-icon.fm-open { color: #5EEAD4; background: rgba(94,234,212,.14); } .fm-icon.fm-open:hover { background: rgba(94,234,212,.24); }
     .fm-search { display: flex; gap: 6px; }
     .fm-search input { flex: 1; min-width: 0; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 7px 10px; color: #fff; font-size: 13px; }
     .fm-search input::placeholder { color: rgba(255,255,255,.5); }
