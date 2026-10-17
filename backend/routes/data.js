@@ -17,7 +17,8 @@ router.get('/export/:projectId', (req, res) => {
 // and recreates it for the current user. Additive, not a wipe-and-replace:
 // safe to run against an account that already has data, though re-running
 // the same file twice will duplicate everything (no de-duplication).
-// A goal stays a goal, and each task keeps its named blockers.
+// A goal stays a goal, and each task keeps its named blockers, tags,
+// counted target and the tasks it waits on.
 router.post('/import', (req, res) => {
   try {
     const userId = req.session.userId;
@@ -68,6 +69,15 @@ router.post('/import', (req, res) => {
       idMap[p.id] = created.id;
     }
 
+    // Tags by name: reuse this account's tag of the same name, or make it.
+    const tagIds = new Map(db.listTags(userId).map(tg => [tg.label.toLowerCase(), tg.id]));
+    const tagId = tg => {
+      const label = String((tg && typeof tg === 'object' ? tg.label : tg) || '').trim().slice(0, 40);
+      if (!label) return null;
+      if (!tagIds.has(label.toLowerCase())) tagIds.set(label.toLowerCase(), db.createTag(userId, { label, color: tg && tg.color }).id);
+      return tagIds.get(label.toLowerCase());
+    };
+    const taskIdMap = {};
     let taskCount = 0;
     for (const t of tasks) {
       const newProjectId = idMap[t.projectId];
@@ -82,8 +92,14 @@ router.post('/import', (req, res) => {
         endDate: t.endDate,
         cost: t.cost,
         notes: t.notes,
+        // a counted target (e.g. 20 practice tests) and how far along it is
+        targetCount: Number.isInteger(t.targetCount) && t.targetCount > 0 ? Math.min(t.targetCount, 10000) : null,
+        targetUnit: t.targetUnit ? String(t.targetUnit).slice(0, 40) : null,
+        progressCount: Number.isInteger(t.progressCount) && t.progressCount > 0 && Number.isInteger(t.targetCount) ? Math.min(t.progressCount, t.targetCount) : 0,
         createdAt: new Date().toISOString(),
       });
+      taskIdMap[t.id] = created.id;
+      if (Array.isArray(t.tags) && t.tags.length) db.setTaskTags(userId, created.id, t.tags.slice(0, 10).map(tagId).filter(Boolean));
       // its named blockers come across too, ticked off or not
       for (const o of (Array.isArray(t.obstacles) ? t.obstacles : []).slice(0, 20)) {
         if (!o || !String(o.name || '').trim()) continue;
@@ -91,6 +107,12 @@ router.post('/import', (req, res) => {
         if (ob && o.resolved) db.updateObstacle(userId, ob.id, { resolved: true });
       }
       taskCount++;
+    }
+
+    // What each task waits on, once every task exists (ids remapped).
+    for (const t of tasks) {
+      const pre = (Array.isArray(t.predecessors) ? t.predecessors : []).map(x => taskIdMap[x && typeof x === 'object' ? x.id : x]).filter(Boolean);
+      if (pre.length && taskIdMap[t.id]) db.setTaskPredecessors(userId, taskIdMap[t.id], pre);
     }
 
     res.json({
