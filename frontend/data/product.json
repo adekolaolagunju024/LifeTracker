@@ -112,10 +112,12 @@
     {
       "id": "together",
       "icon": "users",
-      "name": "Plan together",
+      "name": "Team up",
       "title": "Bring your people in",
-      "text": "Invite viewers, commenters or editors. Comments with @mentions and a chat per goal with photos and files. Private goals stay private.",
-      "bg": "linear-gradient(160deg,#0D1B2A,#1B3A5C)"
+      "text": "Race friends, lead a class or squad, or split one goal across a team with phase leads, departments and sign-off. Each team has its own chat with @mentions, photos and files.",
+      "bg": "linear-gradient(160deg,#0D1B2A,#1B3A5C)",
+      "action": "teams",
+      "cta": "Open Teams"
     },
     {
       "id": "journey",

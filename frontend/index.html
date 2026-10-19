@@ -1028,6 +1028,60 @@
     .dark #verify-banner { background: rgba(94,234,212,.08); border-color: rgba(94,234,212,.25); }
     .dark #verify-banner p { color: #E6EDF3; }
     .dark #verify-banner button:first-of-type { background: transparent; }
+    /* Help (js/help.js): guides, Show me around, and first-visit tips */
+    .hp-card { width: min(560px, 100%); max-height: min(86vh, 760px); grid-template-rows: auto auto minmax(0, 1fr) auto; }
+    .hp-top { display: flex; gap: 8px; }
+    .hp-top[hidden] { display: none; }
+    .hp-top input { flex: 1; min-width: 0; border: 1px solid #DDE3E8; border-radius: 12px; padding: 9px 12px; font-size: 14px; }
+    .hp-top input:focus { outline: none; border-color: #0A7E8C; box-shadow: 0 0 0 3px rgba(10,126,140,.15); }
+    .hp-tour-btn { display: inline-flex; align-items: center; gap: 6px; flex: none; border-radius: 12px; padding: 0 12px; font-size: 13px; font-weight: 800; background: #E6F4F5; color: #075E68; }
+    .hp-tour-btn .ic { width: 15px; height: 15px; }
+    .hp-body { overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
+    .hp-body h3 { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #6B7480; margin: 12px 0 4px; }
+    .hp-guide { border-bottom: 1px solid #EEF1F4; }
+    .hp-guide summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 2px; font-size: 15px; font-weight: 700; color: #0D1B2A; cursor: pointer; }
+    .hp-guide summary::-webkit-details-marker { display: none; }
+    .hp-guide summary .ic { width: 16px; height: 16px; color: #8A94A3; flex: none; transition: transform .15s; }
+    .hp-guide[open] summary .ic { transform: rotate(180deg); }
+    .hp-guide summary:focus-visible { outline: 2px solid #0A7E8C; outline-offset: 2px; border-radius: 6px; }
+    .hp-guide ol { margin: 0 0 10px; padding-left: 20px; list-style: decimal; display: grid; gap: 6px; font-size: 14px; line-height: 1.5; color: #374151; }
+    .hp-go { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 800; background: #0A7E8C; color: #fff; }
+    .hp-go .ic { width: 14px; height: 14px; }
+    .hp-empty { font-size: 14px; color: #5B6472; padding: 16px 2px; }
+    .hp-foot { font-size: 12px; color: #6B7480; line-height: 1.6; border-top: 1px solid #EEF1F4; padding-top: 10px; margin: 0; }
+    .hp-foot b { color: #374151; margin-right: 4px; }
+    .hp-tour { border-radius: 16px; padding: 22px 20px; color: #fff; margin-top: 4px; }
+    .hp-kicker { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .8; margin: 0; }
+    .hp-big { font-size: 22px; font-weight: 900; margin: 6px 0 4px; line-height: 1.2; }
+    .hp-sub { font-size: 14px; line-height: 1.5; opacity: .92; margin: 0; }
+    .hp-try { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 800; background: #fff; color: #0D1B2A; }
+    .hp-try .ic { width: 15px; height: 15px; }
+    .hp-tour-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+    .hp-tour-nav button { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 800; color: #075E68; border-radius: 10px; padding: 7px 10px; }
+    .hp-tour-nav button:disabled { opacity: .35; }
+    .hp-tour-nav button .ic { width: 14px; height: 14px; }
+    .hp-tour-nav span { display: flex; gap: 5px; }
+    .hp-tour-nav i { width: 7px; height: 7px; border-radius: 50%; background: #D5DAE0; }
+    .hp-tour-nav i.on { background: #0A7E8C; width: 18px; border-radius: 999px; }
+    .hp-tip { position: fixed; right: 16px; bottom: 16px; z-index: 1002; width: min(340px, calc(100vw - 32px)); display: flex; gap: 10px; background: #0D1B2A; color: #fff; border-radius: 16px; padding: 14px; box-shadow: 0 16px 40px rgba(13,27,42,.35); animation: hptip .3s ease both; }
+    .hp-tip-ic { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: rgba(252,211,77,.18); color: #FCD34D; }
+    .hp-tip-ic .ic { width: 16px; height: 16px; }
+    .hp-tip b { font-size: 14px; }
+    .hp-tip p { font-size: 13px; line-height: 1.45; color: #CBD5E1; margin: 3px 0 0; }
+    .hp-tip-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .hp-tip-actions button { border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 800; background: #5EEAD4; color: #0D1B2A; }
+    .hp-tip-actions button.quiet { background: rgba(255,255,255,.1); color: #E2E8F0; }
+    @keyframes hptip { from { opacity: 0; transform: translateY(10px); } }
+    @media (max-width: 767px) { .hp-keys { display: none; } .hp-tip { bottom: 84px; } .hp-top { flex-direction: column; } .hp-tour-btn { padding: 9px 12px; justify-content: center; } }
+    @media (prefers-reduced-motion: reduce) { .hp-tip { animation: none; } }
+    .dark .hp-top input { background: #0B1322; border-color: #1F2A3D; color: #E5E7EB; }
+    .dark .hp-tour-btn { background: #12313A; color: #5EEAD4; }
+    .dark .hp-guide { border-color: #1F2A3D; }
+    .dark .hp-guide summary { color: #E5E7EB; }
+    .dark .hp-guide ol, .dark .hp-foot b { color: #CBD5E1; }
+    .dark .hp-foot { border-color: #1F2A3D; color: #94A3B8; }
+    .dark .hp-tour-nav button { color: #5EEAD4; }
+    .dark .hp-tour-nav i { background: #334155; }
     /* Report a problem (js/feedback.js) */
     .fb-overlay { position: fixed; inset: 0; z-index: 1003; background: rgba(13,27,42,.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
     .fb-card { background: #fff; border-radius: 18px; width: min(460px, 100%); padding: 20px; display: grid; gap: 10px; box-shadow: 0 24px 60px rgba(13,27,42,.3); }
@@ -3796,6 +3850,10 @@
         <span class="icon-badge nav-ic" data-icon="settings"></span> Settings &amp; data
       </button>
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
+        onclick="Help.open()" id="help-nav-btn">
+        <span class="icon-badge nav-ic" data-icon="help-circle"></span> Help &amp; guides
+      </button>
+      <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="Feedback.open()" id="report-problem-btn">
         <span class="icon-badge nav-ic" data-icon="message-circle"></span> Report a problem
       </button>
@@ -3859,6 +3917,7 @@
             <div id="notif-list" class="divide-y divide-gray-50"></div>
           </div>
         </div>
+        <button onclick="Help.open()" aria-label="Help" title="Help and guides (?)" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="help-btn" data-icon="help-circle"></button>
         <button onclick="showPage('settings')" aria-label="Settings" title="Settings" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="settings-btn" data-icon="settings"></button>
         <button onclick="toggleTheme()" aria-label="Toggle dark mode" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold w-8 h-8 flex items-center justify-center rounded-lg transition-all" id="theme-toggle-btn"><span id="theme-toggle-icon"><span class="ei" data-icon="moon"></span></span></button>
       </div>
@@ -5646,6 +5705,7 @@
 <script src="js/dayReport.js"></script>
 <script src="js/taskActions.js"></script>
 <script src="js/feedback.js"></script>
+<script src="js/help.js"></script>
 <script src="js/race.js"></script>
 <script src="js/goalMap.js"></script>
 <script src="js/aiFill.js"></script>

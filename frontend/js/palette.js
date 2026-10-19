@@ -48,10 +48,12 @@ function paletteActions() {
     ...(window.Why && Why.get() ? Why.get().playlists.map((p, i) => ({ icon: '🎵', label: `Play ${p.label || 'my music'}`, run: () => Why.playMusic(i) })) : []),
     ...(here ? [{ icon: '📄', label: 'Progress report for this project', run: () => openProgressReport(here) }] : []),
     { icon: '🌗', label: 'Switch light / dark mode', run: () => toggleTheme() },
+    { icon: '❓', label: 'Help and guides', hint: '?', run: () => Help.open() },
+    { icon: '🧭', label: 'Show me around (feature tour)', run: () => { Help.open(); Help.tour(); } },
     { icon: '📨', label: 'Report a problem', run: () => Feedback.open() },
     { icon: '👥', label: 'Teams: groups you lead or join, and races', run: () => showPage('challenges') },
     { icon: '🔢', label: 'Join a race or class with a code', run: () => { showPage('challenges'); setTimeout(() => document.getElementById('join-code')?.focus(), 300); } },
-    { icon: '⌨️', label: 'Keyboard shortcuts', hint: '?', run: () => showToast('⌨️ Shortcuts: ⌘K command palette · / search · n new task · a assistant · Esc close') },
+    { icon: '⌨️', label: 'Keyboard shortcuts', run: () => Help.open() },
     ...PALETTE_PAGES.map(([id, icon, name]) => ({ icon, label: `Go to ${name}`, run: () => showPage(id) })),
     ...PALETTE_STAGES.map(([id, icon, name]) => ({ icon, label: `Journey stage: ${name}`, run: () => { setJourneyTheme(id); showPage('gantt'); document.querySelector('#gantt-page-view-toggle [data-pageview="journey"]')?.click(); } })),
   ];

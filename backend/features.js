@@ -10,6 +10,7 @@ const db = require('./db/connection');
 const FEATURES = {
   start_day: 'Start my day',
   tour: 'Getting started slides',
+  help: 'Help guides',
   focus: 'Focus session',
   assistant: 'Assistant',
   listen: 'Listen (read aloud)',
