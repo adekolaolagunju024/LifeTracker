@@ -159,6 +159,7 @@ const API = {
   renameRaceMember: (id, color, name) => request('PUT', `/challenges/${id}/members/name`, { color, name }),
   removeRaceMember: (id, color) => request('POST', `/challenges/${id}/members/remove`, { color }),
   raceRemoved:     (id) => request('GET', `/challenges/${id}/removed`),
+  handOverRace:    (id, color, leave) => request('POST', `/challenges/${id}/hand-over`, { color, leave }),
   letBackIn:       (id, ref) => request('POST', `/challenges/${id}/removed/${ref}/back`),
   setRaceSections: (id, word) => request('POST', `/challenges/${id}/sections`, { word }),
   setRaceDept:     (id, color, projectId) => request('POST', `/challenges/${id}/dept`, { color, projectId }),

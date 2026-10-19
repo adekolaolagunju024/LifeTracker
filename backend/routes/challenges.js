@@ -236,6 +236,14 @@ router.post('/:id/members/remove', (req, res) => {
     res.json(r);
   } catch (e) { fail(res, e); }
 });
+// POST /api/challenges/:id/hand-over {color, leave}: someone else runs it now.
+router.post('/:id/hand-over', (req, res) => {
+  try {
+    const r = challenges.handOver(req.params.id, req.session.userId, req.body || {});
+    if (!r) return res.status(404).json({ error: 'Team not found' });
+    res.json(r);
+  } catch (e) { fail(res, e); }
+});
 router.get('/:id/removed', (req, res) => {
   try {
     const list = challenges.removedList(req.params.id, req.session.userId);

@@ -430,6 +430,11 @@ const Race = (() => {
       <p class="fb-note">${c.nameMode === 'animals' ? 'Everyone else sees animal names; these are the real names only you see. ' : ''}Change a name and it saves straight away. ${split ? 'Removing someone gives their open steps back to unclaimed and stops sharing the goal with them.' : 'Removing someone takes them off the scoreboard; their own copy of the goal stays theirs.'}</p>
       ${removed.length ? `<label>Removed</label><ul class="mg-list">${removed.map(r => `<li class="mg-row"><span class="mg-gone">${esc(r.name)}</span><button type="button" class="mg-back" onclick="Race.letBack('${c.id}', ${r.ref}, this)">Let back in</button></li>`).join('')}</ul>
         <p class="fb-note">People you remove can't join again with the link or code until you let them back in.</p>` : ''}
+      ${c.players.some(p => !p.you) ? `<label for="mg-to">Hand over the team</label>
+        <div class="mg-hand"><select id="mg-to"><option value="">Choose someone</option>${c.players.filter(p => !p.you).map(p => `<option value="${esc(p.color)}">${esc(p.name)}</option>`).join('')}</select>
+          <button type="button" class="mg-hand-go" onclick="Race.handOver('${c.id}')">Hand over</button></div>
+        ${c.organiserOnly ? '' : `<label class="mg-leave"><input type="checkbox" id="mg-leave"> Leave the team as well</label>`}
+        <p class="fb-note">They become the organiser with every control here${split ? ', and the goal moves to them' : ''}. ${c.organiserOnly ? 'You’re not taking part, so you leave the team.' : split ? 'You stay on as a teammate with your own steps, unless you leave.' : 'You stay on with your own copy, unless you leave.'}</p>` : ''}
       <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Done</button></div>`);
     form.addEventListener('submit', async e => {
       e.preventDefault();
@@ -454,6 +459,21 @@ const Race = (() => {
     forgetPlan();
     if (detailId === id) await openDetail(id);
     manage(id);
+  }
+  // Someone else runs the team from now on.
+  async function handOver(id) {
+    const sel = document.getElementById('mg-to');
+    if (!sel || !sel.value) { showToast('Choose who runs the team next', 'error'); if (sel) sel.focus(); return; }
+    const name = sel.selectedOptions[0].textContent;
+    const leave = !!(document.getElementById('mg-leave') && document.getElementById('mg-leave').checked);
+    if (!confirm(`Hand the team to ${name}? They'll run it from now on, and only they can hand it back.${leave ? ' You’ll leave the team.' : ''}`)) return;
+    const btn = document.querySelector('.mg-hand-go');
+    if (btn) btn.disabled = true;
+    try { await API.handOverRace(id, sel.value, leave); } catch (err) { if (btn) btn.disabled = false; showToast(err.message || 'Could not hand it over', 'error'); return; }
+    close();
+    forgetPlan();
+    showToast(`${name} runs the team now. They’ve been told`);
+    if (detailId === id) { try { await openDetail(id); } catch { backToList(); } }
   }
   async function letBack(id, ref, btn) {
     btn.disabled = true;
@@ -1283,6 +1303,6 @@ const Race = (() => {
     });
   }
 
-  return { manage, renameIn, removeIn, letBack, myName, planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, setLead, setSections, setDept, milestone, setChecks, removeStep, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, endTeam, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { handOver, manage, renameIn, removeIn, letBack, myName, planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, setLead, setSections, setDept, milestone, setChecks, removeStep, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, endTeam, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;
