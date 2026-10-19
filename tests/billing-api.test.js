@@ -47,3 +47,14 @@ test('without Stripe keys, checkout says payments are not set up', async () => {
   const res = await fetch(`${server.base}/api/billing/checkout`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify({ interval: 'month' }) });
   assert.equal(res.status, 503);
 });
+
+test('without Stripe keys, the Team plan says payments are not set up, and seats need a paid team', async () => {
+  const { cookie } = await signUp();
+  const headers = { 'Content-Type': 'application/json', Cookie: cookie };
+  const buy = await fetch(`${server.base}/api/billing/team/checkout`, { method: 'POST', headers, body: JSON.stringify({ name: 'Ops', seats: 5 }) });
+  assert.equal(buy.status, 503);
+  const seat = await fetch(`${server.base}/api/billing/team/seats`, { method: 'POST', headers, body: JSON.stringify({ email: 'a@example.com' }) });
+  assert.equal(seat.status, 404);
+  const plan = await (await fetch(`${server.base}/api/billing`, { headers })).json();
+  assert.deepEqual([plan.team.configured, plan.team.owned, plan.via], [false, undefined, null]);
+});
