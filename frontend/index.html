@@ -1153,6 +1153,25 @@
     .dark .sp-steps li.sp-phase { border-color: #2A3648; }
     .dark .sp-steps li.sp-phase .sp-title { color: #5EEAD4; }
     .dark .sp-steps li.sp-phase .sp-title small, .dark .sp-checks { color: #CBD5E1; }
+    /* Departments at a glance */
+    .dp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr)); gap: 10px; margin: 12px 0; }
+    .dp-card { background: #fff; border: 1px solid #E3E6EA; border-radius: 14px; padding: 12px 14px; min-width: 0; }
+    .dp-top { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+    .dp-top b { min-width: 0; overflow-wrap: break-word; line-height: 1.3; }
+    .dp-top span { font-weight: 800; color: #0A7E8C; }
+    .dp-bar { height: 6px; border-radius: 999px; background: #EEF1F4; margin: 8px 0 6px; overflow: hidden; }
+    .dp-bar i { display: block; height: 100%; border-radius: 999px; background: #0A7E8C; }
+    .dp-card small { display: block; font-size: 12px; color: #5B6472; }
+    .dp-card small .ic { width: 13px; height: 13px; color: #D97706; vertical-align: -2px; margin-right: 2px; }
+    .dp-people { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 8px; font-size: 12px; color: #374151; }
+    .dp-people span { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dp-people i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+    .dp-people em { color: #9CA3AF; }
+    .ch-dept select { max-width: 160px; }
+    @media (max-width: 480px) { .dp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .dark .dp-card { background: #111A2B; border-color: #1F2A3D; }
+    .dark .dp-bar { background: #1A2436; }
+    .dark .dp-card small, .dark .dp-people { color: #CBD5E1; }
     .dark .sp-ms, .dark .sp-checks select { background: #0F172A; border-color: #334155; }
     .dark .sp-ms.on { background: rgba(251,191,36,.15); color: #FBBF24; border-color: #92400E; }
     .dark .sp-steps { background: #141D2B; border-color: #2A3648; }

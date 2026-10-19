@@ -176,6 +176,20 @@ router.post('/:id/leads', (req, res) => {
     res.json({ success: true });
   } catch (e) { fail(res, e); }
 });
+// Phases or departments {word}, and someone's department {color, projectId}.
+router.post('/:id/sections', (req, res) => {
+  try {
+    const word = challenges.setSections(req.params.id, req.session.userId, (req.body || {}).word);
+    if (!word) return res.status(404).json({ error: 'Team not found' });
+    res.json({ word });
+  } catch (e) { fail(res, e); }
+});
+router.post('/:id/dept', (req, res) => {
+  try {
+    if (!challenges.setDept(req.params.id, req.session.userId, req.body || {})) return res.status(404).json({ error: 'Team not found' });
+    res.json({ success: true });
+  } catch (e) { fail(res, e); }
+});
 router.post('/:id/milestone', (req, res) => {
   try {
     if (!challenges.setMilestone(req.params.id, req.session.userId, req.body || {})) return res.status(404).json({ error: 'Team not found' });
