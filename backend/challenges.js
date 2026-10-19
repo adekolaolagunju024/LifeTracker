@@ -1280,6 +1280,40 @@ function removeMember(id, userId, color) {
   pushTo(m.userId, { title: c.title, body: `You've been taken off “${clean(c.title, 80)}”${c.mode === 'split' ? '' : '. Your copy of the goal is still yours'}`, url: '/app', tag: `removed-${c.id}` });
   return { removed: true, freed };
 }
+// The leader hands the team to someone on it, who becomes its organiser
+// with every control. In a split goal the goal itself (its folders and
+// the steps the old leader made) moves to them too, and the old leader
+// stays on as a teammate, with their own steps like anyone, unless they leave. In
+// a race or group only the role moves: everyone keeps their own copy.
+function handOver(id, userId, { color, leave: andLeave } = {}) {
+  const c = ownedTeam(id, userId);
+  if (!c) return null;
+  const to = memberByColor(c, color);
+  if (to.userId === userId) throw Object.assign(new Error('Pick someone else to hand the team to'), { status: 400 });
+  const me = memberRow(c.id, userId);
+  const now = new Date().toISOString();
+  conn.transaction(() => {
+    if (c.mode === 'split' && c.goalId) {
+      const tree = [c.goalId, ...conn.prepare('SELECT id FROM projects WHERE parentId = ?').all(c.goalId).map(r => r.id)];
+      const marks = tree.map(() => '?').join(',');
+      conn.prepare(`UPDATE projects SET userId = ? WHERE id IN (${marks}) AND userId = ?`).run(to.userId, ...tree, userId);
+      conn.prepare(`UPDATE tasks SET userId = ? WHERE projectId IN (${marks}) AND userId = ?`).run(to.userId, ...tree, userId);
+      // the new organiser owns it now, so isn't a collaborator on it
+      conn.prepare('DELETE FROM project_collaborators WHERE projectId = ? AND userId = ?').run(c.goalId, to.userId);
+      if (!andLeave) {
+        conn.prepare(`INSERT INTO project_collaborators (id, projectId, userId, role, invitedAt, joinedAt) VALUES (?,?,?,?,?,?)
+          ON CONFLICT(projectId, userId) DO UPDATE SET role = 'editor', joinedAt = COALESCE(joinedAt, excluded.joinedAt)`).run(crypto.randomUUID(), c.goalId, userId, 'editor', now, now);
+      }
+    }
+    // An organiser who wasn't taking part has no place on the team after it.
+    conn.prepare('UPDATE challenges SET ownerId = ?, organiserOnly = 0 WHERE id = ?').run(to.userId, c.id);
+    if (me && andLeave) dropMember({ ...c, ownerId: to.userId }, me);
+  })();
+  const fromName = me ? shownName(c, me) : authorOf(c, userId, null).name;
+  postEvent(c.id, `${fromName} handed the team to ${shownName(c, to)}, who runs it now`, userId);
+  pushTo(to.userId, { title: c.title, body: `${fromName} handed “${clean(c.title, 80)}” to you. You run it now: manage the team, sign-off and steps`, url: '/app', tag: `handover-${c.id}` });
+  return { handedOver: true, stayed: !!me && !andLeave };
+}
 // Who's been removed (for the leader), and letting someone back in.
 function removedList(id, userId) {
   const c = ownedTeam(id, userId);
@@ -1297,4 +1331,4 @@ function letBackIn(id, userId, ref) {
   return true;
 }
 
-module.exports = { renameTeam, renameMember, removeMember, removedList, letBackIn, endTeam, setSections, setDept, setLead, setMilestone, setChecks, assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+module.exports = { handOver, renameTeam, renameMember, removeMember, removedList, letBackIn, endTeam, setSections, setDept, setLead, setMilestone, setChecks, assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
