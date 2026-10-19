@@ -243,6 +243,7 @@ function renderJourneyViewBar() {
   }
   bar.classList.toggle('hidden', !can);
   if (!can) return;
+  if (view === '3d' && window.Help) Help.tip('journey3d'); // first time in 3D: how to get around
   const btn = (key, label, title) => {
     const on = key === '2d' ? view === '2d' : view === '3d' && cam === key;
     return `<button type="button" aria-pressed="${on}" title="${title}" onclick="pickJourneyView('${key}')">${label}</button>`;

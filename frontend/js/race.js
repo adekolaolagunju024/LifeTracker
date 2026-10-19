@@ -300,6 +300,7 @@ const Race = (() => {
     const box = document.getElementById('challenges-body');
     if (!box) return;
     detailId = null; // the Teams link always opens on the list
+    if (window.Help) Help.tip('teams'); // first visit: what Teams is for
     box.innerHTML = '<p class="text-sm text-gray-400 py-6">Loading…</p>';
     let list = [];
     try { list = await API.listRaces(); } catch { list = []; }
