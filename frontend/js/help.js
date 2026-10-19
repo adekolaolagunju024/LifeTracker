@@ -72,6 +72,12 @@ const Help = (() => {
       'Put people in their department from the Department column. If you don\'t, it follows the department they lead or have most steps in.',
       'Type @ and the department\'s name in the team chat (say @Engineering) to reach everyone in it.',
     ], 'Open Teams', 'teams'],
+    ['Teams', 'manage-team', 'Manage your team', [
+      'On the team page, Manage team (for whoever set it up) changes the team\'s name and anyone\'s name in it. A changed name saves straight away.',
+      'Remove takes someone off the team. In Split the work their open steps go back to unclaimed and the goal stops being shared with them.',
+      'People you remove can\'t join again with the link or code until you tap Let back in.',
+      'Everyone else can change the name they go by with My name, or leave with Leave.',
+    ], 'Open Teams', 'teams'],
     ['Teams', 'team-chat', 'Team chat, cheers and nudges', [
       'Each team has a chat: @mention people, share photos and files, and send a message from a task so it links back.',
       'Tap a name on the scoreboard to cheer them on.',
