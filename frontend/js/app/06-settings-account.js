@@ -650,11 +650,17 @@ async function refreshNotificationBadge() {
     badge.classList.toggle('hidden', count === 0);
 
     // Chats nav item — like an unread mail count, total unseen messages
-    // across every project chat (not just how many projects have activity).
-    const chatCount = data.chatActivity.reduce((sum, c) => sum + c.count, 0);
+    // across every project chat and every team or race chat. On a phone
+    // the menu sits behind More, so More carries a dot too.
+    const chatCount = data.chatActivity.reduce((sum, c) => sum + c.count, 0) + (data.teamChatUnread || 0);
     const chatBadge = document.getElementById('nav-chats-badge');
     chatBadge.textContent = chatCount > 99 ? '99+' : String(chatCount);
     chatBadge.classList.toggle('hidden', chatCount === 0);
+    chatBadge.setAttribute('aria-label', `${chatCount} unread message${chatCount === 1 ? '' : 's'}`);
+    const more = document.getElementById('bottom-more-badge');
+    if (more) more.classList.toggle('hidden', chatCount === 0);
+    const moreBtn = document.querySelector('#bottom-nav [data-tab="more"]');
+    if (moreBtn) moreBtn.setAttribute('aria-label', chatCount ? `More, ${chatCount} unread message${chatCount === 1 ? '' : 's'}` : 'More');
   } catch (e) { console.error('Notifications badge error:', e); }
 }
 
