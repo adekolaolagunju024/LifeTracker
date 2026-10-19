@@ -1830,7 +1830,7 @@ const JourneyGame = (() => {
 
   // ════════════════════════════════════════════════════════════════
   // THEME REGISTRY — picked by app.js (Settings-free: a small selector
-  // right in the Journey header, see index.html's #journey-theme-select)
+  // on the scene's top-right corner, see index.html's #journey-theme-select)
   // and passed in as state.theme on every sync() call.
   // ════════════════════════════════════════════════════════════════
   const THEMES = {
