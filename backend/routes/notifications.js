@@ -13,6 +13,8 @@ router.get('/', (req, res) => {
   // Races and groups (help, offers, sign-off, cheers, finishes) and rewards.
   data.teamActivity = require('../challenges').activitySince(req.session.userId, since);
   data.rewardActivity = require('../pledges').activitySince(req.session.userId, since);
+  // Unread team and race chat messages, for the Chats badge (read when that chat is opened).
+  data.teamChatUnread = require('../challenges').unreadChats(req.session.userId);
   res.json(data);
 });
 

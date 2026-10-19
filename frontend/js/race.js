@@ -654,6 +654,7 @@ const Race = (() => {
       const key = msgs.map(m => m.id).join();
       if (key === lastKey) return;
       lastKey = key;
+      if (typeof refreshNotificationBadge === 'function') refreshNotificationBadge(); // these are read now: the Chats badge drops
       const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
       list.innerHTML = msgs.length ? msgs.map(m => m.kind === 'help'
         ? `<div class="rc-help${m.open ? '' : ' done'}${m.you ? ' you' : ''}"><span class="rc-who" style="color:${esc(m.color)}">${icon('hand', 'tiny')} ${esc(m.author)} ${m.open ? 'asks for help' : 'asked for help'}</span><p>${esc(m.text)}</p>${m.task ? taskChip(id, m.task) : ''}

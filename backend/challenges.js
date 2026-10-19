@@ -604,6 +604,16 @@ function chatSummary(cid, viewerId) {
     cheers: cheers.map(m => ({ from: authorOf(c, m.userId, viewerId).name, emoji: m.text, at: m.createdAt })),
   };
 }
+// Unread messages across every team and race chat you're in (not the
+// ones you've cleared off your list), for the Chats badge in the menu.
+function unreadChats(userId) {
+  return conn.prepare(`SELECT COUNT(*) AS n FROM challenge_messages msg
+    JOIN challenges c ON c.id = msg.challengeId
+    LEFT JOIN challenge_reads r ON r.challengeId = c.id AND r.userId = ?
+    WHERE (c.ownerId = ? OR EXISTS (SELECT 1 FROM challenge_members m WHERE m.challengeId = c.id AND m.userId = ?))
+      AND NOT EXISTS (SELECT 1 FROM challenge_cleared x WHERE x.challengeId = c.id AND x.userId = ?)
+      AND msg.createdAt > COALESCE(r.readAt, '') AND (msg.userId IS NULL OR msg.userId != ?)`).get(userId, userId, userId, userId, userId).n;
+}
 function describe(c, m, viewerId) {
   if (m.kind === 'cheer') {
     const to = m.toUserId === viewerId ? 'you' : authorOf(c, m.toUserId, viewerId).name;
@@ -1331,4 +1341,4 @@ function letBackIn(id, userId, ref) {
   return true;
 }
 
-module.exports = { handOver, renameTeam, renameMember, removeMember, removedList, letBackIn, endTeam, setSections, setDept, setLead, setMilestone, setChecks, assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+module.exports = { unreadChats, handOver, renameTeam, renameMember, removeMember, removedList, letBackIn, endTeam, setSections, setDept, setLead, setMilestone, setChecks, assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
