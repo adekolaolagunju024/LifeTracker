@@ -65,6 +65,11 @@ const API = {
   getBilling:    ()        => request('GET',    '/billing'),
   startCheckout: (interval) => request('POST',  '/billing/checkout', { interval }),
   openBillingPortal: ()    => request('POST',   '/billing/portal'),
+  startTeamCheckout: (name, seats) => request('POST', '/billing/team/checkout', { name, seats }),
+  addTeamSeat:    (email)   => request('POST',   '/billing/team/seats', { email }),
+  removeTeamSeat: (email)   => request('DELETE', `/billing/team/seats/${encodeURIComponent(email)}`),
+  setTeamSize:    (seats)   => request('PUT',    '/billing/team/size', { seats }),
+  seatsFromTeamUp: (teamId) => request('POST',   '/billing/team/from-teamup', { teamId }),
   saveMotivation: (data)   => request('PUT',    '/motivation', data),
   whyInterview:  (messages) => request('POST', '/ai/why-interview', { messages }),
 

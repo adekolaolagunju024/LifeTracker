@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const db = require('./db/connection');
+const teamBilling = require('./teamBilling');
 
 // ── KOLAWAY PRO (Stripe) ───────────────────────────────────────
 // Free stays free: every feature works. Pro is a subscription that lifts
@@ -13,6 +14,7 @@ const db = require('./db/connection');
 //   STRIPE_WEBHOOK_SECRET   whsec_… (from the webhook endpoint in Stripe)
 //   STRIPE_PRICE_MONTHLY    price_… for the monthly plan
 //   STRIPE_PRICE_YEARLY     price_… for the yearly plan (optional)
+//   STRIPE_PRICE_TEAM       price_… per seat for the Team plan (optional, see teamBilling.js)
 //   APP_URL                 https://yourdomain.com (for the return links)
 
 const API = 'https://api.stripe.com/v1';
@@ -41,10 +43,14 @@ async function stripe(method, path, body) {
 
 // ── Plans ──
 const PRO_STATUSES = new Set(['active', 'trialing', 'past_due']); // past_due: Stripe is still retrying the card
+// Pro comes from your own subscription, or from a seat on a Team plan.
 function getPlan(userId) {
   const u = db.prepare('SELECT plan, planStatus, planRenewsAt, planCancelAtPeriodEnd, stripeCustomerId FROM users WHERE id = ?').get(userId) || {};
+  const own = u.plan === 'pro';
+  const team = !own && teamBilling.hasTeamPro(userId);
   return {
-    plan: u.plan === 'pro' ? 'pro' : 'free',
+    plan: own || team ? 'pro' : 'free',
+    via: own ? 'own' : team ? 'team' : null,
     status: u.planStatus || null,
     renewsAt: u.planRenewsAt || null,
     cancelAtPeriodEnd: !!u.planCancelAtPeriodEnd,
@@ -91,9 +97,16 @@ async function handleEvent(event) {
     if (obj.client_reference_id && obj.customer) {
       db.prepare('UPDATE users SET stripeCustomerId = ? WHERE id = ? AND (stripeCustomerId IS NULL OR stripeCustomerId = ?)').run(obj.customer, obj.client_reference_id, obj.customer);
     }
-    if (obj.subscription) applySubscription(typeof obj.subscription === 'string' ? await stripe('GET', `/subscriptions/${obj.subscription}`) : obj.subscription);
+    if (!obj.subscription) return;
+    const sub = typeof obj.subscription === 'string' ? await stripe('GET', `/subscriptions/${obj.subscription}`) : obj.subscription;
+    // A Team plan shares the buyer's Stripe customer, so it is told apart
+    // by its metadata and must never change their personal plan.
+    if ((obj.metadata && obj.metadata.kind === 'team') || teamBilling.isTeamSubscription(sub)) {
+      teamBilling.applySubscription({ ...sub, metadata: { ...(obj.metadata || {}), ...(sub.metadata || {}) } });
+    } else applySubscription(sub);
   } else if (event.type.startsWith('customer.subscription.')) {
-    applySubscription(obj);
+    if (teamBilling.isTeamSubscription(obj)) teamBilling.applySubscription(obj);
+    else applySubscription(obj);
   }
 }
 
@@ -129,14 +142,14 @@ async function createPortal(userId) {
 // The prices as Stripe has them, for the upgrade card (cached an hour).
 let priceCache = { at: 0, value: null };
 async function prices() {
-  if (!isConfigured()) return null;
+  if (!isConfigured() && !teamBilling.isConfigured()) return null;
   if (priceCache.value && Date.now() - priceCache.at < 3600000) return priceCache.value;
   const get = async id => {
     if (!id) return null;
     const p = await stripe('GET', `/prices/${id}`);
     return { amount: p.unit_amount, currency: p.currency, interval: p.recurring && p.recurring.interval };
   };
-  const value = { monthly: await get(process.env.STRIPE_PRICE_MONTHLY), yearly: await get(process.env.STRIPE_PRICE_YEARLY) };
+  const value = { monthly: await get(process.env.STRIPE_PRICE_MONTHLY), yearly: await get(process.env.STRIPE_PRICE_YEARLY), team: await get(process.env.STRIPE_PRICE_TEAM) };
   priceCache = { at: Date.now(), value };
   return value;
 }
@@ -145,4 +158,8 @@ function countPro() {
   return db.prepare("SELECT COUNT(*) AS n FROM users WHERE plan = 'pro'").get().n;
 }
 
-module.exports = { isConfigured, getPlan, isPro, applySubscription, verifyWebhook, handleEvent, createCheckout, createPortal, prices, countPro, PRO_STATUSES };
+// ── Team plan ── (the Stripe calls teamBilling needs)
+const teamCheckout = (userId, opts) => teamBilling.startCheckout(userId, opts, { stripe, customerFor });
+const teamSeatCount = (userId, seats) => teamBilling.setSeatCount(userId, seats, { stripe });
+
+module.exports = { isConfigured, getPlan, isPro, applySubscription, verifyWebhook, handleEvent, createCheckout, createPortal, prices, countPro, PRO_STATUSES, teamCheckout, teamSeatCount };

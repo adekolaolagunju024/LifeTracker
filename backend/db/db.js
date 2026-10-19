@@ -339,7 +339,7 @@ const AI_QUOTAS = {
 };
 function consumeQuota(userId, kind) {
   const { count, date } = AI_QUOTAS[kind];
-  const isPro = (db.prepare('SELECT plan FROM users WHERE id = ?').get(userId) || {}).plan === 'pro';
+  const isPro = require('../billing').isPro(userId); // your own Pro, or a Team plan seat
   const limit = isPro ? AI_QUOTAS[kind].pro : AI_QUOTAS[kind].limit;
   const todayKey = localDateKeyFromDate(new Date());
   const profile = getProfile(userId);

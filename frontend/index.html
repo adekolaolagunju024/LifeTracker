@@ -1796,6 +1796,36 @@
     .dark .plan-card:not(.is-pro) { background: #111A2B; border-color: #1F2A3D; }
     .dark .plan-sub { color: #94A3B8; }
     .dark .plan-badge { background: #1A2436; color: #CBD5E1; }
+    /* Team plan */
+    .team-card { margin-top: 14px; }
+    .team-buy { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 14px; }
+    .team-buy label { display: grid; gap: 4px; font-size: 12px; font-weight: 700; color: #5B6472; }
+    .team-buy input { border: 1px solid #D5DAE0; border-radius: 10px; padding: 9px 12px; font-size: 15px; min-width: 0; }
+    .team-buy input[name="name"] { width: 200px; }
+    .team-buy input[name="seats"] { width: 90px; }
+    .team-buy button { display: inline-flex; flex-direction: column; align-items: flex-start; border-radius: 14px; padding: 10px 16px; font-weight: 800; font-size: 15px; background: #0A7E8C; color: #fff; }
+    .team-buy button small { font-size: 12px; font-weight: 600; opacity: .85; }
+    .team-buy button:disabled, .team-card button:disabled { opacity: .6; }
+    .team-seats { margin-top: 12px; display: grid; gap: 6px; }
+    .team-seats li { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(255,255,255,.07); border-radius: 12px; padding: 8px 12px; }
+    .team-who { display: grid; min-width: 0; font-size: 14px; }
+    .team-who strong, .team-who small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .team-who small { font-size: 12px; color: #9FB3C8; }
+    .team-tag { font-size: 11px; font-weight: 700; color: #FCD34D; white-space: nowrap; }
+    .team-remove { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #9FB3C8; flex: none; }
+    .team-remove:hover { background: rgba(255,255,255,.12); color: #fff; }
+    .team-remove .ic { width: 16px; height: 16px; }
+    .team-add, .team-size { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+    .team-add input, .team-size input { flex: 1; min-width: 0; border-radius: 10px; padding: 9px 12px; font-size: 14px; background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(255,255,255,.18); }
+    .team-size label { font-size: 13px; font-weight: 700; }
+    .team-size input { flex: 0 0 90px; }
+    .team-add button, .team-size button { border-radius: 10px; padding: 9px 14px; font-size: 14px; font-weight: 700; background: #5EEAD4; color: #0D1B2A; }
+    .team-link { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #5EEAD4; }
+    .team-link .ic { width: 16px; height: 16px; }
+    .team-pick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .team-pick button { display: inline-flex; flex-direction: column; align-items: flex-start; text-align: left; border-radius: 12px; padding: 8px 12px; font-size: 14px; font-weight: 700; background: rgba(255,255,255,.1); color: #fff; }
+    .team-pick button small { font-size: 12px; font-weight: 600; color: #9FB3C8; }
+    .dark .team-buy input { background: #0B1322; border-color: #1F2A3D; color: #E5E7EB; }
     /* Your why: at a glance, then one section at a time */
     /* Project chat composer */
     .chat-compose { display: flex; align-items: flex-end; gap: 8px; }
