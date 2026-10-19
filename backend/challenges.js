@@ -122,6 +122,13 @@ conn.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_challenges_code ON challenges(j
 // the goal) can have a lead, who sees every step in it, hands them out and
 // signs them off; and with 'milestones' sign-off only the steps marked as
 // milestones wait for approval, the rest count when ticked.
+// A split team can call its sections departments instead of phases
+// (sections = 'departments'); then each person belongs to one (deptId,
+// set by the leader, or else the section they lead or have most steps in),
+// the scoreboard shows progress per department, and @Department in the
+// chat reaches everyone in it.
+try { conn.exec('ALTER TABLE challenges ADD COLUMN sections TEXT'); } catch { /* already there */ }
+try { conn.exec('ALTER TABLE challenge_members ADD COLUMN deptId TEXT'); } catch { /* already there */ }
 conn.exec(`
   CREATE TABLE IF NOT EXISTS challenge_leads (
     challengeId TEXT NOT NULL,
@@ -188,6 +195,30 @@ const manages = (c, userId, t, led = ledBy(c, userId)) => c.ownerId === userId |
 function approverOf(c, t) {
   const lead = t && leadsOf(c).find(l => l.projectId === t.projectId);
   return lead && lead.userId !== t.assigneeId && memberRow(c.id, lead.userId) ? lead.userId : c.ownerId;
+}
+// A section's name to show and to @mention: "3. Engineering" is Engineering.
+const sectionName = title => String(title || '').replace(/^\s*\d+\s*[.)\-:]\s*/, '').trim() || String(title || '');
+const sectionsOf = c => (c.goalId ? conn.prepare('SELECT id, title FROM projects WHERE parentId = ? AND deletedAt IS NULL ORDER BY title').all(c.goalId) : []);
+// Which section (phase or department) each person is in: the one the
+// leader put them in, else the one they lead, else where most of their
+// steps are. userId -> projectId.
+function deptsOf(c, members, sections = sectionsOf(c)) {
+  const ids = new Set(sections.map(x => x.id));
+  const out = new Map();
+  if (!ids.size) return out;
+  const leads = leadsOf(c);
+  const steps = conn.prepare(`SELECT t.assigneeId, t.projectId FROM tasks t JOIN projects p ON p.id = t.projectId
+    WHERE p.parentId = ? AND t.deletedAt IS NULL AND p.deletedAt IS NULL AND t.assigneeId IS NOT NULL`).all(c.goalId);
+  members.forEach(m => {
+    if (m.deptId && ids.has(m.deptId)) return out.set(m.userId, m.deptId);
+    const led = leads.find(l => l.userId === m.userId && ids.has(l.projectId));
+    if (led) return out.set(m.userId, led.projectId);
+    const count = new Map();
+    steps.filter(t => t.assigneeId === m.userId).forEach(t => count.set(t.projectId, (count.get(t.projectId) || 0) + 1));
+    const best = [...count].sort((a, b) => b[1] - a[1])[0];
+    if (best) out.set(m.userId, best[0]);
+  });
+  return out;
 }
 function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, organiserOnly, nameMode, leaderRole, checks }) {
   const top = db.topLevelProjectId(projectId);
@@ -635,9 +666,25 @@ function mentionNames(c) {
   }
   return out;
 }
+// @Engineering (a phase or department of a split team) reaches everyone in
+// it, and its lead.
 function mentionedIn(c, text) {
   const low = String(text || '').toLowerCase();
-  return mentionNames(c).filter(x => x.names.some(n => n && low.includes(`@${n.toLowerCase()}`))).map(x => x.userId);
+  const has = n => n && low.includes(`@${n.toLowerCase()}`);
+  const out = new Set(mentionNames(c).filter(x => x.names.some(has)).map(x => x.userId));
+  if (c.mode === 'split' && low.includes('@')) {
+    const sections = sectionsOf(c).filter(x => has(sectionName(x.title)) || has(x.title));
+    if (sections.length) {
+      const members = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ?').all(c.id);
+      const depts = deptsOf(c, members);
+      const leads = leadsOf(c);
+      sections.forEach(x => {
+        members.forEach(m => { if (depts.get(m.userId) === x.id) out.add(m.userId); });
+        leads.filter(l => l.projectId === x.id).forEach(l => out.add(l.userId));
+      });
+    }
+  }
+  return [...out];
 }
 // A cheer for one player, picked by their colour (no ids leave the server).
 const CHEERS = ['👏', '🔥', '💪', '🚀', '🎉'];
@@ -928,21 +975,28 @@ function splitBoard(c, members, viewerId, organiser) {
   const marked = milestonesOf(c);
   const steps = rows.map(t => ({ taskId: t.id, title: t.title, status: t.status, startDate: t.startDate || null, endDate: t.endDate || null, who: who(t.assigneeId), outside: !!t.assigneeId && !byUser.has(t.assigneeId),
     phaseId: t.projectId === c.goalId ? null : t.projectId, milestone: marked.has(t.id), manage: manages(c, viewerId, t, led) }));
-  // The goal's phases (its sub-folders), each with its lead if it has one.
+  // The goal's phases or departments (its sub-folders), each with its
+  // lead, its people and how far along its steps are.
   const leadRows = leadsOf(c);
-  const phases = conn.prepare('SELECT id, title FROM projects WHERE parentId = ? AND deletedAt IS NULL ORDER BY title').all(c.goalId).map(p => {
+  const sections = sectionsOf(c);
+  const depts = deptsOf(c, members, sections);
+  const phases = sections.map(p => {
     const l = leadRows.find(x => x.projectId === p.id);
-    return { projectId: p.id, title: p.title, lead: l ? who(l.userId) : null, yours: led.has(p.id) };
+    const mine = rows.filter(t => t.projectId === p.id);
+    return { projectId: p.id, title: p.title, name: sectionName(p.title), lead: l ? who(l.userId) : null, yours: led.has(p.id),
+      done: mine.filter(t => t.status === 'Completed').length, total: mine.length,
+      people: members.filter(m => depts.get(m.userId) === p.id).map(m => who(m.userId)) };
   });
   // Which step waits on which, for the timeline's handoff arrows.
   const ids = new Set(rows.map(t => t.id));
   const links = rows.length ? conn.prepare(`SELECT taskId, predecessorId FROM task_dependencies WHERE taskId IN (${rows.map(() => '?').join(',')})`).all(...rows.map(t => t.id))
     .filter(d => ids.has(d.predecessorId)).map(d => ({ from: d.predecessorId, to: d.taskId })) : [];
-  const contrib = members.map(m => ({ color: m.color, name: m.userId === viewerId ? 'You' : organiser ? m.displayName : shownName(c, m), done: rows.filter(t => t.assigneeId === m.userId && t.status === 'Completed').length, total: rows.filter(t => t.assigneeId === m.userId).length }));
+  const contrib = members.map(m => ({ color: m.color, name: m.userId === viewerId ? 'You' : organiser ? m.displayName : shownName(c, m), dept: depts.get(m.userId) || null, done: rows.filter(t => t.assigneeId === m.userId && t.status === 'Completed').length, total: rows.filter(t => t.assigneeId === m.userId).length }));
   return {
     total: rows.length, done: rows.filter(t => t.status === 'Completed').length,
     unclaimed: rows.filter(t => !t.assigneeId && t.status !== 'Completed').length,
     steps, contrib, links, phases,
+    word: c.sections === 'departments' ? 'departments' : 'phases',
   };
 }
 const splitOf = (id, userId) => {
@@ -1058,6 +1112,32 @@ function setLead(id, userId, { projectId, color }) {
   }
   return true;
 }
+// The leader calls the sections phases or departments.
+function setSections(id, userId, word) {
+  const c = splitOf(id, userId);
+  if (!c) return null;
+  if (c.ownerId !== userId) throw Object.assign(new Error('Only the leader can change this'), { status: 403 });
+  const v = word === 'departments' ? 'departments' : null;
+  conn.prepare('UPDATE challenges SET sections = ? WHERE id = ?').run(v, c.id);
+  return v || 'phases';
+}
+// The leader puts someone (by colour) in a department, or back to
+// automatic ('', from what they lead or the steps they have).
+function setDept(id, userId, { color, projectId }) {
+  const c = splitOf(id, userId);
+  if (!c) return null;
+  if (c.ownerId !== userId) throw Object.assign(new Error('Only the leader puts people in departments'), { status: 403 });
+  const m = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ? AND color = ?').get(c.id, String(color || ''));
+  if (!m) throw Object.assign(new Error('That person has left'), { status: 404 });
+  let dept = null;
+  if (projectId) {
+    dept = conn.prepare('SELECT * FROM projects WHERE id = ? AND parentId = ? AND deletedAt IS NULL').get(String(projectId), c.goalId);
+    if (!dept) throw Object.assign(new Error('That department is not in this goal'), { status: 404 });
+  }
+  conn.prepare('UPDATE challenge_members SET deptId = ? WHERE challengeId = ? AND userId = ?').run(dept ? dept.id : null, c.id, m.userId);
+  if (dept && m.userId !== userId) postMessage(c.id, userId, `${shownName(c, m)} is in ${sectionName(dept.title)}`, 'event', m.userId);
+  return true;
+}
 // Mark a step as a milestone (or not): the leader, or the lead of its phase.
 function setMilestone(id, userId, { taskId, on }) {
   const c = splitOf(id, userId);
@@ -1125,4 +1205,4 @@ function leave(id, userId) {
   return conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId).changes > 0;
 }
 
-module.exports = { endTeam, setLead, setMilestone, setChecks, assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+module.exports = { endTeam, setSections, setDept, setLead, setMilestone, setChecks, assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };

@@ -71,6 +71,9 @@ const Race = (() => {
   // A split team's sign-off, as the leader can change it on the team page.
   const SPLIT_CHECKS = [['none', 'No sign-off'], ['milestones', 'Sign off milestones'], ['leader', 'Sign off every step'], ['proof', 'Proof for every step']];
   const signsOff = c => c.checks === 'leader' || c.checks === 'milestones';
+  // A split team's sections (the goal's sub-folders): phases, or departments.
+  const isDepts = c => !!(c.split && c.split.word === 'departments');
+  const secWord = c => (isDepts(c) ? 'department' : 'phase');
 
   // ── Making one ──
   // Team up: lead a group (a squad, clients, a class, a team: everyone aims
@@ -354,9 +357,10 @@ const Race = (() => {
       ${together && c.mode !== 'split' ? `<div class="ch-group"><div class="ch-group-top"><b>${c.group.finished} of ${c.group.players} finished</b><span>${c.group.stepsPct}% of all steps done${c.group.behind ? ` · ${c.group.behind} behind` : ''}</span></div>
         <div class="ch-bar" role="img" aria-label="${pct}% finished"><i style="width:${pct}%"></i></div></div>` : ''}
       ${c.mode === 'split' ? splitHtml(c) : ''}${reviewsHtml(c)}${yourStepsHtml(c)}
-      ${c.players.length ? `<div class="ch-table-wrap"><table class="ch-table"><thead><tr><th>${together ? '' : '#'}</th><th>Name</th><th>Steps</th><th>Pace</th>${c.owner ? '<th>Last step</th>' : ''}</tr></thead>
+      ${c.players.length ? `<div class="ch-table-wrap"><table class="ch-table"><thead><tr><th>${together ? '' : '#'}</th><th>Name</th>${isDepts(c) ? '<th>Department</th>' : ''}<th>Steps</th><th>Pace</th>${c.owner ? '<th>Last step</th>' : ''}</tr></thead>
         <tbody>${c.players.map((p, i) => `<tr class="${p.you ? 'you' : ''}"><td class="pos">${together ? '' : p.place ? placeHtml(p.place) : i + 1}</td>
           <td><span class="dot" style="background:${esc(p.color)}"></span>${p.you ? 'You' : `<button type="button" class="rc-cheer" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.cheerIn('${c.id}', this)" title="Cheer ${esc(p.name)} on" aria-label="Cheer ${esc(p.name)} on">${esc(p.name)}</button>`}${p.lead && together ? ` ${leadBadge(c)}` : ''}${p.stuck ? ` <button type="button" class="stuck-chip" onclick="Race.openChat('${c.id}')" title="${p.you ? 'You asked' : `${esc(p.name)} asked`} for help on a blocker. Open the chat">${icon('hand', 'tiny')}stuck</button>` : ''}</td>
+          ${isDepts(c) ? `<td class="ch-dept">${deptCell(c, p)}</td>` : ''}
           <td><span class="ch-steps"><i style="width:${Math.round(p.frac * 100)}%"></i></span><span class="num">${p.done}/${p.total}</span>${p.pending ? `<span class="ch-pending" title="${p.pending} ticked, waiting to count">+${p.pending}</span>` : ''}</td>
           <td><span class="pace ${p.pace.replace(' ', '-')}">${p.finished ? 'finished' : p.pace}</span></td>
           ${c.owner ? `<td class="ago">${esc(ago(p.lastStepAt))}</td>` : ''}</tr>`).join('')}</tbody></table></div>`
@@ -509,7 +513,8 @@ const Race = (() => {
     const list = form.querySelector('#rc-list');
     const input = form.querySelector('#rc-text');
     // @mentions: the names people see in this team (not yourself).
-    const people = r.players.filter(p => !p.you).map(p => p.name).concat(r.owner || !r.leaderName || r.players.some(p => p.lead) ? [] : [r.leaderName]);
+    const people = r.players.filter(p => !p.you).map(p => p.name).concat(r.owner || !r.leaderName || r.players.some(p => p.lead) ? [] : [r.leaderName])
+      .concat(isDepts(r) ? r.split.phases.map(ph => ph.name || ph.title) : []); // @Engineering reaches the whole department
     let aboutId = about ? about.taskId : null;
     form.querySelector('#rc-about-x')?.addEventListener('click', () => { aboutId = null; form.querySelector('#rc-about').remove(); });
     if (about && about.to) input.value = `@${about.to} `;
@@ -784,9 +789,9 @@ const Race = (() => {
     const phases = sp.phases || [];
     const phaseHead = ph => {
       const lead = c.owner
-        ? `<select class="sp-assign sp-lead" aria-label="Who leads ${esc(ph.title)}" data-phase="${esc(ph.projectId)}" onchange="Race.setLead('${c.id}', this)"><option value="">No lead</option>${c.players.map(p => `<option value="${esc(p.color)}"${ph.lead && ph.lead.color === p.color ? ' selected' : ''}>${esc(p.you ? 'You' : p.name)}</option>`).join('')}</select>`
+        ? `<select class="sp-assign sp-lead" aria-label="Who leads ${esc(ph.title)}" data-phase="${esc(ph.projectId)}" data-word="${secWord(c)}" onchange="Race.setLead('${c.id}', this)"><option value="">No lead</option>${c.players.map(p => `<option value="${esc(p.color)}"${ph.lead && ph.lead.color === p.color ? ' selected' : ''}>${esc(p.you ? 'You' : p.name)}</option>`).join('')}</select>`
         : ph.lead ? `<span class="sp-who">${icon('crown', 'tiny')}${esc(ph.lead.name)} leads</span>` : '';
-      return `<li class="sp-phase"><span class="sp-title">${esc(ph.title)}${ph.yours ? '<small>You lead this phase: hand its steps out and sign them off</small>' : ''}</span>${c.owner ? `<span class="sp-lead-l">${icon('crown', 'tiny')}Lead</span>` : ''}${lead}</li>`;
+      return `<li class="sp-phase"><span class="sp-title">${esc(isDepts(c) ? ph.name || ph.title : ph.title)}${ph.yours ? `<small>You lead this ${secWord(c)}: hand its steps out and sign them off</small>` : ''}</span>${c.owner ? `<span class="sp-lead-l">${icon('crown', 'tiny')}Lead</span>` : ''}${lead}</li>`;
     };
     const listHtml = () => {
       if (!phases.length) return sp.steps.map(step).join('');
@@ -794,18 +799,38 @@ const Race = (() => {
       return phases.map(ph => phaseHead(ph) + sp.steps.filter(st => st.phaseId === ph.projectId).map(step).join('')).join('') + (loose.length ? `<li class="sp-phase"><span class="sp-title">Other steps</span></li>${loose.map(step).join('')}` : '');
     };
     const canShare = sp.steps.filter(st => st.manage && !st.who && st.status !== 'Completed').length;
+    const wordPick = c.owner && phases.length ? `<label class="sp-checks">${icon('folder', 'tiny')}<select aria-label="Call the goal's sections" onchange="Race.setSections('${c.id}', this)"><option value="phases"${isDepts(c) ? '' : ' selected'}>Phases</option><option value="departments"${isDepts(c) ? ' selected' : ''}>Departments</option></select></label>` : '';
     const checksPick = c.owner ? `<label class="sp-checks">${icon('badge-check', 'tiny')}<select aria-label="How steps are signed off" onchange="Race.setChecks('${c.id}', this)">${SPLIT_CHECKS.map(([v, l]) => `<option value="${v}"${(c.checks || 'none') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>` : '';
     return `<div class="ch-group sp-group"><div class="ch-group-top"><b>${sp.done} of ${sp.total} steps done</b><span>${c.group.stepsPct}% of the goal${sp.unclaimed ? ` · ${sp.unclaimed} unclaimed` : ''}</span></div>
         <div class="sp-bar" role="img" aria-label="${c.group.stepsPct}% of the goal done">${seg}${others > 0 ? `<i style="width:${(others / sp.total) * 100}%;background:#94A3B8"></i>` : ''}</div>
         <div class="sp-legend">${sp.contrib.filter(m => m.total).map(m => `<span><i style="background:${esc(m.color)}"></i>${esc(m.name)} <b>${m.done}/${m.total}</b></span>`).join('')}</div></div>
+      ${isDepts(c) && phases.length ? deptsHtml(c) : ''}
       <section class="sp-steps"><div class="sp-head">
         <div class="sp-tabs" role="tablist" aria-label="Show the steps as">
           <button type="button" role="tab" aria-selected="${spTab !== 'timeline'}" onclick="Race.spTab('${c.id}', 'list')">${icon('list-checks', 'tiny')}Who's doing what</button>
           <button type="button" role="tab" aria-selected="${spTab === 'timeline'}" onclick="Race.spTab('${c.id}', 'timeline')">${icon('chart', 'tiny')}Timeline</button>
         </div>
-        ${checksPick}${canShare ? `<button type="button" class="sp-even" onclick="Race.splitEvenly('${c.id}', this)">${icon('users', 'tiny')}Share out ${canShare} unclaimed</button>` : ''}</div>
+        ${wordPick}${checksPick}${canShare ? `<button type="button" class="sp-even" onclick="Race.splitEvenly('${c.id}', this)">${icon('users', 'tiny')}Share out ${canShare} unclaimed</button>` : ''}</div>
         ${spTab === 'timeline' ? timelineHtml(c) : sp.steps.length ? `<ul>${listHtml()}</ul>` : '<p class="fb-note">This goal has no steps yet. Add some on the goal, then hand them out.</p>'}
         ${ms && spTab !== 'timeline' && sp.steps.some(st => st.manage) && !sp.steps.some(st => st.milestone) ? `<p class="fb-note">${icon('flag', 'tiny')}Tap the flag on a step to make it a milestone. Only milestones wait for sign-off.</p>` : ''}</section>`;
+  }
+  // Departments at a glance: each one's progress, its lead and its people.
+  function deptsHtml(c) {
+    const people = ph => ph.people.filter(Boolean);
+    return `<section class="dp-grid" aria-label="Departments">${c.split.phases.map(ph => {
+      const pct = ph.total ? Math.round((ph.done / ph.total) * 100) : 0;
+      return `<div class="dp-card"><div class="dp-top"><b>${esc(ph.name || ph.title)}</b><span>${pct}%</span></div>
+        <div class="dp-bar" role="img" aria-label="${esc(ph.name || ph.title)}: ${pct}% done"><i style="width:${pct}%"></i></div>
+        <small>${ph.done} of ${ph.total} steps${ph.lead ? ` · ${icon('crown', 'tiny')}${esc(ph.lead.name)}` : ''}</small>
+        <div class="dp-people">${people(ph).length ? people(ph).map(w => `<span title="${esc(w.name)}"><i style="background:${esc(w.color)}"></i>${esc(w.name)}</span>`).join('') : '<em>No one yet</em>'}</div></div>`;
+    }).join('')}</section>`;
+  }
+  // A person's department in the table: the leader can move them.
+  function deptCell(c, p) {
+    const sp = c.split, mine = (sp.contrib.find(m => m.color === p.color) || {}).dept;
+    const ph = sp.phases.find(x => x.projectId === mine);
+    if (!c.owner) return ph ? esc(ph.name || ph.title) : '<span class="ago">None</span>';
+    return `<select class="sp-assign" aria-label="${esc(p.you ? 'Your' : `${p.name}'s`)} department" data-color="${esc(p.color)}" onchange="Race.setDept('${c.id}', this)"><option value="">${ph ? 'Automatic' : 'None'}</option>${sp.phases.map(x => `<option value="${esc(x.projectId)}"${x.projectId === mine ? ' selected' : ''}>${esc(x.name || x.title)}</option>`).join('')}</select>`;
   }
   // The team timeline: one row per person, their steps as bars on the
   // dates, today marked, and an arrow wherever one step hands over to the
@@ -913,8 +938,19 @@ const Race = (() => {
   }
   async function setLead(id, sel) {
     sel.disabled = true;
-    try { await API.setRaceLead(id, sel.dataset.phase, sel.value); showToast(sel.value ? 'They lead that phase now. They’ve been told' : 'No lead for that phase'); } catch (err) { showToast(err.message || 'Could not do that', 'error'); }
+    const word = sel.dataset.word || 'phase';
+    try { await API.setRaceLead(id, sel.dataset.phase, sel.value); showToast(sel.value ? `They lead that ${word} now. They’ve been told` : `No lead for that ${word}`); } catch (err) { showToast(err.message || 'Could not do that', 'error'); }
     forgetPlan(); refreshSplit(id);
+  }
+  async function setSections(id, sel) {
+    sel.disabled = true;
+    try { await API.setRaceSections(id, sel.value); showToast(sel.value === 'departments' ? 'Departments it is. Put people in theirs from the table' : 'Back to phases'); } catch (err) { showToast(err.message || 'Could not do that', 'error'); }
+    refreshSplit(id);
+  }
+  async function setDept(id, sel) {
+    sel.disabled = true;
+    try { await API.setRaceDept(id, sel.dataset.color, sel.value); showToast(sel.value ? 'Department set' : 'Department set automatically'); } catch (err) { showToast(err.message || 'Could not do that', 'error'); }
+    refreshSplit(id);
   }
   async function milestone(id, btn) {
     const on = btn.getAttribute('aria-pressed') !== 'true';
@@ -1178,6 +1214,6 @@ const Race = (() => {
     });
   }
 
-  return { planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, setLead, milestone, setChecks, removeStep, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, endTeam, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, setLead, setSections, setDept, milestone, setChecks, removeStep, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, endTeam, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;
