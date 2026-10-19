@@ -231,11 +231,18 @@ function renderJourneyViewBar() {
   const bar = document.getElementById('journey-view-bar');
   if (!bar) return;
   const can = journeyCanDo3D() && stageHas3D(getJourneyStage());
-  bar.classList.toggle('hidden', !can);
-  if (!can) return;
   const view = getJourneyView();
   const cam = getJourneyCam() || 'follow';
   const overview = getJourneyStage() === 'construction' ? 'Site view' : 'Overview';
+  // the folded button on a phone names what's showing
+  const toggle = document.getElementById('journey-scene-toggle');
+  if (toggle) {
+    const sel = document.getElementById('journey-theme-select');
+    const stageName = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent.trim() : '';
+    toggle.innerHTML = `${icon('eye', 'tiny')}${esc(!can ? stageName : view === '2d' ? '2D' : cam === 'overview' ? overview : 'Follow')}`;
+  }
+  bar.classList.toggle('hidden', !can);
+  if (!can) return;
   const btn = (key, label, title) => {
     const on = key === '2d' ? view === '2d' : view === '3d' && cam === key;
     return `<button type="button" aria-pressed="${on}" title="${title}" onclick="pickJourneyView('${key}')">${label}</button>`;
@@ -244,7 +251,22 @@ function renderJourneyViewBar() {
     + btn('follow', 'Follow<span class="hidden sm:inline"> cam</span>', '3D, with the camera following your character')
     + btn('overview', overview, '3D, looking over the whole stage');
 }
+// Phone: open or fold the stage and view picker on the scene.
+function toggleJourneySceneControls(open) {
+  const box = document.getElementById('journey-scene-controls');
+  const toggle = document.getElementById('journey-scene-toggle');
+  if (!box || !toggle) return;
+  const on = open === undefined ? !box.classList.contains('open') : open;
+  box.classList.toggle('open', on);
+  toggle.setAttribute('aria-expanded', String(on));
+}
+document.addEventListener('click', e => {
+  const box = document.getElementById('journey-scene-controls');
+  if (box && box.classList.contains('open') && !box.contains(e.target)) toggleJourneySceneControls(false);
+});
+document.addEventListener('change', e => { if (e.target && e.target.id === 'journey-theme-select') toggleJourneySceneControls(false); });
 function pickJourneyView(key) {
+  toggleJourneySceneControls(false);
   if (key === '2d') { if (getJourneyView() !== '2d') setJourneyView('2d'); return; }
   if (getJourneyView() === '3d') {
     setJourneyPref('journeyCam', key);

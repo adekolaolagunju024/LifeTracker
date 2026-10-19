@@ -109,16 +109,34 @@
     /* The task panel's main button stays on one line. */
     #td-primary-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* The Journey's view toggle (2D · Follow cam · Overview), in the
-       Journey header beside the stage picker. The 3D stages still build
-       their own in-scene copy; it's hidden so nothing covers the scene. */
-    .journey-view-bar { display: inline-flex; padding: 2px; border-radius: 10px; background: #f1f5f9; border: 1px solid #e5e7eb; }
-    .journey-view-bar button { font: 600 12px system-ui, sans-serif; color: #4b5563; background: transparent; border: 0; padding: 5px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
-    .journey-view-bar button[aria-pressed="true"] { background: #fff; color: #0f766e; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
-    .journey-view-bar button:focus-visible { outline: 2px solid #14b8a6; outline-offset: 1px; }
-    .dark .journey-view-bar { background: #1f2937; border-color: #374151; }
-    .dark .journey-view-bar button { color: #cbd5e1; }
-    .dark .journey-view-bar button[aria-pressed="true"] { background: #0f172a; color: #5eead4; }
+    /* The Journey's stage picker and view toggle (2D · Follow cam ·
+       Overview), on the scene's top-right corner as one small see-through
+       pill. The 3D stages still build their own in-scene copy; it's hidden. */
+    .journey-scene-controls { position: absolute; top: 10px; right: 10px; z-index: 6; display: flex; align-items: center; gap: 4px; max-width: calc(100% - 20px);
+      padding: 3px; border-radius: 12px; background: rgba(8,14,30,.55); border: 1px solid rgba(255,255,255,.16); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      box-shadow: 0 4px 14px rgba(0,0,0,.18); opacity: .88; transition: opacity .2s; }
+    .journey-scene-controls:hover, .journey-scene-controls:focus-within { opacity: 1; }
+    .journey-scene-controls select { appearance: none; -webkit-appearance: none; min-width: 0; max-width: 132px; font: 700 12px system-ui, sans-serif; color: #fff; border: 0; border-radius: 9px; cursor: pointer;
+      padding: 5px 22px 5px 9px; background: rgba(255,255,255,.12) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 7px center; }
+    .journey-scene-controls select option { color: #0D1B2A; background: #fff; }
+    .journey-scene-controls select:focus-visible { outline: 2px solid #5EEAD4; outline-offset: 1px; }
+    .journey-view-bar { display: inline-flex; gap: 2px; }
+    .journey-view-bar button { font: 700 12px system-ui, sans-serif; color: #E2E8F0; background: transparent; border: 0; padding: 5px 9px; border-radius: 9px; cursor: pointer; white-space: nowrap; }
+    .journey-view-bar button:hover { background: rgba(255,255,255,.1); }
+    .journey-view-bar button[aria-pressed="true"] { background: #fff; color: #0f766e; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+    .journey-view-bar button:focus-visible { outline: 2px solid #5EEAD4; outline-offset: 1px; }
+    /* On a phone it folds into one small button naming the view; tapping
+       it opens the stage and the views, and a pick folds it again. */
+    .jsc-toggle { display: none; align-items: center; gap: 5px; font: 700 12px system-ui, sans-serif; color: #fff; background: transparent; border: 0; border-radius: 9px; padding: 5px 9px; cursor: pointer; white-space: nowrap; }
+    .jsc-toggle .ic { width: 14px; height: 14px; }
+    @media (max-width: 560px) {
+      .journey-scene-controls { flex-direction: column; align-items: stretch; }
+      .journey-scene-controls .jsc-toggle { display: inline-flex; justify-content: flex-end; }
+      .journey-scene-controls:not(.open) select, .journey-scene-controls:not(.open) .journey-view-bar { display: none; }
+      .journey-scene-controls.open { opacity: 1; background: rgba(8,14,30,.82); }
+      .journey-scene-controls.open select { max-width: none; }
+      .journey-scene-controls.open .journey-view-bar.hidden { display: none; }
+    }
     #mountain-scene [role="group"][aria-label="View"] { display: none !important; }
 
     /* Game layer (js/gameui.js): +XP chips, level-up moment, quest chips. */
@@ -4230,15 +4248,6 @@
             <select id="journey-competitor-select" onchange="setJourneyCompetitor(this.value)" class="hidden border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
               <option value="schedule"> The Schedule</option>
             </select>
-            <select id="journey-theme-select" onchange="setJourneyTheme(this.value)" title="Pick the Journey stage (2D or 3D is chosen with the toggle beside it)" class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-gray-600 focus:outline-none focus:border-teal bg-white">
-              <option value="football"> Football</option>
-              <option value="space"> Space</option>
-              <option value="castle"> Castle</option>
-              <option value="construction"> Construction</option>
-              <option value="sprint"> Sprint Track</option>
-              <option value="mountain"> Mountain</option>
-            </select>
-            <div id="journey-view-bar" class="journey-view-bar hidden" role="group" aria-label="View"></div>
             <button onclick="resetJourneyProgress()" id="journey-reset-btn" class="hidden text-gray-500 hover:text-red-600 border border-gray-200 hover:border-red-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" title="Set every task on this Journey back to Not Started and untick its cleared blockers" aria-label="Reset">↺<span class="hidden sm:inline"> Reset</span></button>
             <button onclick="toggleJourneyFullscreen()" id="journey-fullscreen-btn" class="text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white whitespace-nowrap" aria-label="Fullscreen" data-icon="expand"> Full screen</button>
           </div>
@@ -4247,6 +4256,20 @@
         <div class="rounded-2xl overflow-hidden journey-scene-frame" id="journey-hud">
           <div class="relative" id="mountain-scene-wrap" style="height:min(55vh,460px); min-height:320px; background:linear-gradient(180deg, #8fd3fb 0%, #c7e9fd 55%, #fff3da 100%);" title="Tap the scene for a spark — real progress still only comes from finishing tasks below">
             <div class="absolute inset-0" id="mountain-scene"></div>
+            <!-- Stage and view, on the game itself so they're easy to find: a small
+                 see-through pill in the top right, the corner every stage keeps clear. -->
+            <div class="journey-scene-controls" id="journey-scene-controls">
+              <button type="button" class="jsc-toggle" id="journey-scene-toggle" aria-expanded="false" aria-controls="journey-scene-controls" onclick="toggleJourneySceneControls()" title="Stage and view"></button>
+              <select id="journey-theme-select" onchange="setJourneyTheme(this.value)" title="Pick the Journey stage" aria-label="Stage">
+                <option value="football"> Football</option>
+                <option value="space"> Space</option>
+                <option value="castle"> Castle</option>
+                <option value="construction"> Construction</option>
+                <option value="sprint"> Sprint Track</option>
+                <option value="mountain"> Mountain</option>
+              </select>
+              <div id="journey-view-bar" class="journey-view-bar hidden" role="group" aria-label="View"></div>
+            </div>
           </div>
           <div class="journey-quest-panel flex flex-col" id="mountain-quest-panel">
             <div class="journey-stats-strip" id="mountain-stats"></div>
