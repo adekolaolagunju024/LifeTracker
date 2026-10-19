@@ -129,6 +129,17 @@ conn.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_challenges_code ON challenges(j
 // chat reaches everyone in it.
 try { conn.exec('ALTER TABLE challenges ADD COLUMN sections TEXT'); } catch { /* already there */ }
 try { conn.exec('ALTER TABLE challenge_members ADD COLUMN deptId TEXT'); } catch { /* already there */ }
+// Managing a team: people the leader has removed can't join again with
+// the link or code until the leader lets them back in.
+conn.exec(`
+  CREATE TABLE IF NOT EXISTS challenge_removed (
+    challengeId TEXT NOT NULL,
+    userId TEXT NOT NULL,
+    displayName TEXT NOT NULL,
+    removedAt TEXT NOT NULL,
+    PRIMARY KEY (challengeId, userId)
+  );
+`);
 conn.exec(`
   CREATE TABLE IF NOT EXISTS challenge_leads (
     challengeId TEXT NOT NULL,
@@ -322,6 +333,7 @@ function join(token, userId, displayName) {
   const already = memberRow(c.id, userId);
   if (already) return { challenge: c, projectId: already.projectId, already: true };
   if (Date.parse(c.endsAt) < Date.now()) throw Object.assign(new Error('That race has already finished'), { status: 400 });
+  if (conn.prepare('SELECT 1 FROM challenge_removed WHERE challengeId = ? AND userId = ?').get(c.id, userId)) throw Object.assign(new Error('The organiser has taken you off this team. Ask them to let you back in'), { status: 403 });
   const count = conn.prepare('SELECT COUNT(*) AS n FROM challenge_members WHERE challengeId = ?').get(c.id).n;
   if (count >= maxFor(c)) throw Object.assign(new Error(isGroup(c) ? 'That group is full' : 'That race is full'), { status: 400 });
   if (c.ownerId === userId && c.organiserOnly) throw Object.assign(new Error("You're organising this one, so you don't have a copy to race"), { status: 400 });
@@ -1177,7 +1189,7 @@ function endTeam(id, userId) {
         conn.prepare('DELETE FROM project_collaborators WHERE projectId = ? AND userId = ?').run(c.goalId, m.userId);
       });
     }
-    ['challenge_members', 'challenge_messages', 'challenge_reads', 'challenge_cleared', 'challenge_steps', 'challenge_leads', 'challenge_milestones', 'challenge_nudges']
+    ['challenge_members', 'challenge_messages', 'challenge_reads', 'challenge_cleared', 'challenge_steps', 'challenge_leads', 'challenge_milestones', 'challenge_nudges', 'challenge_removed']
       .forEach(table => conn.prepare(`DELETE FROM ${table} WHERE challengeId = ?`).run(c.id));
     conn.prepare('DELETE FROM challenges WHERE id = ?').run(c.id);
   })();
@@ -1194,15 +1206,95 @@ function leave(id, userId) {
     if (c.ownerId === userId) throw Object.assign(new Error("It's your goal, so you can't leave it. Clear it once it's finished"), { status: 400 });
     const m = memberRow(c.id, userId);
     if (!m) return false;
-    const freed = conn.prepare(`UPDATE tasks SET assigneeId = NULL, assigneeAssignedAt = NULL WHERE assigneeId = ? AND status != 'Completed' AND deletedAt IS NULL
-      AND projectId IN (SELECT id FROM projects WHERE id = ? OR parentId = ?)`).run(userId, c.goalId, c.goalId).changes;
-    conn.prepare('DELETE FROM project_collaborators WHERE projectId = ? AND userId = ?').run(c.goalId, userId);
-    conn.prepare('DELETE FROM challenge_leads WHERE challengeId = ? AND userId = ?').run(c.id, userId);
-    conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId);
+    const freed = dropMember(c, m);
     postEvent(c.id, `${shownName(c, m)} left${freed ? `. ${freed} step${freed === 1 ? ' is' : 's are'} unclaimed again` : ''}`, null);
     return true;
   }
   return conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(id, userId).changes > 0;
 }
+// Takes someone off a team. In a split goal their open steps go back to
+// unclaimed, the goal stops being shared with them and they stop leading
+// anything; in a race or group their own copy of the goal stays theirs.
+// Returns how many steps were freed.
+function dropMember(c, m) {
+  let freed = 0;
+  if (c.mode === 'split' && c.goalId) {
+    freed = conn.prepare(`UPDATE tasks SET assigneeId = NULL, assigneeAssignedAt = NULL WHERE assigneeId = ? AND status != 'Completed' AND deletedAt IS NULL
+      AND projectId IN (SELECT id FROM projects WHERE id = ? OR parentId = ?)`).run(m.userId, c.goalId, c.goalId).changes;
+    conn.prepare('DELETE FROM project_collaborators WHERE projectId = ? AND userId = ?').run(c.goalId, m.userId);
+    conn.prepare('DELETE FROM challenge_leads WHERE challengeId = ? AND userId = ?').run(c.id, m.userId);
+  }
+  conn.prepare('DELETE FROM challenge_members WHERE challengeId = ? AND userId = ?').run(c.id, m.userId);
+  return freed;
+}
 
-module.exports = { endTeam, setSections, setDept, setLead, setMilestone, setChecks, assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };
+// ── Managing a team (the person who set it up) ──
+const ownedTeam = (id, userId) => {
+  const c = byId(id);
+  if (!c || !(c.ownerId === userId || isMember(c.id, userId))) return null;
+  if (c.ownerId !== userId) throw Object.assign(new Error('Only the person who set the team up can manage it'), { status: 403 });
+  return c;
+};
+const memberByColor = (c, color) => {
+  const m = conn.prepare('SELECT * FROM challenge_members WHERE challengeId = ? AND color = ?').get(c.id, String(color || ''));
+  if (!m) throw Object.assign(new Error('That person has left'), { status: 404 });
+  return m;
+};
+// The team's name.
+function renameTeam(id, userId, title) {
+  const c = ownedTeam(id, userId);
+  if (!c) return null;
+  const t = clean(title, 80);
+  if (!t) throw Object.assign(new Error('Give the team a name'), { status: 400 });
+  if (t === c.title) return t;
+  conn.prepare('UPDATE challenges SET title = ? WHERE id = ?').run(t, c.id);
+  postEvent(c.id, `The team is now called “${t}”`, userId);
+  return t;
+}
+// Someone's name in this team: the leader can change anyone's, everyone
+// can change their own.
+function renameMember(id, userId, { color, name }) {
+  const c = byId(id);
+  if (!c || !(c.ownerId === userId || isMember(c.id, userId))) return null;
+  const m = color ? memberByColor(c, color) : memberRow(c.id, userId);
+  if (!m) throw Object.assign(new Error("You're not on this team"), { status: 404 });
+  if (m.userId !== userId && c.ownerId !== userId) throw Object.assign(new Error('Only the leader can change other people’s names'), { status: 403 });
+  const n = clean(name, 40);
+  if (!n) throw Object.assign(new Error('Names can’t be empty'), { status: 400 });
+  if (n === m.displayName) return n;
+  conn.prepare('UPDATE challenge_members SET displayName = ? WHERE challengeId = ? AND userId = ?').run(n, c.id, m.userId);
+  if (c.nameMode !== 'animals') postEvent(c.id, `${shownName(c, m)} is now ${shownName(c, { ...m, displayName: n })}`, userId);
+  return n;
+}
+// The leader takes someone off the team. They can't join again with the
+// link or code until the leader lets them back in.
+function removeMember(id, userId, color) {
+  const c = ownedTeam(id, userId);
+  if (!c) return null;
+  const m = memberByColor(c, color);
+  if (m.userId === userId) throw Object.assign(new Error(c.mode === 'split' ? "It's your goal, so you stay on the team" : 'To leave, use Leave instead'), { status: 400 });
+  const freed = dropMember(c, m);
+  conn.prepare(`INSERT INTO challenge_removed (challengeId, userId, displayName, removedAt) VALUES (?,?,?,?)
+    ON CONFLICT(challengeId, userId) DO UPDATE SET displayName = excluded.displayName, removedAt = excluded.removedAt`).run(c.id, m.userId, m.displayName, new Date().toISOString());
+  postEvent(c.id, `${shownName(c, m)} is no longer on the team${freed ? `. ${freed} step${freed === 1 ? ' is' : 's are'} unclaimed again` : ''}`, userId);
+  pushTo(m.userId, { title: c.title, body: `You've been taken off “${clean(c.title, 80)}”${c.mode === 'split' ? '' : '. Your copy of the goal is still yours'}`, url: '/app', tag: `removed-${c.id}` });
+  return { removed: true, freed };
+}
+// Who's been removed (for the leader), and letting someone back in.
+function removedList(id, userId) {
+  const c = ownedTeam(id, userId);
+  if (!c) return null;
+  return conn.prepare('SELECT userId, displayName, removedAt FROM challenge_removed WHERE challengeId = ? ORDER BY removedAt DESC').all(c.id)
+    .map((r, i) => ({ ref: i, name: r.displayName, removedAt: r.removedAt }));
+}
+function letBackIn(id, userId, ref) {
+  const c = ownedTeam(id, userId);
+  if (!c) return null;
+  const rows = conn.prepare('SELECT userId FROM challenge_removed WHERE challengeId = ? ORDER BY removedAt DESC').all(c.id);
+  const r = rows[Number(ref)];
+  if (!r) throw Object.assign(new Error('That person is not on the removed list'), { status: 404 });
+  conn.prepare('DELETE FROM challenge_removed WHERE challengeId = ? AND userId = ?').run(c.id, r.userId);
+  return true;
+}
+
+module.exports = { renameTeam, renameMember, removeMember, removedList, letBackIn, endTeam, setSections, setDept, setLead, setMilestone, setChecks, assignStep, claimStep, splitEvenly, splitHandoff, weekFor, activitySince, askHelp, offerHelp, helpCleared, helpPlaces, submitProof, review, proofFile, proofWantedFor, createChallenge, preview, previewByCode, join, get, forProject, listMine, clear, unclear, messages, say, cheer, cheersSeen, leave, remind, nudgesSince, MAX_PLAYERS, MAX_TOGETHER };

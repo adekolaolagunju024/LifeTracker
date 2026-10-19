@@ -213,6 +213,43 @@ router.delete('/:id', (req, res) => {
   } catch (e) { fail(res, e); }
 });
 
+// Managing a team: its name {title}, someone's name {color, name} (no
+// color: your own), taking someone off {color}, and the removed list.
+router.put('/:id/title', (req, res) => {
+  try {
+    const title = challenges.renameTeam(req.params.id, req.session.userId, (req.body || {}).title);
+    if (!title) return res.status(404).json({ error: 'Team not found' });
+    res.json({ title });
+  } catch (e) { fail(res, e); }
+});
+router.put('/:id/members/name', (req, res) => {
+  try {
+    const name = challenges.renameMember(req.params.id, req.session.userId, req.body || {});
+    if (!name) return res.status(404).json({ error: 'Team not found' });
+    res.json({ name });
+  } catch (e) { fail(res, e); }
+});
+router.post('/:id/members/remove', (req, res) => {
+  try {
+    const r = challenges.removeMember(req.params.id, req.session.userId, (req.body || {}).color);
+    if (!r) return res.status(404).json({ error: 'Team not found' });
+    res.json(r);
+  } catch (e) { fail(res, e); }
+});
+router.get('/:id/removed', (req, res) => {
+  try {
+    const list = challenges.removedList(req.params.id, req.session.userId);
+    if (!list) return res.status(404).json({ error: 'Team not found' });
+    res.json(list);
+  } catch (e) { fail(res, e); }
+});
+router.post('/:id/removed/:ref/back', (req, res) => {
+  try {
+    if (!challenges.letBackIn(req.params.id, req.session.userId, req.params.ref)) return res.status(404).json({ error: 'Team not found' });
+    res.json({ success: true });
+  } catch (e) { fail(res, e); }
+});
+
 // POST /api/challenges/:id/leave
 router.post('/:id/leave', (req, res) => {
   try {

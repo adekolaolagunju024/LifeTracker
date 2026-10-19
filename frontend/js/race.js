@@ -353,6 +353,7 @@ const Race = (() => {
         ${c.owner ? `<button type="button" id="ch-remind" onclick="Race.remind('${c.id}')" ${c.group.behind || c.players.some(p => !p.finished && p.done === 0) ? '' : 'disabled'}>${icon('bell', 'tiny')}Remind those behind</button>` : ''}
         ${c.doneForYou ? `<button type="button" class="quiet" onclick="Race.clearFromList(['${c.id}'])">${icon('trash', 'tiny')}Clear from my list</button>`
           : me && !(c.mode === 'split' && c.owner) ? `<button type="button" class="quiet" onclick="Race.leaveFrom('${c.id}')">Leave</button>` : ''}
+        ${c.owner ? `<button type="button" onclick="Race.manage('${c.id}')">${icon('settings', 'tiny')}Manage team</button>` : me ? `<button type="button" class="quiet" onclick="Race.myName('${c.id}')">${icon('edit', 'tiny')}My name</button>` : ''}
         ${c.owner ? `<button type="button" class="quiet ch-end" onclick="Race.endTeam('${c.id}')">${icon('trash', 'tiny')}End team</button>` : ''}
       </div>
       ${together && c.mode !== 'split' ? `<div class="ch-group"><div class="ch-group-top"><b>${c.group.finished} of ${c.group.players} finished</b><span>${c.group.stepsPct}% of all steps done${c.group.behind ? ` · ${c.group.behind} behind` : ''}</span></div>
@@ -407,6 +408,72 @@ const Race = (() => {
       forgetPlan();
       showToast(c.mode === 'split' ? 'Team ended. The goal and its tasks are still yours' : 'Team ended');
       backToList();
+    });
+  }
+  // ── Managing a team (whoever set it up) ──
+  // Its name, everyone's name in it, taking someone off (they can't join
+  // again with the code until let back in), and the removed list.
+  async function manage(id) {
+    let c, removed = [];
+    try { c = await API.getRace(id); removed = await API.raceRemoved(id); } catch (err) { showToast(err.message || 'Could not open it', 'error'); return; }
+    const split = c.mode === 'split';
+    const row = p => `<li class="mg-row">
+        <span class="dot" style="background:${esc(p.color)}"></span>
+        <input type="text" maxlength="40" value="${esc(p.name)}" data-color="${esc(p.color)}" data-was="${esc(p.name)}" aria-label="Name for ${esc(p.name)}" onchange="Race.renameIn('${c.id}', this)">
+        ${p.you ? `<span class="mg-you">You</span>` : `<button type="button" class="mg-remove" data-color="${esc(p.color)}" data-name="${esc(p.name)}" onclick="Race.removeIn('${c.id}', this)" aria-label="Remove ${esc(p.name)}">${icon('user-minus', 'tiny')}Remove</button>`}
+      </li>`;
+    const form = dialog(`${head('Manage team', 'settings')}
+      <label for="mg-title">Team name</label>
+      <div class="mg-title"><input type="text" id="mg-title" maxlength="80" value="${esc(c.title)}"><button type="submit" class="fb-send">Save</button></div>
+      <label>People <span class="mg-count">${c.players.length}</span></label>
+      ${c.players.length ? `<ul class="mg-list">${c.players.map(row).join('')}</ul>` : '<p class="fb-note">No one has joined yet. Share the link or the code from Invite.</p>'}
+      <p class="fb-note">${c.nameMode === 'animals' ? 'Everyone else sees animal names; these are the real names only you see. ' : ''}Change a name and it saves straight away. ${split ? 'Removing someone gives their open steps back to unclaimed and stops sharing the goal with them.' : 'Removing someone takes them off the scoreboard; their own copy of the goal stays theirs.'}</p>
+      ${removed.length ? `<label>Removed</label><ul class="mg-list">${removed.map(r => `<li class="mg-row"><span class="mg-gone">${esc(r.name)}</span><button type="button" class="mg-back" onclick="Race.letBack('${c.id}', ${r.ref}, this)">Let back in</button></li>`).join('')}</ul>
+        <p class="fb-note">People you remove can't join again with the link or code until you let them back in.</p>` : ''}
+      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Done</button></div>`);
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const input = form.querySelector('#mg-title');
+      try { await API.renameRace(id, input.value); showToast('Team name saved'); refreshAfterManage(id); } catch (err) { showToast(err.message || 'Could not save it', 'error'); }
+    });
+  }
+  const refreshAfterManage = id => { if (detailId === id) openDetail(id); };
+  async function renameIn(id, input) {
+    const name = input.value.trim();
+    if (!name) { input.value = input.dataset.was; showToast('Names can’t be empty', 'error'); return; }
+    try { await API.renameRaceMember(id, input.dataset.color, name); input.dataset.was = name; showToast('Name saved'); } catch (err) { input.value = input.dataset.was; showToast(err.message || 'Could not save it', 'error'); return; }
+    if (detailId === id) openDetail(id); // the page behind updates; the sheet stays open
+  }
+  async function removeIn(id, btn) {
+    if (!confirm(`Take ${btn.dataset.name} off the team? They can't join again with the code unless you let them back in.`)) return;
+    btn.disabled = true;
+    try {
+      const r = await API.removeRaceMember(id, btn.dataset.color);
+      showToast(`${btn.dataset.name} is off the team${r.freed ? `. ${r.freed} step${r.freed === 1 ? ' is' : 's are'} unclaimed again` : ''}`);
+    } catch (err) { btn.disabled = false; showToast(err.message || 'Could not remove them', 'error'); return; }
+    forgetPlan();
+    if (detailId === id) await openDetail(id);
+    manage(id);
+  }
+  async function letBack(id, ref, btn) {
+    btn.disabled = true;
+    try { await API.letBackIn(id, ref); showToast('They can join again with the link or code'); } catch (err) { btn.disabled = false; showToast(err.message || 'Could not do that', 'error'); return; }
+    manage(id);
+  }
+  // A teammate changes the name they go by in this team.
+  async function myName(id) {
+    let c;
+    try { c = await API.getRace(id); } catch (err) { showToast(err.message || 'Could not open it', 'error'); return; }
+    const me = c.players.find(p => p.you);
+    const form = dialog(`${head('Your name in this team', 'edit')}
+      <label for="mg-me">Name</label><input type="text" id="mg-me" class="mg-input" maxlength="40" value="${esc(me ? me.name : '')}">
+      ${c.nameMode === 'animals' ? '<p class="fb-note">Everyone else sees an animal name in this team; the organiser sees this one.</p>' : ''}
+      <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">Save</button></div>`);
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      try { await API.renameRaceMember(id, '', form.querySelector('#mg-me').value); } catch (err) { showToast(err.message || 'Could not save it', 'error'); return; }
+      close(); showToast('Name saved');
+      if (detailId === id) openDetail(id);
     });
   }
   async function leaveFrom(id) {
@@ -1215,6 +1282,6 @@ const Race = (() => {
     });
   }
 
-  return { planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, setLead, setSections, setDept, milestone, setChecks, removeStep, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, endTeam, load, rivals, youColor, invite, leave, close, current: () => current };
+  return { manage, renameIn, removeIn, letBack, myName, planInto, copyCode, spTab: spTabSet, assign, claim, splitEvenly, setLead, setSections, setDept, milestone, setChecks, removeStep, cupHtml: cup, placeHtml, fillHelpSlots, askHelp, offerHelp, planInfo, forgetPlan, openTeam, teamChip, stepChip, proveNext, askProof, openProof, proveFrom, decide, openChat, openFromChat, cheerFrom, cheerIn, youBadge, finishMessage, openReport, fillCelebration, openCreate, showShare, handleLink, offerPendingJoin, joinWithCode, renderPage, openDetail, backToList, clearFromList, inviteFor, remind, leaveFrom, endTeam, load, rivals, youColor, invite, leave, close, current: () => current };
 })();
 window.Race = Race;

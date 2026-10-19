@@ -1096,6 +1096,25 @@
     .fb-cancel { font-size: 14px; font-weight: 600; color: #3F4A57; background: #F1F3F5; border-radius: 10px; padding: 8px 14px; }
     .fb-send { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #fff; background: #0A7E8C; border-radius: 10px; padding: 8px 16px; }
     .fb-send:disabled { opacity: .6; }
+    /* Manage team (js/race.js) */
+    .mg-title { display: flex; gap: 8px; }
+    .mg-title input, .mg-input, .mg-row input { flex: 1; min-width: 0; border: 1px solid #DDE3E8; border-radius: 10px; padding: 8px 10px; font-size: 14px; }
+    .mg-title input:focus, .mg-input:focus, .mg-row input:focus { outline: none; border-color: #0A7E8C; box-shadow: 0 0 0 3px rgba(10,126,140,.15); }
+    .mg-count { font-size: 12px; font-weight: 800; color: #6B7280; background: #F1F3F5; border-radius: 999px; padding: 1px 8px; margin-left: 4px; }
+    .mg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 42vh; overflow-y: auto; }
+    .mg-row { display: flex; align-items: center; gap: 8px; }
+    .mg-row .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+    .mg-you { font-size: 12px; font-weight: 700; color: #6B7280; padding: 0 10px; flex: none; }
+    .mg-remove, .mg-back { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: 12px; font-weight: 800; border-radius: 999px; padding: 6px 10px; }
+    .mg-remove { color: #B42318; background: #FEF3F2; }
+    .mg-remove:hover { background: #FEE4E2; }
+    .mg-back { color: #075E68; background: #E6F4F5; }
+    .mg-remove:disabled, .mg-back:disabled { opacity: .5; }
+    .mg-gone { flex: 1; min-width: 0; font-size: 14px; color: #6B7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dark .mg-title input, .dark .mg-input, .dark .mg-row input { background: #0B1322; border-color: #1F2A3D; color: #E5E7EB; }
+    .dark .mg-count { background: #1A2436; color: #CBD5E1; }
+    .dark .mg-remove { background: #3A1414; color: #FCA5A5; }
+    .dark .mg-back { background: #12313A; color: #5EEAD4; }
     .fb-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
     .fb-list li { border: 1px solid #EEF0F2; border-radius: 12px; padding: 10px 12px; }
     .fb-list p { margin: 0; white-space: pre-wrap; font-size: 14px; color: #0D1B2A; }
