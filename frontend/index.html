@@ -1123,6 +1123,9 @@
     .dark .hp-tour-nav button { color: #5EEAD4; }
     .dark .hp-tour-nav i { background: #334155; }
     /* Report a problem (js/feedback.js) */
+    #sidebar .nav-quick { color: #075E68 !important; background: #E6F4F5; }
+    #sidebar .nav-quick:hover { background: #D2ECEE !important; }
+    .dark #sidebar .nav-quick { color: #5EEAD4 !important; background: rgba(94,234,212,.12) !important; }
     #sidebar #nav-chats-badge { color: #fff !important; } /* the light sidebar turns other white text navy */
     .fb-overlay { position: fixed; inset: 0; z-index: 1003; background: rgba(13,27,42,.45); display: flex; align-items: center; justify-content: center; padding: 16px; }
     .fb-card { background: #fff; border-radius: 18px; width: min(460px, 100%); padding: 20px; display: grid; gap: 10px; box-shadow: 0 24px 60px rgba(13,27,42,.3); }
@@ -3866,6 +3869,11 @@
     <!-- Nav -->
     <div class="px-3 py-4 space-y-1.5">
       <p class="text-white/25 text-[9px] font-bold tracking-widest px-3 mb-2 uppercase">Overview</p>
+      <!-- Quick task (js/quickTask.js): one tap from More on a phone -->
+      <button class="nav-item nav-quick w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm font-semibold transition-all mb-1"
+        onclick="QuickTask.open()" id="nav-quick-btn" title="Something that came up, not a goal (q)">
+        <span class="icon-badge nav-ic" data-icon="plus"></span> Quick task
+      </button>
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all"
         onclick="showPage('dashboard')" data-page="dashboard">
         <span class="icon-badge nav-ic" data-icon="home"></span> Dashboard
