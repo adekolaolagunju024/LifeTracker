@@ -472,7 +472,8 @@ async function updateSidebar() {
     document.getElementById('sidebar-name').textContent    = profileName(profile) || 'Welcome to KolaWay';
     document.getElementById('sidebar-tagline').textContent = profile.tagline;
 
-    // Rebuild project nav
+    // Rebuild project nav (the Everyday list first: it's for today's odds and ends)
+    projects.sort((a, b) => isEveryday(b) - isEveryday(a));
     document.getElementById('project-nav').innerHTML = projects.map(proj => `
       <button class="nav-item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-white/55 text-sm font-medium hover:bg-white/10 hover:text-white transition-all ${APP.currentProjectId === proj.id ? 'active' : ''}"
         onclick="showPage('project-detail','${proj.id}')">
@@ -505,7 +506,7 @@ async function renderDashboard() {
       API.getProjects(),
       API.getProfile(),
     ]);
-    const projects = allProjects.filter(p => !p.parentId); // top-level only, for the glance cards
+    const projects = allProjects.filter(p => !p.parentId && !isEveryday(p)); // top-level only, for the glance cards
 
     const done   = tasks.filter(t => t.status === 'Completed').length;
     const inprog = tasks.filter(t => t.status === 'In Progress').length;
@@ -562,7 +563,7 @@ async function renderProjects() {
     const [allProjects, tasks] = await Promise.all([
       API.getProjects(), API.getTasks(),
     ]);
-    let projects = allProjects.filter(p => !p.parentId); // top-level only
+    let projects = allProjects.filter(p => !p.parentId && !isEveryday(p)); // top-level goals and projects only
     if (filter === 'mine')             projects = projects.filter(p => p.role === 'owner' && !p.collaboratorCount);
     else if (filter === 'shared-with-me') projects = projects.filter(p => p.role !== 'owner');
     else if (filter === 'shared-by-me')   projects = projects.filter(p => p.role === 'owner' && p.collaboratorCount > 0);

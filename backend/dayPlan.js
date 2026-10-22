@@ -25,7 +25,9 @@ function clean(userId, items) {
     if (!TIME.test(start)) throw new Error('A start time looks like 09:30');
     const minutes = Math.round(Number(it.minutes));
     if (!(minutes >= 5 && minutes <= 480)) throw new Error('A task takes between 5 minutes and 8 hours');
-    return { taskId, start, minutes };
+    // fixed: an appointment at that time (a quick task "11am"); the
+    // planner fits everything else around it
+    return it.fixed ? { taskId, start, minutes, fixed: true } : { taskId, start, minutes };
   }).sort((a, b) => a.start.localeCompare(b.start));
 }
 
@@ -99,4 +101,11 @@ function markWakeSent(userId, date) {
   conn.prepare('UPDATE profile SET lastWakeSentDate = ? WHERE userId = ?').run(date, userId);
 }
 
-module.exports = { get, save, getWake, setWake, dueWakeUps, markWakeSent, localNow };
+// A quick task with a time joins that day's plan, pinned at its time.
+function addFixed(userId, date, { taskId, start, minutes }) {
+  const current = (get(userId, date) || { items: [] }).items.filter(it => it.taskId !== taskId);
+  if (current.length >= MAX_ITEMS) return null; // a full day: it's still on the list, just not timetabled
+  return save(userId, date, [...current, { taskId, start, minutes, fixed: true }]);
+}
+
+module.exports = { addFixed, get, save, getWake, setWake, dueWakeUps, markWakeSent, localNow };

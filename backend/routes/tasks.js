@@ -42,6 +42,57 @@ router.post('/', (req, res) => {
   }
 });
 
+// ── Quick tasks (backend/quickTask.js) ──
+// POST /api/tasks/quick/parse { text, today } : what the words mean, for
+// the preview as you type. POST /api/tasks/quick { text, today, tzOffset,
+// date?, time?, minutes?, remindBefore? } : into the Everyday list, pinned
+// in that day's plan when it has a time, with a reminder if asked.
+const quickTask = require('../quickTask');
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_KEY = /^([01]\d|2[0-3]):[0-5]\d$/;
+const quickParse = body => {
+  const today = DATE_KEY.test(String(body.today || '')) ? body.today : new Date().toISOString().slice(0, 10);
+  const p = quickTask.parse(body.text, { today });
+  // the sheet's own date and time fields win over the words
+  if ('date' in body && DATE_KEY.test(String(body.date || ''))) p.date = body.date;
+  if ('time' in body) {
+    p.time = TIME_KEY.test(String(body.time || '')) ? body.time : null;
+    p.fixed = !!p.time;
+    if (p.time) p.dayPart = Number(p.time.slice(0, 2)) < 12 ? 'morning' : Number(p.time.slice(0, 2)) < 17 ? 'afternoon' : 'evening';
+  }
+  return { ...p, today };
+};
+router.post('/quick/parse', (req, res) => {
+  const p = quickParse(req.body || {});
+  res.json({ title: p.title, date: p.date, time: p.time, dayPart: p.dayPart, fixed: p.fixed });
+});
+router.post('/quick', (req, res) => {
+  try {
+    const body = req.body || {};
+    const p = quickParse(body);
+    if (!p.title) return res.status(400).json({ error: 'Say what it is, e.g. “Meet Tom at the station 11am”' });
+    const userId = req.session.userId;
+    const list = db.everydayProject(userId);
+    const task = db.createTask(userId, {
+      id: uuid(), createdAt: new Date().toISOString(), projectId: list.id, title: p.title,
+      status: 'Not Started', priority: 'Medium', startDate: p.date, endDate: p.date, dayPart: p.dayPart || null,
+    });
+    const minutes = Math.min(480, Math.max(5, Math.round(Number(body.minutes) || 30)));
+    let planned = false, reminder = null;
+    if (p.time) {
+      planned = !!require('../dayPlan').addFixed(userId, p.date, { taskId: task.id, start: p.time, minutes });
+      const before = Math.round(Number(body.remindBefore));
+      if (before >= 0 && before <= 1440 && body.remindBefore !== undefined && body.remindBefore !== null && body.remindBefore !== '') {
+        const at = quickTask.reminderAt(p.date, p.time, before, body.tzOffset);
+        if (Date.parse(at) > Date.now()) reminder = db.setTaskReminder(userId, task.id, { remindAt: at });
+      }
+    }
+    res.status(201).json({ task: db.getTaskById(userId, task.id), date: p.date, time: p.time, dayPart: p.dayPart, planned, reminderAt: reminder ? reminder.remindAt : null });
+  } catch (e) {
+    res.status(e.status || 400).json({ error: e.message });
+  }
+});
+
 // PUT /api/tasks/reorder — persists a manual drag-to-reorder within one
 // project. Must be registered before PUT /:id, or Express would match
 // "reorder" as an :id.

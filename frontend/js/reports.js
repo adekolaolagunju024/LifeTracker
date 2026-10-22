@@ -19,7 +19,7 @@ const Reports = (() => {
     list.innerHTML = '<p class="text-sm text-gray-400">Loading projects…</p>';
     openModal('modal-portfolio');
     try {
-      const projects = (await API.getProjects()).filter(p => !p.parentId);
+      const projects = (await API.getProjects()).filter(p => !p.parentId && !isEveryday(p));
       list.innerHTML = projects.length ? projects.map(p => `
         <label class="flex items-center gap-3 py-2 border-b border-gray-100 cursor-pointer">
           <input type="checkbox" class="w-4 h-4 accent-teal" value="${p.id}" checked>

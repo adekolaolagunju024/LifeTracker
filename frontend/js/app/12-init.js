@@ -158,6 +158,8 @@ document.addEventListener('keydown', e => {
   if (e.key === '/') {
     const search = document.getElementById('global-search-input');
     if (search && search.offsetParent) { e.preventDefault(); search.focus(); }
+  } else if (e.key === 'q') {
+    e.preventDefault(); QuickTask.open();
   } else if (e.key === 'n') {
     e.preventDefault(); openAddTask(projectId);
   } else if (e.key === 'a') {

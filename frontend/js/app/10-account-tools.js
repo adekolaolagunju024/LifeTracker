@@ -115,7 +115,7 @@ async function fillUnlockChoice(p, kind) {
   wrap.classList.add('hidden');
   if (!top || (kind === 'edit' && p.role !== 'owner')) return;
   let goals = [];
-  try { goals = (await API.getProjects({ parentId: 'null' })).filter(g => g.role === 'owner' && g.id !== p.id); } catch { return; }
+  try { goals = (await API.getProjects({ parentId: 'null' })).filter(g => g.role === 'owner' && g.id !== p.id && !isEveryday(g)); } catch { return; }
   if (!goals.length) return;
   sel.innerHTML = `<option value="">Open now</option>${goals.map(g => `<option value="${g.id}"${p.unlockAfter === g.id ? ' selected' : ''}>${esc(g.title)}</option>`).join('')}`;
   wrap.classList.remove('hidden');

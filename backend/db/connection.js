@@ -306,6 +306,8 @@ addColumnIfMissing('profile', "focusNudgeIntervalMinutes INTEGER NOT NULL DEFAUL
 // check-in below. Only the top-level project of a roadmap is flagged — its
 // phase sub-projects are already part of its tree for rollup purposes.
 addColumnIfMissing('projects', "isGoal INTEGER NOT NULL DEFAULT 0");
+// 'everyday': the list quick tasks go in (backend/quickTask.js), not a goal.
+addColumnIfMissing('projects', "kind TEXT");
 // Dedupe guard for the weekly check-in, same role as lastPushDigestSentDate.
 addColumnIfMissing('projects', "lastCheckInAt TEXT");
 // Locked goals: this goal unlocks once another (top-level) goal is finished.

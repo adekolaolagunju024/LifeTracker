@@ -131,7 +131,7 @@ const GoalMap = (() => {
     const [phases, tasks, tops] = await Promise.all([
       API.getProjects({ parentId: goal.id }).catch(() => []),
       API.getTasks().catch(() => []),
-      API.getProjects({ parentId: 'null' }).catch(() => []),
+      API.getProjects({ parentId: 'null' }).then(l => l.filter(p => !isEveryday(p))).catch(() => []),
     ]);
     phases.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const ms = milestones(goal, phases, tasks);

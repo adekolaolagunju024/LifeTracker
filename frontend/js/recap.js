@@ -316,7 +316,7 @@ async function gettingStartedSlides() {
 }
 async function tourDone() {
   const done = new Set();
-  try { if ((await API.getProjects()).length) done.add('plan').add('projects'); } catch { /* offline: show them all */ }
+  try { if ((await API.getProjects()).some(p => !isEveryday(p))) done.add('plan').add('projects'); } catch { /* offline: show them all */ }
   try { const p = await API.getDayPlan(localDateKey(new Date())); if (p && p.items && p.items.length) done.add('day'); } catch { /* no plan */ }
   try { if ((await API.listRaces()).length) done.add('teams'); } catch { /* offline: keep it */ }
   if (typeof focusModeOn === 'function' && focusModeOn()) done.add('journey'); // the game layer is off

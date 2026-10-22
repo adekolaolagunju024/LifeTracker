@@ -257,6 +257,8 @@ const API = {
     return res.blob();
   },
   // ── TODAY'S PLAN (backend/dayPlan.js) ──
+  quickParse:      (text, today) => request('POST', '/tasks/quick/parse', { text, today }),
+  quickTask:       (body)    => request('POST', '/tasks/quick', body),
   getDayPlan:  (date)        => request('GET', `/day/plan/${date}`),
   saveDayPlan: (date, items) => request('PUT', `/day/plan/${date}`, { items }),
   getWake:     ()            => request('GET', '/day/wake'),
