@@ -683,6 +683,20 @@ function createProject(userId, project) {
   return getProjectById(userId, project.id);
 }
 
+// Each person's Everyday list: where quick tasks go (things that come up
+// in the day and aren't a goal). Made the first time it's needed, and
+// again if it was deleted.
+function everydayProject(userId) {
+  const row = db.prepare("SELECT id FROM projects WHERE userId = ? AND kind = 'everyday' AND deletedAt IS NULL AND parentId IS NULL").get(userId);
+  if (row) return getProjectById(userId, row.id);
+  const id = uuid();
+  db.prepare(`INSERT INTO projects (id, userId, parentId, title, description, icon, color, startDate, type, isGoal, createdAt, kind)
+    VALUES (?,?,NULL,?,?,?,?,'','personal',0,?,'everyday')`)
+    .run(id, userId, 'Everyday', 'Quick tasks: things that come up in the day', '📌', '#64748B', new Date().toISOString());
+  return getProjectById(userId, id);
+}
+const isEverydayProject = projectId => !!projectId && (db.prepare('SELECT kind FROM projects WHERE id = ?').get(projectId) || {}).kind === 'everyday';
+
 // Any accepted collaborator (not just the owner) can edit a shared
 // project's own details — deleting it and managing who's on it are the
 // owner-only actions, checked separately below.
@@ -2109,7 +2123,8 @@ function removeReportMedia(userId, mediaId) {
   return true;
 }
 
-module.exports = { nudgePredecessor, splitTeamOf, lockedGoalFor, goalsWaitingOn, goalFinished, topLevelProjectId, setVerifyToken, getUserByVerifyToken, markEmailVerified, isEmailVerified,
+module.exports = {
+  everydayProject, isEverydayProject, nudgePredecessor, splitTeamOf, lockedGoalFor, goalsWaitingOn, goalFinished, topLevelProjectId, setVerifyToken, getUserByVerifyToken, markEmailVerified, isEmailVerified,
   liveStreak,
   getPledgeLinkTarget,
   listReportMedia, listProjectAttachments, addReportMedia, removeReportMedia,

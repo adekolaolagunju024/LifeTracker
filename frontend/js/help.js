@@ -12,6 +12,7 @@ const Help = (() => {
     plan: () => openAssistant(),
     projects: () => showPage('projects'),
     day: () => Jarvis.startDay(),
+    quick: () => QuickTask.open(),
     actions: () => showPage('actions'),
     gantt: async () => { await showPage('gantt'); setGanttPageView('gantt'); },
     kanban: async () => { await showPage('gantt'); setGanttPageView('kanban'); },
@@ -35,6 +36,12 @@ const Help = (() => {
       'The Pacer keeps to your times while you work. Finish tasks to stay on plan or get ahead.',
       'Set a wake-up notification in Settings › Notifications and the plan opens each morning.',
     ], 'Start my day', 'day'],
+    ['Getting started', 'quick-tasks', 'Quick tasks (not a goal)', [
+      'For things that come up in the day: tap Quick task on the dashboard or Actions (or press q) and write it as you\'d say it, e.g. “Meet Tom at the train station 11am”.',
+      'The day and time are read from the words: “tomorrow”, “Friday”, “3pm”, “tonight”. Change either before you add it.',
+      'With a time it\'s fixed in that day\'s plan, and Start my day fits everything else around it. Pick a reminder, such as 30 minutes before.',
+      'Quick tasks live in your Everyday list, never in a goal. Anything not done shows in Start my day next time: bring it to today or drop it. If one grows, move it to a goal from the task.',
+    ], 'Add a quick task', 'quick'],
     ['Getting started', 'time-of-day', 'This week, next week and time of day', [
       'Actions shows what\'s due This week and Next week, each task coloured by when it falls: morning, afternoon or evening.',
       'In Kanban, sort by Time of day to see the same split on the board.',
@@ -105,7 +112,7 @@ const Help = (() => {
       'The bell in the top bar collects team activity, mentions and invites.',
     ], 'Notification settings', 'notifications'],
   ];
-  const SHORTCUTS = '⌘K or Ctrl+K command palette · / search · n new task · a assistant · j talk · m pause music · ? help · Esc close';
+  const SHORTCUTS = '⌘K or Ctrl+K command palette · / search · q quick task · n new task · a assistant · j talk · m pause music · ? help · Esc close';
   let lastFocus = null;
   let tourStep = 0, tour = null;
 

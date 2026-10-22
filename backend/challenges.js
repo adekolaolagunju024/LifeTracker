@@ -235,6 +235,7 @@ function createChallenge(userId, { projectId, endsAt, stake, displayName, mode, 
   const top = db.topLevelProjectId(projectId);
   const project = db.getProjectById(userId, top);
   if (!project) throw Object.assign(new Error('Goal not found'), { status: 404 });
+  if (project.kind === 'everyday') throw Object.assign(new Error('Your Everyday list is just for you. Team up on a goal instead'), { status: 400 });
   const tree = new Set([top, ...db.listProjects(userId, { parentId: top }).map(p => p.id)]);
   const tasks = db.listTasks(userId).filter(t => tree.has(t.projectId))
     .sort((a, b) => (a.endDate || '9999').localeCompare(b.endDate || '9999') || (a.sortOrder || 0) - (b.sortOrder || 0));

@@ -50,6 +50,7 @@ function paletteActions() {
     { icon: '🌗', label: 'Switch light / dark mode', run: () => toggleTheme() },
     { icon: '❓', label: 'Help and guides', hint: '?', run: () => Help.open() },
     { icon: '🧭', label: 'Show me around (feature tour)', run: () => { Help.open(); Help.tour(); } },
+    { icon: '📌', label: 'Quick task (not a goal)', hint: 'Q', run: () => QuickTask.open() },
     { icon: '📨', label: 'Report a problem', run: () => Feedback.open() },
     { icon: '👥', label: 'Teams: groups you lead or join, and races', run: () => showPage('challenges') },
     { icon: '🔢', label: 'Join a race or class with a code', run: () => { showPage('challenges'); setTimeout(() => document.getElementById('join-code')?.focus(), 300); } },
@@ -76,7 +77,9 @@ function buildPaletteItems(query) {
     // Nothing has to match: what was typed can always become a task, or a
     // request to the assistant.
     const here = APP.currentPage === 'project-detail' ? APP.currentProjectId : null;
-    items.push({ group: 'Create', icon: '⚡', label: `Add task “${q}”${here ? ' to this project' : ''}`, run: () => paletteQuickAdd(q, here) });
+    items.push(here
+      ? { group: 'Create', icon: '⚡', label: `Add task “${q}” to this project`, run: () => paletteQuickAdd(q, here) }
+      : { group: 'Create', icon: '📌', label: `Quick task “${q}”`, run: () => QuickTask.open(q) }); // not a goal: the Everyday list
     items.push({ group: 'Create', icon: '✨', label: `Ask the assistant: “${q}”`, run: () => paletteAsk(q, here) });
   }
   return items;

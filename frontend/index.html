@@ -609,6 +609,46 @@
     .dayplan-when.late { color: #B91C1C; }
     .dayplan-empty { font-size: 14px; color: #6B7280; padding: 8px 2px; }
     .dayplan-add { display: flex; gap: 8px; margin-top: 10px; }
+    .dayplan-tt { grid-template-columns: minmax(0, 1fr); } /* long rows wrap instead of widening the sheet */
+    .dayplan-slot .dayplan-t { overflow-wrap: anywhere; }
+    .dayplan-hint { font-size: 12px; color: #6B7480; margin: 6px 0 0; }
+    .dayplan-time.is-fixed { display: inline-flex; align-items: center; gap: 3px; color: #B45309; }
+    .dayplan-time.is-fixed .ic { width: 12px; height: 12px; }
+    .dayplan-fixed { font-size: 11px; font-weight: 800; color: #B45309; background: #FEF3C7; border-radius: 999px; padding: 3px 8px; }
+    .dayplan-left { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; }
+    .dayplan-left li { display: flex; align-items: center; gap: 8px; border: 1px dashed #D5DAE0; border-radius: 12px; padding: 6px 8px 6px 12px; font-size: 14px; }
+    .dayplan-left li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dayplan-left button { display: inline-flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 800; border-radius: 999px; padding: 5px 10px; background: #E6F4F5; color: #075E68; }
+    .dayplan-left button.quiet { background: #F1F3F5; color: #475569; }
+    .dark .dayplan-fixed { background: rgba(245,158,11,.18); color: #FCD34D; }
+    .dark .dayplan-time.is-fixed { color: #FCD34D; }
+    .dark .dayplan-left li { border-color: #334155; }
+    .dark .dayplan-left button { background: #12313A; color: #5EEAD4; }
+    .dark .dayplan-left button.quiet { background: #1A2436; color: #CBD5E1; }
+    /* Quick task (js/quickTask.js) */
+    .qt-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; color: #075E68; background: #E6F4F5; border-radius: 999px; padding: 5px 11px; white-space: nowrap; }
+    .qt-btn .ic { width: 13px; height: 13px; }
+    .qt-btn-solid { font-size: 14px; padding: 9px 16px; background: #0A7E8C; color: #fff; }
+    .qt-card { width: min(500px, 100%); }
+    .qt-text { width: 100%; border: 1px solid #DDE3E8; border-radius: 12px; padding: 12px 14px; font-size: 16px; }
+    .qt-text:focus, .qt-grid input:focus, .qt-grid select:focus { outline: none; border-color: #0A7E8C; box-shadow: 0 0 0 3px rgba(10,126,140,.15); }
+    .qt-read { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 26px; margin: 0; font-size: 13px; color: #374151; }
+    .qt-read b { color: #0D1B2A; margin-right: 2px; }
+    .qt-read > span { display: inline-flex; align-items: center; gap: 4px; background: #F1F3F5; border-radius: 999px; padding: 3px 9px; font-weight: 700; }
+    .qt-read > span .ic { width: 13px; height: 13px; }
+    .qt-read .qt-fixed { background: #FEF3C7; color: #92400E; }
+    .qt-read .qt-hint { background: none; padding: 0; font-weight: 500; color: #6B7480; }
+    .qt-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .qt-grid label { display: grid; gap: 4px; font-size: 12px; font-weight: 700; color: #5B6472; min-width: 0; }
+    .qt-grid input, .qt-grid select { width: 100%; min-width: 0; border: 1px solid #DDE3E8; border-radius: 10px; padding: 8px; font-size: 14px; background: #fff; }
+    .qt-grid .qt-off { opacity: .45; }
+    @media (max-width: 520px) { .qt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .dark .qt-btn { background: #12313A; color: #5EEAD4; }
+    .dark .qt-btn-solid { background: #0A7E8C; color: #fff; }
+    .dark .qt-text, .dark .qt-grid input, .dark .qt-grid select { background: #0B1322; border-color: #1F2A3D; color: #E5E7EB; }
+    .dark .qt-read, .dark .qt-read b { color: #E5E7EB; }
+    .dark .qt-read > span { background: #1A2436; }
+    .dark .qt-read .qt-fixed { background: rgba(245,158,11,.18); color: #FCD34D; }
     .dayplan-add input { flex: 1; min-width: 0; border: 1px solid #E3E6EA; border-radius: 12px; padding: 10px 12px; font-size: 14px; }
     .dayplan-add input:focus { outline: 2px solid #0A7E8C; outline-offset: -1px; }
     .dayplan-add button { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; border-radius: 12px; padding: 0 14px; background: #F1F3F5; color: #1F2A37; }
@@ -4020,7 +4060,10 @@
                  the full list. -->
             <div class="flex items-center justify-between gap-3 mb-2">
               <p class="text-[15px] font-extrabold text-navy" id="dash-upnext-title">Your focus</p>
-              <button onclick="showPage('actions')" class="text-xs font-bold text-teal hover:underline" id="dash-upnext-all">All actions →</button>
+              <span class="flex items-center gap-3">
+                <button type="button" onclick="QuickTask.open()" class="qt-btn" id="dash-quick-btn" title="Something that came up, not a goal (q)"><span class="ei" data-icon="plus"></span>Quick task</button>
+                <button onclick="showPage('actions')" class="text-xs font-bold text-teal hover:underline" id="dash-upnext-all">All actions →</button>
+              </span>
             </div>
             <div class="focus-tools hidden" id="dash-focus-tools"></div>
             <div class="focus-counts" id="dash-attention-counts"></div>
@@ -4391,9 +4434,10 @@
 
     <!-- ─── ACTIONS ─── -->
     <div class="page p-6" id="page-actions">
-      <div class="mb-6">
-        <h2 class="text-2xl font-black text-navy">Actions</h2>
-        <p class="text-gray-500 text-sm mt-1">A live view of what needs attention right now, across every project — nothing to maintain by hand.</p>
+      <div class="mb-6 flex items-start justify-between gap-3 flex-wrap">
+        <div><h2 class="text-2xl font-black text-navy">Actions</h2>
+        <p class="text-gray-500 text-sm mt-1">A live view of what needs attention right now, across every project — nothing to maintain by hand.</p></div>
+        <button type="button" onclick="QuickTask.open()" class="qt-btn qt-btn-solid" title="Something that came up, not a goal (q)"><span class="ei" data-icon="plus"></span>Quick task</button>
       </div>
       <!-- What needs attention, or the week ahead by part of the day -->
       <div class="act-views mb-4" id="act-views" role="tablist" aria-label="Show">
@@ -5736,6 +5780,7 @@
 <script src="js/dayReport.js"></script>
 <script src="js/taskActions.js"></script>
 <script src="js/feedback.js"></script>
+<script src="js/quickTask.js"></script>
 <script src="js/help.js"></script>
 <script src="js/race.js"></script>
 <script src="js/goalMap.js"></script>

@@ -29,6 +29,9 @@ const pct = (a, b) => b > 0 ? Math.min(Math.round((a / b) * 100), 100) : 0;
 // title with a quote in it can't end the attribute and add its own
 // handler. (Escaping only < and > left that open: a goal title shared
 // through a race or project could run script for whoever opened it.)
+// The Everyday list (quick tasks, backend/quickTask.js) is a project but
+// not a goal: it stays out of goal lists, pickers and the tour.
+const isEveryday = p => !!p && p.kind === 'everyday';
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 // ── PRIORITY / STATUS COLORS (Gantt, task table) ─────────────────

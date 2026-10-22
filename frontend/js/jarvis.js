@@ -814,17 +814,25 @@ const Jarvis = (() => {
     const byTask = Object.fromEntries(open.map(t => [t.id, t]));
     const guess = t => (t.priority === 'High' ? 60 : 30);
     let items, start;
-    if (saved && saved.items && saved.items.length) {
-      items = saved.items.filter(i => byTask[i.taskId]).map(i => ({ id: i.taskId, minutes: i.minutes }));
-      start = saved.items[0].start;
-    } else {
-      items = open.filter(t => !blocked(t) && rank(t) <= 2).slice(0, 3).map(t => ({ id: t.id, minutes: guess(t) }));
-      if (!items.length) items = open.filter(t => !blocked(t)).slice(0, 3).map(t => ({ id: t.id, minutes: guess(t) }));
-      start = nextQuarter();
+    // Quick tasks with a time ("meet Tom 11am") are pinned there: fixed.
+    const savedItems = ((saved && saved.items) || []).filter(i => byTask[i.taskId]);
+    const flexSaved = savedItems.filter(i => !i.fixed);
+    items = savedItems.map(i => (i.fixed ? { id: i.taskId, minutes: i.minutes, fixed: true, at: i.start } : { id: i.taskId, minutes: i.minutes }));
+    start = flexSaved.length ? flexSaved[0].start : nextQuarter();
+    if (!flexSaved.length) {
+      const taken = new Set(items.map(i => i.id));
+      // quick tasks aren't picked for you: today's are in the list below,
+      // earlier ones ask to be kept or dropped
+      const quick = t => (byId[t.projectId] || {}).kind === 'everyday';
+      let picks = open.filter(t => !taken.has(t.id) && !blocked(t) && rank(t) <= 2 && !quick(t)).slice(0, 3);
+      if (!picks.length) picks = open.filter(t => !taken.has(t.id) && !blocked(t) && !quick(t)).slice(0, 3);
+      items = [...items, ...picks.map(t => ({ id: t.id, minutes: guess(t) }))];
     }
+    // Quick tasks left from earlier days: bring them to today, or drop them.
+    const leftover = open.filter(t => (byId[t.projectId] || {}).kind === 'everyday' && due(t) && due(t) < today && !items.some(i => i.id === t.id));
     const editable = id => { const r = (byId[id] || {}).role; return r === 'owner' || r === 'editor'; };
     const home = open.find(t => editable(t.projectId))?.projectId || projects.find(p => p.role === 'owner' && !p.parentId)?.id;
-    planner = { open, byTask, items, start, byId, today, home, step: 1, song: null, guess };
+    planner = { open, byTask, items, start, byId, today, home, leftover, step: 1, song: null, guess };
 
     document.getElementById('day-plan')?.remove();
     const el = document.createElement('div');
@@ -847,11 +855,24 @@ const Jarvis = (() => {
     paintPlanner();
     setTimeout(() => el.querySelector('.dayplan-go')?.focus(), 50);
   }
-  // Start times follow from the first one and each task's length.
+  // Start times follow from the first one and each task's length, except
+  // fixed ones (a quick task at 11:00), which keep their time while the
+  // rest flow around them. times[i] is for P.items[i]; order() is the day
+  // in time order.
   function timesFor(P) {
+    const busy = P.items.filter(i => i.fixed).map(i => [toMin(i.at), toMin(i.at) + i.minutes]);
     let at = toMin(P.start);
-    return P.items.map(i => { const s = fromMin(at); at += i.minutes; return s; });
+    return P.items.map(i => {
+      if (i.fixed) return i.at;
+      for (let moved = true; moved;) {
+        moved = false;
+        for (const [a, b] of busy) if (at < b && at + i.minutes > a) { at = b; moved = true; }
+      }
+      const s = fromMin(at); at += i.minutes; return s;
+    });
   }
+  const orderOf = (P, times = timesFor(P)) => P.items.map((_, i) => i).sort((a, b) => toMin(times[a]) - toMin(times[b]));
+  const endOf = (P, times = timesFor(P)) => fromMin(Math.max(...P.items.map((it, i) => toMin(times[i]) + it.minutes)));
   function paintPlanner() {
     const P = planner;
     const body = document.getElementById('dayplan-body');
@@ -870,32 +891,37 @@ const Jarvis = (() => {
       title.textContent = P.items.length ? "Here's your day" : "Let's plan your day";
       sub.textContent = 'Times follow from when you start and how long each takes. Move things up or down, or change a length.';
       const times = timesFor(P);
-      const end = P.items.length ? fromMin(toMin(P.start) + P.items.reduce((n, i) => n + i.minutes, 0)) : null;
-      const rest = P.open.filter(t => !P.items.some(i => i.id === t.id)).slice(0, 6);
+      const end = P.items.length ? endOf(P, times) : null;
+      const flexIdx = P.items.map((it, i) => (it.fixed ? -1 : i)).filter(i => i >= 0);
+      const rest = P.open.filter(t => !P.items.some(i => i.id === t.id) && !P.leftover.some(l => l.id === t.id)).slice(0, 6);
       body.innerHTML = `
         ${startPicker(P)}
-        <ol class="dayplan-tt">${P.items.map((it, i) => {
+        <ol class="dayplan-tt">${orderOf(P, times).map(i => {
+          const it = P.items[i];
           const t = P.byTask[it.id];
           const b = blockedNow(t).length;
           return `<li class="dayplan-slot">
-            <span class="dayplan-time">${clockText(times[i])}</span>
+            <span class="dayplan-time${it.fixed ? ' is-fixed' : ''}"${it.fixed ? ' title="A fixed time: everything else fits around it"' : ''}>${it.fixed ? icon('pin', 'tiny') : ''}${clockText(times[i])}</span>
             <span class="min-w-0 flex-1"><span class="dayplan-t">${esc(t.title)}</span>
             <span class="dayplan-m">${proj(t)}${b ? ` · <b class="dayplan-blk">${icon('blocker', 'tiny')}${b} ${b === 1 ? 'blocker' : 'blockers'}</b>` : ''}</span></span>
             ${P.customLen === i
               ? `<input type="number" class="dayplan-mins dayplan-mins-custom" min="5" max="480" step="5" value="${it.minutes}" aria-label="Minutes for ${esc(t.title)}" onchange="Jarvis.plannerLen(${i}, this.value)" onkeydown="if(event.key==='Enter')this.blur()">`
               : `<select class="dayplan-mins" aria-label="How long for ${esc(t.title)}" onchange="Jarvis.plannerLen(${i}, this.value)">${[...new Set([...LENGTHS, it.minutes])].sort((a, z) => a - z).map(m => `<option value="${m}" ${m === it.minutes ? 'selected' : ''}>${lenText(m)}</option>`).join('')}<option value="custom">Custom…</option></select>`}
-            <span class="dayplan-move">
-              <button type="button" onclick="Jarvis.plannerMove(${i}, -1)" ${i ? '' : 'disabled'} aria-label="Earlier">${icon('chevron_up')}</button>
-              <button type="button" onclick="Jarvis.plannerMove(${i}, 1)" ${i < P.items.length - 1 ? '' : 'disabled'} aria-label="Later">${icon('chevron_down')}</button>
-            </span>
+            ${it.fixed ? '<span class="dayplan-move dayplan-fixed">Fixed</span>' : `<span class="dayplan-move">
+              <button type="button" onclick="Jarvis.plannerMove(${i}, -1)" ${flexIdx[0] !== i ? '' : 'disabled'} aria-label="Earlier">${icon('chevron_up')}</button>
+              <button type="button" onclick="Jarvis.plannerMove(${i}, 1)" ${flexIdx[flexIdx.length - 1] !== i ? '' : 'disabled'} aria-label="Later">${icon('chevron_down')}</button>
+            </span>`}
             <button type="button" class="dayplan-drop" onclick="Jarvis.plannerToggle('${it.id}')" aria-label="Take ${esc(t.title)} out of today">${icon('close')}</button>
           </li>`;
         }).join('') || '<li class="dayplan-empty">Nothing planned yet. Add something below.</li>'}</ol>
         ${end ? `<p class="dayplan-end">${P.items.length} ${P.items.length === 1 ? 'task' : 'tasks'} · done by about <b>${clockText(end)}</b></p>` : ''}
+        ${P.leftover.length ? `<p class="dayplan-label">Still to do from before</p><ul class="dayplan-left">${P.leftover.map(t => `<li><span>${esc(t.title)}</span>
+          <button type="button" onclick="Jarvis.plannerKeep('${t.id}')">${icon('plus', 'tiny')}Today</button><button type="button" class="quiet" onclick="Jarvis.plannerDrop('${t.id}')">Drop</button></li>`).join('')}</ul>` : ''}
         ${rest.length ? `<p class="dayplan-label">Add from your list</p><div class="dayplan-more">${rest.map(t => `<button type="button" onclick="Jarvis.plannerToggle('${t.id}')">${icon('plus', 'tiny')}<span>${esc(t.title)}</span></button>`).join('')}</div>` : ''}
-        ${P.home ? `<form class="dayplan-add" onsubmit="event.preventDefault(); Jarvis.plannerAdd()">
-          <input id="dayplan-new" maxlength="200" placeholder="Something new for today…" aria-label="Add a new task for today">
-          <button type="submit">${icon('plus')}Add</button></form>` : ''}`;
+        <form class="dayplan-add" onsubmit="event.preventDefault(); Jarvis.plannerAdd()">
+          <input id="dayplan-new" maxlength="200" placeholder="Something new, e.g. Meet Tom at the station 11am" aria-label="Add something for today, with a time if it has one">
+          <button type="submit">${icon('plus')}Add</button></form>
+        <p class="dayplan-hint">New things go in your Everyday list, not a goal. Give a time and it's fixed there.</p>`;
       foot.innerHTML = `<div class="dayplan-tools">
           <button type="button" class="dayplan-ai" onclick="Jarvis.plannerHear()">${icon('volume', 'tiny')} Read my day out</button>
           <button type="button" class="dayplan-ai" onclick="Jarvis.plannerAsk()">${icon('sparkles', 'tiny')} Plan it with the assistant</button>
@@ -973,22 +999,45 @@ const Jarvis = (() => {
     planner.customLen = null;
     paintPlanner();
   }
+  // Earlier or later among the tasks that flow (fixed ones keep their time).
   function plannerMove(i, d) {
     const L = planner && planner.items;
-    if (!L || !L[i] || !L[i + d]) return;
-    [L[i], L[i + d]] = [L[i + d], L[i]];
+    if (!L || !L[i] || L[i].fixed) return;
+    let j = i + d;
+    while (L[j] && L[j].fixed) j += d;
+    if (!L[j]) return;
+    [L[i], L[j]] = [L[j], L[i]];
     paintPlanner();
   }
+  function plannerKeep(id) {
+    const P = planner;
+    if (!P) return;
+    P.leftover = P.leftover.filter(t => t.id !== id);
+    if (!P.items.some(i => i.id === id)) P.items.push({ id, minutes: P.guess(P.byTask[id]) }); // its date moves to today on Start
+    paintPlanner();
+  }
+  async function plannerDrop(id) {
+    const P = planner;
+    if (!P) return;
+    try { await API.deleteTask(id); } catch (e) { showToast(e.message || 'Could not drop it', 'error'); return; }
+    P.leftover = P.leftover.filter(t => t.id !== id);
+    paintPlanner();
+    showUndoToast('Dropped', async () => { await API.restoreTask(id); if (planner) { planner.leftover.push(P.byTask[id]); paintPlanner(); } }); // eslint-disable-line no-undef
+  }
+  // Something new for today: a quick task in the Everyday list (not a
+  // goal). With a time in the words it's fixed at that time.
   async function plannerAdd() {
     const input = document.getElementById('dayplan-new');
-    const title = input.value.trim();
-    if (!title || !planner || !planner.home) return;
+    const text = input.value.trim();
+    if (!text || !planner) return;
     input.disabled = true;
     try {
-      const t = await API.addTask({ projectId: planner.home, title, status: 'Not Started', priority: 'Medium', startDate: planner.today, endDate: planner.today });
+      const r = await API.quickTask({ text, today: planner.today, date: planner.today, tzOffset: new Date().getTimezoneOffset() });
+      const t = r.task;
       planner.open.unshift(t);
       planner.byTask[t.id] = t;
-      planner.items.push({ id: t.id, minutes: 30 });
+      if (!planner.byId[t.projectId]) planner.byId[t.projectId] = { id: t.projectId, title: 'Everyday', kind: 'everyday', role: 'owner' };
+      planner.items.push(r.time ? { id: t.id, minutes: 30, fixed: true, at: r.time } : { id: t.id, minutes: 30 });
       paintPlanner();
       document.getElementById('dayplan-new')?.focus();
     } catch (e) { showToast(e.message || 'Could not add that', 'error'); input.disabled = false; }
@@ -1013,7 +1062,7 @@ const Jarvis = (() => {
     if (!P || !P.items.length) return;
     API.trackFeature('listen');
     const times = timesFor(P);
-    Voice.speak(`Here's your day. ${P.items.map((it, i) => `At ${times[i]}, ${P.byTask[it.id].title}, ${lenText(it.minutes).replace('min', 'minutes').replace(' h', ' hours')}.`).join(' ')}`, { asked: true });
+    Voice.speak(`Here's your day. ${orderOf(P, times).map(i => [P.items[i], i]).map(([it, i]) => `At ${times[i]}, ${P.byTask[it.id].title}, ${lenText(it.minutes).replace('min', 'minutes').replace(' h', ' hours')}.`).join(' ')}`, { asked: true });
   }
   function plannerAsk() {
     closePlanner();
@@ -1026,7 +1075,7 @@ const Jarvis = (() => {
     if (!P || !P.items.length) return;
     document.querySelectorAll('#day-plan button').forEach(b => { b.disabled = true; });
     const times = timesFor(P);
-    const items = P.items.map((it, i) => ({ taskId: it.id, start: times[i], minutes: it.minutes }));
+    const items = orderOf(P, times).map(i => ({ taskId: P.items[i].id, start: times[i], minutes: P.items[i].minutes, ...(P.items[i].fixed ? { fixed: true } : {}) }));
     // Late ones they kept move to today.
     const editable = t => { const r = (P.byId[t.projectId] || {}).role; return r === 'owner' || r === 'editor'; };
     const late = P.items.map(it => P.byTask[it.id]).filter(t => (t.endDate || '').slice(0, 10) && t.endDate.slice(0, 10) < P.today && editable(t));
@@ -1035,13 +1084,15 @@ const Jarvis = (() => {
       API.saveDayPlan(P.today, items).catch(() => null),
     ]);
     store.set(PLAN_KEY, { date: P.today, ids: items.map(i => i.taskId), minutes: items[0].minutes, mins: Object.fromEntries(items.map(i => [i.taskId, i.minutes])), starts: Object.fromEntries(items.map(i => [i.taskId, i.start])) });
-    const first = P.byTask[items[0].taskId];
-    const firstMins = items[0].minutes;
+    // focus starts on the first task that flows (a fixed one is an appointment)
+    const firstItem = items.find(i => !i.fixed) || items[0];
+    const first = P.byTask[firstItem.taskId];
+    const firstMins = firstItem.minutes;
     closePlanner();
     if (song >= 0 && window.Why) Why.playMusic(song).catch?.(() => {});
     await showQuote();
     startFocus({ taskId: first.id, title: first.title, minutes: firstMins, music: false });
-    say(`Today: ${items.length} ${items.length === 1 ? 'thing' : 'things'}, done by about ${clockText(fromMin(toMin(items[0].start) + items.reduce((n, i) => n + i.minutes, 0)))}. First up: ${first.title}. Let's go.`);
+    say(`Today: ${items.length} ${items.length === 1 ? 'thing' : 'things'}, done by about ${clockText(endOf(P, times))}. First up: ${first.title}. Let's go.`);
     if (APP.currentPage === 'dashboard' && typeof renderDashboard === 'function') renderDashboard(); // eslint-disable-line no-undef
   }
   // Today's quote, full screen for a moment, then it fades and the day
@@ -1083,6 +1134,6 @@ const Jarvis = (() => {
     talk();
   });
 
-  return { fullOpen, fullClose, setWall, toggleWalls, startFocus, stopFocus, planMore, freeFocus, togglePause, toggleMin, makeRoom, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerStart, plannerShift, plannerNow, plannerClock, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
+  return { fullOpen, fullClose, setWall, toggleWalls, startFocus, stopFocus, planMore, freeFocus, togglePause, toggleMin, makeRoom, hideTimer, showTimer, startNext, takeBreak, openPlanner, closePlanner, plannerToggle, plannerLen, plannerMove, plannerKeep, plannerDrop, plannerStart, plannerShift, plannerNow, plannerClock, plannerStep, plannerBlocker, plannerHear, plannerAdd, plannerAsk, plannerGo, extend, focusDone, resumeFocus, handle, renderBriefing, musicAdd, musicClose, musicSearch, musicPick, syncMusic, paceChanged, hear, startDay, talk, isFocusing: () => !!focus };
 })();
 window.Jarvis = Jarvis;
