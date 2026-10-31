@@ -4,7 +4,7 @@
 // joins races their own copy (backend/challenges.js). On the Journey every
 // player stands on the same road with their name over their head
 // (journeyGame.js drawRivals), and a strip above it is the scoreboard.
-// A stake is a promise in words; KolaWay never takes or pays out money.
+// A stake is a promise in words; Aimstride never takes or pays out money.
 const Race = (() => {
   let lastFocus = null;
   let current = null; // the race on the Journey now
@@ -136,7 +136,7 @@ const Race = (() => {
       </div>
       <div id="race-name-wrap"><label for="race-name">Your name on the road</label>
       <input type="text" id="race-name" maxlength="24" value="${esc(name)}" placeholder="e.g. Ade"></div>
-      <p class="fb-note race-only">A stake is a promise between you. KolaWay never takes or pays out money.</p>
+      <p class="fb-note race-only">A stake is a promise between you. Aimstride never takes or pays out money.</p>
       <p class="fb-note team-access">${icon('lock', 'tiny')}Need to give someone view or edit access only? <button type="button" class="ch-link" id="team-email">Grant access by email</button>${shared ? ` · shared with ${shared} ${shared === 1 ? 'person' : 'people'}` : ''}</p>
       <div class="fb-foot"><button type="button" class="fb-cancel" onclick="Race.close()">Cancel</button><button type="submit" class="fb-send">${icon('users', 'tiny')}<span id="race-make-label">Set up the team</span></button></div>`);
     form.querySelector('#team-email').onclick = () => { close(); openShareProject(projectId); };

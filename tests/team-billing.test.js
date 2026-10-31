@@ -5,7 +5,7 @@ const os = require('os');
 const path = require('path');
 const { randomUUID } = require('crypto');
 
-const dbFile = path.join(os.tmpdir(), `kolaway-team-billing-test-${Date.now()}.sqlite`);
+const dbFile = path.join(os.tmpdir(), `aimstride-team-billing-test-${Date.now()}.sqlite`);
 process.env.DB_PATH = dbFile;
 process.env.STRIPE_SECRET_KEY = 'sk_test_team';
 process.env.STRIPE_PRICE_TEAM = 'price_team';

@@ -1,8 +1,8 @@
 /* global API, esc, icon, showToast, showPage, showSettingsTab */
 // ── YOUR PLAN ───────────────────────────────────────────────────
-// Free, or KolaWay Pro (backend/billing.js). Upgrading opens Stripe's own
+// Free, or Aimstride Pro (backend/billing.js). Upgrading opens Stripe's own
 // checkout page and managing opens Stripe's billing page, so card details
-// never touch KolaWay. The plan only changes when Stripe confirms it.
+// never touch Aimstride. The plan only changes when Stripe confirms it.
 // The Team plan (backend/teamBilling.js) is one bill for a number of seats;
 // whoever pays hands seats out, and everyone on a seat has Pro.
 const Billing = (() => {
@@ -22,7 +22,7 @@ const Billing = (() => {
     if (b.via === 'team' && t.owned && t.owned.active) { box.innerHTML = teamCard; return; } // the team card says it all
     if (b.via === 'team') {
       box.innerHTML = `<div class="plan-card is-pro">
-        <div class="plan-top"><span class="plan-badge">Pro</span><span class="plan-title">You're on KolaWay Pro</span></div>
+        <div class="plan-top"><span class="plan-badge">Pro</span><span class="plan-title">You're on Aimstride Pro</span></div>
         <p class="plan-sub">Through ${esc(t.member ? t.member.name : 'your team')}, paid for by ${esc(t.member ? t.member.ownerName : 'your team')}. There is nothing for you to pay.</p>
         <ul class="plan-perks">${PERKS.map(([ic, tx]) => `<li>${icon(ic)}<span>${esc(tx)}</span></li>`).join('')}</ul>
       </div>${teamCard}`;
@@ -31,7 +31,7 @@ const Billing = (() => {
     if (b.plan === 'pro') {
       const date = b.renewsAt ? new Date(b.renewsAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
       box.innerHTML = `<div class="plan-card is-pro">
-        <div class="plan-top"><span class="plan-badge">Pro</span><span class="plan-title">You're on KolaWay Pro</span></div>
+        <div class="plan-top"><span class="plan-badge">Pro</span><span class="plan-title">You're on Aimstride Pro</span></div>
         <p class="plan-sub">${b.status === 'past_due' ? 'Your last payment did not go through. Update your card to keep Pro.' : b.cancelAtPeriodEnd ? `Pro ends on ${esc(date)}. You can turn it back on any time before then.` : date ? `Renews on ${esc(date)}.` : ''}</p>
         <ul class="plan-perks">${PERKS.map(([ic, t]) => `<li>${icon(ic)}<span>${esc(t)}</span></li>`).join('')}</ul>
         ${b.configured ? `<button type="button" class="plan-manage" onclick="Billing.manage(this)">${icon('settings')}Manage billing</button>` : ''}
@@ -43,14 +43,14 @@ const Billing = (() => {
     const m = b.prices && b.prices.monthly, y = b.prices && b.prices.yearly;
     const saving = m && y ? Math.round((1 - y.amount / (m.amount * 12)) * 100) : 0;
     box.innerHTML = `<div class="plan-card">
-      <div class="plan-top"><span class="plan-badge">Free</span><span class="plan-title">Go further with KolaWay Pro</span></div>
+      <div class="plan-top"><span class="plan-badge">Free</span><span class="plan-title">Go further with Aimstride Pro</span></div>
       <p class="plan-sub">Everything you use today stays free. Pro is for when you lean on the assistant every day.</p>
       <ul class="plan-perks">${PERKS.map(([ic, t]) => `<li>${icon(ic)}<span>${esc(t)}</span></li>`).join('')}</ul>
       <div class="plan-buy">
         ${m ? `<button type="button" onclick="Billing.upgrade('month', this)">${esc(money(m))} a month<small>Cancel any time</small></button>` : ''}
         ${y ? `<button type="button" class="alt" onclick="Billing.upgrade('year', this)">${esc(money(y))} a year<small>${saving > 0 ? `Save ${saving}%` : 'Billed yearly'}</small></button>` : ''}
       </div>
-      <p class="plan-note">Secure payment by Stripe. Your card details never reach KolaWay.</p>
+      <p class="plan-note">Secure payment by Stripe. Your card details never reach Aimstride.</p>
     </div>${teamCard}`;
     teamPrice = b.prices && b.prices.team;
     syncTotal();
@@ -87,7 +87,7 @@ const Billing = (() => {
     }
     if (!t.configured || t.member) return '';
     return `<div class="plan-card team-card" id="team-card">
-      <div class="plan-top"><span class="plan-badge">Team</span><span class="plan-title">KolaWay for teams</span></div>
+      <div class="plan-top"><span class="plan-badge">Team</span><span class="plan-title">Aimstride for teams</span></div>
       <p class="plan-sub">One bill for the whole team. You choose the seats and who gets them, by email or straight from a Team up team, and everyone on a seat has Pro.</p>
       ${o ? '<p class="plan-note">Your team is waiting for payment. Pick up where you left off.</p>' : ''}
       <form class="team-buy" onsubmit="event.preventDefault(); Billing.buyTeam(this)">
@@ -158,8 +158,8 @@ const Billing = (() => {
     const r = q.get('billing');
     if (!r) return;
     history.replaceState(null, '', location.pathname);
-    if (r === 'success') showToast('🎉 Welcome to KolaWay Pro. Thank you for supporting it!');
-    else if (r === 'team') showToast('🎉 Your team is on KolaWay Pro. Now hand out the seats.');
+    if (r === 'success') showToast('🎉 Welcome to Aimstride Pro. Thank you for supporting it!');
+    else if (r === 'team') showToast('🎉 Your team is on Aimstride Pro. Now hand out the seats.');
     else if (r === 'cancelled') showToast('No payment was taken. You can go Pro any time from Settings.');
     setTimeout(() => { showPage('settings'); setTimeout(() => { showSettingsTab('profile'); render(); }, 150); }, 300);
     if (r === 'success' || r === 'team') setTimeout(render, 4000);

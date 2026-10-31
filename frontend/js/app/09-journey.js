@@ -1,4 +1,4 @@
-// KolaWay app, part 9 of 12: The Journey game view, celebrations, achievements, project complete.
+// Aimstride app, part 9 of 12: The Journey game view, celebrations, achievements, project complete.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 
@@ -955,7 +955,7 @@ async function shareProjectComplete() {
   g.fillStyle = 'rgba(255,255,255,.6)'; g.font = font(700, 32); g.fillText(location.host, 540, 1270);
   const blob = await new Promise(r => c.toBlob(r, 'image/png'));
   const file = new File([blob], 'goal-complete.png', { type: 'image/png' });
-  const text = `I just finished "${_pcData.title}" with KolaWay.`;
+  const text = `I just finished "${_pcData.title}" with Aimstride.`;
   try { if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = file.name;
