@@ -1,6 +1,6 @@
 {
-  "name": "Aimstride",
-  "short_name": "Aimstride",
+  "name": "WayForga",
+  "short_name": "WayForga",
   "description": "A general-purpose personal goal tracker",
   "start_url": "/app",
   "display": "standalone",

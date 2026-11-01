@@ -1,4 +1,4 @@
-// Aimstride app, part 6 of 12: Settings, trash, notifications, push, sign-in, onboarding, Google Drive.
+// WayForga app, part 6 of 12: Settings, trash, notifications, push, sign-in, onboarding, Google Drive.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 
@@ -500,10 +500,10 @@ async function submitAuthRegister() {
   const acceptTerms = document.getElementById('auth-register-terms').checked;
   if (!acceptTerms) return showAuthError('auth-register-error', 'Please agree to the Terms and Privacy Policy to create an account');
   let ref = null;
-  try { ref = localStorage.getItem('aimstrideRef'); } catch {}
+  try { ref = localStorage.getItem('wayforgaRef'); } catch {}
   try {
     await API.register(email, password, acceptTerms, ref || undefined);
-    try { localStorage.removeItem('aimstrideRef'); } catch {}
+    try { localStorage.removeItem('wayforgaRef'); } catch {}
     offerToSaveCredential(email, password);
     closeAuth();
     await afterAuth();

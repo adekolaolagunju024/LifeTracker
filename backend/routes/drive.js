@@ -88,7 +88,7 @@ async function ensureBackupFolder(userId, driveClient) {
   const current = db.getGoogleDrive(userId);
   if (current.folderId) return current.folderId;
 
-  const folderName = current.folderName || 'Aimstride Backups';
+  const folderName = current.folderName || 'WayForga Backups';
   const found = await driveClient.files.list({
     q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
     fields: 'files(id, name)',
@@ -162,7 +162,7 @@ router.post('/backup', async (req, res) => {
     const { drive } = await getDriveClient(userId);
     const folderId = await ensureBackupFolder(userId, drive);
     const snapshot = db.getFullSnapshot(userId);
-    const fileName = `aimstride_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    const fileName = `wayforga_backup_${new Date().toISOString().slice(0, 10)}.json`;
 
     const upload = await drive.files.create({
       resource: { name: fileName, parents: [folderId] },
@@ -187,7 +187,7 @@ router.post('/backup/sheets', async (req, res) => {
     const snapshot = db.getFullSnapshot(userId);
 
     const created = await sheets.spreadsheets.create({
-      resource: { properties: { title: `Aimstride Export ${new Date().toISOString().slice(0, 10)}` } },
+      resource: { properties: { title: `WayForga Export ${new Date().toISOString().slice(0, 10)}` } },
     });
     const spreadsheetId = created.data.spreadsheetId;
 
@@ -233,7 +233,7 @@ router.post('/backup/excel', async (req, res) => {
     const folderId = await ensureBackupFolder(userId, drive);
     const snapshot = db.getFullSnapshot(userId);
     const buffer = await buildWorkbook(snapshot);
-    const fileName = `aimstride_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const fileName = `wayforga_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
 
     const upload = await drive.files.create({
       resource: { name: fileName, parents: [folderId] },
@@ -257,7 +257,7 @@ router.post('/backup/pdf', async (req, res) => {
     const folderId = await ensureBackupFolder(userId, drive);
     const snapshot = db.getFullSnapshot(userId);
     const buffer = await renderReportPdf(snapshot);
-    const fileName = `aimstride_report_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const fileName = `wayforga_report_${new Date().toISOString().slice(0, 10)}.pdf`;
 
     const upload = await drive.files.create({
       resource: { name: fileName, parents: [folderId] },
@@ -281,7 +281,7 @@ router.post('/backup/image', async (req, res) => {
     const folderId = await ensureBackupFolder(userId, drive);
     const snapshot = db.getFullSnapshot(userId);
     const buffer = await renderReportImage(snapshot);
-    const fileName = `aimstride_report_${new Date().toISOString().slice(0, 10)}.png`;
+    const fileName = `wayforga_report_${new Date().toISOString().slice(0, 10)}.png`;
 
     const upload = await drive.files.create({
       resource: { name: fileName, parents: [folderId] },

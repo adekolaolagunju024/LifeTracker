@@ -1,4 +1,4 @@
-// Aimstride app, part 7 of 12: The task panel: predecessors, blockers, updates, comments, replies, just start.
+// WayForga app, part 7 of 12: The task panel: predecessors, blockers, updates, comments, replies, just start.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 

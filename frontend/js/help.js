@@ -59,7 +59,7 @@ const Help = (() => {
     ], 'Open the Planner', 'gantt'],
     ['Planning', 'import', 'Import a plan', [
       'Settings & data › Import Data (JSON) brings in a plan file: goals, folders, tasks, dates, blockers, tags, counters and predecessors.',
-      'A download from Aimstride (Settings › Your data) imports the same way.',
+      'A download from WayForga (Settings › Your data) imports the same way.',
     ], 'Import a file', 'import'],
     ['Teams', 'team-up', 'Team up: which kind?', [
       'Open a goal and choose Team up. Race: friends race through their own copies to the finish.',
