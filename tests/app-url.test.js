@@ -12,8 +12,8 @@ const load = env => {
 };
 
 test('the app URL: APP_URL first, then Railway\'s public domain, then localhost', () => {
-  assert.equal(load({ APP_URL: 'https://kolaway.example/' }), 'https://kolaway.example');
-  assert.equal(load({ RAILWAY_PUBLIC_DOMAIN: 'kolaway.up.railway.app' }), 'https://kolaway.up.railway.app');
-  assert.equal(load({ APP_URL: 'https://mine.example', RAILWAY_PUBLIC_DOMAIN: 'kolaway.up.railway.app' }), 'https://mine.example');
+  assert.equal(load({ APP_URL: 'https://aimstride.example/' }), 'https://aimstride.example');
+  assert.equal(load({ RAILWAY_PUBLIC_DOMAIN: 'aimstride.up.railway.app' }), 'https://aimstride.up.railway.app');
+  assert.equal(load({ APP_URL: 'https://mine.example', RAILWAY_PUBLIC_DOMAIN: 'aimstride.up.railway.app' }), 'https://mine.example');
   assert.equal(load({}), 'http://localhost:3000');
 });

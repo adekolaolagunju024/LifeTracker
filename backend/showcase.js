@@ -19,7 +19,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 
-const GENERATED_DIR = process.env.SHOWCASE_DIR || path.join(os.tmpdir(), 'kolaway-showcase');
+const GENERATED_DIR = process.env.SHOWCASE_DIR || path.join(os.tmpdir(), 'aimstride-showcase');
 const FALLBACK_DIR = path.join(__dirname, '../frontend/media/showcase');
 const STAGES = require('../frontend/data/product.json').stages.map(s => s.id);
 const STAGES_3D = require('../frontend/data/product.json').stages.filter(s => !s.only2d).map(s => s.id);
@@ -49,7 +49,7 @@ function freePort() {
 // every outside service switched off (no email, AI, push or backups).
 async function startPrivateServer() {
   const port = await freePort();
-  const dbPath = path.join(os.tmpdir(), `kolaway-showcase-${process.pid}-${Date.now()}.sqlite`);
+  const dbPath = path.join(os.tmpdir(), `aimstride-showcase-${process.pid}-${Date.now()}.sqlite`);
   const env = { ...process.env, PORT: String(port), DB_PATH: dbPath, SHOWCASE_CHILD: '1', NODE_ENV: 'showcase', SESSION_SECRET: crypto.randomBytes(16).toString('hex') };
   for (const key of ['SENTRY_DSN', 'RESEND_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY']) delete env[key];
   const child = spawn(process.execPath, [path.join(__dirname, 'server.js')], { env, stdio: 'ignore' });

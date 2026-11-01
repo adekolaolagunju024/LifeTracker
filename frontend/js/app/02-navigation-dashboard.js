@@ -1,4 +1,4 @@
-// KolaWay app, part 2 of 12: Navigation, the sidebar, the dashboard and the projects list.
+// Aimstride app, part 2 of 12: Navigation, the sidebar, the dashboard and the projects list.
 // The parts load in order as plain scripts from index.html (see the list
 // there) and share one global scope, exactly as when they were one file.
 
@@ -469,7 +469,7 @@ async function updateSidebar() {
     ]);
     APP.profile = profile; // kept fresh here since this runs on nearly every navigation — the cheapest reliable place for celebrationsEnabled() to read from
 
-    document.getElementById('sidebar-name').textContent    = profileName(profile) || 'Welcome to KolaWay';
+    document.getElementById('sidebar-name').textContent    = profileName(profile) || 'Welcome to Aimstride';
     document.getElementById('sidebar-tagline').textContent = profile.tagline;
 
     // Rebuild project nav (the Everyday list first: it's for today's odds and ends)

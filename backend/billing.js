@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const db = require('./db/connection');
 const teamBilling = require('./teamBilling');
 
-// ── KOLAWAY PRO (Stripe) ───────────────────────────────────────
+// ── AIMSTRIDE PRO (Stripe) ───────────────────────────────────────
 // Free stays free: every feature works. Pro is a subscription that lifts
 // the daily AI allowance tenfold (and is where future extras go). Payment
 // happens on Stripe's own checkout page, so card details never reach us;

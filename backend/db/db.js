@@ -1152,7 +1152,7 @@ function inviteCollaborator(inviterUserId, projectId, email, role = 'editor') {
   if (!invitee) {
     // No account yet: hold the invite until they sign up with this email.
     if (db.prepare('SELECT 1 FROM project_email_invites WHERE projectId = ? AND email = ?').get(projectId, cleanEmail)) {
-      throw new Error('Already invited. Waiting for them to join KolaWay');
+      throw new Error('Already invited. Waiting for them to join Aimstride');
     }
     const pending = { id: uuid(), projectId, email: cleanEmail, role, invitedBy: inviterUserId, createdAt: new Date().toISOString() };
     db.prepare('INSERT INTO project_email_invites (id, projectId, email, role, invitedBy, createdAt) VALUES (?,?,?,?,?,?)')
