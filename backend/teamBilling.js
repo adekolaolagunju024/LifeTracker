@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const db = require('./db/connection');
 
-// ── AIMSTRIDE TEAM PLAN (Stripe) ─────────────────────────────────
+// ── WAYFORGA TEAM PLAN (Stripe) ─────────────────────────────────
 // One subscription, one invoice, a number of seats. Whoever buys it (the
 // team's billing owner) adds people to seats by email, or straight from a
 // Team up team they organise; everyone on a seat has Pro while the
